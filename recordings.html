@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBIRD — Meilleurs enregistrements</title>
+  <link rel="stylesheet" href="bird-styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script src="bird-config.js"></script>
+  <script src="bird-vue-core.js"></script>
+  <style>
+    /* ── Layout ────────────────────────────────────────────────────── */
+    .rec-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 1.2rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .rec-layout { grid-template-columns: 1fr; } }
+
+    /* ── Panneau filtre gauche ──────────────────────────────────────── */
+    .filter-panel { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: .75rem; }
+
+    .filter-search {
+      width: 100%; box-sizing: border-box;
+      padding: .45rem .7rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg-deep);
+      color: var(--text-main); font-size: .82rem;
+    }
+    .filter-search:focus { outline: none; border-color: var(--accent); }
+
+    .species-scroll {
+      max-height: calc(100vh - 280px); overflow-y: auto;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg-card);
+    }
+    .sp-filter-item {
+      display: flex; align-items: center; gap: .55rem;
+      padding: .45rem .75rem; cursor: pointer;
+      border-bottom: 1px solid var(--border); transition: background .1s;
+      user-select: none;
+    }
+    .sp-filter-item:last-child { border-bottom: none; }
+    .sp-filter-item:hover { background: var(--bg-card2); }
+    .sp-filter-item.selected { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    .sp-filter-check {
+      width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0;
+      border: 2px solid var(--border); display: flex; align-items: center; justify-content: center;
+      font-size: .65rem; transition: all .1s;
+    }
+    .sp-filter-item.selected .sp-filter-check {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+    .sp-filter-name { font-size: .8rem; color: var(--text-main); flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-filter-count { font-size: .7rem; color: var(--text-faint); font-family: monospace; }
+
+    .filter-actions { display: flex; gap: .5rem; }
+    .filter-sort { display: flex; align-items: center; gap: .5rem; }
+    .filter-sort label { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* ── Grille enregistrements ─────────────────────────────────────── */
+    .rec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+
+    /* ── Carte enregistrement ───────────────────────────────────────── */
+    .rec-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: box-shadow .15s, transform .15s;
+    }
+    .rec-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.18); transform: translateY(-1px); }
+    .rec-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent); }
+
+    /* Photo espèce */
+    .rec-photo {
+      width: 100%; aspect-ratio: 16/7; object-fit: cover;
+      background: var(--bg-deep); cursor: pointer; position: relative;
+    }
+    .rec-photo-img { width: 100%; height: 100%; object-fit: cover; }
+    .rec-photo-placeholder {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 3rem; color: var(--text-faint);
+    }
+    .rec-photo-src {
+      position: absolute; bottom: 4px; right: 6px;
+      font-size: .58rem; color: rgba(255,255,255,.6);
+      background: rgba(0,0,0,.4); padding: 1px 4px; border-radius: 3px;
+    }
+
+    /* Header carte */
+    .rec-header {
+      padding: .6rem .75rem .4rem; display: flex; align-items: flex-start; gap: .6rem;
+    }
+    .rec-names { flex: 1; min-width: 0; }
+    .rec-com-name {
+      font-size: .9rem; font-weight: 700; color: var(--text-main);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rec-sci-name {
+      font-size: .72rem; color: var(--text-muted); font-style: italic;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rec-badges { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; flex-shrink: 0; }
+
+    /* Meta infos */
+    .rec-meta {
+      padding: 0 .75rem .5rem;
+      display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    }
+    .rec-meta-item { font-size: .72rem; color: var(--text-muted); display: flex; align-items: center; gap: .25rem; }
+
+    /* Contrôles audio */
+    .rec-controls {
+      padding: .4rem .75rem; display: flex; align-items: center; gap: .5rem;
+      border-top: 1px solid var(--border);
+    }
+    .rec-play-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--accent); color: #fff; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; flex-shrink: 0; transition: background .1s;
+    }
+    .rec-play-btn:hover { background: var(--accent-hover, var(--accent)); filter: brightness(1.1); }
+    .rec-play-btn.playing { background: var(--danger); }
+    .rec-progress {
+      flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .rec-progress-bar {
+      height: 100%; background: var(--accent); border-radius: 2px; transition: width .2s linear;
+    }
+    .rec-duration { font-size: .7rem; font-family: monospace; color: var(--text-faint); flex-shrink: 0; }
+
+    /* Bouton spectrogramme */
+    .rec-spectro-btn {
+      padding: .25rem .6rem; font-size: .72rem; border-radius: 5px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); cursor: pointer; transition: all .1s; flex-shrink: 0;
+    }
+    .rec-spectro-btn:hover, .rec-spectro-btn.open { background: var(--bg-card2); color: var(--text-main); border-color: var(--accent); }
+
+    /* Liens externes */
+    .rec-links {
+      padding: 0 .75rem .55rem; display: flex; gap: .4rem; flex-wrap: wrap;
+    }
+    .rec-link {
+      font-size: .68rem; padding: .15rem .45rem; border-radius: 4px;
+      border: 1px solid var(--border); color: var(--text-muted);
+      text-decoration: none; transition: all .1s;
+    }
+    .rec-link:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Spectrogramme inline ───────────────────────────────────────── */
+    .rec-spectro {
+      border-top: 1px solid var(--border);
+      background: #03070a; position: relative;
+    }
+    .rec-spectro canvas {
+      display: block; width: 100%; height: 140px;
+    }
+    .rec-spectro-loading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: .78rem; color: var(--text-faint); background: rgba(3,7,10,.7);
+    }
+    .rec-spectro-freqs {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 28px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 3px 3px; pointer-events: none;
+      background: rgba(3,7,10,.55); border-right: 1px solid rgba(90,138,96,.2);
+    }
+    .rec-spectro-freq { font-size: .55rem; font-family: monospace; color: #5a8a60; }
+
+    /* ── Pied de carte ──────────────────────────────────────────────── */
+    .rec-footer {
+      padding: .45rem .75rem .6rem;
+      display: flex; align-items: center; gap: .6rem;
+      border-top: 1px solid var(--border);
+    }
+    .btn-details {
+      padding: .28rem .65rem; font-size: .73rem; border-radius: 5px;
+      background: var(--accent); color: #fff; text-decoration: none;
+      font-weight: 600; white-space: nowrap; flex-shrink: 0;
+      transition: filter .1s;
+    }
+    .btn-details:hover { filter: brightness(1.12); }
+    .rec-links { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .rec-link {
+      font-size: .82rem; width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 5px; border: 1px solid var(--border);
+      color: var(--text-muted); text-decoration: none; transition: all .1s;
+    }
+    .rec-link:hover { border-color: var(--accent); background: var(--bg-card2); }
+    .rec-empty {
+      grid-column: 1/-1; text-align: center; padding: 3rem;
+      color: var(--text-faint); font-size: .9rem;
+    }
+    .rec-load-more { grid-column: 1/-1; text-align: center; padding: 1rem; }
+  </style>
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-name">🐦 PIBIRD</span>
+      <span class="brand-sub">Bruxelles</span>
+    </div>
+    <div class="header-right">
+      <div class="theme-switcher-wrap">
+        <button v-for="th in themes" :key="th.id" class="theme-btn"
+                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
+                @click="setTheme(th.id)"></button>
+      </div>
+      <div class="lang-switcher-wrap">
+        <button v-for="l in langs" :key="l.code" class="lang-btn"
+                :class="{active:lang===l.code}" :title="l.label"
+                @click="setLang(l.code)">{{l.flag}} {{l.code.toUpperCase()}}</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}">
+      <span class="nav-icon">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+
+  <main class="app-main">
+
+    <!-- ── Titre + tri global ────────────────────────────────────── -->
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <h2 style="margin:0;font-size:1.1rem;">🏆 Meilleurs enregistrements</h2>
+      <div class="filter-sort" style="margin-left:auto;">
+        <label>Trier par</label>
+        <select class="bird-select" v-model="sortBy" style="padding:.3rem .6rem;font-size:.78rem;">
+          <option value="conf">Confiance ↓</option>
+          <option value="date">Date ↓</option>
+          <option value="species">Espèce A→Z</option>
+        </select>
+      </div>
+      <div class="filter-sort">
+        <label>Période</label>
+        <select class="bird-select" v-model="period" style="padding:.3rem .6rem;font-size:.78rem;">
+          <option value="today">Aujourd'hui</option>
+          <option value="7">7 derniers jours</option>
+          <option value="30">30 jours</option>
+          <option value="all">Tout</option>
+        </select>
+      </div>
+      <span style="font-size:.78rem;color:var(--text-faint);">
+        {{filteredRecs.length}} enregistrement{{filteredRecs.length!==1?'s':''}}
+      </span>
+    </div>
+
+    <div class="rec-layout">
+
+      <!-- ── Filtre espèces (gauche) ────────────────────────────── -->
+      <div class="filter-panel">
+        <input class="filter-search" type="search" placeholder="🔍 Filtrer espèces…"
+               v-model="spSearch">
+        <div class="filter-actions">
+          <button class="btn btn-secondary" style="flex:1;font-size:.75rem;padding:.3rem;"
+                  @click="selectedSpecies=[]">Tout effacer</button>
+          <button class="btn btn-secondary" style="flex:1;font-size:.75rem;padding:.3rem;"
+                  @click="selectedSpecies=availableSpecies.map(s=>s.name)">Tout sélect.</button>
+        </div>
+        <div class="species-scroll">
+          <div v-if="!availableSpecies.length" style="padding:.75rem;font-size:.8rem;color:var(--text-faint);">
+            Chargement…
+          </div>
+          <div v-for="sp in filteredSpeciesList" :key="sp.name"
+               class="sp-filter-item" :class="{selected: selectedSpecies.includes(sp.name)}"
+               @click="toggleSpecies(sp.name)">
+            <div class="sp-filter-check">{{selectedSpecies.includes(sp.name)?'✓':''}}</div>
+            <span class="sp-filter-name" :title="sp.name">{{sp.name}}</span>
+            <span class="sp-filter-count">{{sp.count}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Grille enregistrements ─────────────────────────────── -->
+      <div>
+        <div class="rec-grid">
+          <div v-if="loading" class="rec-empty">⏳ Chargement…</div>
+          <div v-else-if="!pagedRecs.length" class="rec-empty">
+            Aucun enregistrement trouvé pour la sélection.
+          </div>
+
+          <div v-for="rec in pagedRecs" :key="rec.uid"
+               class="rec-card" :class="{active: activeUid===rec.uid}">
+
+            <!-- Photo espèce -->
+            <div class="rec-photo" style="position:relative;">
+              <img v-if="rec.imgUrl" :src="rec.imgUrl" class="rec-photo-img"
+                   :alt="rec.Com_Name" @error="rec.imgUrl=null">
+              <div v-else class="rec-photo-placeholder">🐦</div>
+              <span v-if="rec.imgSrc" class="rec-photo-src">{{rec.imgSrc}}</span>
+            </div>
+
+            <!-- Noms + confiance -->
+            <div class="rec-header">
+              <div class="rec-names">
+                <div class="rec-com-name">{{rec.Com_Name}}</div>
+                <div class="rec-sci-name">{{rec.Sci_Name}}</div>
+              </div>
+              <div class="rec-badges">
+                <span :class="'conf-badge '+(rec.conf>=80?'conf-high':rec.conf>=60?'conf-mid':'conf-low')">
+                  {{rec.conf.toFixed(1)}}%
+                </span>
+              </div>
+            </div>
+
+            <!-- Meta -->
+            <div class="rec-meta">
+              <span class="rec-meta-item">📅 {{rec.Date}}</span>
+              <span class="rec-meta-item">🕐 {{rec.Time.substring(0,5)}}</span>
+            </div>
+
+            <!-- Contrôles audio -->
+            <div class="rec-controls">
+              <button class="rec-play-btn" :class="{playing: playingUid===rec.uid}"
+                      @click="togglePlay(rec)">
+                {{playingUid===rec.uid ? '⏹' : '▶'}}
+              </button>
+              <div class="rec-progress">
+                <div class="rec-progress-bar"
+                     :style="{width: playingUid===rec.uid ? progress+'%' : '0%'}"></div>
+              </div>
+              <span class="rec-duration">{{rec.durationStr||''}}</span>
+              <button class="rec-spectro-btn"
+                      :class="{open: spectroUid===rec.uid}"
+                      @click="toggleSpectro(rec)">
+                📊 Spectro
+              </button>
+            </div>
+
+            <!-- Spectrogramme inline -->
+            <div v-show="spectroUid===rec.uid" class="rec-spectro">
+              <div class="rec-spectro-freqs">
+                <span class="rec-spectro-freq">12k</span>
+                <span class="rec-spectro-freq">8k</span>
+                <span class="rec-spectro-freq">4k</span>
+                <span class="rec-spectro-freq">0</span>
+              </div>
+              <canvas :ref="el => { if(el) spectroCanvases[rec.uid]=el }"
+                      :width="600" :height="140" style="padding-left:28px;box-sizing:border-box;"></canvas>
+              <div v-if="spectroLoading===rec.uid" class="rec-spectro-loading">
+                ⏳ Analyse FFT…
+              </div>
+            </div>
+
+            <!-- Pied de carte : bouton Détails + liens externes -->
+            <div class="rec-footer">
+              <a :href="'species.html?name='+encodeURIComponent(rec.Com_Name)"
+                 class="btn-details">
+                🔍 Détails espèce
+              </a>
+              <div class="rec-links">
+                <a v-for="(lnk,key) in buildSpeciesLinks(rec.Sci_Name, rec.Com_Name)"
+                   :key="key" :href="lnk.url" target="_blank" class="rec-link"
+                   :title="lnk.label">
+                  {{lnk.icon}}
+                </a>
+              </div>
+            </div>
+
+          </div><!-- /rec-card -->
+
+          <!-- Charger plus -->
+          <div v-if="hasMore" class="rec-load-more">
+            <button class="btn btn-secondary" @click="loadMore">
+              ↓ Charger plus ({{filteredRecs.length - page*PAGE_SIZE}} restants)
+            </button>
+          </div>
+
+        </div><!-- /rec-grid -->
+      </div>
+
+    </div><!-- /rec-layout -->
+  </main>
+</div>
+
+<script>
+// ── FFT Cooley-Tukey ──────────────────────────────────────────────────────────
+function fftInPlace(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1;
+    const wc = Math.cos(-Math.PI/half), ws = Math.sin(-Math.PI/half);
+    for (let i = 0; i < n; i += len) {
+      let wR = 1, wI = 0;
+      for (let k = 0; k < half; k++) {
+        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
+        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
+        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
+      }
+    }
+  }
+}
+
+// ── Colormap plasma ───────────────────────────────────────────────────────────
+function buildColorLUT() {
+  const lut = new Uint8Array(256*3);
+  const stops = [
+    [0,[0,0,0]],[0.1,[20,0,50]],[0.25,[80,0,100]],
+    [0.42,[180,20,80]],[0.58,[230,70,20]],[0.75,[255,155,0]],
+    [0.90,[255,230,70]],[1.0,[255,255,255]],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const v = i/255; let s = 0;
+    while (s < stops.length-2 && stops[s+1][0] <= v) s++;
+    const [v0,c0]=stops[s],[v1,c1]=stops[s+1];
+    const t = Math.min(1,(v-v0)/(v1-v0+1e-9));
+    lut[i*3]=Math.round(c0[0]+t*(c1[0]-c0[0]));
+    lut[i*3+1]=Math.round(c0[1]+t*(c1[1]-c0[1]));
+    lut[i*3+2]=Math.round(c0[2]+t*(c1[2]-c0[2]));
+  }
+  return lut;
+}
+const COLOR_LUT = buildColorLUT();
+
+// ── Fetch + décode + spectrogramme ───────────────────────────────────────────
+async function fetchAndDraw(url, canvas) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const arrBuf   = await resp.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuf = await audioCtx.decodeAudioData(arrBuf);
+  await audioCtx.close();
+  const pcm = audioBuf.getChannelData(0);
+  const sr  = audioBuf.sampleRate;
+
+  const FFT = 512, HOP = 128, HALF = FFT/2;
+  const maxHz  = 12000;
+  const maxBin = Math.min(HALF, Math.floor(maxHz/sr*FFT));
+  const hann   = new Float32Array(FFT);
+  for (let i = 0; i < FFT; i++) hann[i] = 0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
+
+  const frames = [];
+  for (let off = 0; off+FFT <= pcm.length; off += HOP) {
+    const re = new Float32Array(FFT), im = new Float32Array(FFT);
+    for (let i = 0; i < FFT; i++) re[i] = pcm[off+i]*hann[i];
+    fftInPlace(re, im);
+    const mag = new Float32Array(maxBin);
+    for (let i = 1; i < maxBin; i++)
+      mag[i] = 20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);
+    frames.push(mag);
+  }
+
+  // Percentiles pour normalisation robuste
+  const all = []; frames.forEach(f => f.forEach(v => all.push(v))); all.sort((a,b)=>a-b);
+  const lo  = all[Math.floor(all.length*0.05)] ?? -80;
+  const hi  = all[Math.floor(all.length*0.995)] ?? -10;
+  const rng = hi-lo || 1;
+
+  const W = canvas.width, H = canvas.height;
+  canvas.width = W;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const d   = img.data;
+  for (let px = 0; px < W; px++) {
+    const frame = frames[Math.min(Math.floor(px/W*frames.length), frames.length-1)];
+    for (let py = 0; py < H; py++) {
+      const bin = Math.floor((H-1-py)/H*maxBin);
+      const v   = Math.max(0,Math.min(1,(frame[bin]-lo)/rng));
+      const ci  = Math.min(255,Math.floor(v*255))*3;
+      const pi  = (py*W+px)*4;
+      d[pi]=COLOR_LUT[ci]; d[pi+1]=COLOR_LUT[ci+1]; d[pi+2]=COLOR_LUT[ci+2]; d[pi+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return audioBuf.duration;
+}
+
+// ── iNaturalist photo (+ Wikipedia fallback) ──────────────────────────────────
+// taxon_name= : correspondance exacte nom scientifique (pas de recherche textuelle)
+// iconic_taxon_name=Aves : contraint aux oiseaux
+async function fetchPhoto(sciName) {
+  if (!sciName) return { url: null, src: null };
+  // 1. iNaturalist — exact species match dans la classe Aves
+  try {
+    const tn  = encodeURIComponent(sciName);
+    const res = await fetch(
+      `https://api.inaturalist.org/v1/taxa?taxon_name=${tn}&rank=species&iconic_taxon_name=Aves&per_page=1`
+    );
+    if (res.ok) {
+      const data  = await res.json();
+      const taxon = data.results?.[0];
+      if (taxon && taxon.name.toLowerCase() === sciName.toLowerCase()) {
+        const url = taxon.default_photo?.medium_url || taxon.default_photo?.url;
+        if (url) return { url, src: 'iNaturalist' };
+      }
+    }
+  } catch(e) {}
+  // 2. Wikipedia fallback
+  try {
+    const title = sciName.replace(/ /g,'_');
+    const res   = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const url  = data.thumbnail?.source;
+      if (url) return { url, src: 'Wikipedia' };
+    }
+  } catch(e) {}
+  return { url: null, src: null };
+}
+
+// ── Vue 3 App ─────────────────────────────────────────────────────────────────
+const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
+const { useI18n, useTheme, useNav, birdQuery, fmtConf, localDateStr,
+        buildAudioUrl, buildSpeciesLinks } = PIBIRD;
+
+const PAGE_SIZE = 12;
+
+createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems }                = useNav('recordings');
+
+    // ── Données ────────────────────────────────────────────────────
+    const allRecs           = ref([]);   // toutes les détections best (1/espèce + top N)
+    const availableSpecies  = ref([]);   // [{name, count}]
+    const selectedSpecies   = ref([]);   // noms sélectionnés (vide = tous)
+    const loading           = ref(true);
+    const spSearch          = ref('');
+    const sortBy            = ref('conf');
+    const period            = ref('30');
+    const page              = ref(1);
+
+    // ── Audio ──────────────────────────────────────────────────────
+    const playingUid  = ref(null);
+    const progress    = ref(0);
+    let   _audio      = null;
+    let   _rafProg    = null;
+
+    // ── Spectrogramme ──────────────────────────────────────────────
+    const spectroUid      = ref(null);
+    const spectroLoading  = ref(null);
+    const spectroCanvases = {};   // uid → canvas element (non réactif)
+    const activeUid       = ref(null);
+
+    // ── Computed ───────────────────────────────────────────────────
+    const filteredSpeciesList = computed(() => {
+      const q = spSearch.value.toLowerCase();
+      return availableSpecies.value.filter(s => s.name.toLowerCase().includes(q));
+    });
+
+    const filteredRecs = computed(() => {
+      let recs = allRecs.value;
+      if (selectedSpecies.value.length)
+        recs = recs.filter(r => selectedSpecies.value.includes(r.Com_Name));
+      // Tri
+      if (sortBy.value === 'conf')
+        recs = [...recs].sort((a,b) => b.conf - a.conf);
+      else if (sortBy.value === 'date')
+        recs = [...recs].sort((a,b) => (b.Date+b.Time).localeCompare(a.Date+a.Time));
+      else
+        recs = [...recs].sort((a,b) => a.Com_Name.localeCompare(b.Com_Name));
+      return recs;
+    });
+
+    const pagedRecs = computed(() => filteredRecs.value.slice(0, page.value * PAGE_SIZE));
+    const hasMore   = computed(() => pagedRecs.value.length < filteredRecs.value.length);
+
+    // ── Chargement ─────────────────────────────────────────────────
+    async function loadData() {
+      loading.value = true;
+      try {
+        const params = [];
+
+        // Meilleur enregistrement par espèce (confiance max, 1 seul par espèce)
+        const baseWhere = ['File_Name != \'\''];
+        if (period.value === 'today') {
+          baseWhere.push('Date = ?');
+          params.push(localDateStr());
+        } else if (period.value !== 'all') {
+          const d = new Date(Date.now() - parseInt(period.value)*86400000);
+          baseWhere.push('Date >= ?');
+          params.push(d.toISOString().split('T')[0]);
+        }
+        const where = 'WHERE ' + baseWhere.join(' AND ');
+
+        const rows = await birdQuery(
+          `SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name
+           FROM detections
+           ${where}
+           ORDER BY Com_Name ASC, Confidence DESC`,
+          params
+        );
+
+        // 1 seul enregistrement par espèce — le meilleur (premier car trié DESC)
+        const seen = new Set();
+        const best = [];
+        for (const r of rows) {
+          if (!seen.has(r.Com_Name)) { seen.add(r.Com_Name); best.push(r); }
+        }
+
+        // Enrichir
+        const enriched = best.map(r => ({
+          ...r,
+          uid:         r.Date + '_' + r.Com_Name,
+          conf:        parseFloat(r.Confidence) * 100,
+          imgUrl:      null,
+          imgSrc:      null,
+          durationStr: null,
+        }));
+        allRecs.value = enriched;
+
+        // Liste espèces pour le filtre (avec compteur sur rows complet)
+        const spMap = {};
+        for (const r of rows) spMap[r.Com_Name] = (spMap[r.Com_Name]||0)+1;
+        availableSpecies.value = Object.entries(spMap)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a,b) => a.name.localeCompare(b.name));
+
+        // Charger les photos de façon asynchrone (sans bloquer)
+        loadPhotos(enriched);
+
+      } catch(e) {
+        console.error('[recordings] load error', e);
+      }
+      loading.value = false;
+    }
+
+    // Charge les photos par lots pour ne pas saturer iNaturalist
+    async function loadPhotos(recs) {
+      // Regrouper par Sci_Name pour ne fetch qu'une fois par espèce
+      const byScience = {};
+      for (const r of recs) {
+        if (!byScience[r.Sci_Name]) byScience[r.Sci_Name] = [];
+        byScience[r.Sci_Name].push(r);
+      }
+      for (const [sci, group] of Object.entries(byScience)) {
+        const { url, src } = await fetchPhoto(sci);
+        for (const r of group) { r.imgUrl = url; r.imgSrc = src; }
+        await new Promise(res => setTimeout(res, 80)); // petit délai entre espèces
+      }
+    }
+
+    // ── Filtres ────────────────────────────────────────────────────
+    function toggleSpecies(name) {
+      const idx = selectedSpecies.value.indexOf(name);
+      if (idx >= 0) selectedSpecies.value.splice(idx,1);
+      else           selectedSpecies.value.push(name);
+      page.value = 1;
+    }
+
+    function loadMore() { page.value++; }
+
+    // ── Lecture audio ──────────────────────────────────────────────
+    function togglePlay(rec) {
+      if (playingUid.value === rec.uid) {
+        stopAudio(); return;
+      }
+      stopAudio();
+      const url = buildAudioUrl(rec.File_Name);
+      if (!url) return;
+
+      const audio = new Audio(url);
+      _audio = audio;
+      playingUid.value = rec.uid;
+      activeUid.value  = rec.uid;
+      progress.value   = 0;
+
+      audio.play().catch(e => { console.warn('[audio]', e); stopAudio(); });
+
+      // Progression rAF
+      function updateProgress() {
+        if (!_audio || _audio.paused) return;
+        progress.value = _audio.duration
+          ? (_audio.currentTime / _audio.duration * 100) : 0;
+        _rafProg = requestAnimationFrame(updateProgress);
+      }
+      _rafProg = requestAnimationFrame(updateProgress);
+
+      audio.addEventListener('loadedmetadata', () => {
+        rec.durationStr = formatDuration(audio.duration);
+      });
+      audio.addEventListener('ended', stopAudio);
+    }
+
+    function stopAudio() {
+      if (_audio) { _audio.pause(); _audio = null; }
+      if (_rafProg) { cancelAnimationFrame(_rafProg); _rafProg = null; }
+      playingUid.value = null;
+      progress.value   = 0;
+    }
+
+    function formatDuration(s) {
+      if (!isFinite(s)) return '';
+      const m = Math.floor(s/60), sec = Math.floor(s%60);
+      return `${m}:${sec.toString().padStart(2,'0')}`;
+    }
+
+    // ── Spectrogramme inline ───────────────────────────────────────
+    async function toggleSpectro(rec) {
+      if (spectroUid.value === rec.uid) {
+        spectroUid.value = null; return;
+      }
+      spectroUid.value    = rec.uid;
+      spectroLoading.value= rec.uid;
+      activeUid.value     = rec.uid;
+
+      // nextTick pour que le canvas soit dans le DOM (v-show)
+      await Vue.nextTick();
+
+      const canvas = spectroCanvases[rec.uid];
+      if (!canvas) { spectroLoading.value = null; return; }
+
+      const url = buildAudioUrl(rec.File_Name);
+      if (!url) { spectroLoading.value = null; return; }
+
+      try {
+        const dur = await fetchAndDraw(url, canvas);
+        if (!rec.durationStr) rec.durationStr = formatDuration(dur);
+      } catch(e) {
+        console.error('[spectro]', rec.File_Name, e.message);
+      }
+      spectroLoading.value = null;
+    }
+
+    // ── Observers ──────────────────────────────────────────────────
+    watch([period], () => { page.value = 1; loadData(); });
+    watch([sortBy], () => { page.value = 1; });
+
+    // ── Lifecycle ──────────────────────────────────────────────────
+    onMounted(loadData);
+    onUnmounted(stopAudio);
+
+    return {
+      lang, t, setLang, langs, theme, themes, setTheme, navItems,
+      allRecs, availableSpecies, filteredSpeciesList, selectedSpecies,
+      filteredRecs, pagedRecs, hasMore, loading,
+      spSearch, sortBy, period, page, PAGE_SIZE,
+      playingUid, progress, activeUid,
+      spectroUid, spectroLoading, spectroCanvases,
+      toggleSpecies, loadMore, togglePlay,
+      toggleSpectro, buildSpeciesLinks,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

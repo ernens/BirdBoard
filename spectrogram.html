@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBIRD — Spectrogramme live</title>
+  <link rel="stylesheet" href="bird-styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script src="bird-config.js"></script>
+  <script src="bird-vue-core.js"></script>
+  <style>
+    /* ── Spectrogramme plein écran ──────────────────────────────── */
+    .spectro-page { display: flex; flex-direction: column; gap: 0; }
+
+    .spectro-toolbar {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      padding: .55rem 1rem; background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+    .spectro-toolbar label { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+    .toolbar-group { display: flex; align-items: center; gap: .5rem; }
+    .toolbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+    .live-indicator {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .75rem; font-weight: 600; color: var(--text-muted);
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--border);
+      transition: background .3s;
+    }
+    .live-dot.active { background: #4caf50; box-shadow: 0 0 6px #4caf5099; animation: pulse-dot 1.5s infinite; }
+    .live-dot.error  { background: var(--danger); }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Canvas wrapper ──────────────────────────────────────────── */
+    .canvas-wrap {
+      position: relative; background: #03070a; overflow: hidden;
+      flex: 1; cursor: crosshair;
+    }
+    #spectroCanvas {
+      display: block; width: 100%; height: 100%;
+      image-rendering: pixelated;
+    }
+
+    /* ── Axe fréquences (gauche) ─────────────────────────────────── */
+    .freq-axis {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 34px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 4px 4px; pointer-events: none; background: rgba(3,7,10,.6);
+      border-right: 1px solid rgba(90,138,96,.25);
+    }
+    .freq-label {
+      font-size: .6rem; font-family: monospace; color: #5a8a60; line-height: 1;
+    }
+
+    /* ── Axe temps (bas) ─────────────────────────────────────────── */
+    .time-axis {
+      position: absolute; bottom: 0; left: 34px; right: 0; height: 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 4px; pointer-events: none; background: rgba(3,7,10,.55);
+      border-top: 1px solid rgba(90,138,96,.2);
+    }
+    .time-label { font-size: .6rem; font-family: monospace; color: #5a8a60; }
+
+    /* ── Ligne de temps "maintenant" ─────────────────────────────── */
+    .now-line {
+      position: absolute; top: 0; bottom: 18px; right: 34px; width: 1px;
+      background: rgba(255,255,255,.3); pointer-events: none;
+    }
+
+    /* ── Labels détections ───────────────────────────────────────── */
+    .det-label {
+      position: absolute; pointer-events: none;
+      top: 0; bottom: 18px;          /* pleine hauteur du canvas */
+      display: flex; flex-direction: column;
+      align-items: flex-start; z-index: 10;
+    }
+    /* Ligne verticale pleine hauteur */
+    .det-label-line {
+      position: absolute; top: 0; bottom: 0;
+      left: 0; width: 1px; opacity: .55;
+    }
+    /* Bloc texte positionné au tiers supérieur */
+    .det-label-text {
+      position: absolute; top: 22%; left: 4px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .det-label-name {
+      font-size: .72rem; font-weight: 600; white-space: nowrap;
+      padding: .12rem .4rem; border-radius: 3px;
+      background: rgba(3,7,10,.78); backdrop-filter: blur(2px);
+      border-left: 2px solid;
+      text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    }
+    .det-label-conf {
+      font-size: .62rem; font-family: monospace;
+      padding: .06rem .3rem; border-radius: 2px;
+      background: rgba(3,7,10,.65);
+    }
+
+    /* ── Overlay permission / erreur ─────────────────────────────── */
+    .spectro-overlay {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem; background: rgba(3,7,10,.85); backdrop-filter: blur(4px);
+      color: var(--text-muted); text-align: center; padding: 2rem;
+    }
+    .spectro-overlay .overlay-icon { font-size: 3rem; opacity: .6; }
+    .spectro-overlay p { font-size: .9rem; max-width: 340px; line-height: 1.5; }
+
+    /* ── Feed détections (droite) ────────────────────────────────── */
+    .det-feed {
+      position: absolute; top: 8px; right: 38px; width: 220px;
+      display: flex; flex-direction: column; gap: .3rem;
+      pointer-events: none; z-index: 15;
+    }
+    .det-feed-item {
+      display: flex; align-items: center; gap: .45rem;
+      background: rgba(3,7,10,.82); border-left: 3px solid;
+      padding: .3rem .5rem; border-radius: 0 4px 4px 0;
+      backdrop-filter: blur(3px); animation: slide-in .3s ease;
+    }
+    @keyframes slide-in { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+    .det-feed-name { font-size: .75rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+    .det-feed-time { font-size: .65rem; font-family: monospace; color: var(--text-faint); }
+    .det-feed-conf { font-size: .65rem; font-family: monospace; }
+
+    /* ── Colorbar ────────────────────────────────────────────────── */
+    .colorbar-wrap {
+      position: absolute; right: 4px; top: 0; bottom: 18px; width: 12px;
+      display: flex; flex-direction: column;
+    }
+    .colorbar-canvas { flex: 1; width: 100%; }
+    .colorbar-labels {
+      position: absolute; right: 16px; top: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 2px 0; pointer-events: none;
+    }
+    .colorbar-label { font-size: .58rem; font-family: monospace; color: #5a8a60; text-align: right; }
+  </style>
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-name">🐦 PIBIRD</span>
+      <span class="brand-sub">Bruxelles</span>
+    </div>
+    <div class="header-right">
+      <div class="theme-switcher-wrap">
+        <button v-for="th in themes" :key="th.id" class="theme-btn"
+                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
+                @click="setTheme(th.id)"></button>
+      </div>
+      <div class="lang-switcher-wrap">
+        <button v-for="l in langs" :key="l.code" class="lang-btn"
+                :class="{active:lang===l.code}" :title="l.label"
+                @click="setLang(l.code)">{{l.flag}} {{l.code.toUpperCase()}}</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}">
+      <span class="nav-icon">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+
+  <main class="app-main spectro-page" style="padding:0;flex:1;display:flex;flex-direction:column;">
+
+    <!-- ── Barre de contrôles ──────────────────────────────────── -->
+    <div class="spectro-toolbar">
+
+      <!-- Indicateur live -->
+      <div class="live-indicator">
+        <div class="live-dot" :class="{active:status==='live', error:status==='error'}"></div>
+        <span v-if="status==='idle'">Inactif</span>
+        <span v-else-if="status==='connecting'">Connexion…</span>
+        <span v-else-if="status==='live'" style="color:#4caf50;">En direct</span>
+        <span v-else-if="status==='error'" style="color:var(--danger);">Erreur</span>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <!-- Bouton Start/Stop -->
+      <button v-if="status!=='live'" class="btn btn-primary"
+              style="padding:.3rem .9rem;font-size:.8rem;"
+              @click="startLive" :disabled="status==='connecting'">
+        ▶ Démarrer
+      </button>
+      <button v-else class="btn btn-secondary"
+              style="padding:.3rem .9rem;font-size:.8rem;"
+              @click="stopLive">
+        ⏹ Arrêter
+      </button>
+
+      <div class="toolbar-sep"></div>
+
+      <!-- Gain -->
+      <div class="toolbar-group">
+        <label>Gain</label>
+        <input type="range" min="0.5" max="5" step="0.1" v-model.number="gain"
+               style="width:100px;accent-color:var(--accent);">
+        <span style="font-size:.75rem;font-family:monospace;color:var(--accent);min-width:36px;">
+          {{Math.round(gain*100)}}%
+        </span>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <!-- Fréq max -->
+      <div class="toolbar-group">
+        <label>Fréq. max</label>
+        <select class="bird-select" v-model.number="maxHz"
+                style="padding:.2rem .4rem;font-size:.75rem;">
+          <option :value="8000">8 kHz</option>
+          <option :value="12000">12 kHz</option>
+          <option :value="16000">16 kHz</option>
+          <option :value="22000">22 kHz</option>
+        </select>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <!-- Espèce en cours de lecture -->
+      <div v-if="nowPlaying" class="toolbar-group" style="gap:.4rem;">
+        <div class="live-dot active" style="width:6px;height:6px;"></div>
+        <span :style="{color:nowPlaying.color, fontWeight:600, fontSize:'.8rem'}">
+          {{nowPlaying.name}}
+        </span>
+        <span style="font-size:.72rem;font-family:monospace;color:var(--text-faint);">
+          {{nowPlaying.conf}} · {{nowPlaying.time}}
+        </span>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <!-- Volume -->
+      <div class="toolbar-group">
+        <label>🔊</label>
+        <input type="range" min="0" max="1" step="0.05" v-model.number="volume"
+               style="width:70px;accent-color:var(--accent);"
+               @input="setVolume">
+      </div>
+
+      <!-- Poll détections -->
+      <div class="toolbar-group">
+        <label>Détections</label>
+        <span style="font-size:.75rem;color:var(--text-muted);">
+          {{recentDets.length > 0 ? recentDets.length+' aujourd\'hui' : '—'}}
+        </span>
+        <span v-if="lastPollAge" style="font-size:.68rem;color:var(--text-faint);">
+          ({{lastPollAge}})
+        </span>
+      </div>
+
+      <!-- Spacer -->
+      <div style="flex:1;"></div>
+
+      <!-- Heure -->
+      <div style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">
+        {{clockStr}}
+      </div>
+    </div>
+
+    <!-- ── Canvas spectrogramme ────────────────────────────────── -->
+    <div class="canvas-wrap" ref="canvasWrap">
+      <canvas id="spectroCanvas" ref="mainCanvas"></canvas>
+
+      <!-- Axes -->
+      <div class="freq-axis">
+        <span v-for="fl in freqLabels" :key="fl" class="freq-label">{{fl}}</span>
+      </div>
+      <div class="colorbar-wrap">
+        <canvas ref="colorbarCanvas" class="colorbar-canvas" width="12"></canvas>
+        <div class="colorbar-labels">
+          <span class="colorbar-label">max</span>
+          <span class="colorbar-label">min</span>
+        </div>
+      </div>
+      <div class="time-axis">
+        <span v-for="tl in timeLabels" :key="tl" class="time-label">{{tl}}</span>
+      </div>
+      <div class="now-line"></div>
+
+      <!-- Labels détections sur le spectrogramme — ligne pleine hauteur -->
+      <div v-for="dl in visibleDetLabels" :key="dl.id"
+           class="det-label"
+           :style="{ left: dl.x + 'px' }">
+        <div class="det-label-line" :style="{ background: dl.color }"></div>
+        <div class="det-label-text">
+          <span class="det-label-name"
+                :style="{ color: dl.color, borderColor: dl.color }">
+            {{dl.name}}
+          </span>
+          <span class="det-label-conf" :style="{ color: dl.color }">
+            {{dl.conf}}
+          </span>
+        </div>
+      </div>
+
+      <!-- Feed détections (coin haut droit) -->
+      <div class="det-feed">
+        <transition-group name="feed">
+          <div v-for="d in feedDets" :key="d.id"
+               class="det-feed-item"
+               :style="{ borderColor: d.color }">
+            <span class="det-feed-name" :style="{ color: d.color }">{{d.Com_Name}}</span>
+            <span class="det-feed-conf" :style="{ color: d.color }">{{d.confStr}}</span>
+            <span class="det-feed-time">{{d.Time.substring(0,5)}}</span>
+          </div>
+        </transition-group>
+      </div>
+
+      <!-- Overlay démarrage / erreur -->
+      <div v-if="status !== 'live'" class="spectro-overlay">
+        <div class="overlay-icon">
+          <span v-if="status==='idle'">📡</span>
+          <span v-else-if="status==='connecting'">⏳</span>
+          <span v-else>🚫</span>
+        </div>
+        <p v-if="status==='idle'">
+          Cliquez sur <strong>Démarrer</strong> pour activer le spectrogramme.<br>
+          L'audio provient des MP3 récents de BirdNET — aucun conflit avec l'analyse en cours.<br>
+          Les détections apparaissent en overlay automatiquement.
+        </p>
+        <p v-else-if="status==='connecting'">
+          Connexion au flux audio du Pi…
+        </p>
+        <p v-else style="color:var(--danger);">
+          {{errorMsg}}
+        </p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+
+<script>
+// ── Colormap plasma ───────────────────────────────────────────────────────────
+function buildColorLUT() {
+  const lut   = new Uint8Array(256 * 3);
+  const stops = [
+    [0,   [  3,   5,  10]],[0.08,[15,   0,  40]],[0.18,[55,   0,  90]],
+    [0.30,[130,  10,  80]],[0.45,[200,  40,  30]],[0.60,[240,  90,   5]],
+    [0.78,[255, 170,   0]],[0.92,[255, 230,  80]],[1.0, [255, 255, 255]],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const v = i / 255;
+    let s = 0;
+    while (s < stops.length - 2 && stops[s+1][0] <= v) s++;
+    const [v0,c0]=stops[s],[v1,c1]=stops[s+1];
+    const tt = Math.min(1,(v-v0)/(v1-v0+1e-9));
+    lut[i*3]  =Math.round(c0[0]+tt*(c1[0]-c0[0]));
+    lut[i*3+1]=Math.round(c0[1]+tt*(c1[1]-c0[1]));
+    lut[i*3+2]=Math.round(c0[2]+tt*(c1[2]-c0[2]));
+  }
+  return lut;
+}
+const COLOR_LUT = buildColorLUT();
+
+const LABEL_COLORS = [
+  '#5ac85a','#c8d44c','#4ab5e8','#e87a4a','#c84adc',
+  '#4adcc8','#e8c84a','#7ad45a','#e84a7a','#4a7ae8',
+];
+let _labelIdx = 0;
+const _speciesColors = {};
+function colorFor(name) {
+  if (!_speciesColors[name]) _speciesColors[name] = LABEL_COLORS[_labelIdx++ % LABEL_COLORS.length];
+  return _speciesColors[name];
+}
+
+// ── Constantes DSP ────────────────────────────────────────────────────────────
+const FFT_SIZE = 2048;
+const COL_W    = 2;   // pixels par frame FFT
+
+// ── Vue 3 App ─────────────────────────────────────────────────────────────────
+const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, birdQuery, fmtConf, localDateStr, buildAudioUrl } = PIBIRD;
+
+createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems }                = useNav('spectrogram');
+
+    const status    = ref('idle');
+    const errorMsg  = ref('');
+    const gain      = ref(1.5);
+    const maxHz     = ref(12000);
+    const volume    = ref(0.8);
+    const clockStr  = ref('');
+    const nowPlaying= ref(null);   // { name, conf, time, color }
+
+    const mainCanvas     = ref(null);
+    const canvasWrap     = ref(null);
+    const colorbarCanvas = ref(null);
+
+    const recentDets  = ref([]);
+    const feedDets    = ref([]);
+    const lastPollAge = ref('');
+    const detLabels   = ref([]);   // { id, name, conf, color, insertedAtCol }
+
+    // Web Audio (non réactif)
+    let _audioCtx   = null;
+    let _analyser   = null;
+    let _gainNode   = null;
+    let _source     = null;   // BufferSourceNode en cours
+
+    // Rendu canvas (non réactif)
+    let _W = 800, _H = 400;
+    let _imgData = null, _imgBuf = null;
+    let _rafId   = null;
+    let _colsDrawn  = 0;           // compteur absolu de colonnes — base du positionnement labels
+    let _dynFloor = -80, _dynCeil = -20;
+
+    // Boucle lecture (non réactif)
+    let _playbackStopped = false;
+    let _playedFiles     = new Set();
+
+    // Timers
+    let _clockTimer = null;
+    let _pollTimer  = null;
+    let _lastPoll   = null;
+
+    // ── Computed ──────────────────────────────────────────────────
+    const freqLabels = computed(() => {
+      const hz = maxHz.value;
+      return [hz, hz*.75, hz*.5, hz*.25, 0]
+        .map(v => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v));
+    });
+
+    const timeLabels = computed(() => {
+      const now = new Date();
+      return ['-60s','-45s','-30s','-15s', now.toTimeString().substring(0,8)];
+    });
+
+    // Position des labels : basée sur le nb de colonnes écoulées depuis l'insertion
+    const visibleDetLabels = computed(() => {
+      return detLabels.value
+        .map(dl => {
+          const colsAgo = _colsDrawn - dl.insertedAtCol;
+          const x       = _W - 40 - colsAgo * COL_W;
+          return { ...dl, x };
+        })
+        .filter(dl => dl.x > 40 && dl.x < _W - 40);
+    });
+
+    // ── Horloge ───────────────────────────────────────────────────
+    function tickClock() {
+      clockStr.value = new Date().toTimeString().substring(0,8);
+      if (_lastPoll) {
+        const s = Math.round((Date.now() - _lastPoll) / 1000);
+        lastPollAge.value = s < 60 ? `${s}s` : `${Math.floor(s/60)}m`;
+      }
+    }
+
+    // ── Volume ────────────────────────────────────────────────────
+    function setVolume() {
+      if (_gainNode) _gainNode.gain.value = volume.value;
+    }
+
+    // ── Init canvas ───────────────────────────────────────────────
+    function initCanvas() {
+      if (!mainCanvas.value || !canvasWrap.value) return;
+      const rect = canvasWrap.value.getBoundingClientRect();
+      _W = Math.max(400, Math.floor(rect.width));
+      _H = Math.max(200, Math.floor(rect.height));
+      mainCanvas.value.width  = _W;
+      mainCanvas.value.height = _H;
+      const ctx = mainCanvas.value.getContext('2d');
+      ctx.fillStyle = '#03070a';
+      ctx.fillRect(0, 0, _W, _H);
+      _imgData  = ctx.getImageData(0, 0, _W, _H);
+      _imgBuf   = _imgData.data;
+      _dynFloor = -90; _dynCeil = -20;   // valeurs dBFS typiques pour de l'audio naturel
+      drawColorbar();
+    }
+
+    function drawColorbar() {
+      if (!colorbarCanvas.value) return;
+      const cb  = colorbarCanvas.value;
+      cb.height = cb.offsetHeight || 300;
+      const ctx = cb.getContext('2d');
+      const H   = cb.height;
+      const img = ctx.createImageData(1, H);
+      for (let py = 0; py < H; py++) {
+        const ci = Math.min(255, Math.floor((1 - py/H) * 255)) * 3;
+        img.data[py*4]=COLOR_LUT[ci]; img.data[py*4+1]=COLOR_LUT[ci+1];
+        img.data[py*4+2]=COLOR_LUT[ci+2]; img.data[py*4+3]=255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    // ── Démarrage ─────────────────────────────────────────────────
+    async function startLive() {
+      status.value        = 'connecting';
+      errorMsg.value      = '';
+      _playbackStopped    = false;
+      _colsDrawn          = 0;
+      detLabels.value     = [];
+      nowPlaying.value    = null;
+
+      await nextTick();
+      initCanvas();
+
+      // Créer le contexte audio
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await _audioCtx.resume();
+
+      _analyser = _audioCtx.createAnalyser();
+      _analyser.fftSize             = FFT_SIZE;
+      _analyser.smoothingTimeConstant = 0.0;
+
+      _gainNode = _audioCtx.createGain();
+      _gainNode.gain.value = volume.value;
+
+      // Chaîne : source → analyser → gain → sortie (son)
+      _analyser.connect(_gainNode);
+      _gainNode.connect(_audioCtx.destination);
+
+      status.value = 'live';
+      startRenderLoop();
+      startPlaybackLoop();
+    }
+
+    function stopLive() {
+      _playbackStopped = true;
+      stopRenderLoop();
+      if (_source) { try { _source.stop(); } catch(e) {} _source = null; }
+      if (_audioCtx) { _audioCtx.close(); _audioCtx = null; }
+      _analyser = null; _gainNode = null;
+      nowPlaying.value = null;
+      status.value = 'idle';
+    }
+
+    // ── Boucle de rendu FFT → canvas ──────────────────────────────
+    function startRenderLoop() {
+      const freqBuf = new Float32Array(FFT_SIZE >> 1);
+      const stride  = _W * 4;
+      const shift   = COL_W * 4;
+
+      function render() {
+        _rafId = requestAnimationFrame(render);
+        if (!_analyser || !_imgBuf) return;
+
+        _analyser.getFloatFrequencyData(freqBuf);
+
+        const sr  = _audioCtx ? _audioCtx.sampleRate : 48000;
+        const bMax = Math.min(
+          freqBuf.length,
+          Math.ceil(maxHz.value / (sr / 2) * freqBuf.length)
+        );
+
+        // Normalisation glissante — valeurs dBFS (toutes négatives, 0 = plein signal)
+        // lo/hi initialisés à des valeurs dBFS sensées
+        let lo = -120, hi = -120;
+        for (let k = 1; k < bMax; k++) {
+          const v = freqBuf[k];
+          if (!isFinite(v)) continue;
+          if (v > hi) hi = v;
+          if (v < lo) lo = v;
+        }
+        if (hi > lo) {
+          _dynFloor = _dynFloor * 0.990 + lo * 0.010;
+          _dynCeil  = _dynCeil  * 0.990 + hi * 0.010;
+        }
+        // Gain = offset additif en dB (ex: gain 2.5 → +20 dB de luminosité)
+        // La dynamique visible est réduite proportionnellement (plus de contraste)
+        const gainDB = (gain.value - 1) * 20;
+        const floor  = _dynFloor - gainDB;
+        const rng    = Math.max(1, _dynCeil - floor);
+
+        // Décaler l'image vers la gauche
+        for (let py = 0; py < _H; py++) {
+          const row = py * stride;
+          _imgBuf.copyWithin(row, row + shift, row + stride);
+        }
+
+        // Nouvelle colonne à droite
+        for (let py = 0; py < _H; py++) {
+          const bin = Math.min(Math.floor((1 - py / _H) * bMax), freqBuf.length - 1);
+          const v   = Math.max(0, Math.min(1, (freqBuf[bin] - floor) / rng));
+          const ci  = Math.floor(v * 255) * 3;
+          for (let cx = 0; cx < COL_W; cx++) {
+            const pi = (py * _W + (_W - COL_W + cx)) * 4;
+            _imgBuf[pi]   = COLOR_LUT[ci];
+            _imgBuf[pi+1] = COLOR_LUT[ci+1];
+            _imgBuf[pi+2] = COLOR_LUT[ci+2];
+            _imgBuf[pi+3] = 255;
+          }
+        }
+        _colsDrawn++;
+
+        mainCanvas.value.getContext('2d').putImageData(_imgData, 0, 0);
+      }
+      _rafId = requestAnimationFrame(render);
+    }
+
+    function stopRenderLoop() {
+      if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+    }
+
+    // ── Boucle de lecture MP3 ─────────────────────────────────────
+    // Charge les détections triées par heure, joue chaque MP3 en temps réel.
+    // Le spectrogramme provient de l'AnalyserNode branché sur la source audio —
+    // vitesse naturellement correcte, son inclus.
+    async function startPlaybackLoop() {
+      // Initialiser le set des fichiers déjà joués :
+      // ignorer les détections > 10 min avant maintenant pour démarrer "récent"
+      const initCutoff = new Date(Date.now() - 10 * 60 * 1000)
+        .toTimeString().substring(0,8);
+
+      try {
+        const today   = localDateStr();
+        const allRows = await birdQuery(
+          `SELECT File_Name FROM detections
+           WHERE Date = ? AND Confidence >= ? AND File_Name != ''
+           ORDER BY Time ASC`,
+          [today, BIRD_CONFIG.defaultConfidence]
+        );
+        // Marquer les anciens comme joués
+        for (const r of allRows) {
+          const m = r.File_Name.match(/-(\d{2}:\d{2}:\d{2})-/);
+          if (m && m[1] < initCutoff) _playedFiles.add(r.File_Name);
+        }
+        console.log(`[playback] init: ${_playedFiles.size} fichiers anciens ignorés`);
+      } catch(e) {
+        console.error('[playback] init query error', e);
+      }
+
+      // Boucle principale
+      while (!_playbackStopped) {
+        let pending = [];
+        try {
+          const today = localDateStr();
+          const rows  = await birdQuery(
+            `SELECT Date, Time, Com_Name, Confidence, File_Name
+             FROM detections
+             WHERE Date = ? AND Confidence >= ? AND File_Name != ''
+             ORDER BY Time ASC`,
+            [today, BIRD_CONFIG.defaultConfidence]
+          );
+          _lastPoll = Date.now();
+          recentDets.value = rows;
+
+          pending = rows.filter(r => r.File_Name && !_playedFiles.has(r.File_Name));
+        } catch(e) {
+          console.error('[playback] query error', e);
+          await sleep(3000);
+          continue;
+        }
+
+        if (pending.length === 0) {
+          // Rien de nouveau — attendre en rebondissant
+          await sleep(5000);
+          continue;
+        }
+
+        // Jouer les fichiers en attente dans l'ordre
+        for (const det of pending) {
+          if (_playbackStopped) break;
+          _playedFiles.add(det.File_Name);
+
+          const url = buildAudioUrl(det.File_Name);
+          if (!url) { console.warn('[playback] URL introuvable:', det.File_Name); continue; }
+
+          const color   = colorFor(det.Com_Name);
+          const labelId = det.Date + det.Time + det.Com_Name + Math.random();
+
+          // Fetch + decode EN AVANCE — sans toucher au canvas ni aux labels
+          let audioBuf;
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) { console.warn('[playback] 404:', url); continue; }
+            const arrayBuf = await resp.arrayBuffer();
+            audioBuf       = await _audioCtx.decodeAudioData(arrayBuf);
+          } catch(e) {
+            if (_playbackStopped) break;
+            console.error('[playback] erreur décodage:', det.File_Name, e.message);
+            continue;
+          }
+
+          if (_playbackStopped) break;
+
+          // ── À partir d'ici : lecture imminente ──────────────────
+          // Insérer le label AU MOMENT du start() — position canvas correcte
+          _source = _audioCtx.createBufferSource();
+          _source.buffer = audioBuf;
+          _source.connect(_analyser);
+
+          // Toolbar
+          nowPlaying.value = {
+            name:  det.Com_Name,
+            conf:  fmtConf(det.Confidence),
+            time:  det.Time.substring(0,5),
+            color,
+          };
+
+          // Label sur le spectrogramme — synchronisé avec le signal audio
+          detLabels.value = [{
+            id:            labelId,
+            name:          det.Com_Name,
+            conf:          fmtConf(det.Confidence),
+            color,
+            insertedAtCol: _colsDrawn,
+          }, ...detLabels.value].slice(0, 30);
+
+          // Feed
+          feedDets.value = [{
+            ...det, id: labelId, color, confStr: fmtConf(det.Confidence),
+          }, ...feedDets.value].slice(0, 6);
+
+          _source.start();
+
+          // Attendre la fin de la lecture
+          await new Promise(resolve => { _source.onended = resolve; });
+          _source = null;
+        }   // fin for (det of pending)
+      }     // fin while
+
+      nowPlaying.value = null;
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // ── Resize ────────────────────────────────────────────────────
+    function onResize() {
+      if (status.value === 'live') initCanvas();
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────
+    onMounted(() => {
+      tickClock();
+      _clockTimer = setInterval(tickClock, 1000);
+      window.addEventListener('resize', onResize);
+    });
+
+    onUnmounted(() => {
+      stopLive();
+      if (_clockTimer) clearInterval(_clockTimer);
+      window.removeEventListener('resize', onResize);
+    });
+
+    return {
+      lang, t, setLang, langs, theme, themes, setTheme, navItems,
+      status, errorMsg, gain, maxHz, volume, clockStr, nowPlaying,
+      mainCanvas, canvasWrap, colorbarCanvas,
+      recentDets, feedDets, lastPollAge,
+      detLabels, visibleDetLabels, freqLabels, timeLabels,
+      startLive, stopLive, setVolume,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

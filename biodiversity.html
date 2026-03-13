@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBIRD — Biodiversité</title>
+  <link rel="stylesheet" href="bird-styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="bird-config.js"></script>
+  <script src="bird-vue-core.js"></script>
+  <style>
+    .heatmap-wrap{overflow-x:auto;}
+    .heatmap-table{border-collapse:collapse;font-size:.72rem;min-width:600px;}
+    .heatmap-table th{padding:.3rem .5rem;color:var(--text-muted);font-weight:500;text-align:center;border-bottom:1px solid var(--border);}
+    .heatmap-table th.row-header{text-align:left;min-width:160px;}
+    .heatmap-table td{padding:.25rem .4rem;text-align:center;border:1px solid var(--bg-deep);border-radius:2px;font-size:.7rem;font-family:monospace;min-width:36px;}
+    .heatmap-table tr:hover td{outline:1px solid var(--border-light);}
+    .hm-0{background:var(--bg-card2);color:var(--text-faint);}
+    .hm-1{background:rgba(90,158,58,.12);color:#4a7a2a;}
+    .hm-2{background:rgba(90,158,58,.25);color:#5a9e3a;}
+    .hm-3{background:rgba(90,158,58,.40);color:#6ab844;}
+    .hm-4{background:rgba(90,158,58,.58);color:#7bc754;}
+    .hm-5{background:rgba(90,158,58,.78);color:#0d1a0f;}
+    .matrix-wrap{overflow-x:auto;}
+    .matrix-table{border-collapse:collapse;font-size:.72rem;}
+    .matrix-table th{padding:.3rem .5rem;color:var(--text-muted);font-weight:500;white-space:nowrap;border-bottom:1px solid var(--border);}
+    .matrix-table th.sp-col{text-align:left;min-width:170px;}
+    .matrix-table td{padding:.2rem .3rem;text-align:center;border:1px solid var(--bg-deep);min-width:38px;font-size:.68rem;font-family:monospace;}
+    .matrix-table .sp-name{color:var(--text-main);text-align:left;padding-left:.5rem;white-space:nowrap;cursor:pointer;}
+    .matrix-table .sp-name:hover{color:var(--accent);}
+  </style>
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-name">🐦 PIBIRD</span>
+      <span class="brand-sub">Bruxelles</span>
+    </div>
+    <div class="header-right">
+      <div class="theme-switcher-wrap">
+        <button v-for="th in themes" :key="th.id" class="theme-btn"
+                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
+                @click="setTheme(th.id)"></button>
+      </div>
+      <div class="lang-switcher-wrap">
+        <button v-for="l in langs" :key="l.code" class="lang-btn"
+                :class="{active:lang===l.code}" :title="l.label"
+                @click="setLang(l.code)">{{l.flag}} {{l.code.toUpperCase()}}</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}">
+      <span class="nav-icon">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+
+  <main class="app-main">
+
+    <!-- Richesse journalière -->
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-title">{{t('richness_per_day')}}</div>
+      <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasRichness"></canvas></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:1rem;">
+
+      <!-- Heatmap -->
+      <div class="card">
+        <div class="card-title">{{t('heatmap_hour_day')}}</div>
+        <div class="heatmap-wrap">
+          <div v-if="heatmap.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="heatmap.error" class="error-msg">⚠ {{heatmap.error}}</div>
+          <!-- Le HTML de la heatmap est généré côté JS car trop complexe pour v-for nested -->
+          <div v-else v-html="heatmap.html"></div>
+        </div>
+      </div>
+
+      <!-- Top espèces ce mois -->
+      <div class="card">
+        <div class="card-title">{{t('top_species')}} — {{t('this_month')}}</div>
+        <div v-if="monthly.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!monthly.rows.length" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <div v-for="(r,i) in monthly.rows" :key="r.Com_Name"
+               style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;cursor:pointer;"
+               @click="navigateTo('species.html',{species:r.Com_Name})">
+            <div style="font-size:.72rem;color:var(--text-faint);min-width:16px;text-align:right;">{{i+1}}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{r.Com_Name}}</div>
+              <div style="height:4px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
+                <div :style="{height:'100%',width:Math.round(r.n/monthly.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px',transition:'width .4s'}"></div>
+              </div>
+            </div>
+            <div style="font-size:.78rem;color:var(--text-muted);min-width:40px;text-align:right;">{{r.n.toLocaleString()}}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Matrice espèce × mois -->
+    <div class="card">
+      <div class="card-title">{{t('species_x_month')}}</div>
+      <div class="matrix-wrap">
+        <div v-if="matrix.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="matrix.error" class="error-msg">⚠ {{matrix.error}}</div>
+        <div v-else v-html="matrix.html"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const { createApp, ref, watch, onMounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart,
+        birdQuery, chartDefaults, daysAgo, localDateStr, navigateTo } = PIBIRD;
+
+createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems }                = useNav('biodiversity');
+    const { mountChart: mountRichness } = useChart();
+
+    const canvasRichness = ref(null);
+    const CONF = BIRD_CONFIG.defaultConfidence;
+
+    const richnessData = ref(null);
+    const heatmap  = ref({ loading:true, error:null, html:'' });
+    const monthly  = ref({ loading:true, rows:[] });
+    const matrix   = ref({ loading:true, error:null, html:'' });
+
+    const chartColor = i => BIRD_CONFIG.chartColors[i % BIRD_CONFIG.chartColors.length];
+
+    async function loadAll() {
+      await Promise.all([loadRichnessData(), loadHeatmap(), loadMonthly(), loadMatrix()]);
+    }
+
+    async function loadRichnessData() {
+      try {
+        const rows = await birdQuery(
+          `SELECT Date, COUNT(DISTINCT Com_Name) as sp, COUNT(*) as det
+           FROM detections WHERE Date>=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC`,
+          [daysAgo(89), CONF]);
+        richnessData.value = rows;
+      } catch(e) {}
+    }
+
+    async function loadHeatmap() {
+      heatmap.value.loading = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, CAST(strftime('%w',Date) AS INTEGER) as dow, COUNT(*) as n
+           FROM detections WHERE Date>=? AND Confidence>=? GROUP BY hour,dow`,
+          [daysAgo(89), CONF]);
+        const grid = Array.from({length:7}, ()=>Array(24).fill(0));
+        let maxVal = 0;
+        rows.forEach(r => { grid[r.dow][r.hour]=r.n; if(r.n>maxVal) maxVal=r.n; });
+        const dayLabels = t('days_short');
+        const order = [1,2,3,4,5,6,0];
+        const hc = v => { if(!v) return 'hm-0'; const p=v/maxVal; return p<.1?'hm-1':p<.3?'hm-2':p<.5?'hm-3':p<.75?'hm-4':'hm-5'; };
+        const hours = Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
+        let html = `<table class="heatmap-table"><thead><tr><th class="row-header"></th>${hours.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+        order.forEach((dow,di) => {
+          html += `<tr><th class="row-header" style="text-align:left;">${dayLabels[di]}</th>`;
+          for(let h=0;h<24;h++) { const v=grid[dow][h]; html+=`<td class="${hc(v)}" title="${dayLabels[di]} ${String(h).padStart(2,'0')}h : ${v}">${v||''}</td>`; }
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+        heatmap.value = { loading:false, error:null, html };
+      } catch(e) { heatmap.value = { loading:false, error:e.message, html:'' }; }
+    }
+
+    async function loadMonthly() {
+      monthly.value.loading = true;
+      try {
+        const ym = localDateStr().substring(0,7);
+        const rows = await birdQuery(
+          `SELECT Com_Name, COUNT(*) as n FROM detections WHERE SUBSTR(Date,1,7)=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC LIMIT 15`,
+          [ym, CONF]);
+        monthly.value = { loading:false, rows };
+      } catch(e) { monthly.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadMatrix() {
+      matrix.value.loading = true;
+      try {
+        const topRows = await birdQuery(`SELECT Com_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT 20`,[CONF]);
+        const topSp = topRows.map(r=>r.Com_Name);
+        if (!topSp.length) { matrix.value={loading:false,error:null,html:`<p class="error-msg">${t('no_data')}</p>`}; return; }
+        const rows = await birdQuery(
+          `SELECT Com_Name, CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM detections WHERE Com_Name IN (${topSp.map(()=>'?').join(',')}) AND Confidence>=? GROUP BY Com_Name,m`,
+          [...topSp, CONF]);
+        const data = {};
+        topSp.forEach(sp=>{data[sp]=Array(12).fill(0);});
+        rows.forEach(r=>{if(data[r.Com_Name]) data[r.Com_Name][r.m-1]=r.n;});
+        let maxVal=0;
+        Object.values(data).forEach(arr=>arr.forEach(v=>{if(v>maxVal) maxVal=v;}));
+        const cs = v => { if(!v) return 'background:var(--bg-card2);color:var(--text-faint);'; const p=v/maxVal; const a=.1+p*.7; return `background:rgba(90,158,58,${a.toFixed(2)});color:${p>.5?'#0d1a0f':'#e8f0e9'};`; };
+        const months = t('months_short');
+        let html = `<table class="matrix-table"><thead><tr><th class="sp-col">${t('species_name')}</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>${t('bio_total')}</th></tr></thead><tbody>`;
+        topSp.forEach(sp => {
+          const arr=data[sp], tot=arr.reduce((a,b)=>a+b,0);
+          html+=`<tr><td class="sp-name" onclick="PIBIRD.navigateTo('species.html',{species:'${encodeURIComponent(sp)}'});">${sp}</td>`;
+          html+=arr.map(v=>`<td style="${cs(v)}">${v>0?v.toLocaleString():''}</td>`).join('');
+          html+=`<td style="color:var(--accent);font-weight:500;">${tot.toLocaleString()}</td></tr>`;
+        });
+        html+='</tbody></table>';
+        matrix.value = { loading:false, error:null, html };
+      } catch(e) { matrix.value = { loading:false, error:e.message, html:'' }; }
+    }
+
+    watch([richnessData, lang], async () => {
+      await nextTick();
+      const d = richnessData.value;
+      if (!d || !canvasRichness.value) return;
+      const map={};
+      d.forEach(r=>{map[r.Date]=r;});
+      const labels=[],spData=[],detData=[];
+      for(let i=89;i>=0;i--) {
+        const date=PIBIRD.daysAgo(i);
+        const mo=t('months_short')[new Date(date).getMonth()];
+        labels.push(`${new Date(date).getDate()} ${mo}`);
+        spData.push(map[date]?map[date].sp:0);
+        detData.push(map[date]?map[date].det:0);
+      }
+      const base=chartDefaults();
+      mountRichness(canvasRichness, ()=>({
+        type:'bar',
+        data:{labels, datasets:[
+          {label:t('species'), data:spData, backgroundColor:'rgba(90,158,58,.7)', borderColor:'#5a9e3a', borderWidth:1, borderRadius:2, order:1},
+          {label:t('detections'), data:detData, type:'line', borderColor:'rgba(200,168,75,.6)', backgroundColor:'transparent', pointRadius:0, tension:0.3, yAxisID:'y2', order:0}
+        ]},
+        options:{...base, scales:{...base.scales,
+          x:{...base.scales.x,ticks:{maxTicksLimit:15,font:{size:9}}},
+          y:{...base.scales.y,beginAtZero:true,title:{display:true,text:t('species'),color:'#5a9e3a',font:{size:10}}},
+          y2:{position:'right',beginAtZero:true,ticks:{color:'#c8a84b',font:{size:9}},grid:{drawOnChartArea:false},title:{display:true,text:t('detections'),color:'#c8a84b',font:{size:10}}}
+        }}
+      }));
+    });
+
+    // Heatmap et matrice : retraduits si lang change
+    watch(lang, () => { loadHeatmap(); loadMonthly(); loadMatrix(); });
+
+    onMounted(() => loadAll());
+
+    return {
+      lang, t, setLang, langs, theme, themes, setTheme, navItems,
+      heatmap, monthly, matrix,
+      canvasRichness,
+      chartColor, navigateTo,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

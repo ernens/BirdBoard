@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBIRD — Espèces</title>
+  <link rel="stylesheet" href="bird-styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="bird-config.js"></script>
+  <script src="bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-name">🐦 PIBIRD</span>
+      <span class="brand-sub">Bruxelles</span>
+    </div>
+    <div class="header-right">
+      <div class="theme-switcher-wrap">
+        <button v-for="th in themes" :key="th.id" class="theme-btn"
+                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
+                @click="setTheme(th.id)"></button>
+      </div>
+      <div class="lang-switcher-wrap">
+        <button v-for="l in langs" :key="l.code" class="lang-btn"
+                :class="{active:lang===l.code}" :title="l.label"
+                @click="setLang(l.code)">{{l.flag}} {{l.code.toUpperCase()}}</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}">
+      <span class="nav-icon">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+
+  <main class="app-main">
+
+    <!-- Picker (si pas de param URL) -->
+    <div v-if="mode==='picker'" class="card" style="margin-bottom:1rem;">
+      <div class="card-title">{{t('filter_species')}}</div>
+      <div style="display:flex;gap:.6rem;align-items:center;">
+        <select class="bird-select" v-model="pickerVal" style="min-width:250px;flex:1;">
+          <option v-for="s in speciesList" :key="s" :value="s">{{s}}</option>
+        </select>
+        <button class="btn btn-primary" @click="loadDetail(pickerVal)">{{t('apply_filter')}}</button>
+      </div>
+    </div>
+
+    <!-- Spinner initial -->
+    <div v-if="mode==='loading'" class="spinner" style="padding:4rem;"><div></div><div></div><div></div></div>
+
+    <!-- Fiche espèce -->
+    <div v-if="mode==='detail'">
+
+      <!-- Header -->
+      <div style="display:flex;gap:1.25rem;align-items:flex-start;margin-bottom:1rem;flex-wrap:wrap;">
+        <div style="flex-shrink:0;">
+          <div style="width:120px;height:120px;border-radius:var(--radius-lg);background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:3rem;overflow:hidden;">
+            <img v-if="sp.imgUrl" :src="sp.imgUrl" :alt="sp.name"
+                 style="width:100%;height:100%;object-fit:cover;">
+            <span v-else>🦜</span>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <h1 style="font-family:var(--font-display);font-size:1.8rem;font-weight:600;color:var(--text-main);margin-bottom:.2rem;">{{sp.name}}</h1>
+          <div style="font-style:italic;color:var(--text-muted);font-size:1rem;margin-bottom:.75rem;">{{sp.sci}}</div>
+          <div class="ext-links">
+            <a v-for="l in extLinks" :key="l.label" class="ext-link" :href="l.url" target="_blank" rel="noopener">
+              {{l.icon}} {{l.label}}
+            </a>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;flex-shrink:0;">
+          <div class="kpi-card" style="text-align:center;min-width:100px;">
+            <div class="kpi-value">{{sp.total ? sp.total.toLocaleString() : '—'}}</div>
+            <div class="kpi-label">{{t('total_detections')}}</div>
+          </div>
+          <div class="kpi-card" style="text-align:center;">
+            <div class="kpi-value amber">{{sp.maxConf ? sp.maxConf+'%' : '—'}}</div>
+            <div class="kpi-label">{{t('max_confidence')}}</div>
+          </div>
+          <div class="kpi-card" style="text-align:center;">
+            <div class="kpi-value muted">{{fmtDate(sp.first)}}</div>
+            <div class="kpi-label">{{t('first_detection')}}</div>
+          </div>
+          <div class="kpi-card" style="text-align:center;">
+            <div class="kpi-value muted">{{fmtDate(sp.last)}}</div>
+            <div class="kpi-label">{{t('last_seen')}}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graphiques -->
+      <div class="grid-2" style="margin-bottom:1rem;">
+        <div class="card">
+          <div class="card-title">{{t('activity_by_hour')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">{{t('monthly_presence')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasMonthly"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-title">{{t('detections')}} — 30 jours</div>
+        <div class="chart-wrap"><canvas ref="canvas30d"></canvas></div>
+      </div>
+
+      <!-- Feed -->
+      <div class="card">
+        <div class="card-title">{{t('recent_detections')}}</div>
+        <div v-if="!feed.length" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <div v-for="d in feed" :key="d.Date+d.Time" class="det-item">
+            <button v-if="d.File_Name" class="play-btn"
+                    style="width:22px;height:22px;font-size:.6rem;"
+                    :class="{playing:playingFile===d.File_Name}"
+                    @click="toggleAudio(d.File_Name)">▶</button>
+            <span v-else style="width:22px;display:inline-block;"></span>
+            <div class="det-time">{{fmtDate(d.Date)}}</div>
+            <div class="det-time" style="min-width:44px;">{{fmtTime(d.Time)}}</div>
+            <div style="flex:1;"></div>
+            <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')">
+              {{fmtConf(d.Confidence)}}
+            </span>
+          </div>
+        </div>
+        <div style="margin-top:.75rem;">
+          <a :href="'detections.html?species='+encodeURIComponent(sp.name)" class="btn btn-secondary">
+            {{t('nav_detections')}} →
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart, useAudio,
+        birdQuery, fmtDate, fmtTime, fmtConf,
+        daysAgo, getUrlParam, navigateTo,
+        buildSpeciesLinks, fetchSpeciesImage, chartDefaults } = PIBIRD;
+
+createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems }                = useNav('species');
+    const { playingFile, toggleAudio }= useAudio();
+    const { mountChart: mountHourly } = useChart();
+    const { mountChart: mountMonthly }= useChart();
+    const { mountChart: mount30d }    = useChart();
+
+    const canvasHourly  = ref(null);
+    const canvasMonthly = ref(null);
+    const canvas30d     = ref(null);
+
+    const mode        = ref('loading');
+    const speciesList = ref([]);
+    const pickerVal   = ref('');
+
+    const sp      = ref({ name:'', sci:'', total:0, maxConf:0, first:null, last:null, imgUrl:null });
+    const feed    = ref([]);
+    const extLinks = computed(() => sp.value.name ? Object.values(buildSpeciesLinks(sp.value.name, sp.value.sci)) : []);
+
+    // Données brutes chart (rerender si lang change)
+    const hourlyData  = ref(null);
+    const monthlyData = ref(null);
+    const data30d     = ref(null);
+
+    async function loadDetail(speciesName) {
+      if (!speciesName) return;
+      mode.value = 'loading';
+      try {
+        const [stats] = await birdQuery(
+          `SELECT COUNT(*) as total, ROUND(MAX(Confidence)*100,1) as max_conf, MIN(Date) as first_date, MAX(Date) as last_date, MAX(Sci_Name) as sci FROM detections WHERE Com_Name=?`,
+          [speciesName]);
+        if (!stats?.total) { mode.value='picker'; return; }
+
+        sp.value = { name:speciesName, sci:stats.sci||'', total:stats.total, maxConf:stats.max_conf, first:stats.first_date, last:stats.last_date, imgUrl:null };
+        document.title = `PIBIRD — ${speciesName}`;
+        mode.value = 'detail';
+
+        fetchSpeciesImage(stats.sci || speciesName).then(url => { if(url) sp.value.imgUrl=url; });
+
+        await Promise.all([
+          loadHourlyData(speciesName),
+          loadMonthlyData(speciesName),
+          load30dData(speciesName),
+          loadFeed(speciesName),
+        ]);
+      } catch(e) { mode.value='picker'; }
+    }
+
+    async function loadHourlyData(name) {
+      try {
+        const rows = await birdQuery(`SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Com_Name=? GROUP BY h ORDER BY h ASC`,[name]);
+        const vals = Array(24).fill(0);
+        rows.forEach(r=>{vals[r.h]=r.n;});
+        hourlyData.value = vals;
+      } catch(e) {}
+    }
+
+    async function loadMonthlyData(name) {
+      try {
+        const rows = await birdQuery(`SELECT CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM detections WHERE Com_Name=? GROUP BY m ORDER BY m ASC`,[name]);
+        const vals = Array(12).fill(0);
+        rows.forEach(r=>{vals[r.m-1]=r.n;});
+        monthlyData.value = vals;
+      } catch(e) {}
+    }
+
+    async function load30dData(name) {
+      try {
+        const from = daysAgo(29);
+        const rows = await birdQuery(`SELECT Date, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? GROUP BY Date ORDER BY Date ASC`,[name,from]);
+        const map={};
+        rows.forEach(r=>{map[r.Date]=r.n;});
+        const vals=[];
+        for(let i=29;i>=0;i--) vals.push({ date:daysAgo(i), n:map[daysAgo(i)]||0 });
+        data30d.value = vals;
+      } catch(e) {}
+    }
+
+    async function loadFeed(name) {
+      try {
+        const rows = await birdQuery(`SELECT Date,Time,Confidence,File_Name FROM detections WHERE Com_Name=? ORDER BY Date DESC,Time DESC LIMIT 10`,[name]);
+        feed.value = rows;
+      } catch(e) { feed.value=[]; }
+    }
+
+    watch([hourlyData, lang], async () => {
+      await nextTick();
+      if (!hourlyData.value || !canvasHourly.value) return;
+      const base=chartDefaults();
+      mountHourly(canvasHourly, ()=>({
+        type:'bar',
+        data:{labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`), datasets:[{label:t('detections'),data:hourlyData.value,backgroundColor:'rgba(90,158,58,.65)',borderColor:'#5a9e3a',borderWidth:1,borderRadius:2}]},
+        options:{...base,plugins:{...base.plugins,legend:{display:false}},scales:{x:{...base.scales.x,ticks:{font:{size:9}}},y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    watch([monthlyData, lang], async () => {
+      await nextTick();
+      if (!monthlyData.value || !canvasMonthly.value) return;
+      const base=chartDefaults();
+      mountMonthly(canvasMonthly, ()=>({
+        type:'bar',
+        data:{labels:t('months_short'), datasets:[{label:t('detections'),data:monthlyData.value,backgroundColor:monthlyData.value.map(v=>v>0?'rgba(200,168,75,.65)':'rgba(200,168,75,.1)'),borderColor:'#c8a84b',borderWidth:1,borderRadius:2}]},
+        options:{...base,plugins:{...base.plugins,legend:{display:false}},scales:{x:{...base.scales.x,ticks:{font:{size:10}}},y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    watch([data30d, lang], async () => {
+      await nextTick();
+      if (!data30d.value || !canvas30d.value) return;
+      const base=chartDefaults();
+      const labels=data30d.value.map(d=>{ const mo=t('months_short')[new Date(d.date).getMonth()]; return `${new Date(d.date).getDate()} ${mo}`; });
+      mountChart30d(canvas30d, ()=>({
+        type:'bar',
+        data:{labels, datasets:[{label:t('detections'),data:data30d.value.map(d=>d.n),backgroundColor:'rgba(74,138,181,.65)',borderColor:'#4a8ab5',borderWidth:1,borderRadius:2}]},
+        options:{...base,plugins:{...base.plugins,legend:{display:false}},scales:{x:{...base.scales.x,ticks:{maxTicksLimit:10,font:{size:9}}},y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    // Rebind — nécessaire car useChart() crée une closure locale
+    const mountChart30d = mount30d;
+
+    watch(lang, () => { if (sp.value.name) loadDetail(sp.value.name); });
+
+    onMounted(async () => {
+      const spParam = getUrlParam('species');
+      if (spParam) {
+        await loadDetail(decodeURIComponent(spParam));
+      } else {
+        try {
+          const rows = await birdQuery(`SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC`);
+          speciesList.value = rows.map(r=>r.Com_Name);
+          pickerVal.value = speciesList.value[0] || '';
+        } catch(e) {}
+        mode.value = 'picker';
+      }
+    });
+
+    return {
+      lang, t, setLang, langs, theme, themes, setTheme, navItems,
+      mode, speciesList, pickerVal,
+      sp, feed, extLinks,
+      playingFile, toggleAudio,
+      fmtDate, fmtTime, fmtConf, navigateTo,
+      canvasHourly, canvasMonthly, canvas30d,
+      loadDetail,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

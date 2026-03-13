@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBIRD — Rarités</title>
+  <link rel="stylesheet" href="bird-styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script src="bird-config.js"></script>
+  <script src="bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-name">🐦 PIBIRD</span>
+      <span class="brand-sub">Bruxelles</span>
+    </div>
+    <div class="header-right">
+      <div class="theme-switcher-wrap">
+        <button v-for="th in themes" :key="th.id" class="theme-btn"
+                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
+                @click="setTheme(th.id)"></button>
+      </div>
+      <div class="lang-switcher-wrap">
+        <button v-for="l in langs" :key="l.code" class="lang-btn"
+                :class="{active:lang===l.code}" :title="l.label"
+                @click="setLang(l.code)">{{l.flag}} {{l.code.toUpperCase()}}</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}">
+      <span class="nav-icon">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+
+  <main class="app-main">
+
+    <!-- Filtres -->
+    <div class="filter-bar" style="margin-bottom:1rem;">
+      <div class="filter-group">
+        <label>{{t('filter_confidence')}}</label>
+        <select class="bird-select" v-model="fConf">
+          <option value="0">0%</option>
+          <option value="0.5">50%</option>
+          <option value="0.7">70%</option>
+          <option value="0.8">80%</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>{{t('rarity_threshold_label')}}</label>
+        <select class="bird-select" v-model="fMaxDet">
+          <option value="5">≤ 5</option>
+          <option value="10">≤ 10</option>
+          <option value="25">≤ 25</option>
+          <option value="50">≤ 50</option>
+        </select>
+      </div>
+      <div class="filter-group" style="flex-direction:row;align-self:flex-end;gap:.4rem;">
+        <button class="btn btn-primary" @click="load">{{t('apply_filter')}}</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" style="margin-bottom:1rem;">
+      <div v-if="kpis.loading" class="spinner" style="grid-column:1/-1;"><div></div><div></div><div></div></div>
+      <template v-else>
+        <div class="kpi-card">
+          <div class="kpi-value">{{kpis.total}}</div>
+          <div class="kpi-label">{{t('species')}}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value amber">{{kpis.rare}}</div>
+          <div class="kpi-label">{{t('rare_species')}} (≤{{fMaxDet}})</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value blue">{{kpis.once}}</div>
+          <div class="kpi-label">{{t('rarity_seen_once').replace('💎 ','')}}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">{{kpis.newThisYear}}</div>
+          <div class="kpi-label">{{t('first_seen')}} {{thisYear}}</div>
+        </div>
+      </template>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:1rem;">
+
+      <!-- Vues une seule fois -->
+      <div class="card">
+        <div class="card-title">{{t('rarity_seen_once')}}</div>
+        <div v-if="once.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!once.rows.length" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <div v-for="r in once.rows" :key="r.Com_Name" class="det-item"
+               style="cursor:pointer;"
+               @click="navigateTo('species.html',{species:r.Com_Name})">
+            <div style="font-size:.9rem;flex:1;">
+              <span style="color:var(--danger);">💎</span>
+              <strong style="color:var(--text-main);">{{r.Com_Name}}</strong>
+              <div style="font-size:.74rem;color:var(--text-muted);font-style:italic;">{{r.sci}}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <span :class="'conf-badge '+(parseFloat(r.max_conf)>=0.8?'conf-high':'conf-mid')">
+                {{fmtConf(r.max_conf)}}
+              </span>
+              <div style="font-size:.72rem;color:var(--text-faint);margin-top:.2rem;">
+                {{fmtDate(r.last_date)}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dernières détections rares -->
+      <div class="card">
+        <div class="card-title">{{t('rarity_last_rare')}}</div>
+        <div v-if="recent.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!recent.rows.length" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <div v-for="d in recent.rows" :key="d.Date+d.Time+d.Com_Name" class="det-item"
+               style="cursor:pointer;"
+               @click="navigateTo('species.html',{species:d.Com_Name})">
+            <button v-if="d.File_Name" class="play-btn"
+                    style="width:22px;height:22px;font-size:.6rem;"
+                    :class="{playing:playingFile===d.File_Name}"
+                    @click.stop="toggleAudio(d.File_Name)">▶</button>
+            <div class="det-time">{{fmtDate(d.Date)}}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{d.Com_Name}}
+              </div>
+              <div class="det-sci">{{d.Sci_Name}}</div>
+            </div>
+            <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':'conf-mid')">
+              {{fmtConf(d.Confidence)}}
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Table complète -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);">
+        <div class="card-title" style="margin-bottom:0;">{{t('rare_desc',{n:fMaxDet})}}</div>
+      </div>
+      <div v-if="table.loading" class="spinner" style="padding:2rem;"><div></div><div></div><div></div></div>
+      <div v-else-if="!table.rows.length" class="error-msg" style="padding:1rem;">{{t('no_data')}}</div>
+      <table v-else class="bird-table">
+        <thead><tr>
+          <th>{{t('species_name')}}</th>
+          <th style="font-style:italic;">{{t('latin_name')}}</th>
+          <th>{{t('detections_count')}}</th>
+          <th>{{t('first_seen')}}</th>
+          <th>{{t('last_seen')}}</th>
+          <th>{{t('max_confidence')}}</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="r in table.rows" :key="r.Com_Name"
+              style="cursor:pointer;"
+              @click="navigateTo('species.html',{species:r.Com_Name})">
+            <td>
+              <span style="margin-right:.3rem;">{{r.n===1?'💎':r.n<=3?'🔶':'🔹'}}</span>
+              <strong>{{r.Com_Name}}</strong>
+            </td>
+            <td style="font-style:italic;color:var(--text-muted);font-size:.8rem;">{{r.sci}}</td>
+            <td style="text-align:center;">
+              <span :class="'conf-badge '+(r.n===1?'conf-low':r.n<=5?'conf-mid':'conf-high')">
+                {{r.n}}
+              </span>
+            </td>
+            <td style="font-size:.8rem;">{{fmtDate(r.first_date)}}</td>
+            <td style="font-size:.8rem;">{{fmtDate(r.last_date)}}</td>
+            <td><span class="conf-badge conf-high">{{r.max_conf}}%</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const { createApp, ref, watch, onMounted } = Vue;
+const { useI18n, useTheme, useNav, useAudio,
+        birdQuery, fmtDate, fmtConf, localDateStr, navigateTo } = PIBIRD;
+
+createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems }                = useNav('rarities');
+    const { playingFile, toggleAudio }= useAudio();
+
+    const fConf   = ref('0.7');
+    const fMaxDet = ref('10');
+    const thisYear = localDateStr().substring(0,4);
+
+    const kpis   = ref({ loading:true, total:0, rare:0, once:0, newThisYear:0 });
+    const once   = ref({ loading:true, rows:[] });
+    const recent = ref({ loading:true, rows:[] });
+    const table  = ref({ loading:true, rows:[] });
+
+    async function load() {
+      const conf   = parseFloat(fConf.value);
+      const maxDet = parseInt(fMaxDet.value);
+      await Promise.all([
+        loadKpis(conf, maxDet),
+        loadOnce(conf),
+        loadRecent(conf, maxDet),
+        loadTable(conf, maxDet),
+      ]);
+    }
+
+    async function loadKpis(conf, maxDet) {
+      kpis.value.loading = true;
+      try {
+        const [tot]  = await birdQuery(`SELECT COUNT(DISTINCT Com_Name) as n FROM detections WHERE Confidence>=?`,[conf]);
+        const [rare] = await birdQuery(`SELECT COUNT(*) as n FROM (SELECT Com_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name HAVING COUNT(*)<=?)`,[conf,maxDet]);
+        const [once] = await birdQuery(`SELECT COUNT(*) as n FROM (SELECT Com_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name HAVING COUNT(*)=1)`,[conf]);
+        const [nw]   = await birdQuery(`SELECT COUNT(*) as n FROM (SELECT Com_Name FROM detections WHERE Confidence>=? AND SUBSTR(Date,1,4)=? GROUP BY Com_Name HAVING MIN(Date)>=?||'-01-01')`,[conf,thisYear,thisYear]);
+        kpis.value = { loading:false, total:tot.n, rare:rare.n, once:once.n, newThisYear:nw.n };
+      } catch(e) { kpis.value = {...kpis.value, loading:false}; }
+    }
+
+    async function loadOnce(conf) {
+      once.value.loading = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as sci, MAX(Date) as last_date, MAX(Confidence) as max_conf
+           FROM detections WHERE Confidence>=? GROUP BY Com_Name HAVING COUNT(*)=1
+           ORDER BY last_date DESC LIMIT 20`,[conf]);
+        once.value = { loading:false, rows };
+      } catch(e) { once.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadRecent(conf, maxDet) {
+      recent.value.loading = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT d.Date,d.Time,d.Com_Name,d.Sci_Name,d.Confidence,d.File_Name
+           FROM detections d
+           INNER JOIN (SELECT Com_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name HAVING COUNT(*)<=?) rare
+           ON d.Com_Name=rare.Com_Name WHERE d.Confidence>=?
+           ORDER BY d.Date DESC,d.Time DESC LIMIT 15`,[conf,maxDet,conf]);
+        recent.value = { loading:false, rows };
+      } catch(e) { recent.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadTable(conf, maxDet) {
+      table.value.loading = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as sci, COUNT(*) as n,
+                  MIN(Date) as first_date, MAX(Date) as last_date,
+                  ROUND(MAX(Confidence)*100,1) as max_conf
+           FROM detections WHERE Confidence>=? GROUP BY Com_Name HAVING n<=?
+           ORDER BY last_date DESC, n ASC`,[conf,maxDet]);
+        table.value = { loading:false, rows };
+      } catch(e) { table.value = { loading:false, rows:[] }; }
+    }
+
+    // Recharge les listes (labels traduits) si langue change
+    watch(lang, () => load());
+    onMounted(() => load());
+
+    return {
+      lang, t, setLang, langs, theme, themes, setTheme, navItems,
+      fConf, fMaxDet, thisYear, kpis, once, recent, table,
+      playingFile, toggleAudio,
+      fmtDate, fmtConf, navigateTo, load,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

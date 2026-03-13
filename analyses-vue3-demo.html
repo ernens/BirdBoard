@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="forest">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIBIRD · Analyses (Vue 3 demo)</title>
+
+<!--
+  DÉMONSTRATION COMPARATIVE — Vue 3 CDN
+  ──────────────────────────────────────
+  Même fonctionnalité que analyses.html :
+    - Filtres date + confiance + espèce
+    - 4 KPIs traduits
+    - Rose chart ECharts
+    - Narratif d'activité
+  Mais architecturée en Vue 3 via CDN (pas de build, pas de npm).
+
+  Ce qui change par rapport à la version HTML/JS actuelle :
+    - i18n réactive : changer de langue met à jour TOUT automatiquement
+    - State centralisé : un seul objet réactif, pas de variables globales éparpillées
+    - Computed : les labels sont recalculés automatiquement quand lang ou data changent
+    - Pas de langchange listener manuel : Vue observe les dépendances lui-même
+    - renderTable, renderSummary, renderPagination → directives v-for / v-if dans le template
+-->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+
+<style>
+/* ── Thème (variables identiques à bird-styles.css) ─────────────────────── */
+:root, [data-theme="forest"] {
+  --bg-page:   #0f1d12; --bg-card:  #141f15; --bg-card2:  #192b1b;
+  --bg-hover:  #1e3321; --bg-input: #1a2b1c; --border:    #243d26;
+  --accent:    #5a9e3a; --accent-dim:#3d6e28; --accent-glow:rgba(90,158,58,.18);
+  --amber:     #c8a84b; --danger:   #e06c4a; --blue:      #4a8ab5;
+  --text-main: #ddeadd; --text-muted:#6a9070; --text-faint:#3d5e3f;
+}
+[data-theme="paper"] {
+  --bg-page:   #f5f0e6; --bg-card:  #ede7d9; --bg-card2:  #e6deca;
+  --bg-hover:  #ddd5c4; --bg-input: #e8e0d0; --border:    #c8baa0;
+  --accent:    #6b4c2a; --accent-dim:#4a3018; --accent-glow:rgba(107,76,42,.12);
+  --amber:     #8a5a1a; --danger:   #a03020; --blue:      #2a5a8a;
+  --text-main: #2a1f0e; --text-muted:#6a5a40; --text-faint:#b0a088;
+}
+[data-theme="night"] {
+  --bg-page:   #0c0f1a; --bg-card:  #111525; --bg-card2:  #161c30;
+  --bg-hover:  #1c2540; --bg-input: #141830; --border:    #1f2a50;
+  --accent:    #5b8fe8; --accent-dim:#3a60b0; --accent-glow:rgba(91,143,232,.18);
+  --amber:     #d4a847; --danger:   #e05a7a; --blue:      #4ac8d8;
+  --text-main: #d0dcf5; --text-muted:#5a72a8; --text-faint:#2a3860;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Georgia', serif;
+  background: var(--bg-page);
+  color: var(--text-main);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* ── Barre de démo ────────────────────────────────────────────────────────── */
+.demo-banner {
+  background: var(--amber);
+  color: #1a1200;
+  padding: .4rem 1.2rem;
+  font-size: .78rem;
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+}
+.demo-banner strong { font-size: .82rem; }
+
+/* ── Layout principal ─────────────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1.4rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  gap: 1rem;
+}
+.topbar-title {
+  font-size: 1rem;
+  color: var(--accent);
+  letter-spacing: .04em;
+  font-weight: bold;
+}
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Switchers ────────────────────────────────────────────────────────────── */
+.switcher-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: .25rem .55rem;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: all .15s;
+}
+.switcher-btn:hover { border-color: var(--accent); color: var(--text-main); }
+.switcher-btn.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: bold;
+}
+
+/* ── Main content ─────────────────────────────────────────────────────────── */
+.main { display: flex; gap: 0; flex: 1; }
+
+.sidebar {
+  width: 220px;
+  min-width: 180px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.content { flex: 1; padding: 1.2rem; overflow: auto; }
+
+/* ── Form elements ────────────────────────────────────────────────────────── */
+label { font-size: .72rem; color: var(--text-muted); display: block; margin-bottom: .2rem; }
+
+input[type=date], select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: .3rem .5rem;
+  font-size: .82rem;
+}
+input[type=range] { width: 100%; accent-color: var(--accent); }
+
+.quick-btns { display: flex; flex-wrap: wrap; gap: .3rem; }
+.quick-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: .2rem .45rem;
+  font-size: .72rem;
+  cursor: pointer;
+  transition: all .12s;
+}
+.quick-btn:hover { border-color: var(--accent); color: var(--text-main); }
+.quick-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
+.btn-apply {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  border-radius: 5px;
+  padding: .45rem;
+  font-size: .85rem;
+  cursor: pointer;
+  margin-top: .3rem;
+  transition: opacity .15s;
+}
+.btn-apply:hover { opacity: .85; }
+.btn-apply:disabled { opacity: .5; cursor: default; }
+
+/* ── KPIs ────────────────────────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .7rem;
+  margin-bottom: 1rem;
+}
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .8rem 1rem;
+}
+.kpi-val { font-size: 1.5rem; font-weight: bold; color: var(--accent); line-height: 1.1; }
+.kpi-val.amber { color: var(--amber); }
+.kpi-val.blue  { color: var(--blue); }
+.kpi-val.green2 { color: #4ec94e; }
+.kpi-label { font-size: .68rem; color: var(--text-muted); text-transform: uppercase;
+             letter-spacing: .06em; margin-top: .25rem; }
+
+/* ── Graphiques + narratif ───────────────────────────────────────────────── */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .8rem;
+  margin-top: .8rem;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+.card-title { font-size: .72rem; color: var(--text-muted); text-transform: uppercase;
+              letter-spacing: .07em; margin-bottom: .6rem; }
+#polar-chart { width: 100%; height: 320px; }
+
+.narrative {
+  font-size: .83rem;
+  line-height: 1.75;
+  color: var(--text-main);
+}
+.narrative p { margin-bottom: .5rem; }
+.narrative strong { color: var(--accent); }
+.narrative em { color: var(--amber); font-style: normal; }
+
+/* ── État vide / chargement ──────────────────────────────────────────────── */
+.empty-msg { color: var(--text-faint); font-style: italic; font-size: .82rem;
+             display: flex; align-items: center; justify-content: center;
+             height: 100%; min-height: 80px; }
+
+/* ── Annotation diff ─────────────────────────────────────────────────────── */
+.diff-note {
+  font-size: .7rem;
+  font-family: monospace;
+  color: var(--accent);
+  margin-left: .4rem;
+  opacity: .6;
+}
+
+@media (max-width: 700px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-row { grid-template-columns: 1fr; }
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+
+<div id="app" class="app">
+
+  <!-- Bannière de démonstration -->
+  <div class="demo-banner">
+    <strong>🔬 Vue 3 CDN — Demo comparative</strong>
+    <span>Même page qu'analyses.html. Changer de langue ici → tout se met à jour sans aucun listener manuel.</span>
+  </div>
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-title">🦅 PIBIRD · {{ t('nav_analyses') }}</span>
+    <div class="controls-row">
+
+      <!-- Switcher langue — aucun listener manuel, Vue observe `lang` -->
+      <div style="display:flex;gap:.3rem;">
+        <button v-for="l in langs" :key="l.code"
+                class="switcher-btn" :class="{ active: lang === l.code }"
+                @click="lang = l.code">
+          {{ l.flag }} {{ l.code.toUpperCase() }}
+        </button>
+      </div>
+
+      <!-- Switcher thème -->
+      <div style="display:flex;gap:.3rem;">
+        <button v-for="th in themes" :key="th.id"
+                class="switcher-btn" :class="{ active: theme === th.id }"
+                @click="setTheme(th.id)"
+                :title="th.label">{{ th.icon }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layout -->
+  <div class="main">
+
+    <!-- Sidebar filtres -->
+    <div class="sidebar">
+      <div>
+        <!-- label traduit automatiquement via computed `t` -->
+        <label>{{ t('analyses_date_from') }}</label>
+        <input type="date" v-model="filters.from">
+      </div>
+      <div>
+        <label>{{ t('analyses_date_to') }}</label>
+        <input type="date" v-model="filters.to">
+      </div>
+      <div class="quick-btns">
+        <button v-for="q in quickRanges" :key="q.key"
+                class="quick-btn" :class="{ active: activeQuick === q.key }"
+                @click="setQuick(q)">
+          {{ t(q.i18nKey) }}
+        </button>
+      </div>
+      <div>
+        <!-- Texte du label traduit + valeur interpolée — aucune modification JS -->
+        <label>{{ t('analyses_conf_label') }} : {{ filters.conf }}%</label>
+        <input type="range" min="0" max="100" step="5" v-model.number="filters.conf">
+      </div>
+      <div>
+        <label>{{ t('analyses_what_species') }}</label>
+        <select v-model="filters.species">
+          <option value="">{{ t('all_species') }}</option>
+          <option v-for="sp in speciesList" :key="sp" :value="sp">{{ sp }}</option>
+        </select>
+      </div>
+      <button class="btn-apply" @click="runQuery" :disabled="loading">
+        {{ loading ? t('loading') : t('apply_filter') }}
+      </button>
+    </div>
+
+    <!-- Contenu -->
+    <div class="content">
+
+      <!-- Période — computed, se recalcule si lang ou filters changent -->
+      <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:.8rem;">
+        {{ periodLabel }}
+      </p>
+
+      <!-- KPIs — computed depuis `kpis` + `lang` -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-val">{{ fmt(kpis.raw) }}</div>
+          <div class="kpi-label">{{ t('analyses_kpi_raw') }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val amber">{{ fmt(kpis.resampled) }}</div>
+          <div class="kpi-label">{{ t('analyses_kpi_resampled') }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val blue">{{ kpis.conf ? (kpis.conf*100).toFixed(1)+'%' : '—' }}</div>
+          <div class="kpi-label">{{ t('analyses_kpi_conf') }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val green2">{{ kpis.days || '—' }}</div>
+          <div class="kpi-label">{{ t('analyses_kpi_days') }}</div>
+        </div>
+      </div>
+
+      <!-- Charts + narratif -->
+      <div class="chart-row">
+
+        <!-- Rose chart -->
+        <div class="card">
+          <!-- computed polarTitle se met à jour avec lang ET filters.species -->
+          <div class="card-title">{{ polarTitle }}</div>
+          <div v-if="byHour.length" id="polar-chart" ref="polarEl"></div>
+          <div v-else class="empty-msg">{{ t('analyses_no_data_period') }}</div>
+        </div>
+
+        <!-- Narratif -->
+        <div class="card">
+          <div class="card-title">🦉 {{ t('last_detection') }}</div>
+          <!-- narrative est un computed qui dépend de lang + byHour -->
+          <div class="narrative" v-html="narrative"></div>
+        </div>
+
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <!-- ── Panneau explicatif "Qu'est-ce qui change ?" ────────────────────── -->
+  <div style="border-top:1px solid var(--border);padding:1.2rem 1.6rem;background:var(--bg-card2);
+              font-size:.78rem;color:var(--text-muted);line-height:1.7;">
+    <strong style="color:var(--amber);font-size:.82rem;">📐 Ce qui diffère de la version HTML/JS actuelle</strong>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.7rem;">
+      <div>
+        <strong style="color:var(--text-main);">Version actuelle (bird-i18n.js)</strong><br>
+        <code style="font-size:.72rem;">
+          document.addEventListener('langchange', () => {<br>
+          &nbsp;&nbsp;applyI18n();        // data-i18n statiques<br>
+          &nbsp;&nbsp;loadSpeciesDropdown();<br>
+          &nbsp;&nbsp;renderTags();<br>
+          &nbsp;&nbsp;if (selected) applyFilters(); // charts<br>
+          });
+        </code>
+        <br><br>Chaque page doit déclarer manuellement ce listener.<br>
+        Les labels <em style="color:var(--accent)">chartTitle</em>, <em style="color:var(--accent)">t('kpi_...')</em> générés en <code>innerHTML</code> ne se mettent à jour que si la fonction correspondante est ré-appelée.
+      </div>
+      <div>
+        <strong style="color:var(--text-main);">Version Vue 3 CDN</strong><br>
+        <code style="font-size:.72rem;">
+          // Dans le template : {{ t('nav_analyses') }}<br>
+          // Computed :<br>
+          polarTitle: () => t('analyses_polar_title',<br>
+          &nbsp;&nbsp;{ species: filters.species }),<br>
+          narrative:  () => buildNarr(byHour, lang),
+        </code>
+        <br><br>
+        <strong style="color:var(--accent)">Aucun listener manuel.</strong> Vue observe que <code>polarTitle</code> dépend de <code>lang</code> et de <code>filters.species</code> — dès que l'un change, le DOM se met à jour automatiquement. Même logique pour tous les labels, titres de charts, narratifs.
+      </div>
+    </div>
+    <div style="margin-top:.8rem;padding:.6rem;background:var(--bg-card);border-radius:6px;border:1px solid var(--border);">
+      <strong style="color:var(--text-main);">Coût de migration : </strong>
+      réécrire le template HTML en directives Vue (<code>v-for</code>, <code>v-if</code>, <code>v-model</code>) + déplacer les fonctions async dans <code>setup()</code>. Les requêtes SQLite via <code>birdQuery()</code> restent identiques. Estimation : ~4-6h par page complexe.
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
+
+// ── Traductions embarquées (même contenu que bird-i18n.js inline) ─────────
+const TRANSLATIONS = {
+  fr: {
+    nav_analyses:'Analyses', analyses_date_from:'Du', analyses_date_to:'Au',
+    analyses_conf_label:'Confiance min.', analyses_what_species:'Quelle espèce ?',
+    all_species:'Toutes espèces', apply_filter:'▶ Appliquer', loading:'Chargement…',
+    analyses_kpi_raw:'Détections brutes', analyses_kpi_resampled:'Après rééchantillonnage',
+    analyses_kpi_conf:'Confiance moyenne', analyses_kpi_days:'Jours détectée',
+    analyses_polar_title:'Activité horaire · {species}',
+    analyses_period:'Période {from} → {to}', analyses_no_data_period:'Aucune donnée.',
+    last_detection:'Analyse',
+    narr_period:'Sur la période {from} → {to},',
+    narr_is:'est', narr_habit_morning:'matinal', narr_habit_afternoon:'actif en fin d\'après-midi',
+    narr_habit_night:'nocturne', narr_habit_day:'actif dans la journée',
+    narr_peak_at:'Son pic est à {time}, soit {pct}% des détections.',
+    narr_activity_range:'Activité de {start} à {end} (~{duration}).',
+    narr_duration:'{n}h d\'activité',
+    narr_second_peak:'Second pic notable vers {time}.',
+    narr_total:'Total : {n} détections sur {h}h actives.',
+    analyses_quick_7d:'7j', analyses_quick_30d:'30j',
+    analyses_quick_90d:'90j', analyses_quick_1y:'1 an', analyses_quick_all:'Tout',
+  },
+  en: {
+    nav_analyses:'Analysis', analyses_date_from:'From', analyses_date_to:'To',
+    analyses_conf_label:'Min. confidence', analyses_what_species:'Which species?',
+    all_species:'All species', apply_filter:'▶ Apply', loading:'Loading…',
+    analyses_kpi_raw:'Raw detections', analyses_kpi_resampled:'After resampling',
+    analyses_kpi_conf:'Avg confidence', analyses_kpi_days:'Days detected',
+    analyses_polar_title:'Hourly activity · {species}',
+    analyses_period:'Period {from} → {to}', analyses_no_data_period:'No data.',
+    last_detection:'Analysis',
+    narr_period:'Over the period {from} → {to},',
+    narr_is:'is', narr_habit_morning:'a morning bird', narr_habit_afternoon:'active in the afternoon',
+    narr_habit_night:'nocturnal', narr_habit_day:'active during the day',
+    narr_peak_at:'Peak activity at {time}, representing {pct}% of detections.',
+    narr_activity_range:'Activity from {start} to {end} (~{duration}).',
+    narr_duration:'{n}h of activity',
+    narr_second_peak:'Second notable peak around {time}.',
+    narr_total:'Total: {n} detections over {h} active hours.',
+    analyses_quick_7d:'7d', analyses_quick_30d:'30d',
+    analyses_quick_90d:'90d', analyses_quick_1y:'1yr', analyses_quick_all:'All',
+  },
+  nl: {
+    nav_analyses:'Analyse', analyses_date_from:'Van', analyses_date_to:'Tot',
+    analyses_conf_label:'Min. betrouwbaarheid', analyses_what_species:'Welke soort?',
+    all_species:'Alle soorten', apply_filter:'▶ Toepassen', loading:'Laden…',
+    analyses_kpi_raw:'Ruwe detecties', analyses_kpi_resampled:'Na hersampling',
+    analyses_kpi_conf:'Gem. betrouwbaarheid', analyses_kpi_days:'Dagen gedetecteerd',
+    analyses_polar_title:'Uuractiviteit · {species}',
+    analyses_period:'Periode {from} → {to}', analyses_no_data_period:'Geen gegevens.',
+    last_detection:'Analyse',
+    narr_period:'Over de periode {from} → {to},',
+    narr_is:'is', narr_habit_morning:'een ochtendvogel', narr_habit_afternoon:'actief in de namiddag',
+    narr_habit_night:'nachtelijk', narr_habit_day:'actief overdag',
+    narr_peak_at:'Piekactiviteit om {time}, goed voor {pct}% van de detecties.',
+    narr_activity_range:'Activiteit van {start} tot {end} (~{duration}).',
+    narr_duration:'{n}u activiteit',
+    narr_second_peak:'Tweede piek rond {time}.',
+    narr_total:'Totaal: {n} detecties over {h} actieve uren.',
+    analyses_quick_7d:'7d', analyses_quick_30d:'30d',
+    analyses_quick_90d:'90d', analyses_quick_1y:'1jr', analyses_quick_all:'Alles',
+  },
+};
+
+// ── Données de démonstration (simulées) ───────────────────────────────────
+// Dans la vraie app, ces données viendraient de birdQuery() vers bird-server.js
+const DEMO_BY_HOUR = [
+  { h:5,n:12 },{ h:6,n:89 },{ h:7,n:245 },{ h:8,n:312 },{ h:9,n:287 },
+  { h:10,n:198 },{ h:11,n:142 },{ h:12,n:96 },{ h:13,n:78 },{ h:14,n:65 },
+  { h:15,n:88 },{ h:16,n:134 },{ h:17,n:176 },{ h:18,n:143 },{ h:19,n:67 },
+  { h:20,n:28 },{ h:21,n:8 },
+];
+const DEMO_SPECIES = [
+  'Pouillot véloce','Mésange charbonnière','Rouge-gorge familier',
+  'Merle noir','Pinson des arbres','Mésange bleue','Fauvette à tête noire',
+  'Grive musicienne','Accenteur mouchet','Bruant zizi',
+];
+const DEMO_KPIS = { raw: 146710, resampled: 11893, conf: 0.837, days: 739 };
+
+// ── App Vue ───────────────────────────────────────────────────────────────
+createApp({
+  setup() {
+
+    // ── État réactif ─────────────────────────────────────────────────────
+    // Un seul objet `ref` pour chaque préoccupation — pas de variables globales éparpillées
+    const lang    = ref(localStorage.getItem('pibird_lang') || 'fr');
+    const theme   = ref(localStorage.getItem('pibird-theme') || 'forest');
+    const loading = ref(false);
+    const byHour  = ref(DEMO_BY_HOUR);
+    const kpis    = ref(DEMO_KPIS);
+    const speciesList = ref(DEMO_SPECIES);
+    const activeQuick = ref('all');
+    const polarEl = ref(null);   // ref sur le DOM node du chart ECharts
+
+    const filters = ref({
+      from:    '2023-09-18',
+      to:      new Date().toISOString().slice(0,10),
+      conf:    65,
+      species: 'Pouillot véloce',
+    });
+
+    const langs  = [
+      { code:'fr', flag:'🇫🇷' },
+      { code:'en', flag:'🇬🇧' },
+      { code:'nl', flag:'🇳🇱' },
+    ];
+    const themes = [
+      { id:'forest', icon:'🌿', label:'Forêt' },
+      { id:'night',  icon:'🌙', label:'Nuit' },
+      { id:'paper',  icon:'📜', label:'Papier' },
+    ];
+    const quickRanges = [
+      { key:'7d',  days:7,   i18nKey:'analyses_quick_7d' },
+      { key:'30d', days:30,  i18nKey:'analyses_quick_30d' },
+      { key:'90d', days:90,  i18nKey:'analyses_quick_90d' },
+      { key:'1y',  days:365, i18nKey:'analyses_quick_1y' },
+      { key:'all', days:null,i18nKey:'analyses_quick_all' },
+    ];
+
+    // ── Traduction — computed sur `lang` ─────────────────────────────────
+    // C'est la clé de tout : t() est une fonction qui lit `lang.value`.
+    // Tout computed qui appelle t() se recalcule automatiquement si lang change.
+    // AUCUN addEventListener('langchange') n'est nécessaire.
+    const t = (key, vars = {}) => {
+      const dict = TRANSLATIONS[lang.value] || TRANSLATIONS['fr'];
+      let val = dict[key] ?? TRANSLATIONS['fr'][key] ?? key;
+      if (typeof val === 'string') {
+        Object.entries(vars).forEach(([k,v]) => {
+          val = val.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+        });
+      }
+      return val;
+    };
+
+    // ── Computed labels — se recalculent si lang OU data changent ─────────
+    // Dans la version actuelle, chaque chart re-fetch ses données sur langchange.
+    // Ici : Vue recalcule uniquement ce qui a changé (lazy, batché).
+    const periodLabel = computed(() =>
+      t('analyses_period', { from: filters.value.from, to: filters.value.to })
+    );
+
+    const polarTitle = computed(() => {
+      const sp = filters.value.species || t('all_species');
+      return t('analyses_polar_title', { species: sp });
+    });
+
+    // ── Narratif — computed dépendant de `lang` et `byHour` ─────────────
+    const narrative = computed(() => {
+      const rows = byHour.value;
+      if (!rows.length) return `<em>${t('analyses_no_data_period')}</em>`;
+
+      const total = rows.reduce((s,r) => s+r.n, 0);
+      const peak  = rows.reduce((mx,r) => r.n > mx.n ? r : mx, rows[0]);
+      const pct   = Math.round(peak.n / total * 100);
+
+      // Habitude : heure de pointe → label traduit automatiquement
+      let habit;
+      if (peak.h >= 5 && peak.h <= 9)       habit = t('narr_habit_morning');
+      else if (peak.h >= 10 && peak.h <= 14) habit = t('narr_habit_day');
+      else if (peak.h >= 15 && peak.h <= 19) habit = t('narr_habit_afternoon');
+      else                                    habit = t('narr_habit_night');
+
+      const sp = filters.value.species || '—';
+      const active = rows.filter(r => r.n > total/rows.length * 0.2);
+      const hStart = active[0]?.h ?? peak.h;
+      const hEnd   = active[active.length-1]?.h ?? peak.h;
+      const dur    = hEnd - hStart;
+
+      // Second pic
+      const excl = rows.filter(r => r.h !== peak.h);
+      const peak2 = excl.reduce((mx,r) => r.n > mx.n ? r : mx, excl[0] || {h:0,n:0});
+
+      let html = `<p>${t('narr_period', { from: filters.value.from, to: filters.value.to })} `;
+      html += `<strong>${sp}</strong> ${t('narr_is')} <em>${habit}</em>.</p>`;
+      html += `<p>${t('narr_peak_at', { time: peak.h+'h', pct })}</p>`;
+      if (dur > 0) {
+        html += `<p>${t('narr_activity_range', {
+          start: hStart+'h', end: hEnd+'h',
+          duration: t('narr_duration', { n: dur })
+        })}</p>`;
+      }
+      if (peak2.n > total * 0.08) {
+        html += `<p>${t('narr_second_peak', { time: peak2.h+'h' })}</p>`;
+      }
+      html += `<p style="color:var(--text-muted)">${t('narr_total', {
+        n: total.toLocaleString(), h: (active.length || 1)
+      })}</p>`;
+      return html;
+    });
+
+    // ── Rose chart ECharts — watch sur byHour + lang ─────────────────────
+    // watch() remplace l'appel manuel à loadPolarChart() dans langchange.
+    // Il se déclenche automatiquement quand byHour ou lang changent.
+    let _chart = null;
+    watch([byHour, lang], async () => {
+      await nextTick();
+      if (!polarEl.value || !byHour.value.length) return;
+      if (_chart) _chart.dispose();
+      _chart = echarts.init(polarEl.value, null, { renderer: 'canvas' });
+
+      const DAY   = [6,7,8,9,10,11,12,13,14,15,16,17,18];
+      const DAWN  = [4,5,19,20];
+      const NIGHT = [0,1,2,3,21,22,23];
+
+      const rows = byHour.value;
+      const total = rows.reduce((s,r) => s+r.n, 0);
+      const byH = {};
+      rows.forEach(r => byH[r.h] = r.n);
+
+      const data = Array.from({ length: 24 }, (_, h) => {
+        const n = byH[h] || 0;
+        return {
+          value: n,
+          name: h+'h',
+          itemStyle: {
+            color: DAY.includes(h)   ? '#5a9e3a'
+                 : DAWN.includes(h)  ? '#c8a84b'
+                 : NIGHT.includes(h) ? '#4a8ab5'
+                 : '#5a9e3a',
+          },
+          tooltip: { formatter: `${h}h — ${n} ${t('detections') || 'détections'} (${total ? Math.round(n/total*100) : 0}%)` },
+        };
+      });
+
+      _chart.setOption({
+        backgroundColor: 'transparent',
+        angleAxis: {
+          type: 'category',
+          data: Array.from({length:24}, (_,h) => h+'h'),
+          startAngle: 97.5,
+        },
+        radiusAxis: { show: false },
+        polar: { center: ['50%','50%'], radius: '75%' },
+        series: [{
+          type: 'bar', coordinateSystem: 'polar',
+          data, barMaxWidth: 20,
+          emphasis: { focus: 'self' },
+        }],
+        tooltip: { trigger: 'item' },
+      });
+    }, { immediate: false });
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    function fmt(n) { return n ? n.toLocaleString() : '—'; }
+
+    function setTheme(id) {
+      theme.value = id;
+      localStorage.setItem('pibird-theme', id);
+      document.documentElement.setAttribute('data-theme', id);
+    }
+
+    function setQuick({ key, days }) {
+      activeQuick.value = key;
+      if (!days) {
+        filters.value.from = '2023-09-18';
+        filters.value.to = new Date().toISOString().slice(0,10);
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() - days + 1);
+        filters.value.from = d.toISOString().slice(0,10);
+        filters.value.to = new Date().toISOString().slice(0,10);
+      }
+    }
+
+    // Simule un re-fetch (dans la vraie app : birdQuery() vers bird-server.js)
+    async function runQuery() {
+      loading.value = true;
+      await new Promise(r => setTimeout(r, 400));
+      // Simuler une variation selon l'espèce choisie
+      const factor = filters.value.species === 'Rouge-gorge familier' ? 0.6 : 1;
+      byHour.value = DEMO_BY_HOUR.map(r => ({ h: r.h, n: Math.round(r.n * factor * (0.9 + Math.random()*.2)) }));
+      kpis.value = {
+        raw: Math.round(146710 * factor),
+        resampled: Math.round(11893 * factor),
+        conf: 0.80 + Math.random() * 0.08,
+        days: Math.round(739 * factor),
+      };
+      loading.value = false;
+    }
+
+    // Watcher sur la langue pour persister
+    watch(lang, (v) => {
+      localStorage.setItem('pibird_lang', v);
+      // Pas besoin de re-fetcher : les computed se recalculent automatiquement
+      // Le chart se met à jour via son propre watch([byHour, lang])
+    });
+
+    // Init chart au montage
+    onMounted(() => {
+      document.documentElement.setAttribute('data-theme', theme.value);
+      nextTick(() => { byHour.value = [...DEMO_BY_HOUR]; });
+    });
+
+    return {
+      lang, theme, loading, langs, themes,
+      filters, byHour, kpis, speciesList,
+      activeQuick, quickRanges, polarEl,
+      t, fmt, setTheme, setQuick, runQuery,
+      periodLabel, polarTitle, narrative,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBIRD — Aujourd'hui</title>
+  <link rel="stylesheet" href="bird-styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script src="bird-config.js"></script>
+  <script src="bird-vue-core.js"></script>
+  <style>
+    /* ── Layout 2 colonnes ──────────────────────────────────────────── */
+    .today-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 1rem;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .today-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ── Liste espèces ──────────────────────────────────────────────── */
+    .species-list { display: flex; flex-direction: column; gap: 0; }
+    .sp-item {
+      display: flex; align-items: center; gap: .7rem;
+      padding: .55rem .75rem; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background .12s;
+    }
+    .sp-item:last-child { border-bottom: none; }
+    .sp-item:hover { background: var(--bg-card2); }
+    .sp-item.active { background: var(--bg-card2); border-left: 3px solid var(--accent); }
+    .sp-thumb {
+      width: 40px; height: 40px; border-radius: 6px; object-fit: cover;
+      background: var(--bg-deep); flex-shrink: 0; font-size: 1.3rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sp-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+    .sp-info { flex: 1; min-width: 0; }
+    .sp-name-row { font-size: .86rem; font-weight: 600; color: var(--text-main);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-sci-row  { font-size: .72rem; color: var(--text-muted); font-style: italic;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-meta    { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; flex-shrink: 0; }
+
+    /* ── Panneau lecteur ────────────────────────────────────────────── */
+    .player-card { position: sticky; top: 1rem; }
+    .player-header {
+      display: flex; gap: 1rem; align-items: flex-start;
+      padding: .9rem 1rem; border-bottom: 1px solid var(--border);
+    }
+    .player-photo {
+      width: 64px; height: 64px; border-radius: var(--radius);
+      background: var(--bg-card2); overflow: hidden; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 2rem;
+    }
+    .player-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .player-species { flex: 1; min-width: 0; }
+    .player-name { font-size: 1.15rem; font-weight: 700; font-family: var(--font-display);
+      color: var(--text-main); }
+    .player-sci { font-size: .82rem; color: var(--text-muted); font-style: italic; }
+    .player-meta { display: flex; gap: .5rem; align-items: center; margin-top: .3rem; flex-wrap: wrap; }
+
+    /* ── Spectrogramme ──────────────────────────────────────────────── */
+    .spectro-wrap {
+      position: relative; background: #050a06; overflow: hidden;
+      border-radius: 0;
+    }
+    .spectro-canvas { display: block; width: 100%; height: 200px; cursor: pointer; }
+    .spectro-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    .spectro-axes {
+      display: flex; justify-content: space-between;
+      padding: .25rem .5rem; font-size: .68rem; font-family: monospace;
+      color: #5a8a60; background: #070d08;
+      border-top: 1px solid #1a2b1c;
+    }
+    .spectro-freq-labels {
+      position: absolute; right: 4px; top: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 4px 0; pointer-events: none;
+    }
+    .spectro-freq-label {
+      font-size: .62rem; font-family: monospace; color: #5a8a60;
+      line-height: 1; text-align: right;
+    }
+    .spectro-cursor {
+      position: absolute; top: 0; bottom: 0; width: 1px;
+      background: rgba(255,255,255,.5); pointer-events: none; transition: left .05s;
+    }
+    .spectro-placeholder {
+      height: 200px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-faint); font-size: .85rem; background: #050a06;
+      flex-direction: column; gap: .5rem;
+    }
+
+    /* ── Contrôles audio ────────────────────────────────────────────── */
+    .audio-controls {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .65rem 1rem; border-top: 1px solid var(--border);
+    }
+    .play-big {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; color: #fff; flex-shrink: 0;
+      transition: transform .1s, opacity .1s;
+    }
+    .play-big:hover { transform: scale(1.08); }
+    .play-big:active { transform: scale(.96); }
+    .play-big.playing { background: var(--warning); }
+    .audio-progress-wrap {
+      flex: 1; display: flex; flex-direction: column; gap: .2rem;
+    }
+    .audio-progress-bar {
+      height: 4px; background: var(--bg-card2); border-radius: 2px; overflow: hidden; cursor: pointer;
+    }
+    .audio-progress-fill {
+      height: 100%; background: var(--accent); border-radius: 2px; transition: width .1s;
+    }
+    .audio-time { font-size: .72rem; font-family: monospace; color: var(--text-muted); }
+
+    /* ── Feed détections de l'espèce ────────────────────────────────── */
+    .det-scroll {
+      max-height: 180px; overflow-y: auto;
+    }
+    .det-row {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .35rem .75rem; font-size: .8rem; cursor: pointer;
+      border-bottom: 1px solid var(--border); transition: background .1s;
+    }
+    .det-row:hover { background: var(--bg-card2); }
+    .det-row.active { background: var(--bg-card2); color: var(--accent); }
+    .det-row:last-child { border-bottom: none; }
+
+    /* ── KPI strip ──────────────────────────────────────────────────── */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: .6rem; margin-bottom: 1rem;
+    }
+    @media (max-width: 700px) {
+      .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    /* ── Hint vide ──────────────────────────────────────────────────── */
+    .hint-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .75rem; padding: 3rem 1rem; color: var(--text-faint); text-align: center;
+    }
+    .hint-empty .hint-icon { font-size: 3rem; opacity: .4; }
+  </style>
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-name">🐦 PIBIRD</span>
+      <span class="brand-sub">Bruxelles</span>
+    </div>
+    <div class="header-right">
+      <div class="theme-switcher-wrap">
+        <button v-for="th in themes" :key="th.id" class="theme-btn"
+                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
+                @click="setTheme(th.id)"></button>
+      </div>
+      <div class="lang-switcher-wrap">
+        <button v-for="l in langs" :key="l.code" class="lang-btn"
+                :class="{active:lang===l.code}" :title="l.label"
+                @click="setLang(l.code)">{{l.flag}} {{l.code.toUpperCase()}}</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}">
+      <span class="nav-icon">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+
+  <main class="app-main">
+
+    <!-- ── Titre + date ─────────────────────────────────────────── -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+      <div>
+        <h2 style="margin:0;font-family:var(--font-display);font-size:1.3rem;color:var(--text-main);">
+          {{t('today')}} · {{fmtDateLong(today)}}
+        </h2>
+        <div style="font-size:.78rem;color:var(--text-muted);">
+          {{t('filter_confidence')}} : ≥ {{Math.round(minConf*100)}}%
+          &nbsp;·&nbsp;
+          <select class="bird-select" v-model="minConf" @change="loadAll"
+                  style="padding:.15rem .4rem;font-size:.75rem;display:inline-block;width:auto;">
+            <option :value="0">0%</option>
+            <option :value="0.5">50%</option>
+            <option :value="0.7">70%</option>
+            <option :value="0.8">80%</option>
+          </select>
+          &nbsp;·&nbsp;
+          <button class="btn btn-secondary" @click="loadAll"
+                  style="padding:.15rem .6rem;font-size:.75rem;">↺ {{t('loading').replace('…','')}}</button>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-faint);text-align:right;">
+        {{t('data_freshness')}}<br>
+        <span style="color:var(--accent);">{{freshness}}</span>
+      </div>
+    </div>
+
+    <!-- ── KPIs ─────────────────────────────────────────────────── -->
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-value">{{kpis.det}}</div>
+        <div class="kpi-label">{{t('detections')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value amber">{{kpis.sp}}</div>
+        <div class="kpi-label">{{t('species')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value blue">{{kpis.conf}}</div>
+        <div class="kpi-label">{{t('avg_confidence')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">{{kpis.lastHour}}</div>
+        <div class="kpi-label">{{t('this_week').split(' ')[1]||''}} heure</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--danger);">{{kpis.newSp}}</div>
+        <div class="kpi-label">Nouvelles espèces</div>
+      </div>
+    </div>
+
+    <!-- ── Layout principal ─────────────────────────────────────── -->
+    <div class="today-layout">
+
+      <!-- Colonne gauche : liste espèces -->
+      <div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div style="padding:.6rem .85rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div class="card-title" style="margin:0;">
+              {{t('species')}} — {{speciesList.length}}
+            </div>
+            <input type="text" v-model="searchQ" class="bird-input"
+                   placeholder="🔍 filtrer…"
+                   style="width:120px;padding:.2rem .5rem;font-size:.78rem;">
+          </div>
+
+          <div v-if="loadingList" class="spinner" style="padding:2rem;"><div></div><div></div><div></div></div>
+          <div v-else-if="!speciesList.length" class="hint-empty">
+            <div class="hint-icon">🌿</div>
+            <div>{{t('no_data')}}</div>
+          </div>
+          <div v-else class="species-list">
+            <div v-for="s in filteredSpecies" :key="s.Com_Name"
+                 class="sp-item" :class="{active: selected && selected.Com_Name===s.Com_Name}"
+                 @click="selectSpecies(s)">
+              <div class="sp-thumb">
+                <img v-if="s.imgUrl" :src="s.imgUrl" :alt="s.Com_Name">
+                <span v-else>🦜</span>
+              </div>
+              <div class="sp-info">
+                <div class="sp-name-row">{{s.Com_Name}}</div>
+                <div class="sp-sci-row">{{s.sci}}</div>
+              </div>
+              <div class="sp-meta">
+                <span class="conf-badge" :class="s.max_conf>=0.8?'conf-high':'conf-mid'"
+                      style="font-size:.7rem;">
+                  {{s.n}}×
+                </span>
+                <span style="font-size:.68rem;color:var(--text-faint);font-family:monospace;">
+                  {{fmtTime(s.last_time)}}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Colonne droite : lecteur -->
+      <div>
+
+        <!-- Pas de sélection -->
+        <div v-if="!selected" class="card hint-empty">
+          <div class="hint-icon">🎵</div>
+          <div style="color:var(--text-muted);">Sélectionnez une espèce</div>
+          <div style="font-size:.78rem;">pour écouter et voir le spectrogramme</div>
+        </div>
+
+        <!-- Panneau lecteur -->
+        <div v-else class="card player-card" style="padding:0;overflow:hidden;">
+
+          <!-- Header espèce -->
+          <div class="player-header">
+            <div class="player-photo">
+              <img v-if="selected.imgUrl" :src="selected.imgUrl" :alt="selected.Com_Name">
+              <span v-else>🦜</span>
+            </div>
+            <div class="player-species">
+              <div class="player-name">{{selected.Com_Name}}</div>
+              <div class="player-sci">{{selected.sci}}</div>
+              <div class="player-meta">
+                <span class="conf-badge" :class="parseFloat(currentDet.Confidence)>=0.8?'conf-high':'conf-mid'">
+                  {{fmtConf(currentDet.Confidence)}}
+                </span>
+                <span style="font-size:.75rem;color:var(--text-muted);font-family:monospace;">
+                  {{fmtTime(currentDet.Time)}}
+                </span>
+                <a class="btn btn-secondary"
+                   :href="'especes.html?species='+encodeURIComponent(selected.Com_Name)"
+                   style="padding:.1rem .5rem;font-size:.72rem;">
+                  Fiche →
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Spectrogramme -->
+          <div class="spectro-wrap">
+            <!-- Chargement -->
+            <div v-if="spectro.state==='loading'" class="spectro-placeholder">
+              <div class="spinner" style="transform:scale(.7)"><div></div><div></div><div></div></div>
+              <div>Analyse audio…</div>
+            </div>
+            <!-- Erreur ou pas d'audio -->
+            <div v-else-if="spectro.state==='error'" class="spectro-placeholder">
+              <div style="font-size:1.5rem;opacity:.4;">🔇</div>
+              <div>Fichier audio indisponible</div>
+            </div>
+            <!-- Canvas spectro -->
+            <div v-else style="position:relative;">
+              <canvas ref="spectroCanvas" class="spectro-canvas" height="200"
+                      @click="seekFromClick"></canvas>
+              <div class="spectro-freq-labels">
+                <span class="spectro-freq-label">12 kHz</span>
+                <span class="spectro-freq-label">9</span>
+                <span class="spectro-freq-label">6</span>
+                <span class="spectro-freq-label">3</span>
+                <span class="spectro-freq-label">0</span>
+              </div>
+              <!-- Curseur de lecture -->
+              <div v-if="isPlaying" class="spectro-cursor"
+                   :style="{left: (audioProgress*100)+'%'}"></div>
+            </div>
+            <!-- Axe temps -->
+            <div class="spectro-axes" v-if="spectro.state==='ready'">
+              <span>0 s</span>
+              <span v-if="audioDuration">{{(audioDuration/2).toFixed(1)}} s</span>
+              <span v-if="audioDuration">{{audioDuration.toFixed(1)}} s</span>
+            </div>
+          </div>
+
+          <!-- Contrôles -->
+          <div class="audio-controls">
+            <button class="play-big" :class="{playing:isPlaying}"
+                    @click="togglePlay" :disabled="!currentDet.File_Name || spectro.state==='loading'">
+              {{isPlaying ? '⏸' : '▶'}}
+            </button>
+            <div class="audio-progress-wrap">
+              <div class="audio-progress-bar" @click="seekFromProgressBar">
+                <div class="audio-progress-fill" :style="{width:(audioProgress*100)+'%'}"></div>
+              </div>
+              <div class="audio-time">
+                {{fmtDuration(audioCurrentTime)}} / {{fmtDuration(audioDuration)}}
+              </div>
+            </div>
+            <div style="font-size:.72rem;color:var(--text-faint);text-align:right;min-width:60px;">
+              {{currentDetIdx+1}} / {{selectedDets.length}}
+            </div>
+          </div>
+
+          <!-- Liste des détections du jour pour cette espèce -->
+          <div v-if="selectedDets.length > 1"
+               style="border-top:1px solid var(--border);">
+            <div style="padding:.45rem .75rem;font-size:.75rem;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">
+              {{t('detections')}} du jour — {{selectedDets.length}}
+            </div>
+            <div class="det-scroll">
+              <div v-for="(d,i) in selectedDets" :key="d.Time+d.File_Name"
+                   class="det-row" :class="{active:i===currentDetIdx}"
+                   @click="loadDetection(i)">
+                <span style="font-family:monospace;color:var(--text-muted);min-width:42px;">{{fmtTime(d.Time)}}</span>
+                <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':'conf-mid')"
+                      style="font-size:.7rem;">{{fmtConf(d.Confidence)}}</span>
+                <span v-if="!d.File_Name" style="font-size:.68rem;color:var(--text-faint);">—</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── FFT + spectrogramme ────────────────────────────────────────────────────────
+// Cooley-Tukey radix-2 DIT in-place
+function fftInPlace(re, im) {
+  const n = re.length;
+  // Bit-reversal
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  // Butterfly
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1;
+    const cos_ = Math.cos(-Math.PI / half);
+    const sin_ = Math.sin(-Math.PI / half);
+    for (let i = 0; i < n; i += len) {
+      let wR = 1, wI = 0;
+      for (let k = 0; k < half; k++) {
+        const uR = re[i+k], uI = im[i+k];
+        const vR = re[i+k+half]*wR - im[i+k+half]*wI;
+        const vI = re[i+k+half]*wI + im[i+k+half]*wR;
+        re[i+k] = uR+vR; im[i+k] = uI+vI;
+        re[i+k+half] = uR-vR; im[i+k+half] = uI-vI;
+        const nwR = wR*cos_ - wI*sin_;
+        wI = wR*sin_ + wI*cos_; wR = nwR;
+      }
+    }
+  }
+}
+
+// Colormap inferno/plasma : black→purple→red→orange→yellow→white
+function spectroColor(v, lut) {
+  const i = Math.min(255, Math.max(0, Math.floor(v * 255)));
+  return i * 3;  // index dans lut (RGB plat)
+}
+
+function buildColorLUT() {
+  const lut = new Uint8Array(256 * 3);
+  const stops = [
+    [0,   [0,   0,   0  ]],
+    [0.1, [20,  0,   50 ]],
+    [0.25,[80,  0,   100]],
+    [0.42,[180, 20,  80 ]],
+    [0.58,[230, 70,  20 ]],
+    [0.75,[255, 155, 0  ]],
+    [0.90,[255, 230, 70 ]],
+    [1.0, [255, 255, 255]],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const v = i / 255;
+    let s = 0;
+    while (s < stops.length - 2 && stops[s+1][0] <= v) s++;
+    const [v0, c0] = stops[s];
+    const [v1, c1] = stops[s+1];
+    const t = Math.min(1, (v - v0) / (v1 - v0 + 1e-9));
+    lut[i*3]   = Math.round(c0[0] + t*(c1[0]-c0[0]));
+    lut[i*3+1] = Math.round(c0[1] + t*(c1[1]-c0[1]));
+    lut[i*3+2] = Math.round(c0[2] + t*(c1[2]-c0[2]));
+  }
+  return lut;
+}
+
+const COLOR_LUT = buildColorLUT();
+
+async function computeAndDrawSpectrogram(url, canvas) {
+  // 1. Fetch + decode
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('fetch failed');
+  const arrBuf = await resp.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 22050 });
+  const audioBuffer = await audioCtx.decodeAudioData(arrBuf);
+  await audioCtx.close();
+
+  const pcm = audioBuffer.getChannelData(0);
+  const sr  = audioBuffer.sampleRate;
+  const duration = audioBuffer.duration;
+
+  // 2. STFT
+  const FFT  = 512;
+  const HOP  = 128;
+  const HALF = FFT / 2;
+  const maxHz = 12000;
+  const maxBin = Math.min(HALF, Math.floor(maxHz / sr * FFT));
+
+  // Hann window
+  const hann = new Float32Array(FFT);
+  for (let i = 0; i < FFT; i++) hann[i] = 0.5 - 0.5 * Math.cos(2*Math.PI*i/(FFT-1));
+
+  const frames = [];
+  for (let off = 0; off + FFT <= pcm.length; off += HOP) {
+    const re = new Float32Array(FFT);
+    const im = new Float32Array(FFT);
+    for (let i = 0; i < FFT; i++) re[i] = pcm[off+i] * hann[i];
+    fftInPlace(re, im);
+    // Magnitude en dB
+    const mag = new Float32Array(maxBin);
+    for (let i = 1; i < maxBin; i++) {
+      const m = Math.sqrt(re[i]*re[i] + im[i]*im[i]) / HALF;
+      mag[i] = 20 * Math.log10(m + 1e-9);
+    }
+    frames.push(mag);
+  }
+
+  // 3. Normalisation dynamique (percentile)
+  const allVals = frames.flatMap(f => Array.from(f)).sort((a,b)=>a-b);
+  const lo = allVals[Math.floor(allVals.length * 0.05)] ?? -80;
+  const hi = allVals[Math.floor(allVals.length * 0.995)] ?? -10;
+  const range = hi - lo || 1;
+
+  // 4. Dessin via ImageData
+  const W = canvas.width, H = canvas.height;
+  canvas.width  = W; // force clear
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const d   = img.data;
+
+  for (let px = 0; px < W; px++) {
+    const fi = Math.floor(px / W * frames.length);
+    const frame = frames[Math.min(fi, frames.length-1)];
+    for (let py = 0; py < H; py++) {
+      const bin = Math.floor((H - 1 - py) / H * maxBin);
+      const v   = Math.max(0, Math.min(1, (frame[bin] - lo) / range));
+      const ci  = spectroColor(v, COLOR_LUT);
+      const pi  = (py * W + px) * 4;
+      d[pi]   = COLOR_LUT[ci];
+      d[pi+1] = COLOR_LUT[ci+1];
+      d[pi+2] = COLOR_LUT[ci+2];
+      d[pi+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  return { duration };
+}
+
+// ── Vue 3 App ─────────────────────────────────────────────────────────────────
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav,
+        birdQuery, fmtDate, fmtTime, fmtConf, freshnessLabel,
+        localDateStr, buildAudioUrl, buildSpeciesLinks, fetchSpeciesImage,
+        navigateTo } = PIBIRD;
+
+createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems }                = useNav('today');
+
+    const today   = localDateStr();
+    const minConf = ref(BIRD_CONFIG.defaultConfidence);
+    const searchQ = ref('');
+
+    // KPIs
+    const kpis = ref({ det:'—', sp:'—', conf:'—', lastHour:'—', newSp:'—' });
+    const freshness = ref('—');
+
+    // Liste espèces
+    const loadingList  = ref(true);
+    const speciesList  = ref([]);
+    const selected     = ref(null);
+    const selectedDets = ref([]);
+    const currentDetIdx= ref(0);
+
+    // Audio
+    let _audio = null;
+    const isPlaying      = ref(false);
+    const audioProgress  = ref(0);
+    const audioCurrentTime = ref(0);
+    const audioDuration  = ref(0);
+
+    // Spectrogramme
+    const spectroCanvas = ref(null);
+    const spectro = ref({ state: 'idle' }); // idle | loading | ready | error
+
+    const currentDet = computed(() =>
+      selectedDets.value[currentDetIdx.value] || {}
+    );
+
+    const filteredSpecies = computed(() => {
+      const q = searchQ.value.toLowerCase().trim();
+      if (!q) return speciesList.value;
+      return speciesList.value.filter(s =>
+        s.Com_Name.toLowerCase().includes(q) || (s.sci||'').toLowerCase().includes(q)
+      );
+    });
+
+    // ── Chargements ─────────────────────────────────────────────────────
+    async function loadAll() {
+      loadingList.value = true;
+      await Promise.all([loadKpis(), loadSpecies()]);
+    }
+
+    async function loadKpis() {
+      try {
+        const [d] = await birdQuery(
+          `SELECT COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp, ROUND(AVG(Confidence)*100,1) as conf,
+                  MAX(Date) as last_date, MAX(Time) as last_time
+           FROM detections WHERE Date=? AND Confidence>=?`, [today, minConf.value]);
+        const [lh] = await birdQuery(
+          `SELECT COUNT(*) as n FROM detections
+           WHERE Date=? AND Confidence>=? AND Time >= time('now','-1 hour','localtime')`, [today, minConf.value]);
+        // Nouvelles espèces = vues aujourd'hui pour la première fois globalement
+        const [ns] = await birdQuery(
+          `SELECT COUNT(*) as n FROM (
+             SELECT Com_Name FROM detections WHERE Confidence>=?
+             GROUP BY Com_Name HAVING MIN(Date)=?
+           )`, [minConf.value, today]);
+        kpis.value = {
+          det: d ? d.n.toLocaleString() : '0',
+          sp:  d ? d.sp : '0',
+          conf: d && d.conf ? d.conf+'%' : '—',
+          lastHour: lh ? lh.n.toLocaleString() : '0',
+          newSp: ns ? ns.n : '0',
+        };
+        if (d && d.last_date) {
+          freshness.value = freshnessLabel(d.last_date, d.last_time, t);
+        }
+      } catch(e) { console.error('kpis:', e); }
+    }
+
+    async function loadSpecies() {
+      loadingList.value = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as sci, COUNT(*) as n,
+                  MAX(Time) as last_time, MAX(Confidence) as max_conf,
+                  MAX(File_Name) as last_file
+           FROM detections WHERE Date=? AND Confidence>=?
+           GROUP BY Com_Name ORDER BY n DESC`, [today, minConf.value]);
+        speciesList.value = rows.map(r => ({ ...r, imgUrl: null }));
+
+        // Sélection auto : première espèce
+        if (rows.length > 0 && !selected.value) {
+          selectSpecies(speciesList.value[0]);
+        }
+
+        // Charge les miniatures Wikipedia en arrière-plan
+        rows.slice(0, 20).forEach((r, i) => {
+          fetchSpeciesImage(r.sci || r.Com_Name).then(url => {
+            if (url && speciesList.value[i]) speciesList.value[i].imgUrl = url;
+          });
+        });
+      } catch(e) { console.error('species:', e); }
+      loadingList.value = false;
+    }
+
+    async function selectSpecies(sp) {
+      if (selected.value?.Com_Name === sp.Com_Name) return;
+      stopAudio();
+      selected.value     = sp;
+      currentDetIdx.value= 0;
+      spectro.value      = { state: 'idle' };
+
+      // Charge toutes les détections de cette espèce aujourd'hui
+      try {
+        const rows = await birdQuery(
+          `SELECT Time, Confidence, File_Name
+           FROM detections WHERE Date=? AND Com_Name=? AND Confidence>=?
+           ORDER BY Time DESC`, [today, sp.Com_Name, minConf.value]);
+        selectedDets.value = rows;
+
+        // Photo si pas encore chargée
+        if (!sp.imgUrl && sp.sci) {
+          fetchSpeciesImage(sp.sci).then(url => { if (url) sp.imgUrl = url; });
+        }
+
+        // Charge le premier fichier audio
+        await loadDetection(0);
+      } catch(e) { console.error('select species:', e); }
+    }
+
+    async function loadDetection(idx) {
+      stopAudio();
+      currentDetIdx.value = idx;
+      const det = selectedDets.value[idx];
+      if (!det?.File_Name) {
+        spectro.value = { state: 'error' };
+        return;
+      }
+      const url = buildAudioUrl(det.File_Name);
+      if (!url) { spectro.value = { state: 'error' }; return; }
+
+      spectro.value = { state: 'loading' };
+
+      try {
+        await nextTick();
+        // Adapte la largeur canvas au conteneur
+        if (spectroCanvas.value) {
+          spectroCanvas.value.width = spectroCanvas.value.offsetWidth || 600;
+        }
+        const { duration } = await computeAndDrawSpectrogram(url, spectroCanvas.value);
+        audioDuration.value = duration;
+        spectro.value = { state: 'ready', url };
+      } catch(e) {
+        console.error('spectro:', e);
+        spectro.value = { state: 'error' };
+      }
+    }
+
+    // ── Audio ──────────────────────────────────────────────────────────
+    function togglePlay() {
+      if (!spectro.value.url) return;
+      if (_audio && isPlaying.value) {
+        _audio.pause();
+        return;
+      }
+      if (_audio && !isPlaying.value) {
+        _audio.play().catch(()=>{});
+        return;
+      }
+      // Nouveau
+      _audio = new Audio(spectro.value.url);
+      _audio.play().catch(()=>{});
+      isPlaying.value = true;
+      _audio.addEventListener('timeupdate', () => {
+        if (_audio && _audio.duration) {
+          audioCurrentTime.value = _audio.currentTime;
+          audioProgress.value    = _audio.currentTime / _audio.duration;
+        }
+      });
+      _audio.addEventListener('play',  () => { isPlaying.value = true; });
+      _audio.addEventListener('pause', () => { isPlaying.value = false; });
+      _audio.addEventListener('ended', () => {
+        isPlaying.value    = false;
+        audioProgress.value = 0;
+        audioCurrentTime.value = 0;
+      });
+    }
+
+    function stopAudio() {
+      if (_audio) { _audio.pause(); _audio = null; }
+      isPlaying.value     = false;
+      audioProgress.value = 0;
+      audioCurrentTime.value = 0;
+      audioDuration.value = 0;
+    }
+
+    function seekFromProgressBar(e) {
+      if (!_audio || !_audio.duration) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct  = (e.clientX - rect.left) / rect.width;
+      _audio.currentTime = pct * _audio.duration;
+    }
+
+    function seekFromClick(e) {
+      if (!spectroCanvas.value || !_audio || !_audio.duration) return;
+      const rect = spectroCanvas.value.getBoundingClientRect();
+      const pct  = (e.clientX - rect.left) / rect.width;
+      _audio.currentTime = pct * _audio.duration;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function fmtDuration(s) {
+      if (!s) return '0:00';
+      const m = Math.floor(s / 60);
+      const ss = String(Math.floor(s % 60)).padStart(2, '0');
+      return `${m}:${ss}`;
+    }
+
+    function fmtDateLong(d) {
+      if (!d) return '';
+      const [y, mo, day] = d.split('-');
+      const months = t('months_long') || t('months_short');
+      return `${parseInt(day)} ${months[parseInt(mo)-1]} ${y}`;
+    }
+
+    // Reload si langue change (KPIs fraîcheur)
+    watch(lang, () => loadKpis());
+
+    onMounted(() => loadAll());
+    onUnmounted(() => stopAudio());
+
+    return {
+      lang, t, setLang, langs, theme, themes, setTheme, navItems,
+      today, minConf, searchQ,
+      kpis, freshness,
+      loadingList, speciesList, filteredSpecies,
+      selected, selectedDets, currentDet, currentDetIdx,
+      spectroCanvas, spectro,
+      isPlaying, audioProgress, audioCurrentTime, audioDuration,
+      fmtDate, fmtTime, fmtConf, fmtDuration, fmtDateLong,
+      navigateTo, loadAll, selectSpecies, loadDetection,
+      togglePlay, seekFromProgressBar, seekFromClick,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

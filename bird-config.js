@@ -15,11 +15,11 @@ const BIRD_CONFIG = {
   rarityThreshold:   10,      // < N détections = espèce rare
   pageSize:          50,      // détections par page
 
-  // Localisation — adapter selon votre emplacement
+  // Localisation (Bruxelles)
   location: {
     lat:  50.85,
     lon:  4.35,
-    name: 'My Location'
+    name: 'Bruxelles'
   },
 
   // Langue par défaut ('fr' | 'en' | 'nl')
@@ -28,13 +28,16 @@ const BIRD_CONFIG = {
   // Navigation — ordre des pages dans le menu
   pages: [
     { id: 'index',        icon: '🦅', file: 'index.html'        },
+    { id: 'today',        icon: '🌅', file: 'today.html'        },
+    { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
+    { id: 'recordings',   icon: '🏆', file: 'recordings.html'   },
     { id: 'detections',   icon: '🎧', file: 'detections.html'   },
-    { id: 'especes',      icon: '🦜', file: 'especes.html'      },
-    { id: 'biodiversite', icon: '🌿', file: 'biodiversite.html' },
-    { id: 'rarites',      icon: '💎', file: 'rarites.html'      },
+    { id: 'species',      icon: '🦜', file: 'species.html'      },
+    { id: 'biodiversity', icon: '🌿', file: 'biodiversity.html' },
+    { id: 'rarities',      icon: '💎', file: 'rarities.html'      },
     { id: 'stats',        icon: '📊', file: 'stats.html'        },
     { id: 'analyses',     icon: '🔬', file: 'analyses.html'     },
-    { id: 'systeme',      icon: '⚙️',  file: 'systeme.html'      },
+    { id: 'system',      icon: '⚙️',  file: 'system.html'      },
   ],
 
   // Couleurs pour Chart.js (palette naturelle)
