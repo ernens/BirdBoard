@@ -343,11 +343,11 @@
 
   // ── useTheme ──────────────────────────────────────────────────────────────
   const THEMES = [
-    { id:'forest', label:'Forêt',  colors:['#5a9e3a','#0f1d12'] },
-    { id:'night',  label:'Nuit',   colors:['#5b8fe8','#0c0f1a'] },
-    { id:'paper',  label:'Papier', colors:['#6b4c2a','#f5f0e6'] },
-    { id:'ocean',  label:'Océan',  colors:['#2a8fa8','#0a1820'] },
-    { id:'dusk',   label:'Dusk',   colors:['#c87050','#1a0f14'] },
+    { id:'forest', label:'Forest',  colors:['#34d399','#0f1418'] },
+    { id:'night',  label:'Night',   colors:['#a78bfa','#0e1018'] },
+    { id:'paper',  label:'Paper',   colors:['#0d9488','#faf8f4'] },
+    { id:'ocean',  label:'Ocean',   colors:['#22d3ee','#0a1220'] },
+    { id:'dusk',   label:'Dusk',    colors:['#f472b6','#161218'] },
   ];
 
   function useTheme() {

@@ -32,22 +32,22 @@
     .idx-duration { font-size:.7rem; font-family:monospace; color:var(--text-faint); flex-shrink:0; }
     /* ── Spectrogramme index ─────────────────────────────────────── */
     .idx-spectro-wrap {
-      position:relative; background:#03070a; border-radius:5px;
+      position:relative; background:var(--bg-spectro); border-radius:5px;
       overflow:hidden; margin-top:.6rem;
     }
     .idx-spectro-wrap canvas { display:block; width:100%; height:90px; }
     .idx-spectro-overlay {
       position:absolute; inset:0; display:flex; align-items:center;
       justify-content:center; font-size:.75rem; color:var(--text-faint);
-      background:rgba(3,7,10,.7);
+      background:rgba(0,0,0,.7);
     }
     .idx-spectro-freqs {
       position:absolute; left:0; top:0; bottom:0; width:24px;
       display:flex; flex-direction:column; justify-content:space-between;
       padding:2px 3px; pointer-events:none;
-      background:rgba(3,7,10,.55); border-right:1px solid rgba(90,138,96,.2);
+      background:rgba(0,0,0,.55); border-right:1px solid var(--border);
     }
-    .idx-spectro-freq { font-size:.5rem; font-family:monospace; color:#5a8a60; }
+    .idx-spectro-freq { font-size:.5rem; font-family:monospace; color:var(--text-spectro); }
     .idx-clean-bar {
       display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;
       padding:.35rem 0 .1rem;
@@ -131,7 +131,7 @@
 
     /* ── Spectrogramme ──────────────────────────────────────────────── */
     .spectro-wrap {
-      position: relative; background: #050a06; overflow: hidden;
+      position: relative; background: var(--bg-spectro); overflow: hidden;
       border-radius: 0;
     }
     .spectro-canvas { display: block; width: 100%; height: 200px; cursor: pointer; }
@@ -141,8 +141,8 @@
     .spectro-axes {
       display: flex; justify-content: space-between;
       padding: .25rem .5rem; font-size: .68rem; font-family: monospace;
-      color: #5a8a60; background: #070d08;
-      border-top: 1px solid #1a2b1c;
+      color: var(--text-spectro); background: var(--bg-deep);
+      border-top: 1px solid var(--border);
     }
     .spectro-freq-labels {
       position: absolute; right: 4px; top: 0; bottom: 0;
@@ -150,7 +150,7 @@
       padding: 4px 0; pointer-events: none;
     }
     .spectro-freq-label {
-      font-size: .62rem; font-family: monospace; color: #5a8a60;
+      font-size: .62rem; font-family: monospace; color: var(--text-spectro);
       line-height: 1; text-align: right;
     }
     .spectro-cursor {
@@ -159,7 +159,7 @@
     }
     .spectro-placeholder {
       height: 200px; display: flex; align-items: center; justify-content: center;
-      color: var(--text-faint); font-size: .85rem; background: #050a06;
+      color: var(--text-faint); font-size: .85rem; background: var(--bg-spectro);
       flex-direction: column; gap: .5rem;
     }
 
@@ -276,7 +276,7 @@
 
     /* ── Spectrogramme ──────────────────────────────────────────────── */
     .spectro-wrap {
-      position: relative; background: #050a06; overflow: hidden;
+      position: relative; background: var(--bg-spectro); overflow: hidden;
       border-radius: 0;
     }
     .spectro-canvas { display: block; width: 100%; height: 200px; cursor: pointer; }
@@ -286,8 +286,8 @@
     .spectro-axes {
       display: flex; justify-content: space-between;
       padding: .25rem .5rem; font-size: .68rem; font-family: monospace;
-      color: #5a8a60; background: #070d08;
-      border-top: 1px solid #1a2b1c;
+      color: var(--text-spectro); background: var(--bg-deep);
+      border-top: 1px solid var(--border);
     }
     .spectro-freq-labels {
       position: absolute; right: 4px; top: 0; bottom: 0;
@@ -295,7 +295,7 @@
       padding: 4px 0; pointer-events: none;
     }
     .spectro-freq-label {
-      font-size: .62rem; font-family: monospace; color: #5a8a60;
+      font-size: .62rem; font-family: monospace; color: var(--text-spectro);
       line-height: 1; text-align: right;
     }
     .spectro-cursor {
@@ -304,7 +304,7 @@
     }
     .spectro-placeholder {
       height: 200px; display: flex; align-items: center; justify-content: center;
-      color: var(--text-faint); font-size: .85rem; background: #050a06;
+      color: var(--text-faint); font-size: .85rem; background: var(--bg-spectro);
       flex-direction: column; gap: .5rem;
     }
 
@@ -663,22 +663,22 @@
     /* ── Spectrogramme inline ───────────────────────────────────────── */
     .rec-spectro {
       border-top: 1px solid var(--border);
-      background: #03070a; position: relative;
+      background: var(--bg-spectro); position: relative;
     }
     .rec-spectro canvas {
       display: block; width: 100%; height: 140px;
     }
     .rec-spectro-loading {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      font-size: .78rem; color: var(--text-faint); background: rgba(3,7,10,.7);
+      font-size: .78rem; color: var(--text-faint); background: rgba(0,0,0,.7);
     }
     .rec-spectro-freqs {
       position: absolute; left: 0; top: 0; bottom: 0; width: 28px;
       display: flex; flex-direction: column; justify-content: space-between;
       padding: 3px 3px; pointer-events: none;
-      background: rgba(3,7,10,.55); border-right: 1px solid rgba(90,138,96,.2);
+      background: rgba(0,0,0,.55); border-right: 1px solid var(--border);
     }
-    .rec-spectro-freq { font-size: .55rem; font-family: monospace; color: #5a8a60; }
+    .rec-spectro-freq { font-size: .55rem; font-family: monospace; color: var(--text-spectro); }
 
     /* ── Pied de carte ──────────────────────────────────────────────── */
     .rec-footer {
@@ -718,11 +718,11 @@
     .heatmap-table td{padding:.25rem .4rem;text-align:center;border:1px solid var(--bg-deep);border-radius:2px;font-size:.7rem;font-family:monospace;min-width:36px;}
     .heatmap-table tr:hover td{outline:1px solid var(--border-light);}
     .hm-0{background:var(--bg-card2);color:var(--text-faint);}
-    .hm-1{background:rgba(90,158,58,.12);color:#4a7a2a;}
-    .hm-2{background:rgba(90,158,58,.25);color:#5a9e3a;}
-    .hm-3{background:rgba(90,158,58,.40);color:#6ab844;}
-    .hm-4{background:rgba(90,158,58,.58);color:#7bc754;}
-    .hm-5{background:rgba(90,158,58,.78);color:#0d1a0f;}
+    .hm-1{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-dim);}
+    .hm-2{background:color-mix(in srgb,var(--accent) 25%,transparent);color:var(--accent);}
+    .hm-3{background:color-mix(in srgb,var(--accent) 40%,transparent);color:var(--accent);}
+    .hm-4{background:color-mix(in srgb,var(--accent) 58%,transparent);color:var(--bg-deep);}
+    .hm-5{background:color-mix(in srgb,var(--accent) 78%,transparent);color:var(--bg-deep);}
     .matrix-wrap{overflow-x:auto;}
     .matrix-table{border-collapse:collapse;font-size:.72rem;}
     .matrix-table th{padding:.3rem .5rem;color:var(--text-muted);font-weight:500;white-space:nowrap;border-bottom:1px solid var(--border);}
@@ -809,8 +809,8 @@
     .sp-kpis { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem; }
     .sp-kpi { flex:1; min-width:90px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:.55rem .8rem; text-align:center; }
     .sp-kpi-val { font-size:1.2rem; font-weight:700; color:var(--text-main); font-family:var(--font-mono); }
-    .sp-kpi-val.amber { color:#c8a84b; }
-    .sp-kpi-val.blue  { color:#4a8ab5; }
+    .sp-kpi-val.amber { color:var(--amber); }
+    .sp-kpi-val.blue  { color:var(--blue); }
     .sp-kpi-label { font-size:.68rem; color:var(--text-faint); margin-top:.15rem; }
     .chart-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; margin-bottom:1rem; }
     .chart-card-title { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:.7rem; }
@@ -818,8 +818,8 @@
     .polar-wrap { height:520px; width:100%; }
     .activity-narrative { font-size:.82rem; line-height:1.6; color:var(--text-main); }
     .activity-narrative .stat-chip { display:inline-block; background:var(--bg-card2); border:1px solid var(--border); padding:.05rem .4rem; border-radius:4px; font-family:var(--font-mono); font-size:.78rem; color:var(--text-main); }
-    .activity-narrative .stat-chip.amber { border-color:#c8a84b55; color:#c8a84b; }
-    .activity-narrative .stat-chip.blue  { border-color:#4a8ab555; color:#4a8ab5; }
+    .activity-narrative .stat-chip.amber { border-color:color-mix(in srgb,var(--amber) 33%,transparent); color:var(--amber); }
+    .activity-narrative .stat-chip.blue  { border-color:color-mix(in srgb,var(--blue) 33%,transparent); color:var(--blue); }
     .activity-narrative p { margin:0 0 .55rem; }
     .activity-narrative p:last-child { margin-bottom:0; }
     /* Panel détail heure */
@@ -829,7 +829,7 @@
       display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-start;
     }
     .pd-header { width:100%; display:flex; align-items:baseline; gap:.6rem; border-bottom:1px solid var(--border); padding-bottom:.5rem; margin-bottom:.1rem; }
-    .pd-hour { font-size:1.4rem; font-weight:600; font-family:var(--font-mono); color:#c8a84b; }
+    .pd-hour { font-size:1.4rem; font-weight:600; font-family:var(--font-mono); color:var(--amber); }
     .pd-count { font-size:.85rem; color:var(--text-muted); }
     .pd-pct { font-size:.78rem; font-family:var(--font-mono); color:var(--accent); margin-left:auto; }
     .pd-close { background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:1.1rem; padding:0 .2rem; }
@@ -853,8 +853,8 @@
     .dhm-table th,.dhm-table td { padding:1px 2px; }
     .dhm-table thead th { color:var(--text-faint); font-weight:400; text-align:center; }
     .dhm-table td { width:10px; height:10px; border-radius:1px; }
-    .dhm-0{background:var(--bg-deep);} .dhm-1{background:rgba(90,158,58,.20);} .dhm-2{background:rgba(90,158,58,.42);}
-    .dhm-3{background:rgba(90,158,58,.62);} .dhm-4{background:rgba(200,168,75,.70);} .dhm-5{background:rgba(200,168,75,.95);}
+    .dhm-0{background:var(--bg-deep);} .dhm-1{background:color-mix(in srgb,var(--accent) 20%,transparent);} .dhm-2{background:color-mix(in srgb,var(--accent) 42%,transparent);}
+    .dhm-3{background:color-mix(in srgb,var(--accent) 62%,transparent);} .dhm-4{background:color-mix(in srgb,var(--amber) 70%,transparent);} .dhm-5{background:color-mix(in srgb,var(--amber) 95%,transparent);}
     .spinner{display:flex;gap:4px;justify-content:center;padding:2rem;}
     .spinner>div{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:sp .8s infinite alternate;}
     .spinner>div:nth-child(2){animation-delay:.2s;} .spinner>div:nth-child(3){animation-delay:.4s;}
@@ -908,13 +908,13 @@
       width: 8px; height: 8px; border-radius: 50%; background: var(--border);
       transition: background .3s;
     }
-    .live-dot.active { background: #4caf50; box-shadow: 0 0 6px #4caf5099; animation: pulse-dot 1.5s infinite; }
+    .live-dot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); animation: pulse-dot 1.5s infinite; }
     .live-dot.error  { background: var(--danger); }
     @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
 
     /* ── Canvas wrapper ──────────────────────────────────────────── */
     .canvas-wrap {
-      position: relative; background: #03070a; overflow: hidden;
+      position: relative; background: var(--bg-spectro); overflow: hidden;
       flex: 1; cursor: crosshair;
     }
     #spectroCanvas {
@@ -926,21 +926,21 @@
     .freq-axis {
       position: absolute; left: 0; top: 0; bottom: 0; width: 34px;
       display: flex; flex-direction: column; justify-content: space-between;
-      padding: 4px 4px; pointer-events: none; background: rgba(3,7,10,.6);
-      border-right: 1px solid rgba(90,138,96,.25);
+      padding: 4px 4px; pointer-events: none; background: rgba(0,0,0,.6);
+      border-right: 1px solid var(--border);
     }
     .freq-label {
-      font-size: .6rem; font-family: monospace; color: #5a8a60; line-height: 1;
+      font-size: .6rem; font-family: monospace; color: var(--text-spectro); line-height: 1;
     }
 
     /* ── Axe temps (bas) ─────────────────────────────────────────── */
     .time-axis {
       position: absolute; bottom: 0; left: 34px; right: 0; height: 18px;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 4px; pointer-events: none; background: rgba(3,7,10,.55);
-      border-top: 1px solid rgba(90,138,96,.2);
+      padding: 0 4px; pointer-events: none; background: rgba(0,0,0,.55);
+      border-top: 1px solid var(--border);
     }
-    .time-label { font-size: .6rem; font-family: monospace; color: #5a8a60; }
+    .time-label { font-size: .6rem; font-family: monospace; color: var(--text-spectro); }
 
     /* ── Ligne de temps "maintenant" ─────────────────────────────── */
     .now-line {
@@ -968,21 +968,21 @@
     .det-label-name {
       font-size: .72rem; font-weight: 600; white-space: nowrap;
       padding: .12rem .4rem; border-radius: 3px;
-      background: rgba(3,7,10,.78); backdrop-filter: blur(2px);
+      background: rgba(0,0,0,.78); backdrop-filter: blur(2px);
       border-left: 2px solid;
       text-shadow: 0 1px 3px rgba(0,0,0,.9);
     }
     .det-label-conf {
       font-size: .62rem; font-family: monospace;
       padding: .06rem .3rem; border-radius: 2px;
-      background: rgba(3,7,10,.65);
+      background: rgba(0,0,0,.65);
     }
 
     /* ── Overlay permission / erreur ─────────────────────────────── */
     .spectro-overlay {
       position: absolute; inset: 0; z-index: 20;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 1rem; background: rgba(3,7,10,.85); backdrop-filter: blur(4px);
+      gap: 1rem; background: rgba(0,0,0,.85); backdrop-filter: blur(4px);
       color: var(--text-muted); text-align: center; padding: 2rem;
     }
     .spectro-overlay .overlay-icon { font-size: 3rem; opacity: .6; }
@@ -996,7 +996,7 @@
     }
     .det-feed-item {
       display: flex; align-items: center; gap: .45rem;
-      background: rgba(3,7,10,.82); border-left: 3px solid;
+      background: rgba(0,0,0,.82); border-left: 3px solid;
       padding: .3rem .5rem; border-radius: 0 4px 4px 0;
       backdrop-filter: blur(3px); animation: slide-in .3s ease;
     }
@@ -1016,4 +1016,4 @@
       display: flex; flex-direction: column; justify-content: space-between;
       padding: 2px 0; pointer-events: none;
     }
-    .colorbar-label { font-size: .58rem; font-family: monospace; color: #5a8a60; text-align: right; }
+    .colorbar-label { font-size: .58rem; font-family: monospace; color: var(--text-spectro); text-align: right; }
