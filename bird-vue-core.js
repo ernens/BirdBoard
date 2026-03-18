@@ -703,12 +703,13 @@
     const sci     = encodeURIComponent(sciName || '');
     const com     = encodeURIComponent(comName || '');
     const sciWiki = (sciName || '').replace(/ /g, '_');
+    // Use current language for Wikipedia link
+    const wikiLang = _lang.value === 'nl' ? 'nl' : _lang.value === 'de' ? 'de' : _lang.value === 'en' ? 'en' : 'fr';
     return {
       xenocanto:   { url:`https://xeno-canto.org/explore?query=${sci}`,          label:'Xeno-canto',    icon:'🎵' },
       ebird:       { url:`https://ebird.org/search?q=${sci}`,                    label:'eBird',         icon:'🌍' },
-      wikipedia:   { url:`https://fr.wikipedia.org/wiki/${sciWiki}`,             label:'Wikipédia',     icon:'📖' },
+      wikipedia:   { url:`https://${wikiLang}.wikipedia.org/wiki/${sciWiki}`,    label:'Wikipedia',     icon:'📖' },
       inaturalist: { url:`https://www.inaturalist.org/taxa/search?q=${sci}`,     label:'iNaturalist',   icon:'🔬' },
-      observation: { url:`https://observation.be/species/default.aspx?name=${com}`,label:'Observation.be',icon:'🐦'},
       avibase:     { url:`https://avibase.bsc-eoc.org/search.jsp?query=${sci}`,  label:'Avibase',       icon:'📋' },
     };
   }

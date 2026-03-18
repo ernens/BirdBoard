@@ -60,7 +60,7 @@
             <h1 class="sp-title">{{spName(sp.name, sp.sci)}}</h1>
             <div class="sp-picker-inline" v-if="speciesList.length">
               <select class="bird-select sp-picker-select" v-model="pickerVal" @change="onPickerChange">
-                <option v-for="s in speciesList" :key="s" :value="s">{{s}}</option>
+                <option v-for="s in speciesList" :key="s.com" :value="s.com">{{spName(s.com, s.sci)}}</option>
               </select>
             </div>
           </div>
@@ -276,9 +276,9 @@ const app = createApp({
       try {
         // Load species list in background if not loaded
         if (!speciesList.value.length) {
-          birdQuery(`SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC`)
+          birdQuery(`SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC`)
             .then(rows => {
-              speciesList.value = rows.map(r => r.Com_Name);
+              speciesList.value = rows.map(r => ({ com: r.Com_Name, sci: r.Sci_Name }));
               pickerVal.value = speciesName;
             }).catch(() => {});
         } else {
@@ -512,7 +512,9 @@ const app = createApp({
       await nextTick();
       if (!dayHourData.value || !canvasDayHour.value) return;
       const base = chartDefaults();
-      const dayLabels = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+      const ds = t('days_short') || ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+      // days_short starts Mon(0)..Sun(6), but strftime %w gives Sun=0..Sat=6
+      const dayLabels = [ds[6], ds[0], ds[1], ds[2], ds[3], ds[4], ds[5]];
       const hourLabels = Array.from({length:24}, (_,i) => `${String(i).padStart(2,'0')}h`);
 
       const matrix = Array.from({length:7}, () => Array(24).fill(0));
@@ -546,7 +548,7 @@ const app = createApp({
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: ctx => `${dayLabels[ctx.raw.y]} ${hourLabels[ctx.raw.x]} : ${ctx.raw.v} détections`
+                label: ctx => `${dayLabels[ctx.raw.y]} ${hourLabels[ctx.raw.x]} : ${ctx.raw.v} ${t('detections').toLowerCase()}`
               }
             }
           },
@@ -563,8 +565,8 @@ const app = createApp({
     onMounted(async () => {
       // Always load species list for the inline picker
       try {
-        const rows = await birdQuery(`SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC`);
-        speciesList.value = rows.map(r => r.Com_Name);
+        const rows = await birdQuery(`SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC`);
+        speciesList.value = rows.map(r => ({ com: r.Com_Name, sci: r.Sci_Name }));
       } catch(e) {}
 
       const spParam = getUrlParam('species') || getUrlParam('name');
@@ -581,7 +583,7 @@ const app = createApp({
             pickerVal.value = last.Com_Name;
             await loadDetail(last.Com_Name);
           } else {
-            pickerVal.value = speciesList.value[0] || '';
+            pickerVal.value = (speciesList.value[0] && speciesList.value[0].com) || '';
             mode.value = 'picker';
           }
         } catch(e) {
