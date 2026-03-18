@@ -85,7 +85,7 @@
               <div v-for="r in once.rows" :key="r.Com_Name" class="det-item"
                    style="cursor:pointer;gap:.5rem;" @click="navigateTo('species.html',{species:r.Com_Name})">
                 <!-- Miniature -->
-                <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" />
+                <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" ></bird-img>
                 <div v-else class="det-thumb-ph">🐦</div>
                 <div style="font-size:.85rem;flex:1;min-width:0;">
                   <span style="color:var(--danger);margin-right:.25rem;">💎</span>
@@ -110,7 +110,7 @@
                    class="det-item" style="gap:.5rem;cursor:pointer;"
                    @click="navigateTo('species.html',{species:d.Com_Name})">
                 <!-- Miniature -->
-                <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name" />
+                <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name" ></bird-img>
                 <div v-else class="det-thumb-ph">🐦</div>
                 <!-- Play -->
                 <button v-if="d.File_Name" class="play-btn"
@@ -152,7 +152,7 @@
             <tbody>
               <tr v-for="r in table.rows" :key="r.Com_Name" style="cursor:pointer;" @click="navigateTo('species.html',{species:r.Com_Name})">
                 <td style="padding:.3rem .4rem;">
-                  <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" />
+                  <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" ></bird-img>
                   <div v-else class="det-thumb-ph">🐦</div>
                 </td>
                 <td><span style="margin-right:.3rem;">{{r.n===1?'💎':r.n<=3?'🔶':'🔹'}}</span><strong>{{spName(r.Com_Name, r.sci)}}</strong></td>

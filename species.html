@@ -30,7 +30,7 @@
         <div class="sp-carousel">
           <div class="sp-carousel-main">
             <bird-img v-if="photos.length" :src="photos[photoIdx].url" :alt="sp.name"
-                 class="sp-carousel-img" />
+                 class="sp-carousel-img"></bird-img>
             <div v-else class="sp-carousel-placeholder">🦜</div>
             <!-- Navigation arrows -->
             <button v-if="photos.length>1" class="sp-arrow sp-arrow-l" @click="prevPhoto">‹</button>

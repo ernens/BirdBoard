@@ -125,7 +125,7 @@
                  class="sp-item" :class="{active: selected && selected.Com_Name===s.Com_Name}"
                  @click="selectSpecies(s)">
               <div class="sp-thumb">
-                <bird-img v-if="s.imgUrl" :src="s.imgUrl" :alt="s.Com_Name" />
+                <bird-img v-if="s.imgUrl" :src="s.imgUrl" :alt="s.Com_Name" ></bird-img>
                 <span v-else>🦜</span>
               </div>
               <div class="sp-info">
@@ -162,7 +162,7 @@
           <!-- Header espèce -->
           <div class="player-header">
             <div class="player-photo">
-              <bird-img v-if="selected.imgUrl" :src="selected.imgUrl" :alt="selected.Com_Name" />
+              <bird-img v-if="selected.imgUrl" :src="selected.imgUrl" :alt="selected.Com_Name" ></bird-img>
               <span v-else>🦜</span>
             </div>
             <div class="player-species">

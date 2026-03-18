@@ -79,7 +79,7 @@
             <!-- Photo espèce (cliquable → fiche espèce) -->
             <a :href="'species.html?species='+encodeURIComponent(rec.Com_Name)" class="rec-photo" style="position:relative;display:block;">
               <bird-img v-if="rec.imgUrl" :src="rec.imgUrl" class="rec-photo-img"
-                   :alt="rec.Com_Name" />
+                   :alt="rec.Com_Name"></bird-img>
               <div v-else class="rec-photo-placeholder">🐦</div>
             </a>
 
