@@ -38,7 +38,9 @@
       today:'Aujourd\'hui', this_week:'Cette semaine', this_month:'Ce mois', all_time:'Total',
       detections:'Détections', species:'Espèces', avg_confidence:'Confiance moy.',
       last_detection:'Dernière détection', top_species:'Top espèces',
-      activity_7d:'Activité 7 jours', recent_detections:'Détections récentes',
+      activity_7d:'Activité 7 jours', activity_today:'Activité aujourd\'hui',
+      last_hour:'Dernière heure', rare_today:'Espèces rares aujourd\'hui',
+      recent_detections:'Détections récentes',
       no_data:'Aucune donnée', loading:'Chargement…', error:'Erreur',
       date:'Date', time:'Heure', species_name:'Espèce', scientific_name:'Nom scientifique',
       confidence:'Confiance', audio:'Audio', play:'Écouter',
@@ -126,7 +128,9 @@
       today:'Today', this_week:'This week', this_month:'This month', all_time:'All time',
       detections:'Detections', species:'Species', avg_confidence:'Avg confidence',
       last_detection:'Last detection', top_species:'Top species',
-      activity_7d:'7-day activity', recent_detections:'Recent detections',
+      activity_7d:'7-day activity', activity_today:'Today\'s activity',
+      last_hour:'Last hour', rare_today:'Rare species today',
+      recent_detections:'Recent detections',
       no_data:'No data', loading:'Loading…', error:'Error',
       date:'Date', time:'Time', species_name:'Species', scientific_name:'Scientific name',
       confidence:'Confidence', audio:'Audio', play:'Play',
@@ -214,7 +218,9 @@
       today:'Vandaag', this_week:'Deze week', this_month:'Deze maand', all_time:'Totaal',
       detections:'Detecties', species:'Soorten', avg_confidence:'Gem. betrouwbaarheid',
       last_detection:'Laatste detectie', top_species:'Top soorten',
-      activity_7d:'7-daagse activiteit', recent_detections:'Recente detecties',
+      activity_7d:'7-daagse activiteit', activity_today:'Activiteit vandaag',
+      last_hour:'Laatste uur', rare_today:'Zeldzame soorten vandaag',
+      recent_detections:'Recente detecties',
       no_data:'Geen gegevens', loading:'Laden…', error:'Fout',
       date:'Datum', time:'Tijd', species_name:'Soort', scientific_name:'Wetenschappelijke naam',
       confidence:'Betrouwbaarheid', audio:'Audio', play:'Afspelen',
@@ -622,19 +628,24 @@
 
   // ── Chart.js defaults ─────────────────────────────────────────────────────
   function chartDefaults() {
+    const cs = getComputedStyle(document.documentElement);
+    const txtC = cs.getPropertyValue('--text-muted').trim() || '#7a8a8e';
+    const gridC = (cs.getPropertyValue('--border').trim() || '#243030') + '40';
+    const accent = cs.getPropertyValue('--accent').trim() || '#34d399';
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { color: '#7a9b7d', font: { family: 'Lora' } } },
+        legend: { labels: { color: txtC, usePointStyle: true, pointStyle: 'circle', boxWidth: 6 } },
         tooltip: {
-          backgroundColor: '#131f14', borderColor: '#2d4a2f', borderWidth: 1,
-          titleColor: '#e8f0e9', bodyColor: '#7a9b7d',
+          backgroundColor: cs.getPropertyValue('--bg-card').trim() || '#151b20',
+          borderColor: accent + '40', borderWidth: 1,
+          titleColor: '#fff', bodyColor: txtC,
         },
       },
       scales: {
-        x: { ticks: { color: '#7a9b7d' }, grid: { color: '#1a2b1c' } },
-        y: { ticks: { color: '#7a9b7d' }, grid: { color: '#1a2b1c' } },
+        x: { ticks: { color: txtC }, grid: { color: gridC, lineWidth: 0.5 }, border: { display: false } },
+        y: { ticks: { color: txtC }, grid: { color: gridC, lineWidth: 0.5 }, border: { display: false } },
       },
     };
   }

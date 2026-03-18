@@ -403,7 +403,7 @@ a:hover { opacity: .85; }
 
 .kpi-value.amber { color: var(--amber); }
 .kpi-value.blue  { color: var(--blue); }
-.kpi-value.muted { color: var(--text-muted); font-size: 1.5rem; }
+.kpi-value.muted { color: var(--text-muted); }
 
 .kpi-label {
   font-size:      .72rem;
@@ -434,7 +434,7 @@ a:hover { opacity: .85; }
 }
 
 /* ── Chart containers ────────────────────────────────────────────────────── */
-.chart-wrap      { position: relative; height: 220px; }
+.chart-wrap      { position: relative; height: 280px; }
 .chart-wrap-tall { height: 320px; }
 .chart-wrap-sm   { height: 140px; }
 

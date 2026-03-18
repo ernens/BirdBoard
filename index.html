@@ -17,7 +17,7 @@
   <pibird-shell page="index">
 
     <!-- KPIs -->
-    <div class="kpi-grid">
+    <div class="kpi-grid kpi-grid-6">
       <div class="kpi-card">
         <div class="kpi-value">{{kpis.det || '—'}}</div>
         <div class="kpi-label">{{t('detections')}}</div>
@@ -33,6 +33,14 @@
       <div class="kpi-card">
         <div class="kpi-value muted">{{kpis.total || '—'}}</div>
         <div class="kpi-label">{{t('all_time')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--accent);">{{kpis.lastHour || '—'}}</div>
+        <div class="kpi-label">{{t('last_hour')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--danger);">{{kpis.rareToday || '0'}}</div>
+        <div class="kpi-label">{{t('rare_today')}}</div>
       </div>
     </div>
 
@@ -121,10 +129,29 @@
         </div>
       </div>
 
-      <!-- Graphique 7 jours -->
-      <div class="card">
-        <div class="card-title">{{t('activity_7d')}}</div>
-        <div class="chart-wrap"><canvas ref="canvas7d"></canvas></div>
+      <!-- Graphiques activité (stacked) -->
+      <div class="idx-right-stack">
+        <div class="card">
+          <div class="card-title">{{t('activity_today')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">{{t('activity_7d')}}</div>
+          <div class="chart-wrap"><canvas ref="canvas7d"></canvas></div>
+        </div>
+        <!-- Espèces rares aujourd'hui -->
+        <div class="card" v-if="rareSpeciesToday.length">
+          <div class="card-title">{{t('rare_today')}}</div>
+          <div v-for="r in rareSpeciesToday" :key="r.Com_Name" class="det-item">
+            <img loading="lazy" v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" @error="r.photoUrl=null">
+            <div v-else class="det-thumb-ph">💎</div>
+            <div class="det-species">
+              <a class="species-link" @click="navigateTo('species.html',{species:r.Com_Name})">{{r.Com_Name}}</a>
+              <div class="det-sci">{{r.Sci_Name}} — {{r.totalDet}}× {{t('all_time').toLowerCase()}}</div>
+            </div>
+            <span class="rare-badge">💎 {{r.n}}×</span>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -179,11 +206,6 @@
 
     </div>
 
-    <!-- Distribution horaire aujourd'hui -->
-    <div class="card" style="margin-bottom:1rem;">
-      <div class="card-title">{{t('detections')}} {{t('today')}} — {{fmtDate(today)}}</div>
-      <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
-    </div>
 
   </pibird-shell>
 </div>
@@ -258,9 +280,10 @@ const app = createApp({
     const canvasHourly  = ref(null);
     const spectroCanvas = ref(null);
 
-    const kpis    = ref({ det:'', sp:'', conf:'', total:'' });
+    const kpis    = ref({ det:'', sp:'', conf:'', total:'', lastHour:'', rareToday:'0' });
     const lastDet = ref({ loading:true, row:null, photoUrl:null });
     const feed    = ref({ loading:true, rows:[] });
+    const rareSpeciesToday = ref([]);
     const data7d     = ref(null);
     const dataTop    = ref(null);
     const dataHourly = ref(null);
@@ -281,14 +304,30 @@ const app = createApp({
     // ── Data loading ───────────────────────────────────────────────
     async function loadAll() {
       await Promise.all([loadKpis(), loadLastDet(), loadFeed(),
-                         load7dData(), loadTopData(), loadHourlyData()]);
+                         load7dData(), loadTopData(), loadHourlyData(),
+                         loadRareSpeciesToday()]);
     }
 
     async function loadKpis() {
       try {
         const [td]  = await birdQuery(`SELECT COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp, ROUND(AVG(Confidence)*100,1) as conf FROM detections WHERE Date=?`,[today]);
         const [tot] = await birdQuery(`SELECT COUNT(*) as n FROM detections`);
-        kpis.value = { det:td?td.det.toLocaleString():'0', sp:td?td.sp:'0', conf:td&&td.conf?td.conf+'%':'—', total:tot?tot.n.toLocaleString():'0' };
+        // Détections dernière heure
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2,'0');
+        const mm = String(now.getMinutes()).padStart(2,'0');
+        const oneHourAgo = new Date(now - 3600000);
+        const hh0 = String(oneHourAgo.getHours()).padStart(2,'0');
+        const mm0 = String(oneHourAgo.getMinutes()).padStart(2,'0');
+        const [lh] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=? AND Time>=? AND Time<=?`,[today, `${hh0}:${mm0}:00`, `${hh}:${mm}:59`]);
+        // Espèces rares aujourd'hui (≤5 détections all-time)
+        const rares = await birdQuery(`SELECT COUNT(DISTINCT d.Com_Name) as n FROM detections d INNER JOIN (SELECT Com_Name FROM detections GROUP BY Com_Name HAVING COUNT(*)<=5) r ON d.Com_Name=r.Com_Name WHERE d.Date=?`,[today]);
+        kpis.value = {
+          det: td?td.det.toLocaleString():'0', sp: td?td.sp:'0',
+          conf: td&&td.conf?td.conf+'%':'—', total: tot?tot.n.toLocaleString():'0',
+          lastHour: lh?lh.n.toLocaleString():'0',
+          rareToday: rares&&rares[0]?String(rares[0].n):'0'
+        };
       } catch(e) {}
     }
 
@@ -431,6 +470,21 @@ const app = createApp({
 
     async function reapplyClean() { if (cleanMode.value) await applyClean(); }
 
+    async function loadRareSpeciesToday() {
+      try {
+        const rows = await birdQuery(
+          `SELECT d.Com_Name, d.Sci_Name, COUNT(*) as n, t.total as totalDet
+           FROM detections d
+           INNER JOIN (SELECT Com_Name, COUNT(*) as total FROM detections GROUP BY Com_Name HAVING total<=5) t
+             ON d.Com_Name=t.Com_Name
+           WHERE d.Date=? GROUP BY d.Com_Name ORDER BY t.total ASC, n DESC`,[today]);
+        await Promise.all(rows.map(async r => {
+          r.photoUrl = r.Sci_Name ? await fetchCachedPhoto(r.Sci_Name) : null;
+        }));
+        rareSpeciesToday.value = rows;
+      } catch(e) {}
+    }
+
     async function load7dData() {
       try {
         const rows = await birdQuery(`SELECT Date, COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp FROM detections WHERE Date>=? AND Date<=? GROUP BY Date ORDER BY Date ASC`,[daysAgo(6),today]);
@@ -459,24 +513,43 @@ const app = createApp({
       const map={};d.forEach(r=>{map[r.Date]=r;});
       const labels=[],dets=[],sps=[];
       for(let i=6;i>=0;i--){const date=daysAgo(i);const mo=t('months_short')[new Date(date).getMonth()];labels.push(`${new Date(date).getDate()} ${mo}`);dets.push(map[date]?map[date].n:0);sps.push(map[date]?map[date].sp:0);}
-      const base=chartDefaults();
-      mount7d(canvas7d, ()=>({type:'bar',data:{labels,datasets:[{label:t('detections'),data:dets,backgroundColor:'rgba(90,158,58,.6)',borderColor:'#5a9e3a',borderWidth:1,borderRadius:3},{label:t('species'),data:sps,type:'line',borderColor:'#c8a84b',backgroundColor:'rgba(200,168,75,.1)',pointBackgroundColor:'#c8a84b',pointRadius:3,tension:0.3,yAxisID:'y2'}]},options:{...base,scales:{...base.scales,y:{...base.scales.y,beginAtZero:true},y2:{position:'right',ticks:{color:'#c8a84b'},grid:{drawOnChartArea:false},beginAtZero:true}}}}));
+      // Trendline: linear regression on detections
+      const n=dets.length, sumX=n*(n-1)/2, sumY=dets.reduce((a,b)=>a+b,0);
+      const sumXY=dets.reduce((a,y,i)=>a+i*y,0), sumX2=n*(n-1)*(2*n-1)/6;
+      const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX||1);
+      const intercept=(sumY-slope*sumX)/n;
+      const trend=dets.map((_,i)=>Math.max(0,Math.round(intercept+slope*i)));
+      const cs=getComputedStyle(document.documentElement);
+      const accent=cs.getPropertyValue('--accent').trim();
+      const gridC=cs.getPropertyValue('--border').trim()+'40';
+      const txtC=cs.getPropertyValue('--text-muted').trim();
+      mount7d(canvas7d, ()=>({type:'bar',data:{labels,datasets:[
+        {label:t('detections'),data:dets,backgroundColor:accent+'99',borderColor:accent,borderWidth:0,borderRadius:4},
+        {label:t('species'),data:sps,type:'line',borderColor:'#eab308',backgroundColor:'rgba(234,179,8,.08)',pointBackgroundColor:'#eab308',pointRadius:3,tension:0.3,yAxisID:'y2'},
+        {label:'Tendance',data:trend,type:'line',borderColor:accent+'60',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0,yAxisID:'y',fill:false}
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:txtC,usePointStyle:true,pointStyle:'circle',boxWidth:6}},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:accent+'40',borderWidth:1,titleColor:'#fff',bodyColor:txtC}},scales:{x:{ticks:{color:txtC,font:{size:11}},grid:{display:false}},y:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true},y2:{position:'right',ticks:{color:'#eab308',font:{size:10}},grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true}}}}));
     });
 
     watch([dataTop, lang], async () => {
       await nextTick();
       const d = dataTop.value;
       if (!d || !canvasTop.value) return;
-      const base=chartDefaults();
-      mountTop(canvasTop, ()=>({type:'bar',data:{labels:d.map(r=>r.Com_Name),datasets:[{label:t('detections'),data:d.map(r=>r.n),backgroundColor:BIRD_CONFIG.chartColors.map(c=>c+'cc'),borderColor:BIRD_CONFIG.chartColors,borderWidth:1,borderRadius:4}]},options:{...base,indexAxis:'y',onClick:(evt,els)=>{if(els.length)navigateTo('species.html',{species:d[els[0].index].Com_Name});},plugins:{...base.plugins,legend:{display:false},tooltip:{...base.plugins.tooltip,callbacks:{title:i=>i[0].label,label:i=>` ${i.raw} ${t('detections')}`}}},scales:{x:{...base.scales.x,beginAtZero:true},y:{...base.scales.y,ticks:{color:'#ddeadd',font:{size:11}}}}}}));
+      const cs=getComputedStyle(document.documentElement);
+      const gridC=cs.getPropertyValue('--border').trim()+'40';
+      const txtC=cs.getPropertyValue('--text-muted').trim();
+      mountTop(canvasTop, ()=>({type:'bar',data:{labels:d.map(r=>r.Com_Name),datasets:[{label:t('detections'),data:d.map(r=>r.n),backgroundColor:BIRD_CONFIG.chartColors.map(c=>c+'cc'),borderColor:BIRD_CONFIG.chartColors,borderWidth:0,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,els)=>{if(els.length)navigateTo('species.html',{species:d[els[0].index].Com_Name});},plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:gridC,borderWidth:1,titleColor:'#fff',bodyColor:txtC,callbacks:{title:i=>i[0].label,label:i=>` ${i.raw} ${t('detections')}`}}},scales:{x:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true},y:{ticks:{color:txtC,font:{size:11}},grid:{display:false}}}}}));
     });
 
     watch([dataHourly, lang], async () => {
       await nextTick();
       const d = dataHourly.value;
       if (!d || !canvasHourly.value) return;
-      const base=chartDefaults();
-      mountHourly(canvasHourly, ()=>({type:'bar',data:{labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),datasets:[{label:t('detections'),data:d,backgroundColor:d.map(v=>v>0?'rgba(90,158,58,.65)':'rgba(90,158,58,.1)'),borderColor:'#5a9e3a',borderWidth:1,borderRadius:2}]},options:{...base,plugins:{...base.plugins,legend:{display:false}},scales:{x:{...base.scales.x,ticks:{font:{size:10}}},y:{...base.scales.y,beginAtZero:true,ticks:{stepSize:1}}}}}));
+      const cs=getComputedStyle(document.documentElement);
+      const accent=cs.getPropertyValue('--accent').trim();
+      const gridC=cs.getPropertyValue('--border').trim()+'40';
+      const txtC=cs.getPropertyValue('--text-muted').trim();
+      const curH=new Date().getHours();
+      mountHourly(canvasHourly, ()=>({type:'bar',data:{labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),datasets:[{label:t('detections'),data:d,backgroundColor:d.map((v,i)=>i===curH?accent:(v>0?accent+'80':accent+'15')),borderWidth:0,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:accent+'40',borderWidth:1,titleColor:'#fff',bodyColor:txtC}},scales:{x:{ticks:{color:txtC,font:{size:9}},grid:{display:false}},y:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true}}}}));
     });
 
     onMounted(() => loadAll());
@@ -487,7 +560,7 @@ const app = createApp({
 
     return {
       lang, t,
-      today, kpis, lastDet, feed,
+      today, kpis, lastDet, feed, rareSpeciesToday,
       playingFile, toggleAudio,
       richPlaying, richProgress, richDuration, toggleRichPlay, seekRich,
       spectroCanvas, spectroState, loadSpectro,
