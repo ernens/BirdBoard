@@ -825,6 +825,73 @@
     return url;
   }
 
+  // ── Species name translation (BirdNET labels) ───────────────────────────
+  // Shared cache: { 'fr': { 'Pica pica': 'Pie bavarde' }, 'en': { ... } }
+  const _spNamesCache = {};   // lang → { sci → comName }
+  const _spNamesLoading = {}; // lang → Promise
+
+  /**
+   * Load species name mapping for a given language.
+   * Uses BirdNET l18n label files served via /api/species-names?lang=xx
+   * Returns the mapping object { sciName: translatedComName }
+   */
+  async function _loadSpNames(lang) {
+    if (_spNamesCache[lang]) return _spNamesCache[lang];
+    if (_spNamesLoading[lang]) return _spNamesLoading[lang];
+
+    _spNamesLoading[lang] = (async () => {
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/species-names?lang=${lang}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _spNamesCache[lang] = await res.json();
+      } catch(e) {
+        console.warn(`[spNames] Failed to load ${lang}:`, e.message);
+        _spNamesCache[lang] = {};
+      }
+      delete _spNamesLoading[lang];
+      return _spNamesCache[lang];
+    })();
+
+    return _spNamesLoading[lang];
+  }
+
+  /**
+   * useSpeciesNames() — composable for translated species names.
+   *
+   * Returns:
+   *   spName(comName, sciName) — returns the translated common name
+   *   spNamesReady            — ref(bool) true when names are loaded
+   *
+   * Auto-reloads when the language changes.
+   */
+  function useSpeciesNames() {
+    const spNamesReady = ref(false);
+    const _names = ref({});
+
+    async function reload(lang) {
+      spNamesReady.value = false;
+      _names.value = await _loadSpNames(lang);
+      spNamesReady.value = true;
+    }
+
+    // Load immediately + watch lang changes
+    reload(_lang.value);
+    watch(_lang, (newLang) => reload(newLang));
+
+    /**
+     * Translate a species name.
+     * @param {string} comName - Original Com_Name from the database
+     * @param {string} sciName - Sci_Name (used as lookup key)
+     * @returns {string} Translated name, or original comName as fallback
+     */
+    function spName(comName, sciName) {
+      if (!sciName || !_names.value) return comName || '';
+      return _names.value[sciName] || comName || sciName;
+    }
+
+    return { spName, spNamesReady };
+  }
+
   // ── Chart.js defaults ─────────────────────────────────────────────────────
   function chartDefaults() {
     const cs = getComputedStyle(document.documentElement);
@@ -929,7 +996,7 @@
   // ── Export global ─────────────────────────────────────────────────────────
   window.PIBIRD = {
     // Composables Vue
-    useI18n, useTheme, useNav, useChart, useAudio,
+    useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
     // Composants
     PibirdShell, registerComponents,
     // Utilitaires purs

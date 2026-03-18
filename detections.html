@@ -148,7 +148,7 @@
                 <td style="font-size:.8rem;color:var(--text-muted);">{{fmtDate(d.Date)}}</td>
                 <td style="font-family:monospace;font-size:.8rem;">{{fmtTime(d.Time)}}</td>
                 <td>
-                  <a class="species-link" @click="navigateTo('species.html',{species:d.Com_Name})">{{d.Com_Name}}</a>
+                  <a class="species-link" @click="navigateTo('species.html',{species:d.Com_Name})">{{spName(d.Com_Name, d.Sci_Name)}}</a>
                   <span v-if="uniqueMode && d._count>1" class="det-count-badge">×{{d._count}}</span>
                 </td>
                 <td class="hide-sm" style="font-style:italic;font-size:.8rem;color:var(--text-muted);">{{d.Sci_Name}}</td>
@@ -176,7 +176,7 @@
 
 <script>
 const { createApp, ref, computed, watch, onMounted } = Vue;
-const { useI18n, useTheme, useNav, useAudio,
+const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf,
         localDateStr, daysAgo, getUrlParam, navigateTo,
         fetchCachedPhoto, buildAudioUrl } = PIBIRD;
@@ -197,6 +197,7 @@ const app = createApp({
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('detections');
     const { playingFile, toggleAudio }= useAudio();
+    const { spName } = useSpeciesNames();
 
     const PS = BIRD_CONFIG.pageSize;
 
@@ -398,7 +399,7 @@ const app = createApp({
       page,total,rows,loading,totalPages,paginationPages,
       displayRows,displayTotal,
       playingFile,toggleAudio, buildAudioUrl,
-      fmtDate,fmtTime,fmtConf,navigateTo,
+      fmtDate,fmtTime,fmtConf,navigateTo,spName,
       applyFilters,resetFilters,goPage,
     };
   }

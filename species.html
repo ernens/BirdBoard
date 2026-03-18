@@ -57,7 +57,7 @@
         <div class="sp-info-panel">
           <!-- Title + inline species picker -->
           <div class="sp-title-row">
-            <h1 class="sp-title">{{sp.name}}</h1>
+            <h1 class="sp-title">{{spName(sp.name, sp.sci)}}</h1>
             <div class="sp-picker-inline" v-if="speciesList.length">
               <select class="bird-select sp-picker-select" v-model="pickerVal" @change="onPickerChange">
                 <option v-for="s in speciesList" :key="s" :value="s">{{s}}</option>
@@ -184,7 +184,7 @@
 
 <script>
 const { createApp, ref, reactive, computed, watch, onMounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, useChart, useAudio,
+const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf,
         daysAgo, getUrlParam, navigateTo,
         buildSpeciesLinks, fetchSpeciesImage, chartDefaults } = PIBIRD;
@@ -194,6 +194,7 @@ const app = createApp({
     const { lang, t, setLang, langs } = useI18n();
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('species');
+    const { spName } = useSpeciesNames();
     const { playingFile, toggleAudio }= useAudio();
     const { mountChart: mountHourly } = useChart();
     const { mountChart: mountMonthly }= useChart();
@@ -591,7 +592,7 @@ const app = createApp({
     });
 
     return {
-      lang, t,
+      lang, t, spName,
       mode, speciesList, pickerVal, onPickerChange,
       sp, feed, extLinks, speciesInfo,
       photos, photoIdx, wikiSummary, wikiSummaryAlt, conservation, conservationClass,

@@ -86,7 +86,7 @@
             <!-- Noms + confiance -->
             <div class="rec-header">
               <div class="rec-names">
-                <div class="rec-com-name">{{rec.Com_Name}}</div>
+                <div class="rec-com-name">{{spName(rec.Com_Name, rec.Sci_Name)}}</div>
                 <div class="rec-sci-name">{{rec.Sci_Name}}</div>
               </div>
               <div class="rec-badges">
@@ -381,7 +381,7 @@ function encodeWavRec(pcm, sr) {
 
 // ── Vue 3 App ─────────────────────────────────────────────────────────────────
 const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
-const { useI18n, useTheme, useNav, birdQuery, fmtConf, localDateStr,
+const { useI18n, useTheme, useNav, useSpeciesNames, birdQuery, fmtConf, localDateStr,
         buildAudioUrl, buildSpeciesLinks } = PIBIRD;
 
 const PAGE_SIZE = 12;
@@ -391,6 +391,7 @@ const app = createApp({
     const { lang, t, setLang, langs } = useI18n();
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('recordings');
+    const { spName } = useSpeciesNames();
 
     // ── Données ────────────────────────────────────────────────────
     const allRecs           = ref([]);   // toutes les détections best (1/espèce + top N)
@@ -785,7 +786,7 @@ const app = createApp({
     });
 
     return {
-      lang, t,
+      lang, t, spName,
       allRecs, availableSpecies, filteredSpeciesList, selectedSpecies,
       filteredRecs, pagedRecs, hasMore, loading,
       spSearch, sortBy, period, page, PAGE_SIZE,

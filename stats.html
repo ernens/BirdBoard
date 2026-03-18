@@ -76,7 +76,7 @@
             <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{r.Com_Name}}</span>
+                <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name)}}</span>
                 <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.n.toLocaleString()}}</span>
               </div>
               <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
@@ -97,7 +97,7 @@
             <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{r.Com_Name}}</span>
+                <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name)}}</span>
                 <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.avg_conf}}%</span>
               </div>
               <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
@@ -140,7 +140,7 @@
             <div style="font-size:1.5rem;">🎯</div>
             <div style="flex:1;">
               <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_max_conf')}}</div>
-              <div style="font-size:.85rem;"><strong>{{records.maxConf ? records.maxConf.Com_Name : '—'}}</strong></div>
+              <div style="font-size:.85rem;"><strong>{{records.maxConf ? spName(records.maxConf.Com_Name) : '—'}}</strong></div>
               <div style="font-size:.75rem;color:var(--text-muted);">{{records.maxConf ? fmtDate(records.maxConf.Date) : ''}}</div>
             </div>
             <div class="conf-badge conf-high" style="font-size:.9rem;">{{records.maxConf ? records.maxConf.conf+'%' : '—'}}</div>
@@ -160,7 +160,7 @@
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, useChart,
+const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
         birdQuery, fmtDate, chartDefaults, navigateTo, localDateStr, daysAgo } = PIBIRD;
 
 const app = createApp({
@@ -168,6 +168,7 @@ const app = createApp({
     const { lang, t, setLang, langs } = useI18n();
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('stats');
+    const { spName } = useSpeciesNames();
     const { mountChart: mountMonthly }= useChart();
     const { mountChart: mountConf }   = useChart();
     const { mountChart: mountYearly } = useChart();
@@ -330,7 +331,7 @@ const app = createApp({
     onMounted(() => loadAll());
 
     return {
-      lang, t,
+      lang, t, spName,
       fConf, fDateFrom, fDateTo, activePeriod, quickDates, setPeriod,
       confEditing, confEditVal, confInput, startConfEdit, commitConfEdit,
       kpis, topCount, topConf, records,

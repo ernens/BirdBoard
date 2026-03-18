@@ -57,6 +57,8 @@ let _bwCache = null, _bwCacheTs = 0;
 const BW_TTL = 5 * 60 * 1000;
 let _ebirdCache = null;
 let _ebirdCacheTs = 0;
+const _speciesNamesCache = {}; // lang → { sci: comName }
+let _detectedSpeciesCache = null; // [sci, sci, …]
 const EBIRD_TTL = 3600 * 1000; // 1 heure
 
 // Créer le répertoire cache photos si absent
@@ -337,6 +339,51 @@ const server = http.createServer((req, res) => {
         res.writeHead(500); res.end(JSON.stringify({ error: 'cache_error' }));
       }
     })();
+    return;
+  }
+
+  // ── Route : GET /api/species-names?lang=de ──────────────────────────────
+  // Returns { "Sci_Name": "Translated Com_Name" } from BirdNET label files
+  if (req.method === 'GET' && pathname === '/api/species-names') {
+    const lang = new URL(req.url, 'http://localhost').searchParams.get('lang') || 'fr';
+    if (!/^[a-z]{2}(_[A-Z]{2})?$/.test(lang)) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'invalid lang' })); return;
+    }
+
+    // Cache in memory (labels don't change at runtime)
+    if (!_speciesNamesCache[lang]) {
+      const labelFile = path.join(
+        process.env.HOME, 'BirdNET-Pi', 'model', 'l18n', `labels_${lang}.json`
+      );
+      try {
+        const raw = fs.readFileSync(labelFile, 'utf8');
+        _speciesNamesCache[lang] = JSON.parse(raw);
+        console.log(`[species-names] Loaded ${Object.keys(_speciesNamesCache[lang]).length} names for ${lang}`);
+      } catch(e) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: `labels_${lang}.json not found` }));
+        return;
+      }
+    }
+
+    // Only return species that exist in our DB (not all 7000)
+    const detected = _detectedSpeciesCache || (function() {
+      const rows = db.prepare('SELECT DISTINCT Sci_Name FROM detections').all();
+      _detectedSpeciesCache = rows.map(r => r.Sci_Name);
+      return _detectedSpeciesCache;
+    })();
+
+    const result = {};
+    const labels = _speciesNamesCache[lang];
+    for (const sci of detected) {
+      if (labels[sci]) result[sci] = labels[sci];
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=86400',
+    });
+    res.end(JSON.stringify(result));
     return;
   }
 

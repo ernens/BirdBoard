@@ -61,7 +61,7 @@
                @click="navigateTo('species.html',{species:r.Com_Name})">
             <div style="font-size:.72rem;color:var(--text-faint);min-width:16px;text-align:right;">{{i+1}}</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{r.Com_Name}}</div>
+              <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</div>
               <div style="height:4px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
                 <div :style="{height:'100%',width:Math.round(r.n/monthly.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px',transition:'width .4s'}"></div>
               </div>
@@ -88,7 +88,7 @@
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, useChart,
+const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
         birdQuery, escHtml, chartDefaults, daysAgo, localDateStr, navigateTo } = PIBIRD;
 
 const app = createApp({
@@ -97,6 +97,7 @@ const app = createApp({
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('biodiversity');
     const { mountChart: mountRichness } = useChart();
+    const { spName } = useSpeciesNames();
 
     const canvasRichness = ref(null);
     const CONF = BIRD_CONFIG.defaultConfidence;
@@ -171,7 +172,7 @@ const app = createApp({
       try {
         const ym = localDateStr().substring(0,7);
         const rows = await birdQuery(
-          `SELECT Com_Name, COUNT(*) as n FROM detections WHERE SUBSTR(Date,1,7)=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC LIMIT 15`,
+          `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n FROM detections WHERE SUBSTR(Date,1,7)=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC LIMIT 15`,
           [ym, CONF]);
         monthly.value = { loading:false, rows };
       } catch(e) { monthly.value = { loading:false, rows:[] }; }
@@ -180,8 +181,9 @@ const app = createApp({
     async function loadMatrix() {
       matrix.value.loading = true;
       try {
-        const topRows = await birdQuery(`SELECT Com_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT 20`,[CONF]);
+        const topRows = await birdQuery(`SELECT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT 20`,[CONF]);
         const topSp = topRows.map(r=>r.Com_Name);
+        const sciMap = {}; topRows.forEach(r=>{sciMap[r.Com_Name]=r.Sci_Name;});
         if (!topSp.length) { matrix.value={loading:false,error:null,html:`<p class="error-msg">${t('no_data')}</p>`}; return; }
         const rows = await birdQuery(
           `SELECT Com_Name, CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM detections WHERE Com_Name IN (${topSp.map(()=>'?').join(',')}) AND Confidence>=? GROUP BY Com_Name,m`,
@@ -196,7 +198,7 @@ const app = createApp({
         let html = `<table class="matrix-table"><thead><tr><th class="sp-col">${t('species_name')}</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>${t('bio_total')}</th></tr></thead><tbody>`;
         topSp.forEach(sp => {
           const arr=data[sp], tot=arr.reduce((a,b)=>a+b,0);
-          html+=`<tr><td class="sp-name" onclick="PIBIRD.navigateTo('species.html',{species:'${encodeURIComponent(sp)}'});">${escHtml(sp)}</td>`;
+          html+=`<tr><td class="sp-name" onclick="PIBIRD.navigateTo('species.html',{species:'${encodeURIComponent(sp)}'});">${escHtml(spName(sp, sciMap[sp]))}</td>`;
           html+=arr.map(v=>`<td style="${cs(v)}">${v>0?v.toLocaleString():''}</td>`).join('');
           html+=`<td style="color:var(--accent);font-weight:500;">${tot.toLocaleString()}</td></tr>`;
         });
@@ -249,7 +251,7 @@ const app = createApp({
       heatmap, monthly, matrix,
       canvasRichness,
       fDateFrom, fDateTo, activePeriod, quickDates, setPeriod,
-      chartColor, navigateTo,
+      chartColor, navigateTo, spName,
     };
   }
 });

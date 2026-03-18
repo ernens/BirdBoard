@@ -89,7 +89,7 @@
                 <div v-else class="det-thumb-ph">🐦</div>
                 <div style="font-size:.85rem;flex:1;min-width:0;">
                   <span style="color:var(--danger);margin-right:.25rem;">💎</span>
-                  <strong style="color:var(--text-main);">{{r.Com_Name}}</strong>
+                  <strong style="color:var(--text-main);">{{spName(r.Com_Name, r.sci)}}</strong>
                   <div style="font-size:.72rem;color:var(--text-muted);font-style:italic;">{{r.sci}}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
@@ -123,7 +123,7 @@
                    class="dl-btn" title="Télécharger" @click.stop>⬇</a>
                 <div class="det-time">{{fmtDate(d.Date)}}</div>
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{d.Com_Name}}</div>
+                  <div style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(d.Com_Name, d.Sci_Name)}}</div>
                   <div class="det-sci">{{d.Sci_Name}}</div>
                 </div>
                 <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':'conf-mid')">{{fmtConf(d.Confidence)}}</span>
@@ -155,7 +155,7 @@
                   <img loading="lazy" v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" @error="r.photoUrl=null">
                   <div v-else class="det-thumb-ph">🐦</div>
                 </td>
-                <td><span style="margin-right:.3rem;">{{r.n===1?'💎':r.n<=3?'🔶':'🔹'}}</span><strong>{{r.Com_Name}}</strong></td>
+                <td><span style="margin-right:.3rem;">{{r.n===1?'💎':r.n<=3?'🔶':'🔹'}}</span><strong>{{spName(r.Com_Name, r.sci)}}</strong></td>
                 <td style="font-style:italic;color:var(--text-muted);font-size:.8rem;" class="hide-sm">{{r.sci}}</td>
                 <td style="text-align:center;"><span :class="'conf-badge '+(r.n===1?'conf-low':r.n<=5?'conf-mid':'conf-high')">{{r.n}}</span></td>
                 <td style="font-size:.8rem;">{{fmtDate(r.first_date)}}</td>
@@ -172,7 +172,7 @@
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, useAudio,
+const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtConf, localDateStr, daysAgo,
         navigateTo, buildAudioUrl, fetchCachedPhoto } = PIBIRD;
 
@@ -182,6 +182,7 @@ const app = createApp({
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('rarities');
     const { playingFile, toggleAudio }= useAudio();
+    const { spName } = useSpeciesNames();
 
     const thisYear   = localDateStr().substring(0,4);
     const fConf      = ref(BIRD_CONFIG.defaultConfidence);
@@ -309,7 +310,7 @@ const app = createApp({
       applyQuick,resetFilters,thisYear,
       kpis,once,recent,table,
       playingFile,toggleAudio,buildAudioUrl,
-      fmtDate,fmtConf,navigateTo,load,
+      fmtDate,fmtConf,navigateTo,spName,load,
     };
   }
 });

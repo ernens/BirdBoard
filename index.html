@@ -63,7 +63,7 @@
             <div style="flex:1;">
               <div style="font-size:1.05rem;font-family:var(--font-display);font-weight:600;">
                 <a class="species-link" @click="navigateTo('species.html',{species:lastDet.row.Com_Name})">
-                  {{lastDet.row.Com_Name}}
+                  {{spName(lastDet.row.Com_Name, lastDet.row.Sci_Name)}}
                 </a>
               </div>
               <div style="font-size:.8rem;color:var(--text-muted);font-style:italic;">{{lastDet.row.Sci_Name}}</div>
@@ -147,7 +147,7 @@
             <img loading="lazy" v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" @error="r.photoUrl=null">
             <div v-else class="det-thumb-ph">💎</div>
             <div class="det-species">
-              <a class="species-link" @click="navigateTo('species.html',{species:r.Com_Name})">{{r.Com_Name}}</a>
+              <a class="species-link" @click="navigateTo('species.html',{species:r.Com_Name})">{{spName(r.Com_Name, r.Sci_Name)}}</a>
               <div class="det-sci">{{r.Sci_Name}} — {{r.totalDet}}× {{t('all_time').toLowerCase()}}</div>
             </div>
             <span class="rare-badge">💎 {{r.n}}×</span>
@@ -187,7 +187,7 @@
             <div class="det-time">{{fmtTime(d.Time)}}</div>
             <div class="det-species">
               <a class="species-link" @click="navigateTo('species.html',{species:d.Com_Name})">
-                {{d.Com_Name}}
+                {{spName(d.Com_Name, d.Sci_Name)}}
               </a>
               <div class="det-sci">{{d.Sci_Name}}</div>
             </div>
@@ -258,7 +258,7 @@ function encodeWav(pcm,sr){const ds=pcm.length*2,buf=new ArrayBuffer(44+ds),v=ne
 
 // ── Vue app ───────────────────────────────────────────────────────────────────
 const { createApp, ref, watch, onMounted, onUnmounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, useChart, useAudio,
+const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf, freshnessLabel,
         localDateStr, daysAgo, chartDefaults, navigateTo,
         buildAudioUrl, fetchCachedPhoto } = PIBIRD;
@@ -269,6 +269,7 @@ const app = createApp({
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('index');
     const { playingFile, toggleAudio } = useAudio();
+    const { spName } = useSpeciesNames();
     const { mountChart: mount7d }     = useChart();
     const { mountChart: mountTop }    = useChart();
     const { mountChart: mountHourly } = useChart();
@@ -560,7 +561,7 @@ const app = createApp({
     });
 
     return {
-      lang, t,
+      lang, t, spName,
       today, kpis, lastDet, feed, rareSpeciesToday,
       playingFile, toggleAudio,
       richPlaying, richProgress, richDuration, toggleRichPlay, seekRich,

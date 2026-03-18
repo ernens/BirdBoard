@@ -129,7 +129,7 @@
                 <span v-else>🦜</span>
               </div>
               <div class="sp-info">
-                <div class="sp-name-row">{{s.Com_Name}}</div>
+                <div class="sp-name-row">{{spName(s.Com_Name, s.sci)}}</div>
                 <div class="sp-sci-row">{{s.sci}}</div>
               </div>
               <div class="sp-meta">
@@ -166,7 +166,7 @@
               <span v-else>🦜</span>
             </div>
             <div class="player-species">
-              <div class="player-name">{{selected.Com_Name}}</div>
+              <div class="player-name">{{spName(selected.Com_Name, selected.sci)}}</div>
               <div class="player-sci">{{selected.sci}}</div>
               <div class="player-meta">
                 <span class="conf-badge" :class="parseFloat(currentDet.Confidence)>=0.8?'conf-high':'conf-mid'">
@@ -552,7 +552,7 @@ function encodeWav(pcm, sr) {
 
 // ── Vue 3 App ─────────────────────────────────────────────────────────────────
 const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, useChart,
+const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf, freshnessLabel,
         localDateStr, daysAgo, buildAudioUrl, buildSpeciesLinks, fetchSpeciesImage,
         navigateTo } = PIBIRD;
@@ -567,6 +567,7 @@ const app = createApp({
     const { lang, t, setLang, langs } = useI18n();
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('recent');
+    const { spName } = useSpeciesNames();
     const { mountChart: mountHourly } = useChart();
 
     const today     = localDateStr();
@@ -917,7 +918,7 @@ const app = createApp({
     });
 
     return {
-      lang, t,
+      lang, t, spName,
       today, yesterday, selDate, activeQuick, recentQuicks,
       datePickerInput, openDatePicker,
       prevDay, nextDay, goToday, goYesterday, goQuick, onDateChange,
