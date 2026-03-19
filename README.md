@@ -5,8 +5,10 @@
 [![Vue 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vue.js)](https://vuejs.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Modern ornithological dashboard for [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
+Modern ornithological dashboard for [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
 Vue 3 (CDN) frontend with Node.js backend, multilingual (FR/EN/NL/DE + 36 languages for species names).
+
+> **Birdash is not a fork** — it's a standalone replacement dashboard for BirdNET-Pi's native web interface.
 
 > [Français](README.fr.md) · [Nederlands](README.nl.md) · [Deutsch](README.de.md) · [Contributing](CONTRIBUTING.md)
 
@@ -30,26 +32,33 @@ Vue 3 (CDN) frontend with Node.js backend, multilingual (FR/EN/NL/DE + 36 langua
 
 ## Features
 
-- 📊 Real-time overview with 6 KPIs (detections, species, confidence, total, last hour, rare species today) and charts (today's activity + 7-day trend with trendline)
+- 📊 Real-time overview with 6 KPIs and charts (today's activity + 7-day trend with trendline)
 - 🎙️ Detection feed with integrated audio playback
 - 🦜 Detailed species cards with photo carousel (iNaturalist + Wikipedia)
 - 🧬 Taxonomy info, IUCN conservation status, wingspan
-- 🗓️ Biodiversity matrix (hours × species)
+- 🗓️ Biodiversity matrix (hours x species)
 - 💎 Rare species and alerts
 - 📈 Statistics and rankings
 - 🎵 Audio spectrogram with DSP noise reduction
 - 🏆 Best recordings with uniform photos and player
 - 🖥️ System status (CPU, RAM, disk, temperature)
 - 🔬 Advanced analyses
+- 🔧 **Settings page** — model selector, analysis parameters, services management
+- 🤖 **Perch v2 support** — Google DeepMind model (15,000 species) alongside BirdNET V2.4
 - ⚡ Service Worker for offline caching
 - ♿ Accessibility (WCAG AA, keyboard navigation, skip-link)
 - 🎨 5 modern themes (Forest, Night, Paper, Ocean, Dusk)
 - 🌍 4 UI languages (FR / EN / NL / DE) + species names auto-translated in 36 languages via BirdNET labels
-- 🐦 Automatic species name translation based on selected language (BirdNET l18n label files)
+
+## Tested with
+
+| BirdNET-Pi | Hardware | Status |
+|------------|----------|--------|
+| [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) | Raspberry Pi 4/5 | ✅ Tested |
 
 ## Prerequisites
 
-- BirdNET-Pi running (`~/BirdNET-Pi/scripts/birds.db` present)
+- [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) running (`~/BirdNET-Pi/scripts/birds.db` present)
 - Node.js >= 18 (`node --version`)
 - Caddy (see Caddy Configuration section below)
 
@@ -58,18 +67,18 @@ Vue 3 (CDN) frontend with Node.js backend, multilingual (FR/EN/NL/DE + 36 langua
 ```bash
 # 1. Clone the repository
 cd ~
-git clone https://github.com/ernens/Birdash.git birdash
+git clone https://github.com/ernens/birdash.git
+cd birdash
 
 # 2. Install dependencies
-cd ~/birdash
 npm install
 
 # 3. Local configuration
-cp birdash-local.example.js birdash-local.js
-nano birdash-local.js
+cp config/birdash-local.example.js public/js/birdash-local.js
+nano public/js/birdash-local.js
 
 # 4. Test the server
-node bird-server.js
+node server/server.js
 # -> [BIRDASH] API started on http://127.0.0.1:7474
 # Test: curl http://127.0.0.1:7474/api/health
 
@@ -77,7 +86,7 @@ node bird-server.js
 npm test
 
 # 6. Install systemd service
-sudo cp birdash.service /etc/systemd/system/
+sudo cp config/birdash.service /etc/systemd/system/
 sudo systemctl edit birdash
 #    [Service]
 #    Environment=EBIRD_API_KEY=your_key
@@ -125,7 +134,8 @@ YOUR_HOSTNAME {
 
     # Static dashboard pages
     handle /birds* {
-        root * /home/{USER}/birdash
+        uri strip_prefix /birds
+        root * /home/{USER}/birdash/public
         file_server
     }
 }
@@ -146,7 +156,7 @@ sudo systemctl reload caddy
 # Test the API
 curl http://127.0.0.1:7474/api/health
 
-# Run backend tests (19 tests)
+# Run backend tests
 npm test
 
 # Open the dashboard
@@ -156,31 +166,33 @@ npm test
 ## Project Structure
 
 ```
-Birdash/
-├── bird-server.js           # Node.js HTTP backend (API + SQLite)
-├── bird-server.test.js      # Backend tests (19 tests)
-├── bird-config.js           # Central configuration
-├── bird-vue-core.js         # Vue 3 composables (BirdashShell, i18n, themes)
-├── bird-styles.css          # Global styles + 5 themes
-├── bird-pages.css           # Page-specific styles
-├── sw.js                    # Service Worker (offline cache)
-├── birdash-local.example.js # Local config template
-├── birdash.service          # systemd service
-├── index.html               # Main dashboard
-├── species.html             # Species detail (carousel, stats, charts)
-├── recordings.html          # Best recordings
-├── detections.html          # Detection journal
-├── biodiversity.html        # Biodiversity matrix
-├── rarities.html            # Rare species
-├── stats.html               # Statistics
-├── analyses.html            # Advanced analyses
-├── spectrogram.html         # Audio spectrogram
-├── today.html               # Today's detections
-├── recent.html              # Recent detections
-├── system.html              # System status
-├── screenshots/             # Application screenshots
-├── CONTRIBUTING.md          # Contribution guide
-└── LICENSE                  # MIT License
+birdash/
+├── server/
+│   └── server.js              # Node.js HTTP backend (API + SQLite)
+├── tests/
+│   └── server.test.js         # Backend tests
+├── public/                    # Static files served by Caddy
+│   ├── *.html                 # 13 pages (dashboard, species, settings...)
+│   ├── js/                    # Client-side JavaScript
+│   │   ├── bird-config.js     # Central configuration
+│   │   ├── bird-core.js       # Shared utilities
+│   │   ├── bird-vue-core.js   # Vue 3 composables (shell, themes)
+│   │   └── bird-i18n.js       # i18n engine
+│   ├── css/                   # Stylesheets + 5 themes
+│   ├── i18n/                  # Translation files (fr/en/nl)
+│   ├── img/                   # SVG assets
+│   └── sw.js                  # Service Worker (offline cache)
+├── config/
+│   ├── birdash.service        # systemd service
+│   └── birdash-local.example.js  # Local config template
+├── screenshots/
+├── CONTRIBUTING.md
+├── LICENSE
+├── package.json
+├── README.md                  # English (default)
+├── README.fr.md               # Français
+├── README.nl.md               # Nederlands
+└── README.de.md               # Deutsch
 ```
 
 ## Environment Variables

@@ -5,12 +5,14 @@
 [![Vue 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vue.js)](https://vuejs.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Dashboard ornithologique moderne pour [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
+Dashboard ornithologique moderne pour [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
 Interface Vue 3 (CDN) avec backend Node.js, multilingue (FR/EN/NL/DE + 36 langues pour les noms d'espèces).
+
+> **Birdash n'est pas un fork** — c'est un dashboard de remplacement pour l'interface web native de BirdNET-Pi.
 
 > [English](README.md) · [Nederlands](README.nl.md) · [Deutsch](README.de.md) · [Contributing](CONTRIBUTING.md)
 
-## Screenshots
+## Captures d'écran
 
 | Vue d'ensemble | Fiche espèce |
 |:-:|:-:|
@@ -20,7 +22,7 @@ Interface Vue 3 (CDN) avec backend Node.js, multilingue (FR/EN/NL/DE + 36 langue
 |:-:|:-:|
 | ![Recordings](screenshots/recordings.png) | ![Detections](screenshots/detections.png) |
 
-| Biodiversité | Rarités |
+| Biodiversité | Raretés |
 |:-:|:-:|
 | ![Biodiversity](screenshots/biodiversity.png) | ![Rarities](screenshots/rarities.png) |
 
@@ -30,26 +32,33 @@ Interface Vue 3 (CDN) avec backend Node.js, multilingue (FR/EN/NL/DE + 36 langue
 
 ## Fonctionnalités
 
-- 📊 Vue d'ensemble avec 6 KPIs (détections, espèces, confiance, total, dernière heure, espèces rares) et graphiques temps réel (activité aujourd'hui + 7 jours avec trendline)
+- 📊 Vue d'ensemble temps réel avec 6 KPIs et graphiques (activité du jour + tendance 7 jours avec trendline)
 - 🎙️ Feed des détections avec lecture audio intégrée
 - 🦜 Fiches espèces détaillées avec carrousel photos (iNaturalist + Wikipedia)
-- 🧬 Infos taxonomiques, statut de conservation (IUCN), envergure
-- 🗓️ Matrice biodiversité (heures × espèces)
+- 🧬 Infos taxonomiques, statut de conservation IUCN, envergure
+- 🗓️ Matrice biodiversité (heures x espèces)
 - 💎 Espèces rares et alertes
 - 📈 Statistiques et classements
 - 🎵 Spectrogramme audio avec nettoyage DSP
 - 🏆 Meilleurs enregistrements avec photos uniformes et lecteur
 - 🖥️ État du système (CPU, RAM, disque, température)
 - 🔬 Analyses avancées
+- 🔧 **Page réglages** — sélecteur de modèle, paramètres d'analyse, gestion des services
+- 🤖 **Support Perch v2** — modèle Google DeepMind (15 000 espèces) en plus de BirdNET V2.4
 - ⚡ Service Worker pour cache offline
 - ♿ Accessibilité (WCAG AA, navigation clavier, skip-link)
 - 🎨 5 thèmes modernes (Forest, Night, Paper, Ocean, Dusk)
 - 🌍 4 langues d'interface (FR / EN / NL / DE) + noms d'espèces traduits automatiquement dans 36 langues via les labels BirdNET
-- 🐦 Traduction automatique des noms d'espèces selon la langue choisie (fichiers BirdNET l18n)
+
+## Testé avec
+
+| BirdNET-Pi | Matériel | Statut |
+|------------|----------|--------|
+| [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) | Raspberry Pi 4/5 | ✅ Testé |
 
 ## Prérequis
 
-- BirdNET-Pi en fonctionnement (`~/BirdNET-Pi/scripts/birds.db` présent)
+- [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) en fonctionnement (`~/BirdNET-Pi/scripts/birds.db` présent)
 - Node.js >= 18 (`node --version`)
 - Caddy (voir section Configuration Caddy ci-dessous)
 
@@ -58,19 +67,18 @@ Interface Vue 3 (CDN) avec backend Node.js, multilingue (FR/EN/NL/DE + 36 langue
 ```bash
 # 1. Cloner le dépôt
 cd ~
-git clone https://github.com/ernens/Birdash.git birdash
+git clone https://github.com/ernens/birdash.git
+cd birdash
 
 # 2. Installer les dépendances
-cd ~/birdash
 npm install
 
 # 3. Configuration locale
-#    Copier le template et renseigner vos paramètres
-cp birdash-local.example.js birdash-local.js
-nano birdash-local.js
+cp config/birdash-local.example.js public/js/birdash-local.js
+nano public/js/birdash-local.js
 
-# 4. Tester le serveur manuellement
-node bird-server.js
+# 4. Tester le serveur
+node server/server.js
 # -> [BIRDASH] API démarrée sur http://127.0.0.1:7474
 # Test : curl http://127.0.0.1:7474/api/health
 
@@ -78,8 +86,7 @@ node bird-server.js
 npm test
 
 # 6. Installer le service systemd
-sudo cp birdash.service /etc/systemd/system/
-#    Ajouter vos clés API dans un override systemd :
+sudo cp config/birdash.service /etc/systemd/system/
 sudo systemctl edit birdash
 #    [Service]
 #    Environment=EBIRD_API_KEY=votre_clé
@@ -127,7 +134,8 @@ VOTRE_HOSTNAME {
 
     # Pages statiques du dashboard
     handle /birds* {
-        root * /home/{USER}/birdash
+        uri strip_prefix /birds
+        root * /home/{USER}/birdash/public
         file_server
     }
 }
@@ -148,7 +156,7 @@ sudo systemctl reload caddy
 # Tester l'API
 curl http://127.0.0.1:7474/api/health
 
-# Lancer les tests backend (19 tests)
+# Lancer les tests backend
 npm test
 
 # Ouvrir le dashboard
@@ -158,31 +166,33 @@ npm test
 ## Structure du projet
 
 ```
-Birdash/
-├── bird-server.js           # Backend Node.js (API HTTP + SQLite)
-├── bird-server.test.js      # Tests backend (19 tests)
-├── bird-config.js           # Configuration centralisée
-├── bird-vue-core.js         # Composables Vue 3 (BirdashShell, i18n, thèmes)
-├── bird-styles.css          # Styles globaux + 5 thèmes
-├── bird-pages.css           # Styles spécifiques par page
-├── sw.js                    # Service Worker (cache offline)
-├── birdash-local.example.js # Template config locale
-├── birdash.service          # Service systemd
-├── index.html               # Dashboard principal
-├── species.html             # Fiche espèce (carrousel, stats, charts)
-├── recordings.html          # Meilleurs enregistrements
-├── detections.html          # Journal des détections
-├── biodiversity.html        # Matrice biodiversité
-├── rarities.html            # Espèces rares
-├── stats.html               # Statistiques
-├── analyses.html            # Analyses avancées
-├── spectrogram.html         # Spectrogramme audio
-├── today.html               # Détections du jour
-├── recent.html              # Détections récentes
-├── system.html              # État du système
-├── screenshots/             # Captures d'écran
-├── CONTRIBUTING.md          # Guide de contribution
-└── LICENSE                  # Licence MIT
+birdash/
+├── server/
+│   └── server.js              # Backend Node.js (API HTTP + SQLite)
+├── tests/
+│   └── server.test.js         # Tests backend
+├── public/                    # Fichiers statiques servis par Caddy
+│   ├── *.html                 # 13 pages (dashboard, espèces, réglages...)
+│   ├── js/                    # JavaScript client
+│   │   ├── bird-config.js     # Configuration centralisée
+│   │   ├── bird-core.js       # Utilitaires partagés
+│   │   ├── bird-vue-core.js   # Composables Vue 3 (shell, thèmes)
+│   │   └── bird-i18n.js       # Moteur i18n
+│   ├── css/                   # Feuilles de styles + 5 thèmes
+│   ├── i18n/                  # Fichiers de traduction (fr/en/nl)
+│   ├── img/                   # Assets SVG
+│   └── sw.js                  # Service Worker (cache offline)
+├── config/
+│   ├── birdash.service        # Service systemd
+│   └── birdash-local.example.js  # Template config locale
+├── screenshots/
+├── CONTRIBUTING.md
+├── LICENSE
+├── package.json
+├── README.md                  # English (défaut GitHub)
+├── README.fr.md               # Français
+├── README.nl.md               # Nederlands
+└── README.de.md               # Deutsch
 ```
 
 ## Variables d'environnement

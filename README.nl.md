@@ -5,8 +5,10 @@
 [![Vue 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vue.js)](https://vuejs.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Modern ornithologisch dashboard voor [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
+Modern ornithologisch dashboard voor [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
 Vue 3 (CDN) frontend met Node.js backend, meertalig (FR/EN/NL/DE + 36 talen voor soortnamen).
+
+> **Birdash is geen fork** — het is een standalone vervangingsdashboard voor de native webinterface van BirdNET-Pi.
 
 > [English](README.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Contributing](CONTRIBUTING.md)
 
@@ -30,26 +32,33 @@ Vue 3 (CDN) frontend met Node.js backend, meertalig (FR/EN/NL/DE + 36 talen voor
 
 ## Functies
 
-- 📊 Realtime overzicht met 6 KPI's (detecties, soorten, betrouwbaarheid, totaal, laatste uur, zeldzame soorten) en grafieken (activiteit vandaag + 7-dagentrend met trendlijn)
-- 🎙️ Detectiefeed met geintegreerde audiospeler
+- 📊 Realtime overzicht met 6 KPI's en grafieken (activiteit vandaag + 7-dagentrend met trendlijn)
+- 🎙️ Detectiefeed met geïntegreerde audiospeler
 - 🦜 Gedetailleerde soortkaarten met fotocarrousel (iNaturalist + Wikipedia)
 - 🧬 Taxonomische info, IUCN-beschermingsstatus, spanwijdte
-- 🗓️ Biodiversiteitsmatrix (uren x soorten)
+- 🗓️ Biodiversiteitsmatrix (uren × soorten)
 - 💎 Zeldzame soorten en waarschuwingen
 - 📈 Statistieken en ranglijsten
 - 🎵 Audiospectrogram met DSP-ruisonderdrukking
 - 🏆 Beste opnames met uniforme foto's en speler
 - 🖥️ Systeemstatus (CPU, RAM, schijf, temperatuur)
 - 🔬 Geavanceerde analyses
+- 🔧 **Instellingenpagina** — modelselector, analyseparameters, servicesbeheer
+- 🤖 **Perch v2-ondersteuning** — Google DeepMind-model (15.000 soorten) naast BirdNET V2.4
 - ⚡ Service Worker voor offline caching
 - ♿ Toegankelijkheid (WCAG AA, toetsenbordnavigatie, skip-link)
 - 🎨 5 moderne thema's (Forest, Night, Paper, Ocean, Dusk)
 - 🌍 4 interfacetalen (FR / EN / NL / DE) + soortnamen automatisch vertaald in 36 talen via BirdNET-labels
-- 🐦 Automatische vertaling van soortnamen op basis van de gekozen taal (BirdNET l18n-labelbestanden)
+
+## Getest met
+
+| BirdNET-Pi | Hardware | Status |
+|------------|----------|--------|
+| [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) | Raspberry Pi 4/5 | ✅ Getest |
 
 ## Vereisten
 
-- BirdNET-Pi actief (`~/BirdNET-Pi/scripts/birds.db` aanwezig)
+- [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) actief (`~/BirdNET-Pi/scripts/birds.db` aanwezig)
 - Node.js >= 18 (`node --version`)
 - Caddy (zie sectie Caddy-configuratie hieronder)
 
@@ -58,38 +67,38 @@ Vue 3 (CDN) frontend met Node.js backend, meertalig (FR/EN/NL/DE + 36 talen voor
 ```bash
 # 1. Repository klonen
 cd ~
-git clone https://github.com/ernens/Birdash.git birdash
+git clone https://github.com/ernens/birdash.git
+cd birdash
 
 # 2. Afhankelijkheden installeren
-cd ~/birdash
 npm install
 
 # 3. Lokale configuratie
-cp birdash-local.example.js birdash-local.js
-nano birdash-local.js
+cp config/birdash-local.example.js public/js/birdash-local.js
+nano public/js/birdash-local.js
 
 # 4. Server testen
-node bird-server.js
+node server/server.js
 # -> [BIRDASH] API gestart op http://127.0.0.1:7474
 
 # 5. Tests uitvoeren
 npm test
 
 # 6. Systemd-service installeren
-sudo cp birdash-api.service /etc/systemd/system/
-sudo systemctl edit birdash-api
+sudo cp config/birdash.service /etc/systemd/system/
+sudo systemctl edit birdash
 #    [Service]
 #    Environment=EBIRD_API_KEY=uw_sleutel
 #    Environment=BW_STATION_ID=uw_station
 sudo systemctl daemon-reload
-sudo systemctl enable birdash-api
-sudo systemctl start birdash-api
+sudo systemctl enable birdash
+sudo systemctl start birdash
 ```
 
 ## Caddy-configuratie
 
 Birdash gebruikt Caddy als reverse proxy om de API, audiobestanden
-en statische pagina's onder een enkel `/birds/`-pad te serveren.
+en statische pagina's onder één `/birds/`-pad te serveren.
 
 ```
 UW_HOSTNAME {
@@ -107,7 +116,8 @@ UW_HOSTNAME {
     }
 
     handle /birds* {
-        root * /home/{USER}/birdash
+        uri strip_prefix /birds
+        root * /home/{USER}/birdash/public
         file_server
     }
 }
@@ -118,6 +128,38 @@ Vervang `{USER}` door uw systeemgebruikersnaam.
 ```bash
 caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
+```
+
+## Projectstructuur
+
+```
+birdash/
+├── server/
+│   └── server.js              # Node.js HTTP-backend (API + SQLite)
+├── tests/
+│   └── server.test.js         # Backend-tests
+├── public/                    # Statische bestanden geserveerd door Caddy
+│   ├── *.html                 # 13 pagina's (dashboard, soorten, instellingen...)
+│   ├── js/                    # Client-side JavaScript
+│   │   ├── bird-config.js     # Centrale configuratie
+│   │   ├── bird-core.js       # Gedeelde hulpfuncties
+│   │   ├── bird-vue-core.js   # Vue 3-composables (shell, thema's)
+│   │   └── bird-i18n.js       # i18n-engine
+│   ├── css/                   # Stylesheets + 5 thema's
+│   ├── i18n/                  # Vertalingsbestanden (fr/en/nl)
+│   ├── img/                   # SVG-assets
+│   └── sw.js                  # Service Worker (offline cache)
+├── config/
+│   ├── birdash.service        # systemd-service
+│   └── birdash-local.example.js  # Lokaal configuratiesjabloon
+├── screenshots/
+├── CONTRIBUTING.md
+├── LICENSE
+├── package.json
+├── README.md                  # English (standaard)
+├── README.fr.md               # Français
+├── README.nl.md               # Nederlands
+└── README.de.md               # Deutsch
 ```
 
 ## Omgevingsvariabelen
@@ -149,7 +191,7 @@ Bijdragen zijn welkom! Zie de [bijdragegids](CONTRIBUTING.md).
 cd ~/birdash
 git pull
 npm install
-sudo systemctl restart birdash-api
+sudo systemctl restart birdash
 ```
 
 ## Licentie
