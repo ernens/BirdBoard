@@ -1,5 +1,5 @@
 /**
- * bird-vue-core.js — Composables partagés PIBIRD (Vue 3 CDN)
+ * bird-vue-core.js — Composables partagés BIRDASH (Vue 3 CDN)
  *
  * Dépend de : Vue 3 (CDN global), bird-config.js
  * Remplace  : bird-i18n.js + bird-core.js pour les pages migrées
@@ -502,8 +502,8 @@
   // ── Singletons réactifs (partagés dans toute l'app) ───────────────────────
   // Un seul ref par page — Vue garantit que tous les composables qui y accèdent
   // voient le même changement et réagissent de façon coordonnée.
-  const _lang  = ref(localStorage.getItem('pibird_lang')  || 'fr');
-  const _theme = ref(localStorage.getItem('pibird-theme') || 'forest');
+  const _lang  = ref(localStorage.getItem('birdash_lang')  || 'fr');
+  const _theme = ref(localStorage.getItem('birdash-theme') || 'forest');
 
   // Appliquer le thème immédiatement au chargement
   document.documentElement.setAttribute('data-theme', _theme.value);
@@ -534,7 +534,7 @@
     function setLang(code) {
       if (!_TRANSLATIONS[code]) return;
       _lang.value = code;
-      localStorage.setItem('pibird_lang', code);
+      localStorage.setItem('birdash_lang', code);
     }
 
     const langs = Object.keys(_TRANSLATIONS).map(code => ({
@@ -558,7 +558,7 @@
   function useTheme() {
     function setTheme(id) {
       _theme.value = id;
-      localStorage.setItem('pibird-theme', id);
+      localStorage.setItem('birdash-theme', id);
       document.documentElement.setAttribute('data-theme', id);
     }
     return { theme: _theme, themes: THEMES, setTheme };
@@ -761,7 +761,7 @@
   // ── fetchCachedPhoto — cache localStorage + /api/photo + fallbacks ───────────
   // Utilisable depuis toutes les pages. TTL 30 jours.
   const PHOTO_TTL = 30 * 24 * 3600 * 1000;
-  const PHOTO_LS_PREFIX = 'pibird_photo_';
+  const PHOTO_LS_PREFIX = 'birdash_photo_';
 
   async function fetchCachedPhoto(sciName) {
     if (!sciName) return null;
@@ -919,7 +919,7 @@
 
   // ── Composant PibirdShell ─────────────────────────────────────────────────
   // Encapsule le header, la navigation, les switchers thème/langue et le <main>.
-  // Usage : <pibird-shell page="species"> … contenu … </pibird-shell>
+  // Usage : <birdash-shell page="species"> … contenu … </birdash-shell>
   const PibirdShell = {
     props: { page: { type: String, default: '' } },
     setup(props) {
@@ -941,12 +941,12 @@
     },
     template: `
 <div class="app-shell">
-  <a href="#pibird-main" class="skip-link">Aller au contenu</a>
+  <a href="#birdash-main" class="skip-link">Aller au contenu</a>
   <header class="app-header" role="banner">
     <div class="header-brand">
-      <img src="robin-logo.svg" class="brand-logo" alt="PIBIRD Robin">
+      <img src="robin-logo.svg" class="brand-logo" alt="BIRDASH Robin">
       <div class="brand-text">
-        <span class="brand-name">PIBIRD</span>
+        <span class="brand-name">BIRDASH</span>
         <span class="brand-sub">{{siteName}}</span>
       </div>
     </div>
@@ -982,7 +982,7 @@
       <span class="nav-label">{{p.label}}</span>
     </a>
   </div></nav>
-  <main id="pibird-main" class="app-main" role="main">
+  <main id="birdash-main" class="app-main" role="main">
     <slot></slot>
   </main>
 </div>`
@@ -1022,13 +1022,13 @@
 
   // Enregistre les composants globaux sur une instance d'app Vue
   function registerComponents(app) {
-    app.component('pibird-shell', PibirdShell);
+    app.component('birdash-shell', PibirdShell);
     app.component('bird-img', BirdImg);
     return app;
   }
 
   // ── Export global ─────────────────────────────────────────────────────────
-  window.PIBIRD = {
+  window.BIRDASH = {
     // Composables Vue
     useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
     // Composants

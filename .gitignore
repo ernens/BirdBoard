@@ -4,6 +4,6 @@ node_modules/
 *BAK
 BAK/
 .DS_Store
-pibird-local.js
+birdash-local.js
 deploy.sh
 photo-cache/

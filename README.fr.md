@@ -1,14 +1,14 @@
-# 🐦 BirdBoard
+# 🐦 Birdash
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org)
 [![Vue 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vue.js)](https://vuejs.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Dashboard ornithologique moderne pour [BirdNET-Pi](https://github.com/mcguirepr89/BirdNET-Pi).
+Dashboard ornithologique moderne pour [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
 Interface Vue 3 (CDN) avec backend Node.js, multilingue (FR/EN/NL/DE + 36 langues pour les noms d'espèces).
 
-> [English version](README.en.md) · [Contributing](CONTRIBUTING.md)
+> [English](README.md) · [Nederlands](README.nl.md) · [Deutsch](README.de.md) · [Contributing](CONTRIBUTING.md)
 
 ## Screenshots
 
@@ -58,40 +58,40 @@ Interface Vue 3 (CDN) avec backend Node.js, multilingue (FR/EN/NL/DE + 36 langue
 ```bash
 # 1. Cloner le dépôt
 cd ~
-git clone https://github.com/ernens/BirdBoard.git pibird
+git clone https://github.com/ernens/Birdash.git birdash
 
 # 2. Installer les dépendances
-cd ~/pibird
+cd ~/birdash
 npm install
 
 # 3. Configuration locale
 #    Copier le template et renseigner vos paramètres
-cp pibird-local.example.js pibird-local.js
-nano pibird-local.js
+cp birdash-local.example.js birdash-local.js
+nano birdash-local.js
 
 # 4. Tester le serveur manuellement
 node bird-server.js
-# -> [PIBIRD] API démarrée sur http://127.0.0.1:7474
+# -> [BIRDASH] API démarrée sur http://127.0.0.1:7474
 # Test : curl http://127.0.0.1:7474/api/health
 
 # 5. Lancer les tests
 npm test
 
 # 6. Installer le service systemd
-sudo cp pibird-api.service /etc/systemd/system/
+sudo cp birdash.service /etc/systemd/system/
 #    Ajouter vos clés API dans un override systemd :
-sudo systemctl edit pibird-api
+sudo systemctl edit birdash
 #    [Service]
 #    Environment=EBIRD_API_KEY=votre_clé
 #    Environment=BW_STATION_ID=votre_station
 sudo systemctl daemon-reload
-sudo systemctl enable pibird-api
-sudo systemctl start pibird-api
+sudo systemctl enable birdash
+sudo systemctl start birdash
 ```
 
 ## Configuration Caddy
 
-BirdBoard utilise Caddy comme reverse proxy pour servir l'API, les fichiers
+Birdash utilise Caddy comme reverse proxy pour servir l'API, les fichiers
 audio et les pages statiques sous un même chemin `/birds/`.
 
 ### 1. Installer Caddy (si pas déjà installé)
@@ -106,7 +106,7 @@ sudo apt install caddy
 
 ### 2. Configurer le Caddyfile
 
-Éditez `/etc/caddy/Caddyfile` et ajoutez le bloc BirdBoard :
+Éditez `/etc/caddy/Caddyfile` et ajoutez le bloc Birdash :
 
 ```
 VOTRE_HOSTNAME {
@@ -127,7 +127,7 @@ VOTRE_HOSTNAME {
 
     # Pages statiques du dashboard
     handle /birds* {
-        root * /home/{USER}/pibird
+        root * /home/{USER}/birdash
         file_server
     }
 }
@@ -158,16 +158,16 @@ npm test
 ## Structure du projet
 
 ```
-BirdBoard/
+Birdash/
 ├── bird-server.js           # Backend Node.js (API HTTP + SQLite)
 ├── bird-server.test.js      # Tests backend (19 tests)
-├── bird-config.js           # Configuration centrale
-├── bird-vue-core.js         # Composables Vue 3 (PibirdShell, i18n, thèmes)
+├── bird-config.js           # Configuration centralisée
+├── bird-vue-core.js         # Composables Vue 3 (BirdashShell, i18n, thèmes)
 ├── bird-styles.css          # Styles globaux + 5 thèmes
 ├── bird-pages.css           # Styles spécifiques par page
 ├── sw.js                    # Service Worker (cache offline)
-├── pibird-local.example.js  # Template config locale
-├── pibird-api.service       # Service systemd
+├── birdash-local.example.js # Template config locale
+├── birdash.service          # Service systemd
 ├── index.html               # Dashboard principal
 ├── species.html             # Fiche espèce (carrousel, stats, charts)
 ├── recordings.html          # Meilleurs enregistrements
@@ -189,8 +189,8 @@ BirdBoard/
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
-| `PIBIRD_PORT` | `7474` | Port du serveur API |
-| `PIBIRD_DB` | `~/BirdNET-Pi/scripts/birds.db` | Chemin vers la base SQLite |
+| `BIRDASH_PORT` | `7474` | Port du serveur API |
+| `BIRDASH_DB` | `~/BirdNET-Pi/scripts/birds.db` | Chemin vers la base SQLite |
 | `EBIRD_API_KEY` | — | Clé API eBird (optionnelle) |
 | `BW_STATION_ID` | — | ID station BirdWeather (optionnelle) |
 
@@ -211,10 +211,10 @@ Les contributions sont les bienvenues ! Consultez le [guide de contribution](CON
 ## Mise à jour
 
 ```bash
-cd ~/pibird
+cd ~/birdash
 git pull
 npm install
-sudo systemctl restart pibird-api
+sudo systemctl restart birdash
 ```
 
 ## Licence

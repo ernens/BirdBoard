@@ -1,5 +1,5 @@
 /**
- * PIBIRD — Tests du backend (bird-server.js)
+ * BIRDASH — Tests du backend (bird-server.js)
  * Exécuter : npm test
  * Requiert : Node 20+ (test runner natif)
  * Le serveur est démarré automatiquement avant les tests.
@@ -18,7 +18,7 @@ let serverProc = null;
 
 before(async () => {
   serverProc = spawn('node', [path.join(__dirname, 'bird-server.js')], {
-    env: { ...process.env, PIBIRD_PORT: String(PORT) },
+    env: { ...process.env, BIRDASH_PORT: String(PORT) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 

@@ -1,5 +1,5 @@
 /**
- * bird-core.js — Utilitaires partagés PIBIRD
+ * bird-core.js — Utilitaires partagés BIRDASH
  * Dépend de : bird-config.js, bird-i18n.js
  */
 
@@ -94,7 +94,7 @@ function toggleAudio(fileName, btnEl) {
   btnEl.classList.add('playing');
 
   audio.play().catch(err => {
-    console.error('[PIBIRD] Audio error:', err);
+    console.error('[BIRDASH] Audio error:', err);
     btnEl.classList.remove('playing');
   });
 
@@ -201,11 +201,11 @@ const THEMES = [
 ];
 
 function getTheme() {
-  return localStorage.getItem('pibird-theme') || 'forest';
+  return localStorage.getItem('birdash-theme') || 'forest';
 }
 
 function setTheme(id) {
-  localStorage.setItem('pibird-theme', id);
+  localStorage.setItem('birdash-theme', id);
   document.documentElement.setAttribute('data-theme', id);
   // Met à jour l'état actif des boutons
   document.querySelectorAll('.theme-btn').forEach(b => {

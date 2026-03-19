@@ -1,5 +1,5 @@
 /**
- * bird-i18n.js — Moteur de traductions PIBIRD
+ * bird-i18n.js — Moteur de traductions BIRDASH
  *
  * Traductions inline (fr/en/nl) = fallback garanti, toujours disponibles.
  * Fichiers lang/{code}.json = optionnels, chargés en async pour surcharger/étendre.
@@ -305,7 +305,7 @@ async function loadTranslations() {
   );
 
   // Restaurer préférence de langue
-  const saved = localStorage.getItem('pibird_lang');
+  const saved = localStorage.getItem('birdash_lang');
   _currentLang = (saved && _translations[saved]) ? saved
     : (typeof BIRD_CONFIG !== 'undefined' && BIRD_CONFIG.defaultLang
        && _translations[BIRD_CONFIG.defaultLang]) ? BIRD_CONFIG.defaultLang
@@ -345,7 +345,7 @@ function isI18nReady() { return _i18nReady; }
 function setLang(lang) {
   if (!_translations[lang] && !_INLINE[lang]) return;
   _currentLang = lang;
-  localStorage.setItem('pibird_lang', lang);
+  localStorage.setItem('birdash_lang', lang);
   document.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.getAttribute('data-i18n'));
   });

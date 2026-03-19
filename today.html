@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Aujourd'hui</title>
+  <title>BIRDASH — Aujourd'hui</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="today">
+  <birdash-shell page="today">
 
     <!-- ── Titre + date ─────────────────────────────────────────── -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
@@ -280,7 +280,7 @@
       </div>
 
     </div>
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 
@@ -517,7 +517,7 @@ const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vu
 const { useI18n, useTheme, useNav,
         birdQuery, fmtDate, fmtTime, fmtConf, freshnessLabel,
         localDateStr, buildAudioUrl, buildSpeciesLinks, fetchSpeciesImage,
-        navigateTo } = PIBIRD;
+        navigateTo } = BIRDASH;
 
 // PCM brut conservé entre loadDetection et applyClean (non réactif)
 let _rawPcm = null;
@@ -823,7 +823,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

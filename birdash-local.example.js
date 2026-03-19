@@ -1,15 +1,15 @@
 /**
- * pibird-local.js — Configuration locale PIBIRD
+ * birdash-local.js — Configuration locale BIRDASH
  * ─────────────────────────────────────────────
  * Ce fichier contient les paramètres spécifiques à ton installation.
  * Il N'est PAS versionné (ajouté à .gitignore).
  *
  * Copier ce fichier sur le Pi :
- *   cp pibird-local.example.js pibird-local.js
+ *   cp birdash-local.example.js birdash-local.js
  * et remplir les valeurs ci-dessous.
  */
 
-const PIBIRD_LOCAL = {
+const BIRDASH_LOCAL = {
 
   // ── Localisation ──────────────────────────────────────────────────
   location: {
@@ -38,4 +38,4 @@ const PIBIRD_LOCAL = {
 };
 
 // Ne pas modifier — chargé par bird-config.js et bird-server.js
-if (typeof module !== 'undefined') module.exports = PIBIRD_LOCAL;
+if (typeof module !== 'undefined') module.exports = BIRDASH_LOCAL;

@@ -17,8 +17,8 @@ Voici comment participer au projet.
 git clone https://github.com/ernens/BirdBoard.git
 cd BirdBoard
 npm install
-cp pibird-local.example.js pibird-local.js
-# Éditer pibird-local.js avec vos paramètres
+cp birdash-local.example.js birdash-local.js
+# Éditer birdash-local.js avec vos paramètres
 npm start
 ```
 
@@ -68,7 +68,7 @@ BirdBoard/
 ├── bird-styles.css       # Styles globaux + 5 thèmes
 ├── bird-pages.css        # Styles spécifiques aux pages
 ├── sw.js                 # Service Worker (cache offline)
-├── pibird-local.js       # Config locale (non versionné)
+├── birdash-local.js       # Config locale (non versionné)
 ├── index.html            # Vue d'ensemble (dashboard)
 ├── species.html          # Fiche espèce détaillée
 ├── recordings.html       # Meilleurs enregistrements
@@ -95,7 +95,7 @@ BirdBoard/
 ## Conventions de code
 
 - **Pas de build system** — les fichiers sont servis tels quels
-- **Vue 3 CDN** — pas d'imports ES modules, tout via `window.PIBIRD`
+- **Vue 3 CDN** — pas d'imports ES modules, tout via `window.BIRDASH`
 - **Indentation** : 2 espaces
 - **Nommage** : `camelCase` pour JS, `kebab-case` pour CSS
 - **Commits** : messages courts et descriptifs en anglais

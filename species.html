@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Espèces</title>
+  <title>BIRDASH — Espèces</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="species">
+  <birdash-shell page="species">
 
     <!-- Spinner initial -->
     <div v-if="mode==='loading'" class="spinner" style="padding:4rem;"><div></div><div></div><div></div></div>
@@ -179,7 +179,7 @@
       </div>
 
     </div>
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 <script>
@@ -187,7 +187,7 @@ const { createApp, ref, reactive, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf,
         daysAgo, getUrlParam, navigateTo,
-        buildSpeciesLinks, fetchSpeciesImage, chartDefaults } = PIBIRD;
+        buildSpeciesLinks, fetchSpeciesImage, chartDefaults } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -303,7 +303,7 @@ const app = createApp({
           first: stats.first_date, last: stats.last_date,
           daysDetected: stats.days_detected,
         };
-        document.title = `PIBIRD — ${speciesName}`;
+        document.title = `BIRDASH — ${speciesName}`;
         mode.value = 'detail';
 
         // Load all data in parallel
@@ -606,7 +606,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

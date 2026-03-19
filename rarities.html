@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Rarités</title>
+  <title>BIRDASH — Rarités</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="rarities">
+  <birdash-shell page="rarities">
     <div class="rar-layout">
 
       <!-- ── Panneau filtres ──────────────────────────────────────── -->
@@ -167,14 +167,14 @@
         </div>
       </div>
     </div>
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtConf, localDateStr, daysAgo,
-        navigateTo, buildAudioUrl, fetchCachedPhoto } = PIBIRD;
+        navigateTo, buildAudioUrl, fetchCachedPhoto } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -314,7 +314,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

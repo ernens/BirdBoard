@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Biodiversité</title>
+  <title>BIRDASH — Biodiversité</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="biodiversity">
+  <birdash-shell page="biodiversity">
 
     <!-- Barre de période -->
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -83,13 +83,13 @@
       </div>
     </div>
 
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
-        birdQuery, escHtml, chartDefaults, daysAgo, localDateStr, navigateTo } = PIBIRD;
+        birdQuery, escHtml, chartDefaults, daysAgo, localDateStr, navigateTo } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -198,7 +198,7 @@ const app = createApp({
         let html = `<table class="matrix-table"><thead><tr><th class="sp-col">${t('species_name')}</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>${t('bio_total')}</th></tr></thead><tbody>`;
         topSp.forEach(sp => {
           const arr=data[sp], tot=arr.reduce((a,b)=>a+b,0);
-          html+=`<tr><td class="sp-name" onclick="PIBIRD.navigateTo('species.html',{species:'${encodeURIComponent(sp)}'});">${escHtml(spName(sp, sciMap[sp]))}</td>`;
+          html+=`<tr><td class="sp-name" onclick="BIRDASH.navigateTo('species.html',{species:'${encodeURIComponent(sp)}'});">${escHtml(spName(sp, sciMap[sp]))}</td>`;
           html+=arr.map(v=>`<td style="${cs(v)}">${v>0?v.toLocaleString():''}</td>`).join('');
           html+=`<td style="color:var(--accent);font-weight:500;">${tot.toLocaleString()}</td></tr>`;
         });
@@ -255,7 +255,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

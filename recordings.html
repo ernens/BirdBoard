@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Meilleurs enregistrements</title>
+  <title>BIRDASH — Meilleurs enregistrements</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="recordings">
+  <birdash-shell page="recordings">
 
     <!-- ── Titre + tri global ────────────────────────────────────── -->
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -209,7 +209,7 @@
       </div>
 
     </div><!-- /rec-layout -->
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 <script>
@@ -382,7 +382,7 @@ function encodeWavRec(pcm, sr) {
 // ── Vue 3 App ─────────────────────────────────────────────────────────────────
 const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
 const { useI18n, useTheme, useNav, useSpeciesNames, birdQuery, fmtConf, localDateStr,
-        buildAudioUrl, buildSpeciesLinks } = PIBIRD;
+        buildAudioUrl, buildSpeciesLinks } = BIRDASH;
 
 const PAGE_SIZE = 12;
 
@@ -799,7 +799,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

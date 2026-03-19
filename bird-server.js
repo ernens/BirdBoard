@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PIBIRD — Backend API
+ * BIRDASH — Backend API
  * Expose birds.db (SQLite) via HTTP POST /api/query
  * Port 7474 — proxifié par Caddy sous /birds/api/
  */
@@ -16,38 +16,38 @@ let Database;
 try {
   Database = require('better-sqlite3');
 } catch (e) {
-  console.error('[PIBIRD] better-sqlite3 non trouvé. Exécute : npm install better-sqlite3');
+  console.error('[BIRDASH] better-sqlite3 non trouvé. Exécute : npm install better-sqlite3');
   process.exit(1);
 }
 
 const https = require('https');
 
 // --- Configuration
-const PORT      = process.env.PIBIRD_PORT || 7474;
-const DB_PATH   = process.env.PIBIRD_DB   || path.join(
+const PORT      = process.env.BIRDASH_PORT || 7474;
+const DB_PATH   = process.env.BIRDASH_DB   || path.join(
   process.env.HOME, 'BirdNET-Pi', 'scripts', 'birds.db'
 );
-const SONGS_DIR = process.env.PIBIRD_SONGS_DIR || path.join(
+const SONGS_DIR = process.env.BIRDASH_SONGS_DIR || path.join(
   process.env.HOME, 'BirdSongs', 'Extracted', 'By_Date'
 );
-const PHOTO_CACHE_DIR = path.join(process.env.HOME, 'pibird', 'photo-cache');
+const PHOTO_CACHE_DIR = path.join(process.env.HOME, 'birdash', 'photo-cache');
 const AUDIO_RATE = 48000;
 
-// Charger la config locale (pibird-local.js) si disponible
+// Charger la config locale (birdash-local.js) si disponible
 // — silencieux si le fichier n'existe pas (installation fraîche)
 let _localConfig = {};
 try {
   const fs_test = require('fs');
-  const localPath = require('path').join(__dirname, 'pibird-local.js');
+  const localPath = require('path').join(__dirname, 'birdash-local.js');
   if (fs_test.existsSync(localPath)) {
     _localConfig = require(localPath);
-    console.log('[PIBIRD] Config locale chargée : pibird-local.js');
+    console.log('[BIRDASH] Config locale chargée : birdash-local.js');
   }
 } catch(e) {
-  console.warn('[PIBIRD] pibird-local.js non chargé :', e.message);
+  console.warn('[BIRDASH] birdash-local.js non chargé :', e.message);
 }
 
-// Clé API eBird — configurable via pibird-local.js (ebirdApiKey)
+// Clé API eBird — configurable via birdash-local.js (ebirdApiKey)
 // ou variable d'environnement EBIRD_API_KEY
 const EBIRD_API_KEY  = process.env.EBIRD_API_KEY  || _localConfig.ebirdApiKey        || '';
 const EBIRD_REGION   = (_localConfig.location && _localConfig.location.region) || 'BE';
@@ -64,7 +64,7 @@ const EBIRD_TTL = 3600 * 1000; // 1 heure
 // Créer le répertoire cache photos si absent
 if (!fs.existsSync(PHOTO_CACHE_DIR)) {
   fs.mkdirSync(PHOTO_CACHE_DIR, { recursive: true });
-  console.log(`[PIBIRD] Dossier photo-cache créé : ${PHOTO_CACHE_DIR}`);
+  console.log(`[BIRDASH] Dossier photo-cache créé : ${PHOTO_CACHE_DIR}`);
 }
 
 // ── Photo cache helpers ─────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ function fetchBuffer(url, hops = 3) {
   return new Promise((resolve) => {
     if (hops <= 0) return resolve(null);
     const lib = url.startsWith('https') ? https : require('http');
-    lib.get(url, { headers: { 'User-Agent': 'PIBIRD/1.0' } }, (res) => {
+    lib.get(url, { headers: { 'User-Agent': 'BIRDASH/1.0' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         return resolve(fetchBuffer(res.headers.location, hops - 1));
@@ -97,7 +97,7 @@ function fetchBuffer(url, hops = 3) {
 function fetchJson(url, extraHeaders = {}) {
   return new Promise((resolve) => {
     const lib = url.startsWith('https') ? https : require('http');
-    const headers = { 'User-Agent': 'PIBIRD/1.0', 'Accept': 'application/json', ...extraHeaders };
+    const headers = { 'User-Agent': 'BIRDASH/1.0', 'Accept': 'application/json', ...extraHeaders };
     lib.get(url, { headers }, (res) => {
       if (res.statusCode !== 200) { res.resume(); return resolve(null); }
       let body = '';
@@ -166,14 +166,14 @@ async function getRecentMp3s() {
 
 // Vérifie que la DB existe
 if (!fs.existsSync(DB_PATH)) {
-  console.error(`[PIBIRD] birds.db introuvable : ${DB_PATH}`);
+  console.error(`[BIRDASH] birds.db introuvable : ${DB_PATH}`);
   process.exit(1);
 }
 
 // Ouvre en lecture seule
 const db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
 
-console.log(`[PIBIRD] birds.db ouvert : ${DB_PATH}`);
+console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
 // --- Validation de sécurité
 const ALLOWED_START = /^\s*(SELECT|PRAGMA|WITH)\s/i;
@@ -193,7 +193,7 @@ function validateQuery(sql) {
 }
 
 // --- Origines autorisées pour CORS (configurable via env)
-const ALLOWED_ORIGINS = (process.env.PIBIRD_CORS_ORIGINS || '').split(',').filter(Boolean);
+const ALLOWED_ORIGINS = (process.env.BIRDASH_CORS_ORIGINS || '').split(',').filter(Boolean);
 
 function getCorsOrigin(req) {
   const origin = req.headers.origin;
@@ -263,7 +263,7 @@ const server = http.createServer((req, res) => {
 
   // Extraire le pathname proprement (ignore query string éventuel)
   const pathname = req.url.split('?')[0].replace(/\/$/, '') || '/';
-  console.log(`[PIBIRD] ${req.method} ${req.url} → pathname: ${pathname}`);
+  console.log(`[BIRDASH] ${req.method} ${req.url} → pathname: ${pathname}`);
 
   // ── Route : GET /api/photo?sci=Pica+pica ────────────────────────────────────
   // Cache disque → iNaturalist → Wikipedia
@@ -532,7 +532,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && pathname === '/api/birdweather') {
     if (!BW_STATION_ID) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'no_station', message: 'birdweatherStationId non configuré dans pibird-local.js' }));
+      res.end(JSON.stringify({ error: 'no_station', message: 'birdweatherStationId non configuré dans birdash-local.js' }));
       return;
     }
     const qp       = new URL(req.url, 'http://localhost').searchParams;
@@ -736,7 +736,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ columns, rows: data }));
 
       } catch (err) {
-        console.error('[PIBIRD] Erreur SQL :', err.message);
+        console.error('[BIRDASH] Erreur SQL :', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Erreur interne lors de l\'exécution de la requête' }));
       }
@@ -758,13 +758,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  console.warn(`[PIBIRD] 404 — route inconnue : ${req.method} ${pathname}`);
+  console.warn(`[BIRDASH] 404 — route inconnue : ${req.method} ${pathname}`);
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: `Route inconnue : ${req.method} ${pathname}` }));
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[PIBIRD] API démarrée sur http://127.0.0.1:${PORT}`);
+  console.log(`[BIRDASH] API démarrée sur http://127.0.0.1:${PORT}`);
 });
 
 process.on('SIGTERM', () => { db.close(); process.exit(0); });

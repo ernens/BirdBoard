@@ -1,19 +1,19 @@
 /**
- * bird-config.js — Configuration centrale PIBIRD
+ * bird-config.js — Configuration centrale BIRDASH
  * Modifier ce fichier selon ton installation
- * Les surcharges locales vont dans pibird-local.js (non versionné)
+ * Les surcharges locales vont dans birdash-local.js (non versionné)
  */
 
-// Charger la config locale si elle existe (pibird-local.js)
+// Charger la config locale si elle existe (birdash-local.js)
 const _local = (function() {
   try {
     if (typeof require !== 'undefined') {
       // Node.js (bird-server.js)
-      return require('./pibird-local.js');
+      return require('./birdash-local.js');
     }
   } catch(e) {}
-  // Browser : PIBIRD_LOCAL doit être chargé avant bird-config.js
-  return (typeof PIBIRD_LOCAL !== 'undefined') ? PIBIRD_LOCAL : {};
+  // Browser : BIRDASH_LOCAL doit être chargé avant bird-config.js
+  return (typeof BIRDASH_LOCAL !== 'undefined') ? BIRDASH_LOCAL : {};
 })();
 
 const BIRD_CONFIG = {
@@ -21,14 +21,14 @@ const BIRD_CONFIG = {
   apiUrl:   '/birds/api',
   audioUrl: '/birds/audio',
 
-  // Paramètres analyse (surchargeables via pibird-local.js)
+  // Paramètres analyse (surchargeables via birdash-local.js)
   defaultConfidence: _local.defaultConfidence ?? 0.7,
   topSpeciesCount:   10,
   recentDays:        30,
   rarityThreshold:   _local.rarityThreshold ?? 10,
   pageSize:          50,
 
-  // Localisation (surchargeables via pibird-local.js)
+  // Localisation (surchargeables via birdash-local.js)
   location: {
     lat:     (_local.location && _local.location.lat)     ?? 50.85,
     lon:     (_local.location && _local.location.lon)     ?? 4.35,

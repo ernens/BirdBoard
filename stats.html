@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Statistiques</title>
+  <title>BIRDASH — Statistiques</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="stats">
+  <birdash-shell page="stats">
 
     <!-- Barre de filtres stats -->
     <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;padding:.65rem .85rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
@@ -155,13 +155,13 @@
       <div class="chart-wrap"><canvas ref="canvasYearly"></canvas></div>
     </div>
 
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
-        birdQuery, fmtDate, chartDefaults, navigateTo, localDateStr, daysAgo } = PIBIRD;
+        birdQuery, fmtDate, chartDefaults, navigateTo, localDateStr, daysAgo } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -340,7 +340,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

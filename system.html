@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Système</title>
+  <title>BIRDASH — Système</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="system">
+  <birdash-shell page="system">
 
     <div class="grid-2" style="margin-bottom:1rem;">
 
@@ -208,7 +208,7 @@
         <a href="https://ebird.org/api/keygen" target="_blank" style="color:var(--accent);">ebird.org/api/keygen</a>
         puis configurez-la sur le Pi :<br>
         <code style="background:var(--bg-deep);padding:.2rem .5rem;border-radius:4px;font-size:.78rem;display:inline-block;margin-top:.4rem;">
-          sudo systemctl edit pibird-api --force
+          sudo systemctl edit birdash-api --force
         </code><br>
         <span style="font-size:.75rem;color:var(--text-faint);">Ajouter : <code>Environment=EBIRD_API_KEY=votre_cle</code></span>
       </div>
@@ -274,7 +274,7 @@
 
       <!-- Pas configuré -->
       <div v-if="!bw.hasStation" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
-        Ajouter dans <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">pibird-local.js</code> :
+        Ajouter dans <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">birdash-local.js</code> :
         <code style="display:block;background:var(--bg-deep);padding:.4rem .65rem;border-radius:5px;margin-top:.4rem;font-size:.78rem;">
           birdweatherStationId: 'YOUR_STATION_ID',
         </code>
@@ -340,14 +340,14 @@
       </div>
     </div>
 
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 <script>
 const { createApp, ref, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart,
         birdQuery, fmtDate, fmtTime, freshnessLabel,
-        localDateStr, daysAgo, chartDefaults, navigateTo } = PIBIRD;
+        localDateStr, daysAgo, chartDefaults, navigateTo } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -607,7 +607,7 @@ const app = createApp({
     };
   },
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>

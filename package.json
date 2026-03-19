@@ -1,5 +1,5 @@
 {
-  "name": "pibird",
+  "name": "birdash",
   "private": true,
   "scripts": {
     "start": "node bird-server.js",

@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBIRD — Spectrogramme live</title>
+  <title>BIRDASH — Spectrogramme live</title>
   <link rel="stylesheet" href="bird-styles.css">
   <link rel="stylesheet" href="bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
-  <script src="pibird-local.js"></script>
+  <script src="birdash-local.js"></script>
   <script src="bird-config.js"></script>
   <script src="bird-vue-core.js"></script>
 </head>
 <body>
 <div id="app">
-  <pibird-shell page="spectrogram">
+  <birdash-shell page="spectrogram">
   <div class="spectro-page" style="padding:0;flex:1;display:flex;flex-direction:column;">
 
     <!-- ── Barre de contrôles ──────────────────────────────────── -->
@@ -208,7 +208,7 @@
     </div>
 
   </div>
-  </pibird-shell>
+  </birdash-shell>
 </div>
 
 
@@ -324,7 +324,7 @@ function cleanAudioPipeline(pcm, sr, strength) {
 
 // ── Vue 3 App ─────────────────────────────────────────────────────────────────
 const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, birdQuery, fmtConf, localDateStr, buildAudioUrl } = PIBIRD;
+const { useI18n, useTheme, useNav, birdQuery, fmtConf, localDateStr, buildAudioUrl } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -745,7 +745,7 @@ const app = createApp({
     };
   }
 });
-PIBIRD.registerComponents(app).mount('#app');
+BIRDASH.registerComponents(app).mount('#app');
 </script>
 </body>
 </html>
