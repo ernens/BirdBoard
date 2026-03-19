@@ -77,14 +77,14 @@ node bird-server.js
 npm test
 
 # 6. Install systemd service
-sudo cp birdash-api.service /etc/systemd/system/
-sudo systemctl edit birdash-api
+sudo cp birdash.service /etc/systemd/system/
+sudo systemctl edit birdash
 #    [Service]
 #    Environment=EBIRD_API_KEY=your_key
 #    Environment=BW_STATION_ID=your_station
 sudo systemctl daemon-reload
-sudo systemctl enable birdash-api
-sudo systemctl start birdash-api
+sudo systemctl enable birdash
+sudo systemctl start birdash
 ```
 
 ## Caddy Configuration
@@ -212,7 +212,7 @@ Contributions are welcome! See the [contribution guide](CONTRIBUTING.md).
 cd ~/birdash
 git pull
 npm install
-sudo systemctl restart birdash-api
+sudo systemctl restart birdash
 ```
 
 ## License
