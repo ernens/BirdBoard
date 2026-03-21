@@ -158,14 +158,22 @@
 
       <!-- ── Feed détections récentes ───────────────────────────── -->
       <div class="card">
-        <div class="card-title">{{t('recent_detections')}}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <div class="card-title" style="margin:0;">{{t('recent_detections')}}</div>
+          <button class="sp-edit-btn" :class="{active:deleteMode}" @click="deleteMode=!deleteMode"
+                  :title="t('del_manage')">
+            {{deleteMode ? '✕' : '🗑'}}
+          </button>
+        </div>
         <div v-if="!feed.length" class="error-msg">{{t('no_data')}}</div>
         <div v-else>
-          <div v-for="d in feed" :key="d.Date+d.Time" class="det-item">
-            <button v-if="d.File_Name" class="play-btn"
+          <div v-for="d in feed" :key="d.Date+d.Time" class="det-item" :class="{'det-item-del':deleteMode}">
+            <button v-if="d.File_Name && !deleteMode" class="play-btn"
                     style="width:22px;height:22px;font-size:.6rem;"
                     :class="{playing:playingFile===d.File_Name}"
                     @click="toggleAudio(d.File_Name)">▶</button>
+            <button v-else-if="deleteMode" class="sp-del-btn"
+                    @click="confirmDeleteOne(d)" :title="t('del_this')">🗑</button>
             <span v-else style="width:22px;display:inline-block;"></span>
             <div class="det-time">{{fmtDate(d.Date)}}</div>
             <div class="det-time" style="min-width:44px;">{{fmtTime(d.Time)}}</div>
@@ -175,11 +183,92 @@
             </span>
           </div>
         </div>
-        <div style="margin-top:.75rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.75rem;flex-wrap:wrap;gap:.5rem;">
           <a :href="'detections.html?species='+encodeURIComponent(sp.name)" class="btn btn-secondary">
             {{t('nav_detections')}} →
           </a>
+          <button v-if="deleteMode" class="sp-danger-btn" @click="openBulkModal()">
+            🗑 {{t('del_all')}} ({{sp.total}})
+          </button>
         </div>
+      </div>
+
+      <!-- ── Delete modal (confirmation + result) ─────────────────── -->
+      <div v-if="showBulkModal || deleteResult" class="sp-modal-overlay"
+           @click.self="deleteResult ? closeBulkModal() : null">
+        <div class="sp-modal">
+          <!-- ── Phase 1: Confirmation ── -->
+          <template v-if="!deleteResult">
+            <div style="font-size:1.1rem;font-weight:700;color:var(--danger,#ef4444);margin-bottom:.75rem;">
+              ⚠️ {{t('del_confirm_title')}}
+            </div>
+            <p style="font-size:.88rem;line-height:1.6;margin-bottom:1rem;">
+              {{t('del_confirm_body', {name: bulkTargetName, count: bulkTargetCount})}}
+            </p>
+            <label style="font-size:.82rem;color:var(--text-muted);display:block;margin-bottom:.3rem;">
+              {{t('del_type_name', {name: bulkTargetName})}}
+            </label>
+            <input v-model="bulkConfirmName" class="set-input" style="width:100%;box-sizing:border-box;margin-bottom:1rem;"
+                   :placeholder="bulkTargetName" autocomplete="off"
+                   @keyup.enter="bulkConfirmName===bulkTargetName && !bulkDeleting ? executeBulkDelete() : null">
+            <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+              <button class="btn btn-secondary" @click="closeBulkModal()">
+                {{t('cancel')}}
+              </button>
+              <button class="sp-danger-btn" :disabled="bulkConfirmName!==bulkTargetName || bulkDeleting"
+                      @click="executeBulkDelete">
+                {{bulkDeleting ? '...' : t('del_permanently')}}
+              </button>
+            </div>
+            <div v-if="deleteError" class="error-msg" style="margin-top:.5rem;">{{deleteError}}</div>
+          </template>
+
+          <!-- ── Phase 2: Success result ── -->
+          <template v-else>
+            <div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:.75rem;">
+              ✅ {{t('del_done_title')}}
+            </div>
+            <div class="del-result-card">
+              <div class="del-result-row">
+                <span class="del-result-icon">🐦</span>
+                <span class="del-result-label">{{t('species_name')}}</span>
+                <span class="del-result-val">{{deleteResult.name}}</span>
+              </div>
+              <div class="del-result-row">
+                <span class="del-result-icon">🗃️</span>
+                <span class="del-result-label">{{t('del_records_removed')}}</span>
+                <span class="del-result-val del-result-accent">{{deleteResult.deleted}}</span>
+              </div>
+              <div class="del-result-row">
+                <span class="del-result-icon">🎵</span>
+                <span class="del-result-label">{{t('del_files_removed')}}</span>
+                <span class="del-result-val del-result-accent">{{deleteResult.filesDeleted}}</span>
+              </div>
+              <div v-if="deleteResult.fileErrors > 0" class="del-result-row" style="color:var(--danger,#ef4444);">
+                <span class="del-result-icon">⚠️</span>
+                <span class="del-result-label">{{t('del_file_errors')}}</span>
+                <span class="del-result-val">{{deleteResult.fileErrors}}</span>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:1rem;">
+              <button class="btn btn-secondary" @click="closeBulkModal()" style="font-weight:600;">
+                {{t('del_close')}}
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ── Single delete toast ──────────────────────────────────── -->
+      <div v-if="deleteToast" class="sp-toast" @click="deleteToast=null">
+        <span style="font-size:1rem;">✅</span>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:.85rem;">{{t('del_done_title')}}</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">
+            {{deleteToast.species}} — {{deleteToast.date}} {{deleteToast.time}}
+          </div>
+        </div>
+        <span style="font-size:.7rem;color:var(--text-faint);cursor:pointer;">✕</span>
       </div>
 
     </div>
@@ -616,6 +705,100 @@ const app = createApp({
       }
     });
 
+    // ── Delete management ─────────────────────────────────────────────────
+    const deleteMode      = ref(false);
+    const showBulkModal   = ref(false);
+    const bulkConfirmName = ref('');
+    const bulkDeleting    = ref(false);
+    const deleteError     = ref('');
+    const deleteResult    = ref(null);   // { name, deleted, filesDeleted, fileErrors }
+    const deleteToast     = ref(null);   // { species, date, time }
+    const bulkTargetName  = ref('');
+    const bulkTargetCount = ref(0);
+
+    function openBulkModal() {
+      bulkTargetName.value  = sp.value.name;
+      bulkTargetCount.value = sp.value.total;
+      bulkConfirmName.value = '';
+      deleteError.value     = '';
+      deleteResult.value    = null;
+      showBulkModal.value   = true;
+    }
+
+    function closeBulkModal() {
+      showBulkModal.value   = false;
+      bulkConfirmName.value = '';
+      deleteError.value     = '';
+      deleteResult.value    = null;
+    }
+
+    async function confirmDeleteOne(d) {
+      const msg = t('del_one_confirm', {
+        date: fmtDate(d.Date), time: fmtTime(d.Time), conf: fmtConf(d.Confidence)
+      });
+      if (!confirm(msg)) return;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/detections`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: d.Date, time: d.Time, comName: sp.value.name }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        // Show toast
+        deleteToast.value = {
+          species: sp.value.name,
+          date: fmtDate(d.Date),
+          time: fmtTime(d.Time),
+        };
+        setTimeout(() => { deleteToast.value = null; }, 4000);
+
+        // Refresh
+        await loadDetail(sp.value.name);
+      } catch(e) { alert(t('error') + ': ' + e.message); }
+    }
+
+    async function executeBulkDelete() {
+      bulkDeleting.value = true;
+      deleteError.value  = '';
+      try {
+        const targetName = bulkTargetName.value;
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/detections/species`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comName: targetName, confirmName: bulkConfirmName.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        // Show result in the same modal
+        deleteResult.value = {
+          name: targetName,
+          deleted: data.deleted || 0,
+          filesDeleted: data.filesDeleted || 0,
+          fileErrors: data.fileErrors?.length || 0,
+        };
+        showBulkModal.value   = false;  // hide confirmation, result stays via deleteResult
+        bulkConfirmName.value = '';
+        deleteMode.value      = false;
+
+        // Reload species list in background
+        const rows = await birdQuery(
+          'SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC');
+        speciesList.value = rows.map(r => ({ com: r.Com_Name }));
+        if (rows.length) {
+          pickerVal.value = rows[0].Com_Name;
+          await loadDetail(rows[0].Com_Name);
+        } else {
+          mode.value = 'picker';
+        }
+      } catch(e) {
+        deleteError.value = e.message;
+      }
+      bulkDeleting.value = false;
+    }
+
     return {
       lang, t, spName,
       mode, speciesList, pickerVal, onPickerChange,
@@ -626,6 +809,9 @@ const app = createApp({
       fmtDate, fmtTime, fmtConf, navigateTo,
       canvasHourly, canvasMonthly, canvas30d, canvasConf, canvasDayHour,
       loadDetail,
+      deleteMode, showBulkModal, bulkConfirmName, bulkDeleting, deleteError,
+      deleteResult, deleteToast, bulkTargetName, bulkTargetCount,
+      openBulkModal, closeBulkModal, confirmDeleteOne, executeBulkDelete,
     };
   }
 });

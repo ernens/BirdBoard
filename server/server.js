@@ -272,8 +272,13 @@ if (!fs.existsSync(DB_PATH)) {
   process.exit(1);
 }
 
-// Ouvre en lecture seule
+// Ouvre en lecture seule (requêtes SELECT)
 const db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+
+// Connexion en écriture pour les suppressions uniquement
+const dbWrite = new Database(DB_PATH, { fileMustExist: true });
+dbWrite.pragma('journal_mode = WAL');
+dbWrite.pragma('busy_timeout = 5000');
 
 console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
@@ -347,7 +352,7 @@ const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Vary', 'Origin');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -1108,6 +1113,141 @@ const server = http.createServer((req, res) => {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Erreur interne lors de l\'exécution de la requête' }));
       }
+    });
+    return;
+  }
+
+  // ── Route : DELETE /api/detections ─────────────────────────────────────────
+  // Delete a single detection by composite key (Date + Time + Com_Name)
+  if (req.method === 'DELETE' && pathname === '/api/detections') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      (async () => {
+        try {
+          const { date, time, comName } = JSON.parse(body);
+          if (!date || !time || !comName) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'date, time, comName required' }));
+            return;
+          }
+
+          // Get file names before deleting
+          const rows = dbWrite.prepare(
+            'SELECT File_Name FROM detections WHERE Date=? AND Time=? AND Com_Name=?'
+          ).all(date, time, comName);
+
+          if (rows.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Detection not found' }));
+            return;
+          }
+
+          // Delete from DB
+          const result = dbWrite.prepare(
+            'DELETE FROM detections WHERE Date=? AND Time=? AND Com_Name=?'
+          ).run(date, time, comName);
+
+          // Delete associated files (mp3 + png)
+          const fileErrors = [];
+          for (const row of rows) {
+            const m = row.File_Name.match(/^(.+?)-\d+-(\d{4}-\d{2}-\d{2})-/);
+            if (!m) continue;
+            const filePath = path.join(SONGS_DIR, m[2], m[1], row.File_Name);
+            for (const fp of [filePath, filePath + '.png']) {
+              try { await fsp.unlink(fp); } catch(e) {
+                if (e.code !== 'ENOENT') fileErrors.push(fp);
+              }
+            }
+          }
+
+          console.log(`[delete] Removed ${result.changes} detection(s): ${comName} ${date} ${time}`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, deleted: result.changes, fileErrors }));
+        } catch(e) {
+          console.error('[delete]', e.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      })();
+    });
+    return;
+  }
+
+  // ── Route : DELETE /api/detections/species ─────────────────────────────────
+  // Bulk-delete ALL detections for a species (requires typed confirmation)
+  if (req.method === 'DELETE' && pathname === '/api/detections/species') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      (async () => {
+        try {
+          const { comName, confirmName } = JSON.parse(body);
+          if (!comName || typeof comName !== 'string') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'comName required' }));
+            return;
+          }
+          // Safety: user must type the exact species name to confirm
+          if (confirmName !== comName) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Confirmation name does not match' }));
+            return;
+          }
+
+          // Get all file names first
+          const rows = dbWrite.prepare(
+            'SELECT File_Name FROM detections WHERE Com_Name=?'
+          ).all(comName);
+
+          if (rows.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No detections found for this species' }));
+            return;
+          }
+
+          // Delete all from DB in a transaction
+          const deleteAll = dbWrite.transaction(() => {
+            return dbWrite.prepare('DELETE FROM detections WHERE Com_Name=?').run(comName);
+          });
+          const result = deleteAll();
+
+          // Delete associated files
+          const fileErrors = [];
+          let filesDeleted = 0;
+          for (const row of rows) {
+            const m = row.File_Name.match(/^(.+?)-\d+-(\d{4}-\d{2}-\d{2})-/);
+            if (!m) continue;
+            const filePath = path.join(SONGS_DIR, m[2], m[1], row.File_Name);
+            for (const fp of [filePath, filePath + '.png']) {
+              try { await fsp.unlink(fp); filesDeleted++; } catch(e) {
+                if (e.code !== 'ENOENT') fileErrors.push(fp);
+              }
+            }
+          }
+
+          // Try to clean up empty directories
+          const dirs = new Set();
+          for (const row of rows) {
+            const m = row.File_Name.match(/^(.+?)-\d+-(\d{4}-\d{2}-\d{2})-/);
+            if (m) dirs.add(path.join(SONGS_DIR, m[2], m[1]));
+          }
+          for (const dir of dirs) {
+            try {
+              const remaining = await fsp.readdir(dir);
+              if (remaining.length === 0) await fsp.rmdir(dir);
+            } catch(e) { /* ignore */ }
+          }
+
+          console.log(`[delete-species] Removed ${result.changes} detections for "${comName}", ${filesDeleted} files deleted`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, deleted: result.changes, filesDeleted, fileErrors }));
+        } catch(e) {
+          console.error('[delete-species]', e.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      })();
     });
     return;
   }

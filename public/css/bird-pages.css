@@ -1055,6 +1055,60 @@
     }
     .cmp-table tr:hover td { background: var(--bg-deep); }
 
+/* ── species.html — Delete management ────────────────────────────────── */
+    .sp-edit-btn {
+      background:none; border:1px solid var(--border); border-radius:6px;
+      padding:.25rem .5rem; cursor:pointer; font-size:.8rem;
+      color:var(--text-muted); transition:all .15s;
+    }
+    .sp-edit-btn:hover, .sp-edit-btn.active {
+      border-color:var(--danger,#ef4444); color:var(--danger,#ef4444);
+      background:color-mix(in srgb, var(--danger,#ef4444) 8%, transparent);
+    }
+    .sp-del-btn {
+      background:none; border:none; cursor:pointer; font-size:.75rem;
+      width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+      border-radius:4px; transition:all .15s; padding:0;
+    }
+    .sp-del-btn:hover { background:color-mix(in srgb, var(--danger,#ef4444) 15%, transparent); }
+    .det-item-del { border-left:2px solid var(--danger,#ef4444); padding-left:.5rem; }
+    .sp-danger-btn {
+      background:var(--danger,#ef4444); color:#fff; border:none; border-radius:6px;
+      padding:.45rem 1rem; font-size:.82rem; font-weight:600; cursor:pointer;
+      transition:opacity .15s;
+    }
+    .sp-danger-btn:hover { opacity:.9; }
+    .sp-danger-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .sp-modal-overlay {
+      position:fixed; inset:0; z-index:1000;
+      background:rgba(0,0,0,.55); display:flex;
+      align-items:center; justify-content:center; padding:1rem;
+    }
+    .sp-modal {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:12px; max-width:460px; width:100%;
+      padding:1.5rem; box-shadow:0 8px 32px rgba(0,0,0,.3);
+    }
+    .del-result-card {
+      background:var(--bg-deep); border-radius:8px; padding:.75rem;
+      display:flex; flex-direction:column; gap:.5rem;
+    }
+    .del-result-row {
+      display:flex; align-items:center; gap:.5rem; font-size:.88rem;
+    }
+    .del-result-icon { font-size:.9rem; flex-shrink:0; width:24px; text-align:center; }
+    .del-result-label { flex:1; color:var(--text-muted); }
+    .del-result-val { font-weight:700; font-family:monospace; color:var(--text-main); }
+    .del-result-accent { color:var(--accent); }
+    .sp-toast {
+      position:fixed; bottom:1.5rem; right:1.5rem; z-index:999;
+      background:var(--bg-card); border:1px solid var(--accent);
+      border-radius:10px; padding:.75rem 1rem; box-shadow:0 4px 16px rgba(0,0,0,.2);
+      display:flex; align-items:center; gap:.6rem; max-width:360px;
+      cursor:pointer; animation:toastIn .3s ease-out;
+    }
+    @keyframes toastIn { from{transform:translateY(20px);opacity:0} to{transform:none;opacity:1} }
+
 /* ── species.html — Detail page ──────────────────────────────────────── */
 
     /* Hero: carousel left + info right */
