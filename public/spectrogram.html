@@ -21,120 +21,167 @@
     <!-- ── Barre de contrôles ──────────────────────────────────── -->
     <div class="spectro-toolbar">
 
-      <!-- Indicateur live -->
-      <div class="live-indicator">
-        <div class="live-dot" :class="{active:status==='live', error:status==='error'}"></div>
-        <span v-if="status==='idle'">{{t('idle')}}</span>
-        <span v-else-if="status==='connecting'">{{t('connecting')}}</span>
-        <span v-else-if="status==='live'" style="color:#4caf50;">{{t('live')}}</span>
-        <span v-else-if="status==='error'" style="color:var(--danger);">{{t('error')}}</span>
-      </div>
+      <!-- Ligne 1 : Transport + affichage -->
+      <div class="stbar-row">
+        <!-- Indicateur live -->
+        <div class="live-indicator">
+          <div class="live-dot" :class="{active:status==='live', error:status==='error'}"></div>
+          <span v-if="status==='idle'">{{t('idle')}}</span>
+          <span v-else-if="status==='connecting'">{{t('connecting')}}</span>
+          <span v-else-if="status==='live'" style="color:#4caf50;">{{t('live')}}</span>
+          <span v-else-if="status==='error'" style="color:var(--danger);">{{t('error')}}</span>
+        </div>
 
-      <div class="toolbar-sep"></div>
+        <div class="toolbar-sep"></div>
 
-      <!-- Bouton Start/Stop -->
-      <button v-if="status!=='live'" class="btn btn-primary"
-              style="padding:.3rem .9rem;font-size:.8rem;"
-              @click="startLive" :disabled="status==='connecting'">
-        ▶ {{t('start')}}
-      </button>
-      <button v-else class="btn btn-secondary"
-              style="padding:.3rem .9rem;font-size:.8rem;"
-              @click="stopLive">
-        ⏹ {{t('stop')}}
-      </button>
-
-      <div class="toolbar-sep"></div>
-
-      <!-- Gain -->
-      <div class="toolbar-group">
-        <label>{{t('gain')}}</label>
-        <input type="range" min="0.5" max="5" step="0.1" v-model.number="gain"
-               style="width:100px;accent-color:var(--accent);">
-        <span style="font-size:.75rem;font-family:monospace;color:var(--accent);min-width:36px;">
-          {{Math.round(gain*100)}}%
-        </span>
-      </div>
-
-      <div class="toolbar-sep"></div>
-
-      <!-- Fréq max -->
-      <div class="toolbar-group">
-        <label>{{t('freq_max')}}</label>
-        <select class="bird-select" v-model.number="maxHz"
-                style="padding:.2rem .4rem;font-size:.75rem;">
-          <option :value="8000">8 kHz</option>
-          <option :value="12000">12 kHz</option>
-          <option :value="16000">16 kHz</option>
-          <option :value="22000">22 kHz</option>
-        </select>
-      </div>
-
-      <div class="toolbar-sep"></div>
-
-      <!-- Espèce en cours de lecture -->
-      <div v-if="nowPlaying" class="toolbar-group" style="gap:.4rem;">
-        <div class="live-dot active" style="width:6px;height:6px;"></div>
-        <span :style="{color:nowPlaying.color, fontWeight:600, fontSize:'.8rem'}">
-          {{nowPlaying.name}}
-        </span>
-        <span style="font-size:.72rem;font-family:monospace;color:var(--text-faint);">
-          {{nowPlaying.conf}} · {{nowPlaying.time}}
-        </span>
-      </div>
-
-      <div class="toolbar-sep"></div>
-
-      <!-- Volume -->
-      <div class="toolbar-group">
-        <label>🔊</label>
-        <input type="range" min="0" max="1" step="0.05" v-model.number="volume"
-               style="width:70px;accent-color:var(--accent);"
-               @input="setVolume">
-      </div>
-
-      <div class="toolbar-sep"></div>
-
-      <!-- Nettoyage audio -->
-      <div class="toolbar-group" style="gap:.45rem;">
-        <button @click="cleanMode=!cleanMode" :disabled="processingClean"
-                style="white-space:nowrap;padding:.22rem .7rem;border-radius:var(--radius);
-                       font-size:.75rem;font-weight:600;border:1px solid;cursor:pointer;
-                       transition:background .15s,color .15s;"
-                :style="cleanMode
-                  ? 'background:var(--accent);color:#fff;border-color:var(--accent);'
-                  : 'background:transparent;color:var(--text-muted);border-color:var(--border);'">
-          <span v-if="processingClean">⏳</span>
-          <span v-else-if="cleanMode">✨ {{t('clean')}}</span>
-          <span v-else>🎛 {{t('clean')}}</span>
+        <!-- Bouton Start/Stop -->
+        <button v-if="status!=='live'" class="btn btn-primary"
+                style="padding:.25rem .7rem;font-size:.78rem;"
+                @click="startLive" :disabled="status==='connecting'">
+          ▶ {{t('start')}}
         </button>
-        <template v-if="cleanMode">
-          <input type="range" min="0.2" max="1.0" step="0.05"
-                 v-model.number="cleanStrength"
-                 style="width:65px;accent-color:var(--accent);">
-          <span style="font-size:.7rem;font-family:monospace;color:var(--accent);min-width:30px;">
-            {{Math.round(cleanStrength*100)}}%
+        <button v-else class="btn btn-secondary"
+                style="padding:.25rem .7rem;font-size:.78rem;"
+                @click="stopLive">
+          ⏹ {{t('stop')}}
+        </button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Espèce en cours -->
+        <div v-if="nowPlaying" class="toolbar-group" style="gap:.35rem;">
+          <div class="live-dot active" style="width:6px;height:6px;"></div>
+          <span :style="{color:nowPlaying.color, fontWeight:600, fontSize:'.78rem'}">
+            {{nowPlaying.name}}
           </span>
-        </template>
+          <span style="font-size:.7rem;font-family:monospace;color:var(--text-faint);">
+            {{nowPlaying.conf}} · {{nowPlaying.time}}
+          </span>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Détections -->
+        <div class="toolbar-group">
+          <label>{{t('detections')}}</label>
+          <span style="font-size:.75rem;color:var(--text-muted);">
+            {{recentDets.length > 0 ? recentDets.length+' '+t('today_count') : '—'}}
+          </span>
+          <span v-if="lastPollAge" style="font-size:.66rem;color:var(--text-faint);">
+            ({{lastPollAge}})
+          </span>
+        </div>
+
+        <!-- Spacer -->
+        <div style="flex:1;"></div>
+
+        <!-- Heure -->
+        <div style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">
+          {{clockStr}}
+        </div>
       </div>
 
-      <!-- Poll détections -->
-      <div class="toolbar-group">
-        <label>{{t('detections')}}</label>
-        <span style="font-size:.75rem;color:var(--text-muted);">
-          {{recentDets.length > 0 ? recentDets.length+' '+t('today_count') : '—'}}
-        </span>
-        <span v-if="lastPollAge" style="font-size:.68rem;color:var(--text-faint);">
-          ({{lastPollAge}})
-        </span>
-      </div>
+      <!-- Ligne 2 : Contrôles audio et filtres -->
+      <div class="stbar-row">
 
-      <!-- Spacer -->
-      <div style="flex:1;"></div>
+        <!-- Gain dB (pilules) -->
+        <div class="toolbar-group">
+          <label>{{t('af_gain')}}</label>
+          <div class="stb-pills">
+            <button v-for="g in gainOptions" :key="g"
+                    class="stb-pill" :class="{'stb-pill-active': gainDb===g}"
+                    @click="setGainDb(g)">
+              {{g===0 ? t('af_off') : '+'+g}}
+            </button>
+          </div>
+        </div>
 
-      <!-- Heure -->
-      <div style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">
-        {{clockStr}}
+        <div class="toolbar-sep"></div>
+
+        <!-- HighPass Hz (pilules) -->
+        <div class="toolbar-group">
+          <label>{{t('af_highpass')}}</label>
+          <div class="stb-pills">
+            <button v-for="h in hpOptions" :key="h"
+                    class="stb-pill" :class="{'stb-pill-active': highpassHz===h}"
+                    @click="setHighpass(h)">
+              {{h===0 ? t('af_off') : (h>=1000 ? (h/1000)+'k' : h)}}
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- LowPass Hz (pilules) -->
+        <div class="toolbar-group">
+          <label>{{t('af_lowpass')}}</label>
+          <div class="stb-pills">
+            <button v-for="l in lpOptions" :key="l"
+                    class="stb-pill" :class="{'stb-pill-active': lowpassHz===l}"
+                    @click="setLowpass(l)">
+              {{l===0 ? t('af_off') : (l>=1000 ? (l/1000)+'k' : l)}}
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Fréq max spectro -->
+        <div class="toolbar-group">
+          <label>{{t('freq_max')}}</label>
+          <select class="bird-select" v-model.number="maxHz"
+                  style="padding:.18rem .35rem;font-size:.73rem;">
+            <option :value="8000">8 kHz</option>
+            <option :value="12000">12 kHz</option>
+            <option :value="16000">16 kHz</option>
+            <option :value="22000">22 kHz</option>
+          </select>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Volume -->
+        <div class="toolbar-group">
+          <label>🔊</label>
+          <input type="range" min="0" max="1" step="0.05" v-model.number="volume"
+                 style="width:60px;accent-color:var(--accent);"
+                 @input="setVolume">
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Nettoyage audio -->
+        <div class="toolbar-group" style="gap:.35rem;">
+          <button @click="cleanMode=!cleanMode" :disabled="processingClean"
+                  class="stb-pill" :class="{'stb-pill-active': cleanMode}"
+                  style="font-weight:600;padding:.15rem .5rem;">
+            <span v-if="processingClean">⏳</span>
+            <span v-else-if="cleanMode">✨ {{t('clean')}}</span>
+            <span v-else>🎛 {{t('clean')}}</span>
+          </button>
+          <template v-if="cleanMode">
+            <input type="range" min="0.2" max="1.0" step="0.05"
+                   v-model.number="cleanStrength"
+                   style="width:55px;accent-color:var(--accent);">
+            <span style="font-size:.68rem;font-family:monospace;color:var(--accent);min-width:28px;">
+              {{Math.round(cleanStrength*100)}}%
+            </span>
+          </template>
+        </div>
+
+        <!-- Vitesse de lecture -->
+        <div class="toolbar-sep"></div>
+        <div class="toolbar-group">
+          <label>⏩</label>
+          <div class="stb-pills">
+            <button v-for="s in speedOptions" :key="s"
+                    class="stb-pill" :class="{'stb-pill-active': playbackSpeed===s}"
+                    @click="setSpeed(s)">
+              {{s}}x
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -355,6 +402,8 @@ const app = createApp({
     let _audioCtx   = null;
     let _analyser   = null;
     let _gainNode   = null;
+    let _hpFilter   = null;    // BiquadFilterNode highpass
+    let _lpFilter   = null;    // BiquadFilterNode lowpass
     let _source     = null;   // BufferSourceNode en cours
 
     // Clean audio (non réactif — PCM courant)
@@ -366,6 +415,16 @@ const app = createApp({
     const cleanMode      = ref(false);
     const cleanStrength  = ref(0.75);
     const processingClean= ref(false);
+
+    // Audio filters (réactif)
+    const gainDb      = ref(0);
+    const highpassHz  = ref(0);
+    const lowpassHz   = ref(0);
+    const playbackSpeed = ref(1);
+    const gainOptions   = [0, 6, 12, 18, 24, 30];
+    const hpOptions     = [0, 250, 500, 1000, 1500];
+    const lpOptions     = [0, 2000, 4000, 8000];
+    const speedOptions  = [0.5, 1, 1.5, 2];
 
     // Rendu canvas (non réactif)
     let _W = 800, _H = 400;
@@ -420,6 +479,47 @@ const app = createApp({
       if (_gainNode) _gainNode.gain.value = volume.value;
     }
 
+    // ── Filtres audio temps réel ─────────────────────────────────
+    function setGainDb(db) {
+      gainDb.value = db;
+      // Gain is applied via the spectrogram display gain (visual) + audio gain
+      // Update the visual gain slider equivalent
+      gain.value = db > 0 ? Math.pow(10, db / 20) : 1;
+    }
+
+    function setHighpass(hz) {
+      highpassHz.value = hz;
+      if (_hpFilter) {
+        if (hz > 0) {
+          _hpFilter.frequency.value = hz;
+          _hpFilter.Q.value = 0.707;
+        } else {
+          _hpFilter.frequency.value = 1;
+          _hpFilter.Q.value = 0.001;
+        }
+      }
+    }
+
+    function setLowpass(hz) {
+      lowpassHz.value = hz;
+      if (_lpFilter) {
+        if (hz > 0) {
+          _lpFilter.frequency.value = hz;
+          _lpFilter.Q.value = 0.707;
+        } else {
+          _lpFilter.frequency.value = 24000;
+          _lpFilter.Q.value = 0.001;
+        }
+      }
+    }
+
+    function setSpeed(s) {
+      playbackSpeed.value = s;
+      if (_source) {
+        try { _source.playbackRate.value = s; } catch(e) {}
+      }
+    }
+
     // ── Init canvas ───────────────────────────────────────────────
     function initCanvas() {
       if (!mainCanvas.value || !canvasWrap.value) return;
@@ -472,11 +572,24 @@ const app = createApp({
       _analyser.fftSize             = FFT_SIZE;
       _analyser.smoothingTimeConstant = 0.0;
 
+      // Filtres BiquadFilter
+      _hpFilter = _audioCtx.createBiquadFilter();
+      _hpFilter.type = 'highpass';
+      _hpFilter.frequency.value = highpassHz.value > 0 ? highpassHz.value : 1;
+      _hpFilter.Q.value = highpassHz.value > 0 ? 0.707 : 0.001;
+
+      _lpFilter = _audioCtx.createBiquadFilter();
+      _lpFilter.type = 'lowpass';
+      _lpFilter.frequency.value = lowpassHz.value > 0 ? lowpassHz.value : 24000;
+      _lpFilter.Q.value = lowpassHz.value > 0 ? 0.707 : 0.001;
+
       _gainNode = _audioCtx.createGain();
       _gainNode.gain.value = volume.value;
 
-      // Chaîne : source → analyser → gain → sortie (son)
-      _analyser.connect(_gainNode);
+      // Chaîne : source → analyser → highpass → lowpass → gain → sortie
+      _analyser.connect(_hpFilter);
+      _hpFilter.connect(_lpFilter);
+      _lpFilter.connect(_gainNode);
       _gainNode.connect(_audioCtx.destination);
 
       status.value = 'live';
@@ -489,7 +602,7 @@ const app = createApp({
       stopRenderLoop();
       if (_source) { try { _source.stop(); } catch(e) {} _source = null; }
       if (_audioCtx) { _audioCtx.close(); _audioCtx = null; }
-      _analyser = null; _gainNode = null;
+      _analyser = null; _gainNode = null; _hpFilter = null; _lpFilter = null;
       nowPlaying.value = null;
       status.value = 'idle';
     }
@@ -679,6 +792,7 @@ const app = createApp({
 
           _source = _audioCtx.createBufferSource();
           _source.buffer = bufToPlay;
+          _source.playbackRate.value = playbackSpeed.value;
           _source.connect(_analyser);
 
           nowPlaying.value = {
@@ -744,7 +858,10 @@ const app = createApp({
       recentDets, feedDets, lastPollAge,
       detLabels, visibleDetLabels, freqLabels, timeLabels,
       cleanMode, cleanStrength, processingClean,
+      gainDb, highpassHz, lowpassHz, playbackSpeed,
+      gainOptions, hpOptions, lpOptions, speedOptions,
       startLive, stopLive, setVolume,
+      setGainDb, setHighpass, setLowpass, setSpeed,
     };
   }
 });

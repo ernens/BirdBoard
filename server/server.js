@@ -732,6 +732,62 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Route : GET /api/audio-info?file=FileName.mp3 ───────────────────────
+  // Returns metadata about an audio file (size, type, duration, channels, sample rate)
+  if (req.method === 'GET' && pathname === '/api/audio-info') {
+    const fileName = new URL(req.url, 'http://localhost').searchParams.get('file');
+    if (!fileName) {
+      res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"missing file param"}'); return;
+    }
+    const m = fileName.match(/^(.+?)-\d+-(\d{4}-\d{2}-\d{2})-/);
+    if (!m) {
+      res.writeHead(400, { 'Content-Type': 'application/json' }); res.end('{"error":"invalid filename format"}'); return;
+    }
+    const species = m[1], date = m[2];
+    const filePath = path.join(SONGS_DIR, date, species, fileName);
+
+    (async () => {
+      try {
+        const stat = await fsp.stat(filePath);
+        const ext = path.extname(fileName).replace('.', '').toUpperCase();
+        const info = {
+          size: stat.size,
+          type: ext || 'UNKNOWN',
+          path: `BirdSongs/Extracted/By_Date/${date}/${species}/${fileName}`,
+        };
+        // Use ffprobe if available
+        try {
+          const probeData = await new Promise((resolve, reject) => {
+            const ff = spawn('ffprobe', [
+              '-v', 'quiet', '-print_format', 'json',
+              '-show_format', '-show_streams', filePath
+            ]);
+            let out = '';
+            ff.stdout.on('data', d => out += d);
+            ff.on('close', code => code === 0 ? resolve(JSON.parse(out)) : reject(new Error('ffprobe ' + code)));
+            ff.on('error', reject);
+            setTimeout(() => { try { ff.kill(); } catch(e) {} reject(new Error('timeout')); }, 5000);
+          });
+          const stream = probeData.streams && probeData.streams.find(s => s.codec_type === 'audio');
+          if (stream) {
+            info.sample_rate = parseInt(stream.sample_rate) || null;
+            info.channels = parseInt(stream.channels) || null;
+          }
+          if (probeData.format && probeData.format.duration) {
+            info.duration = parseFloat(probeData.format.duration);
+          }
+        } catch (e) { /* ffprobe not available */ }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(info));
+      } catch (e) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'file not found' }));
+      }
+    })();
+    return;
+  }
+
   // ── Route : GET /api/audio-stream ────────────────────────────────────────
   // Décode les MP3 BirdNET récents en PCM S16LE et les chaîne en continu.
   // Zéro conflit avec BirdNET — on lit des fichiers, pas le micro.
