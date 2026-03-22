@@ -1034,8 +1034,20 @@
       display:inline-block;width:10px;height:10px;
       border-radius:50%;margin-right:.4rem;flex-shrink:0;
     }
-    .dot-ok  {background:var(--accent);box-shadow:0 0 6px var(--accent);}
+    .dot-ok  {background:#3a9;box-shadow:0 0 6px #3a9;}
     .dot-err {background:var(--danger);box-shadow:0 0 6px var(--danger);}
+    .dot-warn {background:#e8a92e;box-shadow:0 0 6px #e8a92e;}
+    .dot-off {background:#aaa;box-shadow:none;}
+    .svc-state-badge { font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em; }
+    .svc-active   {color:#3a9;} .svc-failed   {color:var(--danger);}
+    .svc-inactive {color:#aaa;} .svc-activating,.svc-deactivating {color:#e8a92e;}
+    .hw-item { display:flex;align-items:center;gap:.5rem;padding:.45rem 0;border-bottom:1px solid var(--bg-card2); }
+    .hw-item:last-child { border-bottom:none; }
+    .hw-icon { font-size:1.1rem;flex-shrink:0;width:1.6rem;text-align:center; }
+    .hw-info { flex:1;min-width:0; }
+    .hw-name { font-size:.82rem;font-weight:500; }
+    .hw-detail { font-size:.68rem;color:var(--text-muted);font-family:monospace; }
+    .hw-badge { font-size:.62rem;padding:.12rem .4rem;border-radius:10px;background:var(--bg-card2);color:var(--text-muted);white-space:nowrap; }
     .sys-row {
       display:flex;align-items:center;justify-content:space-between;
       padding:.55rem 0;border-bottom:1px solid var(--bg-card2);font-size:.85rem;

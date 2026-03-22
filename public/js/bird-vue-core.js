@@ -234,6 +234,7 @@
       sys_backup_size:'Taille', sys_mounted:'Monté', sys_not_mounted:'Non monté', sys_not_configured:'Non configuré',
       sys_network_title:'Réseau', sys_hostname:'Nom d\'hôte', sys_ip:'Adresse IP',
       sys_nas_ping:'Ping NAS', sys_reachable:'Joignable', sys_unreachable:'Injoignable',
+      sys_hardware_title:'Matériel',
     },
 
     en: {
@@ -423,6 +424,7 @@
       sys_backup_size:'Size', sys_mounted:'Mounted', sys_not_mounted:'Not Mounted', sys_not_configured:'Not configured',
       sys_network_title:'Network', sys_hostname:'Hostname', sys_ip:'IP Address',
       sys_nas_ping:'NAS Ping', sys_reachable:'Reachable', sys_unreachable:'Unreachable',
+      sys_hardware_title:'Hardware',
     },
 
     de: {
@@ -612,6 +614,7 @@
       sys_backup_size:'Größe', sys_mounted:'Eingebunden', sys_not_mounted:'Nicht eingebunden', sys_not_configured:'Nicht konfiguriert',
       sys_network_title:'Netzwerk', sys_hostname:'Hostname', sys_ip:'IP-Adresse',
       sys_nas_ping:'NAS-Ping', sys_reachable:'Erreichbar', sys_unreachable:'Nicht erreichbar',
+      sys_hardware_title:'Hardware',
     },
 
     nl: {
@@ -801,6 +804,7 @@
       sys_backup_size:'Grootte', sys_mounted:'Gemount', sys_not_mounted:'Niet gemount', sys_not_configured:'Niet geconfigureerd',
       sys_network_title:'Netwerk', sys_hostname:'Hostnaam', sys_ip:'IP-adres',
       sys_nas_ping:'NAS-ping', sys_reachable:'Bereikbaar', sys_unreachable:'Onbereikbaar',
+      sys_hardware_title:'Hardware',
     },
   };
 

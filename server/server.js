@@ -945,10 +945,34 @@ const server = http.createServer((req, res) => {
         const services = [];
         for (const name of ALLOWED_SERVICES) {
           try {
-            const active = await execCmd('systemctl', ['is-active', name]);
-            services.push({ name, active: active === 'active' });
+            const state = await execCmd('systemctl', ['is-active', name]);
+            let pid = null, memory = 0, uptime = 0;
+            if (state === 'active') {
+              try {
+                const show = await execCmd('systemctl', ['show', name, '--property=MainPID,ActiveEnterTimestamp', '--no-pager']);
+                const props = {};
+                show.split('\n').forEach(l => { const eq = l.indexOf('='); if (eq > 0) props[l.slice(0, eq)] = l.slice(eq + 1); });
+                pid = parseInt(props.MainPID) || null;
+                // Uptime from ActiveEnterTimestamp
+                const ts = props.ActiveEnterTimestamp || '';
+                if (ts) {
+                  const cleaned = ts.replace(/^\w+\s+/, '').replace(/\s+\w+$/, '');
+                  const startMs = new Date(cleaned).getTime();
+                  if (!isNaN(startMs)) uptime = Math.floor((Date.now() - startMs) / 1000);
+                }
+                // RAM from /proc
+                if (pid) {
+                  try {
+                    const st = await fsp.readFile(`/proc/${pid}/status`, 'utf8');
+                    const m = st.match(/VmRSS:\s*(\d+)\s*kB/);
+                    if (m) memory = parseInt(m[1]) * 1024;
+                  } catch(_) {}
+                }
+              } catch(_) {}
+            }
+            services.push({ name, state, pid, memory, uptime });
           } catch(e) {
-            services.push({ name, active: false });
+            services.push({ name, state: 'inactive', pid: null, memory: 0, uptime: 0 });
           }
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1058,7 +1082,7 @@ const server = http.createServer((req, res) => {
     (async () => {
       try {
         const props = await execCmd('systemctl', ['show', svcName,
-          '--property=ActiveState,SubState,MainPID,MemoryCurrent,ExecMainStartTimestamp,Description']);
+          '--property=ActiveState,SubState,MainPID,MemoryCurrent,ActiveEnterTimestamp,ExecMainStartTimestamp,Description']);
         const info = {};
         for (const line of props.split('\n')) {
           const eq = line.indexOf('=');
@@ -1070,10 +1094,27 @@ const server = http.createServer((req, res) => {
           logs = logRaw.split('\n').filter(l => l.trim() && !l.startsWith('--'));
         } catch(e) {}
 
-        const memBytes = info.MemoryCurrent === '[not set]' ? 0 : parseInt(info.MemoryCurrent || '0');
+        // Memory: try MemoryCurrent, fallback to /proc/PID/status VmRSS
+        let memBytes = 0;
+        if (info.MemoryCurrent && info.MemoryCurrent !== '[not set]') {
+          memBytes = parseInt(info.MemoryCurrent) || 0;
+        }
+        const pid = parseInt(info.MainPID || '0');
+        if (memBytes === 0 && pid > 0) {
+          try {
+            const procStatus = await fsp.readFile(`/proc/${pid}/status`, 'utf8');
+            const rssMatch = procStatus.match(/VmRSS:\s*(\d+)\s*kB/);
+            if (rssMatch) memBytes = parseInt(rssMatch[1]) * 1024;
+          } catch(_) {}
+        }
+
+        // Uptime: try ActiveEnterTimestamp (more reliable than ExecMainStartTimestamp)
         let uptimeSecs = 0;
-        if (info.ExecMainStartTimestamp && info.ExecMainStartTimestamp !== '') {
-          const startMs = new Date(info.ExecMainStartTimestamp).getTime();
+        const tsField = info.ActiveEnterTimestamp || info.ExecMainStartTimestamp || '';
+        if (tsField) {
+          // systemd format: "Mon 2026-03-21 22:09:51 CET" — remove day-of-week and timezone
+          const cleaned = tsField.replace(/^\w+\s+/, '').replace(/\s+\w+$/, '');
+          const startMs = new Date(cleaned).getTime();
           if (!isNaN(startMs)) uptimeSecs = Math.floor((Date.now() - startMs) / 1000);
         }
 
@@ -1253,6 +1294,86 @@ const server = http.createServer((req, res) => {
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ hostname, ip, nasIp, nasPing }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/hardware ───────────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/hardware') {
+    (async () => {
+      try {
+        // Pi model
+        let piModel = '';
+        try { piModel = (await fsp.readFile('/proc/device-tree/model', 'utf8')).replace(/\0/g, '').trim(); } catch(_) {}
+
+        // CPU info
+        let cpuModel = '', cpuFreq = 0;
+        try {
+          const cpuinfo = await fsp.readFile('/proc/cpuinfo', 'utf8');
+          const mm = cpuinfo.match(/model name\s*:\s*(.+)/i) || cpuinfo.match(/Model\s*:\s*(.+)/i);
+          if (mm) cpuModel = mm[1].trim();
+          const fm = cpuinfo.match(/cpu MHz\s*:\s*([\d.]+)/i);
+          if (fm) cpuFreq = Math.round(parseFloat(fm[1]));
+        } catch(_) {}
+        // On Pi, freq from scaling_cur_freq
+        if (!cpuFreq) {
+          try { cpuFreq = Math.round(parseInt(await fsp.readFile('/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq', 'utf8')) / 1000); } catch(_) {}
+        }
+
+        // Total RAM
+        let ramTotal = 0;
+        try {
+          const meminfo = await fsp.readFile('/proc/meminfo', 'utf8');
+          const m = meminfo.match(/MemTotal:\s*(\d+)/);
+          if (m) ramTotal = parseInt(m[1]) * 1024; // kB → bytes
+        } catch(_) {}
+
+        // Block devices (disks)
+        const disks = [];
+        try {
+          const lsblk = await execCmd('lsblk', ['-J', '-b', '-o', 'NAME,SIZE,TYPE,TRAN,MODEL,MOUNTPOINT,FSTYPE']);
+          const data = JSON.parse(lsblk);
+          (data.blockdevices || []).forEach(d => {
+            if (d.type === 'disk') {
+              const mounts = (d.children || []).filter(c => c.mountpoint).map(c => c.mountpoint);
+              disks.push({
+                name: d.name,
+                size: parseInt(d.size) || 0,
+                transport: d.tran || '',
+                model: (d.model || '').trim(),
+                mounts,
+                fstype: (d.children && d.children[0] && d.children[0].fstype) || ''
+              });
+            }
+          });
+        } catch(_) {}
+
+        // Sound cards
+        const soundCards = [];
+        try {
+          const cards = await fsp.readFile('/proc/asound/cards', 'utf8');
+          cards.split('\n').forEach(line => {
+            const m = line.match(/^\s*(\d+)\s+\[(\w+)\s*\]:\s*(.+)/);
+            if (m) soundCards.push({ id: parseInt(m[1]), shortName: m[2], name: m[3].trim() });
+          });
+        } catch(_) {}
+
+        // USB devices
+        const usbDevices = [];
+        try {
+          const lsusb = await execCmd('lsusb', []);
+          lsusb.split('\n').forEach(line => {
+            const m = line.match(/Bus\s+(\d+)\s+Device\s+(\d+):\s+ID\s+(\S+)\s+(.*)/);
+            if (m && !m[4].match(/hub/i)) usbDevices.push({ bus: m[1], device: m[2], id: m[3], name: m[4].trim() });
+          });
+        } catch(_) {}
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ piModel, cpuModel, cpuFreq, ramTotal, disks, soundCards, usbDevices }));
       } catch(e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));

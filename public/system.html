@@ -156,6 +156,9 @@
               <div class="svc-header" @click="toggleSvc(svc.name)">
                 <span class="status-dot" :class="svcDotClass(svc.state)"></span>
                 <span class="svc-name">{{svc.name}}</span>
+                <span v-if="svc.pid" style="font-size:.62rem;color:var(--text-faint);font-family:monospace;">PID {{svc.pid}}</span>
+                <span v-if="svc.memory > 0" style="font-size:.62rem;color:var(--text-faint);font-family:monospace;">{{fmtBytes(svc.memory)}}</span>
+                <span v-if="svc.uptime > 0" style="font-size:.62rem;color:var(--text-faint);font-family:monospace;">{{fmtUptime(svc.uptime)}}</span>
                 <span class="svc-state-badge" :class="'svc-'+svc.state">{{svc.state}}</span>
                 <span class="svc-chevron" :class="{open: svcExpanded===svc.name}">&#9654;</span>
               </div>
@@ -296,8 +299,8 @@
 
       </div>
 
-      <!-- Data Freshness (moved from old top-level) -->
       <div class="grid-2" style="margin-bottom:1rem;">
+        <!-- Data Freshness -->
         <div class="card">
           <div class="card-title">{{t('data_freshness')}}</div>
           <div v-if="fresh.loading" class="spinner"><div></div><div></div><div></div></div>
@@ -329,7 +332,50 @@
             </div>
           </template>
         </div>
-        <div></div>
+
+        <!-- Hardware -->
+        <div class="card">
+          <div class="card-title">{{t('sys_hardware_title')}}</div>
+          <div v-if="hw.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="hw.error" class="error-msg">{{hw.error}}</div>
+          <template v-else>
+            <!-- Pi model -->
+            <div class="hw-item">
+              <span class="hw-icon">🍓</span>
+              <div class="hw-info">
+                <div class="hw-name">{{hw.piModel || 'Raspberry Pi'}}</div>
+                <div class="hw-detail">CPU {{hw.cpuFreq}} MHz · RAM {{fmtBytes(hw.ramTotal)}}</div>
+              </div>
+            </div>
+            <!-- Disks -->
+            <div v-for="d in hw.disks" :key="d.name" class="hw-item">
+              <span class="hw-icon">💾</span>
+              <div class="hw-info">
+                <div class="hw-name">{{d.model || d.name}}</div>
+                <div class="hw-detail">/dev/{{d.name}} · {{fmtBytes(d.size)}} · {{d.transport.toUpperCase()}}
+                  <span v-if="d.mounts.length"> · {{d.mounts.join(', ')}}</span>
+                </div>
+              </div>
+              <span class="hw-badge">{{d.transport}}</span>
+            </div>
+            <!-- Sound cards -->
+            <div v-for="sc in hw.soundCards" :key="sc.id" class="hw-item">
+              <span class="hw-icon">🎙️</span>
+              <div class="hw-info">
+                <div class="hw-name">{{sc.name}}</div>
+                <div class="hw-detail">Card #{{sc.id}} · {{sc.shortName}}</div>
+              </div>
+            </div>
+            <!-- USB devices -->
+            <div v-for="u in hw.usbDevices" :key="u.id" class="hw-item">
+              <span class="hw-icon">🔌</span>
+              <div class="hw-info">
+                <div class="hw-name">{{u.name}}</div>
+                <div class="hw-detail">{{u.id}} · Bus {{u.bus}}</div>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
 
     </div>
@@ -921,7 +967,7 @@ const app = createApp({
 
     function loadTabData(tab) {
       switch(tab) {
-        case 'health':   Promise.all([loadHealth(), loadServices(), loadAnalysis(), loadAudio(), loadBackup(), loadNetwork(), loadFresh(), loadApi()]); break;
+        case 'health':   Promise.all([loadHealth(), loadServices(), loadAnalysis(), loadAudio(), loadBackup(), loadNetwork(), loadHardware(), loadFresh(), loadApi()]); break;
         case 'model':    Promise.all([loadModelMonitor(), loadModelCompare()]); break;
         case 'data':     Promise.all([loadDb(), loadGaps(), loadActData(), loadHrlyData()]); break;
         case 'external': Promise.all([loadRareLocal(), loadEbird(), loadBirdWeather()]); break;
@@ -955,13 +1001,15 @@ const app = createApp({
     function svcDotClass(state) {
       if (state === 'active') return 'dot-ok';
       if (state === 'failed') return 'dot-err';
-      return 'dot-warn';
+      if (state === 'activating' || state === 'deactivating') return 'dot-warn';
+      return 'dot-off';
     }
 
     // ── Health tab state ──────────────────────────────────────────
     const api   = ref({ loading:true, error:null, latency:0, total:0 });
     const health = ref({ loading:true, error:null, cpu:{usage:0,cores:0}, ram:{used:0,total:0,pct:0}, disk:{used:0,total:0,pct:0}, temp:0, uptime:0, loadAvg:'' });
     const services = ref({ loading:true, error:null, list:[], refreshAt:'' });
+    const hw = ref({ loading:true, error:null, piModel:'', cpuFreq:0, ramTotal:0, disks:[], soundCards:[], usbDevices:[] });
     const svcExpanded = ref(null);
     const svcDetail = ref(null);
     const confirmAction = ref(null);
@@ -980,12 +1028,12 @@ const app = createApp({
         const d = await res.json();
         health.value = {
           loading: false, error: null,
-          cpu: { usage: d.cpu_usage || 0, cores: d.cpu_cores || 0 },
-          ram: { used: d.ram_used || 0, total: d.ram_total || 0, pct: d.ram_pct || 0 },
-          disk: { used: d.disk_used || 0, total: d.disk_total || 0, pct: d.disk_pct || 0 },
+          cpu: { usage: d.cpu && d.cpu.usage || 0, cores: d.cpu && d.cpu.cores || 0 },
+          ram: { used: d.memory && d.memory.used || 0, total: d.memory && d.memory.total || 0, pct: d.memory && d.memory.percent || 0 },
+          disk: { used: d.disk && d.disk.used || 0, total: d.disk && d.disk.total || 0, pct: d.disk && d.disk.percent || 0 },
           temp: d.temperature || 0,
           uptime: d.uptime || 0,
-          loadAvg: d.load_avg || ''
+          loadAvg: Array.isArray(d.loadAvg) ? d.loadAvg.map(v => v.toFixed(2)).join(', ') : ''
         };
       } catch(e) { health.value = { ...health.value, loading:false, error:e.message }; }
     }
@@ -1090,10 +1138,19 @@ const app = createApp({
           loading: false, error: null,
           hostname: d.hostname || '\u2014',
           ip: d.ip || '\u2014',
-          nasPing: d.nas_ping || false,
-          nasLatency: d.nas_latency || '\u2014'
+          nasPing: d.nasPing && d.nasPing.reachable ? true : false,
+          nasLatency: d.nasPing && d.nasPing.latency ? d.nasPing.latency.toFixed(1) : '\u2014'
         };
       } catch(e) { network.value = { ...network.value, loading:false, error:e.message }; }
+    }
+
+    async function loadHardware() {
+      hw.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/hardware`);
+        const d = await res.json();
+        hw.value = { loading:false, error:null, ...d };
+      } catch(e) { hw.value = { ...hw.value, loading:false, error:e.message }; }
     }
 
     async function loadApi() {
@@ -1643,9 +1700,9 @@ const app = createApp({
       // Tabs
       tabs, activeTab, tabLoaded, switchTab,
       // Health tab
-      api, health, services, svcExpanded, svcDetail, confirmAction, analysis, audio, backup, network, fresh,
+      api, health, services, svcExpanded, svcDetail, confirmAction, analysis, audio, backup, network, hw, fresh,
       loadHealth, loadServices, toggleSvc, svcAction, confirmStop, svcDotClass,
-      loadApi, loadFresh,
+      loadApi, loadFresh, fmtBytes,
       // Model tab
       mod, modPeriod, modPeriods, loadModelMonitor,
       cmp, cmpDate, loadModelCompare,
