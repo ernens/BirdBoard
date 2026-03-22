@@ -218,6 +218,22 @@
       all_rarities:'Toutes les rarités', updated_at:'Mis à jour {time}',
       no_notable_obs:'Aucune observation notable ces 7 derniers jours.',
       quick_today:'Auj.',
+      // System tabs & health
+      sys_tab_health:'Santé', sys_tab_model:'Modèle', sys_tab_data:'Données', sys_tab_external:'Externe',
+      sys_health_title:'Santé du système', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Disque',
+      sys_temp:'Température', sys_uptime_label:'Uptime', sys_load:'Charge',
+      sys_cores:'cœurs',
+      sys_services_title:'Services', sys_svc_logs:'Journaux', sys_svc_no_logs:'Aucun journal',
+      sys_confirm_stop:'Confirmer l\'arrêt', sys_confirm_stop_msg:'Arrêter le service « {name} » ? Cela peut interrompre l\'analyse.',
+      sys_cancel:'Annuler', sys_svc_starting:'Démarrage…', sys_svc_stopping:'Arrêt…',
+      sys_analysis_title:'Analyse en cours', sys_backlog:'Backlog', sys_lag:'Retard',
+      sys_inference:'Inférence', sys_model_active:'Modèle actif',
+      sys_files_pending:'fichiers en attente', sys_seconds:'secondes', sys_minutes:'min',
+      sys_audio_title:'Audio', sys_rec_card:'Carte d\'entrée', sys_channels_label:'Canaux', sys_format:'Format',
+      sys_backup_title:'Sauvegarde', sys_nfs_mount:'Montage NFS', sys_last_backup:'Dernier backup',
+      sys_backup_size:'Taille', sys_mounted:'Monté', sys_not_mounted:'Non monté', sys_not_configured:'Non configuré',
+      sys_network_title:'Réseau', sys_hostname:'Nom d\'hôte', sys_ip:'Adresse IP',
+      sys_nas_ping:'Ping NAS', sys_reachable:'Joignable', sys_unreachable:'Injoignable',
     },
 
     en: {
@@ -392,6 +408,21 @@
       all_rarities:'All rarities', updated_at:'Updated {time}',
       no_notable_obs:'No notable observations in the last 7 days.',
       quick_today:'Today',
+      sys_tab_health:'Health', sys_tab_model:'Model', sys_tab_data:'Data', sys_tab_external:'External',
+      sys_health_title:'System Health', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Disk',
+      sys_temp:'Temperature', sys_uptime_label:'Uptime', sys_load:'Load',
+      sys_cores:'cores',
+      sys_services_title:'Services', sys_svc_logs:'Logs', sys_svc_no_logs:'No logs',
+      sys_confirm_stop:'Confirm Stop', sys_confirm_stop_msg:'Stop service "{name}"? This may interrupt analysis.',
+      sys_cancel:'Cancel', sys_svc_starting:'Starting…', sys_svc_stopping:'Stopping…',
+      sys_analysis_title:'Analysis Status', sys_backlog:'Backlog', sys_lag:'Lag',
+      sys_inference:'Inference', sys_model_active:'Active Model',
+      sys_files_pending:'files pending', sys_seconds:'seconds', sys_minutes:'min',
+      sys_audio_title:'Audio', sys_rec_card:'Input Card', sys_channels_label:'Channels', sys_format:'Format',
+      sys_backup_title:'Backup', sys_nfs_mount:'NFS Mount', sys_last_backup:'Last Backup',
+      sys_backup_size:'Size', sys_mounted:'Mounted', sys_not_mounted:'Not Mounted', sys_not_configured:'Not configured',
+      sys_network_title:'Network', sys_hostname:'Hostname', sys_ip:'IP Address',
+      sys_nas_ping:'NAS Ping', sys_reachable:'Reachable', sys_unreachable:'Unreachable',
     },
 
     de: {
@@ -566,6 +597,21 @@
       all_rarities:'Alle Seltenheiten', updated_at:'Aktualisiert {time}',
       no_notable_obs:'Keine bemerkenswerten Beobachtungen in den letzten 7 Tagen.',
       quick_today:'Heute',
+      sys_tab_health:'Zustand', sys_tab_model:'Modell', sys_tab_data:'Daten', sys_tab_external:'Extern',
+      sys_health_title:'Systemzustand', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Festplatte',
+      sys_temp:'Temperatur', sys_uptime_label:'Betriebszeit', sys_load:'Last',
+      sys_cores:'Kerne',
+      sys_services_title:'Dienste', sys_svc_logs:'Protokolle', sys_svc_no_logs:'Keine Protokolle',
+      sys_confirm_stop:'Stopp bestätigen', sys_confirm_stop_msg:'Dienst „{name}" stoppen? Dies kann die Analyse unterbrechen.',
+      sys_cancel:'Abbrechen', sys_svc_starting:'Startet…', sys_svc_stopping:'Stoppt…',
+      sys_analysis_title:'Analysestatus', sys_backlog:'Rückstand', sys_lag:'Verzögerung',
+      sys_inference:'Inferenz', sys_model_active:'Aktives Modell',
+      sys_files_pending:'Dateien ausstehend', sys_seconds:'Sekunden', sys_minutes:'Min',
+      sys_audio_title:'Audio', sys_rec_card:'Eingabekarte', sys_channels_label:'Kanäle', sys_format:'Format',
+      sys_backup_title:'Sicherung', sys_nfs_mount:'NFS-Mount', sys_last_backup:'Letzte Sicherung',
+      sys_backup_size:'Größe', sys_mounted:'Eingebunden', sys_not_mounted:'Nicht eingebunden', sys_not_configured:'Nicht konfiguriert',
+      sys_network_title:'Netzwerk', sys_hostname:'Hostname', sys_ip:'IP-Adresse',
+      sys_nas_ping:'NAS-Ping', sys_reachable:'Erreichbar', sys_unreachable:'Nicht erreichbar',
     },
 
     nl: {
@@ -740,6 +786,21 @@
       all_rarities:'Alle zeldzaamheden', updated_at:'Bijgewerkt {time}',
       no_notable_obs:'Geen opmerkelijke waarnemingen in de afgelopen 7 dagen.',
       quick_today:'Vandaag',
+      sys_tab_health:'Status', sys_tab_model:'Model', sys_tab_data:'Gegevens', sys_tab_external:'Extern',
+      sys_health_title:'Systeemstatus', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Schijf',
+      sys_temp:'Temperatuur', sys_uptime_label:'Uptime', sys_load:'Belasting',
+      sys_cores:'kernen',
+      sys_services_title:'Services', sys_svc_logs:'Logboek', sys_svc_no_logs:'Geen logboek',
+      sys_confirm_stop:'Stop bevestigen', sys_confirm_stop_msg:'Service "{name}" stoppen? Dit kan de analyse onderbreken.',
+      sys_cancel:'Annuleren', sys_svc_starting:'Starten…', sys_svc_stopping:'Stoppen…',
+      sys_analysis_title:'Analysestatus', sys_backlog:'Achterstand', sys_lag:'Vertraging',
+      sys_inference:'Inferentie', sys_model_active:'Actief model',
+      sys_files_pending:'bestanden in wacht', sys_seconds:'seconden', sys_minutes:'min',
+      sys_audio_title:'Audio', sys_rec_card:'Invoerkaart', sys_channels_label:'Kanalen', sys_format:'Formaat',
+      sys_backup_title:'Back-up', sys_nfs_mount:'NFS-mount', sys_last_backup:'Laatste back-up',
+      sys_backup_size:'Grootte', sys_mounted:'Gemount', sys_not_mounted:'Niet gemount', sys_not_configured:'Niet geconfigureerd',
+      sys_network_title:'Netwerk', sys_hostname:'Hostnaam', sys_ip:'IP-adres',
+      sys_nas_ping:'NAS-ping', sys_reachable:'Bereikbaar', sys_unreachable:'Onbereikbaar',
     },
   };
 
@@ -1017,10 +1078,10 @@
       <div class="brand-text">
         <span class="brand-name">BIRDASH</span>
         <span class="brand-sub">{{siteName}}</span>
-        <span class="brand-model" v-if="modelName">🤖 {{modelName}}</span>
       </div>
     </div>
     <div class="header-right">
+      <span class="brand-model" v-if="modelName">{{modelName}}</span>
       <div class="theme-switcher-wrap">
         <button v-for="th in themes" :key="th.id" class="theme-btn"
                 :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"

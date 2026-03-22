@@ -13,581 +13,860 @@
   <script src="js/bird-config.js"></script>
   <script src="js/bird-shared.js"></script>
   <script src="js/bird-vue-core.js"></script>
+  <style>
+    .sys-tabs{display:flex;gap:.25rem;padding:.25rem;background:var(--bg-card2);border-radius:.5rem;margin-bottom:1.25rem;overflow-x:auto;}
+    .sys-tab-btn{display:flex;align-items:center;gap:.35rem;padding:.5rem .9rem;border:none;background:transparent;color:var(--text-muted);font-size:.82rem;font-family:inherit;cursor:pointer;border-radius:.4rem;transition:all .2s;white-space:nowrap;}
+    .sys-tab-btn:hover{background:var(--bg-card);color:var(--text-main);}
+    .sys-tab-btn.active{background:var(--bg-card);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+    .sys-tab-icon{font-size:1rem;}
+    .sys-tab-label{font-size:.78rem;}
+
+    .health-bar{flex:1;height:8px;background:var(--bg-card2);border-radius:4px;overflow:hidden;min-width:80px;}
+    .health-fill{height:100%;border-radius:4px;transition:width .4s;}
+    .health-fill.bar-ok{background:var(--accent);}
+    .health-fill.bar-warn{background:var(--warning);}
+    .health-fill.bar-danger{background:var(--danger);}
+    .health-pct{font-size:.75rem;font-family:monospace;min-width:36px;text-align:right;}
+
+    .svc-card{border:1px solid var(--border);border-radius:.4rem;margin-bottom:.5rem;overflow:hidden;}
+    .svc-header{display:flex;align-items:center;gap:.5rem;padding:.5rem .65rem;cursor:pointer;transition:background .15s;}
+    .svc-header:hover{background:var(--bg-card2);}
+    .svc-name{flex:1;font-size:.82rem;font-weight:600;color:var(--text-main);}
+    .svc-state-badge{font-size:.68rem;padding:.12rem .4rem;border-radius:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+    .svc-active{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);}
+    .svc-failed{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
+    .svc-inactive,.svc-dead,.svc-stopped{background:var(--bg-card2);color:var(--text-faint);}
+    .svc-chevron{font-size:.6rem;color:var(--text-faint);transition:transform .2s;display:inline-block;}
+    .svc-chevron.open{transform:rotate(90deg);}
+    .svc-detail{padding:.65rem;border-top:1px solid var(--border);background:var(--bg-deep);}
+    .svc-info-grid{display:flex;flex-wrap:wrap;gap:.75rem;font-size:.78rem;color:var(--text-muted);margin-bottom:.65rem;}
+    .svc-actions{display:flex;gap:.4rem;margin-bottom:.65rem;}
+    .svc-btn{padding:.25rem .55rem;border:1px solid var(--border);border-radius:.3rem;font-size:.72rem;font-family:inherit;cursor:pointer;background:var(--bg-card);color:var(--text-main);transition:all .15s;}
+    .svc-btn:disabled{opacity:.4;cursor:not-allowed;}
+    .svc-btn-start:not(:disabled):hover{border-color:var(--accent);color:var(--accent);}
+    .svc-btn-stop:not(:disabled):hover{border-color:var(--danger);color:var(--danger);}
+    .svc-btn-restart:not(:disabled):hover{border-color:var(--warning);color:var(--warning);}
+    .svc-logs{max-height:200px;overflow-y:auto;}
+    .svc-logs pre{font-size:.68rem;line-height:1.45;color:var(--text-muted);margin:0;white-space:pre-wrap;word-break:break-all;}
+  </style>
 </head>
 <body>
 <div id="app">
   <birdash-shell page="system">
 
-    <div class="grid-2" style="margin-bottom:1rem;">
-
-      <!-- État API -->
-      <div class="card">
-        <div class="card-title">{{t('service_status')}}</div>
-        <div v-if="api.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="api.error">
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_api_label')}}</span>
-            <span class="sys-value" style="display:flex;align-items:center;">
-              <span class="status-dot dot-err"></span>{{t('api_error')}}
-            </span>
-          </div>
-          <div class="error-msg" style="padding:.5rem 0;">{{api.error}}</div>
-        </div>
-        <template v-else>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_api_label')}}</span>
-            <span class="sys-value" style="display:flex;align-items:center;">
-              <span class="status-dot dot-ok"></span>{{t('api_ok')}}
-            </span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_latency')}}</span>
-            <span class="sys-value">{{api.latency}} ms</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('db_total')}}</span>
-            <span class="sys-value">{{api.total ? api.total.toLocaleString() : '—'}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_port')}}</span>
-            <span class="sys-value">7474</span>
-          </div>
-        </template>
-      </div>
-
-      <!-- Infos DB -->
-      <div class="card">
-        <div class="card-title">{{t('db_status')}}</div>
-        <div v-if="db.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="db.error" class="error-msg">⚠ {{db.error}}</div>
-        <template v-else>
-          <div class="sys-row">
-            <span class="sys-label">{{t('db_total')}}</span>
-            <span class="sys-value">{{db.total ? db.total.toLocaleString() : '—'}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_species_distinct')}}</span>
-            <span class="sys-value">{{db.species}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_days_recorded')}}</span>
-            <span class="sys-value">{{db.days}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('db_first')}}</span>
-            <span class="sys-value">{{fmtDate(db.first)}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('db_last')}}</span>
-            <span class="sys-value">{{fmtDate(db.last)}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_conf_range')}}</span>
-            <span class="sys-value">{{db.avgConf}}% / {{db.minConf}}% / {{db.maxConf}}%</span>
-          </div>
-        </template>
-      </div>
-
+    <!-- ── Tab Navigation ──────────────────────────────────────── -->
+    <div class="sys-tabs">
+      <button v-for="tab in tabs" :key="tab.id"
+              class="sys-tab-btn" :class="{active: activeTab === tab.id}"
+              @click="switchTab(tab.id)">
+        <span class="sys-tab-icon">{{tab.icon}}</span>
+        <span class="sys-tab-label">{{t(tab.labelKey)}}</span>
+      </button>
     </div>
 
-    <div class="grid-2" style="margin-bottom:1rem;">
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 1: HEALTH
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='health'">
 
-      <!-- Fraîcheur -->
-      <div class="card">
-        <div class="card-title">{{t('data_freshness')}}</div>
-        <div v-if="fresh.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="fresh.error" class="error-msg">⚠ {{fresh.error}}</div>
-        <template v-else>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_last_det')}}</span>
-            <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
-              {{fresh.icon}} {{fresh.species || '—'}}
-            </span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_date_time')}}</span>
-            <span class="sys-value">{{fresh.datetime}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('data_freshness')}}</span>
-            <span class="sys-value">{{freshnessLabel(fresh.date, fresh.time, t)}}</span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_det_today')}}</span>
-            <span class="sys-value" style="color:var(--accent);">
-              {{fresh.today ? fresh.today.toLocaleString() : '0'}}
-            </span>
-          </div>
-          <div class="sys-row">
-            <span class="sys-label">{{t('sys_det_yesterday')}}</span>
-            <span class="sys-value">{{fresh.yesterday ? fresh.yesterday.toLocaleString() : '0'}}</span>
-          </div>
-        </template>
-      </div>
+      <div class="grid-2" style="margin-bottom:1rem;">
 
-      <!-- Gaps -->
-      <div class="card">
-        <div class="card-title">{{t('sys_gaps_title', {n:1})}}</div>
-        <div v-if="gaps.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="gaps.error" class="error-msg">⚠ {{gaps.error}}</div>
-        <p v-else-if="!gaps.list.length"
-           style="color:var(--accent);font-size:.85rem;padding:.5rem 0;">
-          {{t('sys_no_gap_full')}}
-        </p>
-        <template v-else>
-          <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem;">
-            {{t('sys_gaps_found', {n: gaps.total})}}
-          </p>
-          <div v-for="g in gaps.list" :key="g.from" class="gap-item">
-            <span class="gap-date">{{fmtDate(g.from)}} → {{fmtDate(g.to)}}</span>
-            <span class="gap-days"> — {{t('sys_gap_missing', {n: g.days})}}</span>
-          </div>
-        </template>
-      </div>
-
-    </div>
-
-    <div class="card" style="margin-bottom:1rem;">
-      <div class="card-title">{{t('sys_activity_30d')}}</div>
-      <div class="chart-wrap"><canvas ref="canvasActivity"></canvas></div>
-    </div>
-
-    <div class="card" style="margin-bottom:1rem;">
-      <div class="card-title">{{t('sys_hourly_distrib')}}</div>
-      <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
-    </div>
-
-    <!-- ── Model Performance Monitor ──────────────────────────────── -->
-    <div class="card" style="margin-bottom:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
-        <div class="card-title" style="margin:0;">🤖 {{t('mod_title')}}</div>
-        <div class="fp-quick-btns">
-          <button v-for="p in modPeriods" :key="p.val"
-                  class="fp-quick-btn" :class="{active:modPeriod===p.val}"
-                  @click="modPeriod=p.val;loadModelMonitor()">{{p.label}}</button>
-        </div>
-      </div>
-
-      <div v-if="mod.loading" class="spinner"><div></div><div></div><div></div></div>
-      <div v-else-if="mod.error" class="error-msg">{{mod.error}}</div>
-      <template v-else>
-        <!-- Model name badge -->
-        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;">
-          <span style="font-size:.75rem;color:var(--text-muted);">{{t('mod_current')}} :</span>
-          <span style="font-size:.8rem;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);
-                       padding:.2rem .6rem;border-radius:.3rem;">
-            {{mod.modelLabel}}
-          </span>
-        </div>
-
-        <!-- KPIs row -->
-        <div class="kpi-grid" style="margin-bottom:1rem;">
-          <div class="kpi-card">
-            <div class="kpi-value">{{mod.totalDet?.toLocaleString() || '0'}}</div>
-            <div class="kpi-label">{{t('mod_detections')}}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-value amber">{{mod.uniqueSpecies || '0'}}</div>
-            <div class="kpi-label">{{t('mod_species')}}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-value blue">{{mod.avgConf}}%</div>
-            <div class="kpi-label">{{t('mod_confidence')}}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-value" style="color:var(--info);">{{mod.ratePerHour}}<span style="font-size:.6em;color:var(--text-muted);">{{t('mod_per_hour')}}</span></div>
-            <div class="kpi-label">{{t('mod_rate')}}</div>
-          </div>
-        </div>
-
-        <!-- Two columns: confidence distribution + top species -->
-        <div class="grid-2">
-          <!-- Confidence distribution -->
-          <div>
-            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
-              {{t('mod_conf_dist')}}
-            </div>
-            <div class="chart-wrap" style="max-height:180px;"><canvas ref="canvasModConf"></canvas></div>
-          </div>
-
-          <!-- Top species -->
-          <div>
-            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
-              {{t('mod_top_species')}}
-            </div>
-            <div v-if="!mod.topSpecies.length" class="error-msg" style="font-size:.8rem;">{{t('mod_no_data')}}</div>
-            <div v-else>
-              <div v-for="(sp, i) in mod.topSpecies" :key="sp.name"
-                   style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;">
-                <div style="font-size:.68rem;color:var(--text-faint);min-width:16px;text-align:right;font-family:monospace;">{{i+1}}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:.78rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                    {{sp.name}}
-                  </div>
-                  <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
-                    <div :style="{height:'100%',width:sp.pct+'%',background:'var(--accent)',borderRadius:'2px',transition:'width .4s'}"></div>
-                  </div>
-                </div>
-                <div style="font-size:.72rem;color:var(--accent);min-width:32px;text-align:right;font-family:monospace;">
-                  {{sp.count}}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Daily trend sparkline -->
-        <div style="margin-top:1rem;">
-          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
-            {{t('mod_trend')}} — {{t('mod_detections')}} & {{t('mod_species')}}
-          </div>
-          <div class="chart-wrap" style="max-height:160px;"><canvas ref="canvasModTrend"></canvas></div>
-        </div>
-      </template>
-    </div>
-
-    <!-- ── Model Comparison ────────────────────────────────────── -->
-    <div class="card" style="margin-bottom:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
-        <div class="card-title" style="margin:0;">🔄 {{t('cmp_title')}}</div>
-        <div style="display:flex;align-items:center;gap:.5rem;">
-          <label style="font-size:.72rem;color:var(--text-muted);">{{t('cmp_split_date')}}</label>
-          <input type="date" v-model="cmpDate" @change="loadModelCompare()"
-                 style="font-size:.75rem;padding:.2rem .4rem;border:1px solid var(--border);
-                        border-radius:.3rem;background:var(--bg-card);color:var(--text-main);
-                        font-family:inherit;">
-        </div>
-      </div>
-
-      <div v-if="cmp.loading" class="spinner"><div></div><div></div><div></div></div>
-      <div v-else-if="cmp.error" class="error-msg">{{cmp.error}}</div>
-      <template v-else>
-        <!-- Side-by-side KPIs -->
-        <div class="cmp-grid">
-          <div class="cmp-col">
-            <div class="cmp-header cmp-before">{{t('cmp_before')}} <span class="cmp-dates">{{cmp.beforeRange}}</span></div>
-            <div class="cmp-kpis">
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.before.totalDet?.toLocaleString() || '0'}}</div>
-                <div class="cmp-kpi-lbl">{{t('mod_detections')}}</div>
-              </div>
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.before.detPerDay}}<small>{{t('cmp_per_day')}}</small></div>
-                <div class="cmp-kpi-lbl">{{t('cmp_det_day')}}</div>
-              </div>
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.before.species}}</div>
-                <div class="cmp-kpi-lbl">{{t('mod_species')}}</div>
-              </div>
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.before.avgConf}}%</div>
-                <div class="cmp-kpi-lbl">{{t('mod_confidence')}}</div>
-              </div>
-            </div>
-          </div>
-          <div class="cmp-col">
-            <div class="cmp-header cmp-after">{{t('cmp_after')}} <span class="cmp-dates">{{cmp.afterRange}}</span></div>
-            <div class="cmp-kpis">
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.after.totalDet?.toLocaleString() || '0'}}</div>
-                <div class="cmp-kpi-lbl">{{t('mod_detections')}}</div>
-              </div>
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.after.detPerDay}}<small>{{t('cmp_per_day')}}</small></div>
-                <div class="cmp-kpi-lbl">{{t('cmp_det_day')}}
-                  <span :class="cmp.detDayDelta>0?'cmp-up':'cmp-down'" v-if="cmp.detDayDelta!==0">
-                    {{cmp.detDayDelta>0?'↑':'↓'}}{{Math.abs(cmp.detDayDelta)}}%
-                  </span>
-                </div>
-              </div>
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.after.species}}</div>
-                <div class="cmp-kpi-lbl">{{t('mod_species')}}
-                  <span :class="cmp.speciesDelta>=0?'cmp-up':'cmp-down'" v-if="cmp.speciesDelta!==0">
-                    {{cmp.speciesDelta>0?'+':''}}{{cmp.speciesDelta}}
-                  </span>
-                </div>
-              </div>
-              <div class="cmp-kpi">
-                <div class="cmp-kpi-val">{{cmp.after.avgConf}}%</div>
-                <div class="cmp-kpi-lbl">{{t('mod_confidence')}}
-                  <span :class="cmp.confDelta>=0?'cmp-up':'cmp-down'" v-if="cmp.confDelta!==0">
-                    {{cmp.confDelta>0?'+':''}}{{cmp.confDelta}}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Species gained / lost -->
-        <div class="grid-2" style="margin-top:1rem;">
-          <div>
-            <div class="cmp-section-title" style="color:var(--accent);">
-              ✅ {{t('cmp_species_gained')}} <span class="cmp-badge cmp-badge-ok">{{cmp.gained.length}}</span>
-            </div>
-            <div v-if="!cmp.gained.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
-            <div v-else class="cmp-species-list">
-              <div v-for="sp in cmp.gained" :key="sp.name" class="cmp-sp-row">
-                <span class="cmp-sp-name">{{sp.name}}</span>
-                <span class="cmp-sp-count">{{sp.count}}× <span style="color:var(--text-faint);">({{sp.conf}}%)</span></span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <div class="cmp-section-title" style="color:var(--danger);">
-              ❌ {{t('cmp_species_lost')}} <span class="cmp-badge cmp-badge-err">{{cmp.lost.length}}</span>
-            </div>
-            <div v-if="!cmp.lost.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
-            <div v-else class="cmp-species-list">
-              <div v-for="sp in cmp.lost" :key="sp.name" class="cmp-sp-row">
-                <span class="cmp-sp-name">{{sp.name}}</span>
-                <span class="cmp-sp-count" style="color:var(--text-faint);">{{sp.count}}× <span>({{sp.conf}}%)</span></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Per-species comparison table -->
-        <div style="margin-top:1rem;">
-          <div class="cmp-section-title">📊 {{t('cmp_species_detail')}}</div>
-          <div class="cmp-table-wrap">
-            <table class="cmp-table">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">{{t('species_name')}}</th>
-                  <th>{{t('cmp_before')}}</th>
-                  <th>{{t('cmp_after')}}</th>
-                  <th>{{t('cmp_change')}}</th>
-                  <th>{{t('mod_confidence')}}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="sp in cmp.speciesTable" :key="sp.sci">
-                  <td style="text-align:left;">
-                    <div style="font-size:.78rem;">{{sp.name}}</div>
-                    <div style="font-size:.65rem;color:var(--text-faint);font-style:italic;">{{sp.sci}}</div>
-                  </td>
-                  <td>{{sp.beforeCount || '—'}}</td>
-                  <td>{{sp.afterCount || '—'}}</td>
-                  <td>
-                    <span v-if="sp.beforeCount===0" class="cmp-up" style="font-weight:600;">NEW</span>
-                    <span v-else-if="sp.afterCount===0" class="cmp-down" style="font-weight:600;">LOST</span>
-                    <span v-else :class="sp.delta>=0?'cmp-up':'cmp-down'">
-                      {{sp.delta>0?'↑':'↓'}}{{Math.abs(sp.delta)}}%
-                    </span>
-                  </td>
-                  <td>
-                    <span style="color:var(--text-faint);">{{sp.beforeConf || '—'}}</span>
-                    →
-                    <span :style="{color: sp.afterConf >= sp.beforeConf ? 'var(--accent)' : 'var(--danger)'}">{{sp.afterConf || '—'}}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Nocturnal detections -->
-        <div style="margin-top:1rem;">
-          <div class="cmp-section-title">
-            🌙 {{t('cmp_nocturnal')}} <span style="font-weight:400;color:var(--text-faint);">({{t('cmp_nocturnal_sub')}})</span>
-            <span class="cmp-badge" :class="cmp.nocturnal.length>5?'cmp-badge-err':'cmp-badge-ok'">{{cmp.nocturnal.length}}</span>
-          </div>
-          <div v-if="!cmp.nocturnal.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
-          <div v-else class="cmp-species-list" style="max-height:180px;overflow-y:auto;">
-            <div v-for="d in cmp.nocturnal" :key="d.date+d.time" class="cmp-sp-row">
-              <span style="font-size:.7rem;color:var(--text-faint);min-width:95px;font-family:monospace;">
-                {{d.date}} {{d.time}}
+        <!-- System Health -->
+        <div class="card">
+          <div class="card-title">{{t('sys_health_title')}}</div>
+          <div v-if="health.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="health.error" class="error-msg">{{health.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_cpu')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                <div class="health-bar"><div class="health-fill" :style="{width: health.cpu.usage+'%'}" :class="barColor(health.cpu.usage)"></div></div>
+                <span class="health-pct">{{health.cpu.usage}}%</span>
               </span>
-              <span class="cmp-sp-name">{{d.species}}</span>
-              <span class="cmp-sp-count">{{d.conf}}%</span>
+            </div>
+            <div class="sys-row" style="padding-left:1rem;">
+              <span class="sys-label" style="font-size:.72rem;color:var(--text-faint);">Cores</span>
+              <span class="sys-value" style="font-size:.75rem;">{{health.cpu.cores}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_ram')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                <div class="health-bar"><div class="health-fill" :style="{width: health.ram.pct+'%'}" :class="barColor(health.ram.pct)"></div></div>
+                <span class="health-pct">{{health.ram.pct}}%</span>
+              </span>
+            </div>
+            <div class="sys-row" style="padding-left:1rem;">
+              <span class="sys-label" style="font-size:.72rem;color:var(--text-faint);">{{fmtBytes(health.ram.used)}} / {{fmtBytes(health.ram.total)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_disk')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                <div class="health-bar"><div class="health-fill" :style="{width: health.disk.pct+'%'}" :class="barColor(health.disk.pct)"></div></div>
+                <span class="health-pct">{{health.disk.pct}}%</span>
+              </span>
+            </div>
+            <div class="sys-row" style="padding-left:1rem;">
+              <span class="sys-label" style="font-size:.72rem;color:var(--text-faint);">{{fmtBytes(health.disk.used)}} / {{fmtBytes(health.disk.total)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_temp')}}</span>
+              <span class="sys-value" :style="{color: health.temp > 70 ? 'var(--danger)' : health.temp > 55 ? 'var(--warning)' : 'var(--accent)'}">
+                {{health.temp}}°C
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_uptime')}}</span>
+              <span class="sys-value">{{fmtUptime(health.uptime)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_load')}}</span>
+              <span class="sys-value" style="font-family:monospace;font-size:.78rem;">{{health.loadAvg}}</span>
+            </div>
+            <!-- API status merged -->
+            <div class="sys-row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border);">
+              <span class="sys-label">{{t('sys_api_label')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span v-if="api.error" class="status-dot dot-err"></span>
+                <span v-else class="status-dot dot-ok"></span>
+                {{api.error ? t('api_error') : t('api_ok')}}
+              </span>
+            </div>
+            <div v-if="!api.error" class="sys-row">
+              <span class="sys-label">{{t('sys_latency')}}</span>
+              <span class="sys-value">{{api.latency}} ms</span>
+            </div>
+            <div v-if="!api.error" class="sys-row">
+              <span class="sys-label">{{t('db_total')}}</span>
+              <span class="sys-value">{{api.total ? api.total.toLocaleString() : '—'}}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Services Manager -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
+            <div class="card-title" style="margin:0;">{{t('sys_services_title')}}</div>
+            <span v-if="services.refreshAt" style="font-size:.65rem;color:var(--text-faint);">{{services.refreshAt}}</span>
+          </div>
+          <div v-if="services.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="services.error" class="error-msg">{{services.error}}</div>
+          <div v-else-if="!services.list.length" style="font-size:.82rem;color:var(--text-muted);">{{t('sys_no_data')}}</div>
+          <div v-else>
+            <div v-for="svc in services.list" :key="svc.name" class="svc-card">
+              <div class="svc-header" @click="toggleSvc(svc.name)">
+                <span class="status-dot" :class="svcDotClass(svc.state)"></span>
+                <span class="svc-name">{{svc.name}}</span>
+                <span class="svc-state-badge" :class="'svc-'+svc.state">{{svc.state}}</span>
+                <span class="svc-chevron" :class="{open: svcExpanded===svc.name}">&#9654;</span>
+              </div>
+              <div v-if="svcExpanded===svc.name && svcDetail" class="svc-detail">
+                <div class="svc-info-grid">
+                  <div>PID: {{svcDetail.pid || '—'}}</div>
+                  <div>RAM: {{fmtBytes(svcDetail.memory)}}</div>
+                  <div>Uptime: {{fmtUptime(svcDetail.uptime)}}</div>
+                </div>
+                <div class="svc-actions">
+                  <button class="svc-btn svc-btn-start" @click.stop="svcAction(svc.name,'start')" :disabled="svc.state==='active'">&#9654; Start</button>
+                  <button class="svc-btn svc-btn-stop" @click.stop="confirmStop(svc.name)" :disabled="svc.state!=='active'">&#9209; Stop</button>
+                  <button class="svc-btn svc-btn-restart" @click.stop="svcAction(svc.name,'restart')">&#128260; Restart</button>
+                </div>
+                <div v-if="svcDetail.logs && svcDetail.logs.length" class="svc-logs">
+                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);margin-bottom:.3rem;">{{t('sys_svc_logs')}}</div>
+                  <pre>{{svcDetail.logs.join('\n')}}</pre>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </template>
-    </div>
 
-    <!-- ── Alertes raretés locales ──────────────────────────────── -->
-    <div class="card" style="margin-bottom:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
-        <div class="card-title" style="margin:0;">💎 Raretés locales récentes</div>
-        <span style="font-size:.72rem;color:var(--text-faint);">≤5 détections total</span>
-      </div>
-      <div v-if="rareLocal.loading" class="spinner"><div></div><div></div><div></div></div>
-      <div v-else-if="!rareLocal.rows.length" class="error-msg">Aucune rareté détectée récemment</div>
-      <div v-else>
-        <div v-for="r in rareLocal.rows" :key="r.Com_Name" class="det-item"
-             style="cursor:pointer;gap:.5rem;border-left:2px solid var(--danger);padding-left:.5rem;"
-             @click="navigateTo('rarities.html')">
-          <div style="font-size:1.1rem;">{{r.n===1?'💎':r.n<=3?'🔶':'🔹'}}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.85rem;font-weight:600;color:var(--text-main);">{{r.Com_Name}}</div>
-            <div style="font-size:.72rem;color:var(--text-muted);font-style:italic;">{{r.sci}}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <span class="conf-badge conf-high" style="font-size:.7rem;">{{r.n}}×</span>
-            <div style="font-size:.68rem;color:var(--text-faint);margin-top:.15rem;">{{fmtDate(r.last_date)}}</div>
-          </div>
-        </div>
-        <div style="text-align:right;margin-top:.5rem;">
-          <a href="rarities.html" class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
-            Toutes les rarités →
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── eBird notable — Belgique ─────────────────────────────── -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem;">
-        <div class="card-title" style="margin:0;">🌍 eBird — Observations notables Belgique</div>
-        <div style="display:flex;align-items:center;gap:.5rem;">
-          <span v-if="ebird.fetchedAt" style="font-size:.68rem;color:var(--text-faint);">
-            Mis à jour {{ebird.fetchedAt}}
-          </span>
-          <span v-if="!ebird.hasKey"
-                style="font-size:.72rem;color:var(--warning);background:color-mix(in srgb,var(--warning) 10%,transparent);
-                       padding:.15rem .45rem;border-radius:6px;border:1px solid color-mix(in srgb,var(--warning) 30%,transparent);">
-            ⚠ Clé API manquante
-          </span>
-        </div>
       </div>
 
-      <!-- Pas de clé API -->
-      <div v-if="!ebird.hasKey" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
-        Pour activer cette section, obtenez une clé gratuite sur
-        <a href="https://ebird.org/api/keygen" target="_blank" style="color:var(--accent);">ebird.org/api/keygen</a>
-        puis configurez-la sur le Pi :<br>
-        <code style="background:var(--bg-deep);padding:.2rem .5rem;border-radius:4px;font-size:.78rem;display:inline-block;margin-top:.4rem;">
-          sudo systemctl edit birdash-api --force
-        </code><br>
-        <span style="font-size:.75rem;color:var(--text-faint);">Ajouter : <code>Environment=EBIRD_API_KEY=votre_cle</code></span>
-      </div>
+      <div class="grid-2" style="margin-bottom:1rem;">
 
-      <!-- Chargement -->
-      <div v-else-if="ebird.loading" class="spinner"><div></div><div></div><div></div></div>
-
-      <!-- Erreur -->
-      <div v-else-if="ebird.error" class="error-msg">{{ebird.error}}</div>
-
-      <!-- Résultats -->
-      <div v-else-if="!ebird.obs.length" class="error-msg">
-        Aucune observation notable ces 7 derniers jours en Belgique.
-      </div>
-      <div v-else>
-        <div v-for="obs in ebird.obs" :key="obs.subId" class="det-item"
-             style="gap:.5rem;cursor:pointer;" @click="openUrl(obs.obsUrl)">
-          <!-- Croix si aussi détecté localement -->
-          <div style="font-size:1rem;flex-shrink:0;" :title="obs.localMatch?'Également détecté localement':'Pas détecté localement'">
-            {{obs.localMatch ? '✅' : '👁'}}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.85rem;font-weight:600;color:var(--text-main);
-                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              {{obs.comName}}
+        <!-- Analysis Status -->
+        <div class="card">
+          <div class="card-title">{{t('sys_analysis_title')}}</div>
+          <div v-if="analysis.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="analysis.error" class="error-msg">{{analysis.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_model_active')}}</span>
+              <span class="sys-value" style="font-weight:600;color:var(--accent);">{{analysis.modelLabel}}</span>
             </div>
-            <div style="font-size:.72rem;color:var(--text-muted);">
-              📍 {{obs.locName}}
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_backlog')}}</span>
+              <span class="sys-value">{{analysis.backlog}}</span>
             </div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:.78rem;color:var(--text-muted);">×{{obs.howMany}}</div>
-            <div style="font-size:.68rem;color:var(--text-faint);">{{obs.obsDt}}</div>
-          </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_lag')}}</span>
+              <span class="sys-value">{{analysis.lag}} min</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_inference')}}</span>
+              <span class="sys-value">{{analysis.inferenceSpeed}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">Confidence</span>
+              <span class="sys-value">{{analysis.confidenceThreshold}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">Sensitivity</span>
+              <span class="sys-value">{{analysis.sensitivity}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">SF_THRESH</span>
+              <span class="sys-value">{{analysis.sfThresh}}</span>
+            </div>
+          </template>
         </div>
-        <div style="text-align:right;margin-top:.5rem;">
-          <a href="https://ebird.org/region/BE/recent-notable" target="_blank"
-             class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
-            Voir sur eBird →
-          </a>
+
+        <!-- Audio Device -->
+        <div class="card">
+          <div class="card-title">{{t('sys_audio_title')}}</div>
+          <div v-if="audio.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="audio.error" class="error-msg">{{audio.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_rec_card')}}</span>
+              <span class="sys-value">{{audio.card || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_channels')}}</span>
+              <span class="sys-value">{{audio.channels || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_format')}}</span>
+              <span class="sys-value">{{audio.format || '—'}}</span>
+            </div>
+          </template>
         </div>
+
       </div>
+
+      <div class="grid-2" style="margin-bottom:1rem;">
+
+        <!-- Backup Status -->
+        <div class="card">
+          <div class="card-title">{{t('sys_backup_title')}}</div>
+          <div v-if="backup.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="backup.error" class="error-msg">{{backup.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_nfs_mount')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span class="status-dot" :class="backup.nfsMounted ? 'dot-ok' : 'dot-err'"></span>
+                {{backup.nfsMounted ? 'OK' : 'Not mounted'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_last_backup')}}</span>
+              <span class="sys-value">{{backup.lastBackup || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_backup_size')}}</span>
+              <span class="sys-value">{{backup.size || '—'}}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Network -->
+        <div class="card">
+          <div class="card-title">{{t('sys_network_title')}}</div>
+          <div v-if="network.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="network.error" class="error-msg">{{network.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_hostname')}}</span>
+              <span class="sys-value">{{network.hostname || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_ip')}}</span>
+              <span class="sys-value" style="font-family:monospace;font-size:.78rem;">{{network.ip || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_nas_ping')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span class="status-dot" :class="network.nasPing ? 'dot-ok' : 'dot-err'"></span>
+                <span v-if="network.nasPing">{{network.nasLatency}} {{t('sys_latency_ms')}}</span>
+                <span v-else>Unreachable</span>
+              </span>
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+      <!-- Data Freshness (moved from old top-level) -->
+      <div class="grid-2" style="margin-bottom:1rem;">
+        <div class="card">
+          <div class="card-title">{{t('data_freshness')}}</div>
+          <div v-if="fresh.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="fresh.error" class="error-msg">{{fresh.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_last_det')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                {{fresh.icon}} {{fresh.species || '—'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_date_time')}}</span>
+              <span class="sys-value">{{fresh.datetime}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('data_freshness')}}</span>
+              <span class="sys-value">{{freshnessLabel(fresh.date, fresh.time, t)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_det_today')}}</span>
+              <span class="sys-value" style="color:var(--accent);">
+                {{fresh.today ? fresh.today.toLocaleString() : '0'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_det_yesterday')}}</span>
+              <span class="sys-value">{{fresh.yesterday ? fresh.yesterday.toLocaleString() : '0'}}</span>
+            </div>
+          </template>
+        </div>
+        <div></div>
+      </div>
+
     </div>
 
-    <!-- ── BirdWeather ─────────────────────────────────────────────── -->
-    <div class="card" style="margin-top:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
-        <div style="display:flex;align-items:center;gap:.6rem;">
-          <img src="https://app.birdweather.com/favicon.ico" style="width:20px;height:20px;border-radius:4px;" alt="">
-          <div class="card-title" style="margin:0;">BirdWeather — Station #{{bw.stationId||'?'}}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:.5rem;">
-          <div class="fp-quick-btns" v-if="bw.hasStation">
-            <button v-for="p in bwPeriods" :key="p.val"
-                    class="fp-quick-btn" :class="{active:bwPeriod===p.val}"
-                    @click="bwPeriod=p.val;loadBirdWeather()">{{p.label}}</button>
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 2: MODEL
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='model'">
+
+      <!-- Model Performance Monitor -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <div class="card-title" style="margin:0;">&#129302; {{t('mod_title')}}</div>
+          <div class="fp-quick-btns">
+            <button v-for="p in modPeriods" :key="p.val"
+                    class="fp-quick-btn" :class="{active:modPeriod===p.val}"
+                    @click="modPeriod=p.val;loadModelMonitor()">{{p.label}}</button>
           </div>
-          <a v-if="bw.stationId" :href="'https://app.birdweather.com/stations/'+bw.stationId"
-             target="_blank" class="btn btn-secondary"
-             style="font-size:.72rem;padding:.22rem .55rem;">Voir sur BirdWeather ↗</a>
         </div>
+
+        <div v-if="mod.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="mod.error" class="error-msg">{{mod.error}}</div>
+        <template v-else>
+          <!-- Model name badge -->
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;">
+            <span style="font-size:.75rem;color:var(--text-muted);">{{t('mod_current')}} :</span>
+            <span style="font-size:.8rem;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);
+                         padding:.2rem .6rem;border-radius:.3rem;">
+              {{mod.modelLabel}}
+            </span>
+          </div>
+
+          <!-- KPIs row -->
+          <div class="kpi-grid" style="margin-bottom:1rem;">
+            <div class="kpi-card">
+              <div class="kpi-value">{{mod.totalDet?.toLocaleString() || '0'}}</div>
+              <div class="kpi-label">{{t('mod_detections')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value amber">{{mod.uniqueSpecies || '0'}}</div>
+              <div class="kpi-label">{{t('mod_species')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value blue">{{mod.avgConf}}%</div>
+              <div class="kpi-label">{{t('mod_confidence')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value" style="color:var(--info);">{{mod.ratePerHour}}<span style="font-size:.6em;color:var(--text-muted);">{{t('mod_per_hour')}}</span></div>
+              <div class="kpi-label">{{t('mod_rate')}}</div>
+            </div>
+          </div>
+
+          <!-- Two columns: confidence distribution + top species -->
+          <div class="grid-2">
+            <!-- Confidence distribution -->
+            <div>
+              <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+                {{t('mod_conf_dist')}}
+              </div>
+              <div class="chart-wrap" style="max-height:180px;"><canvas ref="canvasModConf"></canvas></div>
+            </div>
+
+            <!-- Top species -->
+            <div>
+              <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+                {{t('mod_top_species')}}
+              </div>
+              <div v-if="!mod.topSpecies.length" class="error-msg" style="font-size:.8rem;">{{t('mod_no_data')}}</div>
+              <div v-else>
+                <div v-for="(sp, i) in mod.topSpecies" :key="sp.name"
+                     style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;">
+                  <div style="font-size:.68rem;color:var(--text-faint);min-width:16px;text-align:right;font-family:monospace;">{{i+1}}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.78rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      {{sp.name}}
+                    </div>
+                    <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
+                      <div :style="{height:'100%',width:sp.pct+'%',background:'var(--accent)',borderRadius:'2px',transition:'width .4s'}"></div>
+                    </div>
+                  </div>
+                  <div style="font-size:.72rem;color:var(--accent);min-width:32px;text-align:right;font-family:monospace;">
+                    {{sp.count}}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Daily trend sparkline -->
+          <div style="margin-top:1rem;">
+            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+              {{t('mod_trend')}} — {{t('mod_detections')}} & {{t('mod_species')}}
+            </div>
+            <div class="chart-wrap" style="max-height:160px;"><canvas ref="canvasModTrend"></canvas></div>
+          </div>
+        </template>
       </div>
 
-      <!-- Pas configuré -->
-      <div v-if="!bw.hasStation" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
-        Ajouter dans <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">birdash-local.js</code> :
-        <code style="display:block;background:var(--bg-deep);padding:.4rem .65rem;border-radius:5px;margin-top:.4rem;font-size:.78rem;">
-          birdweatherStationId: 'YOUR_STATION_ID',
-        </code>
-        <div style="font-size:.72rem;color:var(--text-faint);margin-top:.3rem;">
-          L'ID est visible dans l'URL : app.birdweather.com/stations/<strong>XXXX</strong>
+      <!-- Model Comparison -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <div class="card-title" style="margin:0;">&#128260; {{t('cmp_title')}}</div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <label style="font-size:.72rem;color:var(--text-muted);">{{t('cmp_split_date')}}</label>
+            <input type="date" v-model="cmpDate" @change="loadModelCompare()"
+                   style="font-size:.75rem;padding:.2rem .4rem;border:1px solid var(--border);
+                          border-radius:.3rem;background:var(--bg-card);color:var(--text-main);
+                          font-family:inherit;">
+          </div>
         </div>
+
+        <div v-if="cmp.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="cmp.error" class="error-msg">{{cmp.error}}</div>
+        <template v-else>
+          <!-- Side-by-side KPIs -->
+          <div class="cmp-grid">
+            <div class="cmp-col">
+              <div class="cmp-header cmp-before">{{t('cmp_before')}} <span class="cmp-dates">{{cmp.beforeRange}}</span></div>
+              <div class="cmp-kpis">
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.totalDet?.toLocaleString() || '0'}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_detections')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.detPerDay}}<small>{{t('cmp_per_day')}}</small></div>
+                  <div class="cmp-kpi-lbl">{{t('cmp_det_day')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.species}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_species')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.avgConf}}%</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_confidence')}}</div>
+                </div>
+              </div>
+            </div>
+            <div class="cmp-col">
+              <div class="cmp-header cmp-after">{{t('cmp_after')}} <span class="cmp-dates">{{cmp.afterRange}}</span></div>
+              <div class="cmp-kpis">
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.totalDet?.toLocaleString() || '0'}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_detections')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.detPerDay}}<small>{{t('cmp_per_day')}}</small></div>
+                  <div class="cmp-kpi-lbl">{{t('cmp_det_day')}}
+                    <span :class="cmp.detDayDelta>0?'cmp-up':'cmp-down'" v-if="cmp.detDayDelta!==0">
+                      {{cmp.detDayDelta>0?'&#8593;':'&#8595;'}}{{Math.abs(cmp.detDayDelta)}}%
+                    </span>
+                  </div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.species}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_species')}}
+                    <span :class="cmp.speciesDelta>=0?'cmp-up':'cmp-down'" v-if="cmp.speciesDelta!==0">
+                      {{cmp.speciesDelta>0?'+':''}}{{cmp.speciesDelta}}
+                    </span>
+                  </div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.avgConf}}%</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_confidence')}}
+                    <span :class="cmp.confDelta>=0?'cmp-up':'cmp-down'" v-if="cmp.confDelta!==0">
+                      {{cmp.confDelta>0?'+':''}}{{cmp.confDelta}}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Species gained / lost -->
+          <div class="grid-2" style="margin-top:1rem;">
+            <div>
+              <div class="cmp-section-title" style="color:var(--accent);">
+                &#9989; {{t('cmp_species_gained')}} <span class="cmp-badge cmp-badge-ok">{{cmp.gained.length}}</span>
+              </div>
+              <div v-if="!cmp.gained.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
+              <div v-else class="cmp-species-list">
+                <div v-for="sp in cmp.gained" :key="sp.name" class="cmp-sp-row">
+                  <span class="cmp-sp-name">{{sp.name}}</span>
+                  <span class="cmp-sp-count">{{sp.count}}&#215; <span style="color:var(--text-faint);">({{sp.conf}}%)</span></span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="cmp-section-title" style="color:var(--danger);">
+                &#10060; {{t('cmp_species_lost')}} <span class="cmp-badge cmp-badge-err">{{cmp.lost.length}}</span>
+              </div>
+              <div v-if="!cmp.lost.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
+              <div v-else class="cmp-species-list">
+                <div v-for="sp in cmp.lost" :key="sp.name" class="cmp-sp-row">
+                  <span class="cmp-sp-name">{{sp.name}}</span>
+                  <span class="cmp-sp-count" style="color:var(--text-faint);">{{sp.count}}&#215; <span>({{sp.conf}}%)</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-species comparison table -->
+          <div style="margin-top:1rem;">
+            <div class="cmp-section-title">&#128202; {{t('cmp_species_detail')}}</div>
+            <div class="cmp-table-wrap">
+              <table class="cmp-table">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">{{t('species_name')}}</th>
+                    <th>{{t('cmp_before')}}</th>
+                    <th>{{t('cmp_after')}}</th>
+                    <th>{{t('cmp_change')}}</th>
+                    <th>{{t('mod_confidence')}}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="sp in cmp.speciesTable" :key="sp.sci">
+                    <td style="text-align:left;">
+                      <div style="font-size:.78rem;">{{sp.name}}</div>
+                      <div style="font-size:.65rem;color:var(--text-faint);font-style:italic;">{{sp.sci}}</div>
+                    </td>
+                    <td>{{sp.beforeCount || '—'}}</td>
+                    <td>{{sp.afterCount || '—'}}</td>
+                    <td>
+                      <span v-if="sp.beforeCount===0" class="cmp-up" style="font-weight:600;">NEW</span>
+                      <span v-else-if="sp.afterCount===0" class="cmp-down" style="font-weight:600;">LOST</span>
+                      <span v-else :class="sp.delta>=0?'cmp-up':'cmp-down'">
+                        {{sp.delta>0?'&#8593;':'&#8595;'}}{{Math.abs(sp.delta)}}%
+                      </span>
+                    </td>
+                    <td>
+                      <span style="color:var(--text-faint);">{{sp.beforeConf || '—'}}</span>
+                      &#8594;
+                      <span :style="{color: sp.afterConf >= sp.beforeConf ? 'var(--accent)' : 'var(--danger)'}">{{sp.afterConf || '—'}}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Nocturnal detections -->
+          <div style="margin-top:1rem;">
+            <div class="cmp-section-title">
+              &#127769; {{t('cmp_nocturnal')}} <span style="font-weight:400;color:var(--text-faint);">({{t('cmp_nocturnal_sub')}})</span>
+              <span class="cmp-badge" :class="cmp.nocturnal.length>5?'cmp-badge-err':'cmp-badge-ok'">{{cmp.nocturnal.length}}</span>
+            </div>
+            <div v-if="!cmp.nocturnal.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
+            <div v-else class="cmp-species-list" style="max-height:180px;overflow-y:auto;">
+              <div v-for="d in cmp.nocturnal" :key="d.date+d.time" class="cmp-sp-row">
+                <span style="font-size:.7rem;color:var(--text-faint);min-width:95px;font-family:monospace;">
+                  {{d.date}} {{d.time}}
+                </span>
+                <span class="cmp-sp-name">{{d.species}}</span>
+                <span class="cmp-sp-count">{{d.conf}}%</span>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
-      <!-- Chargement -->
-      <div v-else-if="bw.loading" class="spinner"><div></div><div></div><div></div></div>
+    </div>
 
-      <!-- Erreur -->
-      <div v-else-if="bw.error" class="error-msg">{{bw.error}}</div>
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 3: DATA
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='data'">
 
-      <!-- Données -->
-      <div v-else>
-        <!-- KPIs BirdWeather -->
-        <div class="kpi-grid" style="margin-bottom:1rem;">
-          <div class="kpi-card">
-            <div class="kpi-value">{{bw.stats.detections?.toLocaleString() || '—'}}</div>
-            <div class="kpi-label">Détections</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-value amber">{{bw.stats.species_count || '—'}}</div>
-            <div class="kpi-label">Espèces</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-value blue">{{bw.species.length || '—'}}</div>
-            <div class="kpi-label">Top espèces</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-value" style="font-size:.85rem;">{{bw.stats.top_species?.commonName || '—'}}</div>
-            <div class="kpi-label">Espèce dominante</div>
-          </div>
+      <div class="grid-2" style="margin-bottom:1rem;">
+
+        <!-- Database Status -->
+        <div class="card">
+          <div class="card-title">{{t('db_status')}}</div>
+          <div v-if="db.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="db.error" class="error-msg">{{db.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('db_total')}}</span>
+              <span class="sys-value">{{db.total ? db.total.toLocaleString() : '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_species_distinct')}}</span>
+              <span class="sys-value">{{db.species}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_days_recorded')}}</span>
+              <span class="sys-value">{{db.days}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('db_first')}}</span>
+              <span class="sys-value">{{fmtDate(db.first)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('db_last')}}</span>
+              <span class="sys-value">{{fmtDate(db.last)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_conf_range')}}</span>
+              <span class="sys-value">{{db.avgConf}}% / {{db.minConf}}% / {{db.maxConf}}%</span>
+            </div>
+          </template>
         </div>
 
-        <!-- Top espèces BirdWeather -->
-        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
-          Top espèces détectées
+        <!-- Data Gaps -->
+        <div class="card">
+          <div class="card-title">{{t('sys_gaps_title', {n:1})}}</div>
+          <div v-if="gaps.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="gaps.error" class="error-msg">{{gaps.error}}</div>
+          <p v-else-if="!gaps.list.length"
+             style="color:var(--accent);font-size:.85rem;padding:.5rem 0;">
+            {{t('sys_no_gap_full')}}
+          </p>
+          <template v-else>
+            <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem;">
+              {{t('sys_gaps_found', {n: gaps.total})}}
+            </p>
+            <div v-for="g in gaps.list" :key="g.from" class="gap-item">
+              <span class="gap-date">{{fmtDate(g.from)}} &#8594; {{fmtDate(g.to)}}</span>
+              <span class="gap-days"> — {{t('sys_gap_missing', {n: g.days})}}</span>
+            </div>
+          </template>
         </div>
-        <div v-if="!bw.species.length" class="error-msg" style="font-size:.8rem;">Aucune donnée</div>
+
+      </div>
+
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-title">{{t('sys_activity_30d')}}</div>
+        <div class="chart-wrap"><canvas ref="canvasActivity"></canvas></div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-title">{{t('sys_hourly_distrib')}}</div>
+        <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+      </div>
+
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 4: EXTERNAL
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='external'">
+
+      <!-- Local Rare Species -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
+          <div class="card-title" style="margin:0;">&#128142; Raretés locales récentes</div>
+          <span style="font-size:.72rem;color:var(--text-faint);">&#8804;5 détections total</span>
+        </div>
+        <div v-if="rareLocal.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!rareLocal.rows.length" class="error-msg">Aucune rareté détectée récemment</div>
         <div v-else>
-          <div v-for="(sp, i) in bw.species.slice(0,10)" :key="sp.id || i"
-               style="display:flex;align-items:center;gap:.55rem;margin-bottom:.35rem;">
-            <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
-            <img loading="lazy" v-if="sp.thumbnailUrl" :src="sp.thumbnailUrl"
-                 style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0;"
-                 :alt="sp.commonName" @error="sp.thumbnailUrl=null">
-            <div v-else style="width:28px;height:28px;border-radius:4px;background:var(--bg-card2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;">🐦</div>
+          <div v-for="r in rareLocal.rows" :key="r.Com_Name" class="det-item"
+               style="cursor:pointer;gap:.5rem;border-left:2px solid var(--danger);padding-left:.5rem;"
+               @click="navigateTo('rarities.html')">
+            <div style="font-size:1.1rem;">{{r.n===1?'&#128142;':r.n<=3?'&#128310;':'&#128313;'}}</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                {{sp.commonName || '—'}}
-              </div>
-              <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
-                <div :style="{height:'100%',width:Math.round((sp.detections?.total||0)/bw.species[0].detections?.total*100)+'%',background:'var(--accent)',borderRadius:'2px',transition:'width .4s'}"></div>
-              </div>
+              <div style="font-size:.85rem;font-weight:600;color:var(--text-main);">{{r.Com_Name}}</div>
+              <div style="font-size:.72rem;color:var(--text-muted);font-style:italic;">{{r.sci}}</div>
             </div>
-            <div style="font-size:.78rem;color:var(--accent);min-width:36px;text-align:right;font-family:monospace;">
-              {{sp.detections?.total || 0}}
+            <div style="text-align:right;flex-shrink:0;">
+              <span class="conf-badge conf-high" style="font-size:.7rem;">{{r.n}}&#215;</span>
+              <div style="font-size:.68rem;color:var(--text-faint);margin-top:.15rem;">{{fmtDate(r.last_date)}}</div>
             </div>
           </div>
+          <div style="text-align:right;margin-top:.5rem;">
+            <a href="rarities.html" class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
+              Toutes les raretés &#8594;
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- eBird Notable Observations -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem;">
+          <div class="card-title" style="margin:0;">&#127757; eBird — Observations notables Belgique</div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <span v-if="ebird.fetchedAt" style="font-size:.68rem;color:var(--text-faint);">
+              Mis à jour {{ebird.fetchedAt}}
+            </span>
+            <span v-if="!ebird.hasKey"
+                  style="font-size:.72rem;color:var(--warning);background:color-mix(in srgb,var(--warning) 10%,transparent);
+                         padding:.15rem .45rem;border-radius:6px;border:1px solid color-mix(in srgb,var(--warning) 30%,transparent);">
+              &#9888; Clé API manquante
+            </span>
+          </div>
+        </div>
+
+        <!-- No API key -->
+        <div v-if="!ebird.hasKey" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Pour activer cette section, obtenez une clé gratuite sur
+          <a href="https://ebird.org/api/keygen" target="_blank" style="color:var(--accent);">ebird.org/api/keygen</a>
+          puis configurez-la sur le Pi :<br>
+          <code style="background:var(--bg-deep);padding:.2rem .5rem;border-radius:4px;font-size:.78rem;display:inline-block;margin-top:.4rem;">
+            sudo systemctl edit birdash-api --force
+          </code><br>
+          <span style="font-size:.75rem;color:var(--text-faint);">Ajouter : <code>Environment=EBIRD_API_KEY=votre_cle</code></span>
+        </div>
+
+        <!-- Loading -->
+        <div v-else-if="ebird.loading" class="spinner"><div></div><div></div><div></div></div>
+
+        <!-- Error -->
+        <div v-else-if="ebird.error" class="error-msg">{{ebird.error}}</div>
+
+        <!-- Results -->
+        <div v-else-if="!ebird.obs.length" class="error-msg">
+          Aucune observation notable ces 7 derniers jours en Belgique.
+        </div>
+        <div v-else>
+          <div v-for="obs in ebird.obs" :key="obs.subId" class="det-item"
+               style="gap:.5rem;cursor:pointer;" @click="openUrl(obs.obsUrl)">
+            <div style="font-size:1rem;flex-shrink:0;" :title="obs.localMatch?'Également détecté localement':'Pas détecté localement'">
+              {{obs.localMatch ? '&#9989;' : '&#128065;'}}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.85rem;font-weight:600;color:var(--text-main);
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{obs.comName}}
+              </div>
+              <div style="font-size:.72rem;color:var(--text-muted);">
+                &#128205; {{obs.locName}}
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:.78rem;color:var(--text-muted);">&#215;{{obs.howMany}}</div>
+              <div style="font-size:.68rem;color:var(--text-faint);">{{obs.obsDt}}</div>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:.5rem;">
+            <a href="https://ebird.org/region/BE/recent-notable" target="_blank"
+               class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
+              Voir sur eBird &#8594;
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- BirdWeather Station -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <div style="display:flex;align-items:center;gap:.6rem;">
+            <img src="https://app.birdweather.com/favicon.ico" style="width:20px;height:20px;border-radius:4px;" alt="">
+            <div class="card-title" style="margin:0;">BirdWeather — Station #{{bw.stationId||'?'}}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <div class="fp-quick-btns" v-if="bw.hasStation">
+              <button v-for="p in bwPeriods" :key="p.val"
+                      class="fp-quick-btn" :class="{active:bwPeriod===p.val}"
+                      @click="bwPeriod=p.val;loadBirdWeather()">{{p.label}}</button>
+            </div>
+            <a v-if="bw.stationId" :href="'https://app.birdweather.com/stations/'+bw.stationId"
+               target="_blank" class="btn btn-secondary"
+               style="font-size:.72rem;padding:.22rem .55rem;">Voir sur BirdWeather &#8599;</a>
+          </div>
+        </div>
+
+        <!-- Not configured -->
+        <div v-if="!bw.hasStation" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Ajouter dans <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">birdash-local.js</code> :
+          <code style="display:block;background:var(--bg-deep);padding:.4rem .65rem;border-radius:5px;margin-top:.4rem;font-size:.78rem;">
+            birdweatherStationId: 'YOUR_STATION_ID',
+          </code>
+          <div style="font-size:.72rem;color:var(--text-faint);margin-top:.3rem;">
+            L'ID est visible dans l'URL : app.birdweather.com/stations/<strong>XXXX</strong>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-else-if="bw.loading" class="spinner"><div></div><div></div><div></div></div>
+
+        <!-- Error -->
+        <div v-else-if="bw.error" class="error-msg">{{bw.error}}</div>
+
+        <!-- Data -->
+        <div v-else>
+          <!-- KPIs BirdWeather -->
+          <div class="kpi-grid" style="margin-bottom:1rem;">
+            <div class="kpi-card">
+              <div class="kpi-value">{{bw.stats.detections?.toLocaleString() || '—'}}</div>
+              <div class="kpi-label">Détections</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value amber">{{bw.stats.species_count || '—'}}</div>
+              <div class="kpi-label">Espèces</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value blue">{{bw.species.length || '—'}}</div>
+              <div class="kpi-label">Top espèces</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value" style="font-size:.85rem;">{{bw.stats.top_species?.commonName || '—'}}</div>
+              <div class="kpi-label">Espèce dominante</div>
+            </div>
+          </div>
+
+          <!-- Top species BirdWeather -->
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+            Top espèces détectées
+          </div>
+          <div v-if="!bw.species.length" class="error-msg" style="font-size:.8rem;">Aucune donnée</div>
+          <div v-else>
+            <div v-for="(sp, i) in bw.species.slice(0,10)" :key="sp.id || i"
+                 style="display:flex;align-items:center;gap:.55rem;margin-bottom:.35rem;">
+              <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
+              <img loading="lazy" v-if="sp.thumbnailUrl" :src="sp.thumbnailUrl"
+                   style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0;"
+                   :alt="sp.commonName" @error="sp.thumbnailUrl=null">
+              <div v-else style="width:28px;height:28px;border-radius:4px;background:var(--bg-card2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;">&#128038;</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  {{sp.commonName || '—'}}
+                </div>
+                <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
+                  <div :style="{height:'100%',width:Math.round((sp.detections?.total||0)/bw.species[0].detections?.total*100)+'%',background:'var(--accent)',borderRadius:'2px',transition:'width .4s'}"></div>
+                </div>
+              </div>
+              <div style="font-size:.78rem;color:var(--accent);min-width:36px;text-align:right;font-family:monospace;">
+                {{sp.detections?.total || 0}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Confirmation Modal ────────────────────────────────────── -->
+    <div v-if="confirmAction" class="info-overlay" @click.self="confirmAction=null">
+      <div class="info-modal">
+        <div class="info-modal-title">&#9888;&#65039; {{t('sys_confirm_stop')}}</div>
+        <p style="font-size:.85rem;color:var(--text-muted);margin:.75rem 0;">
+          {{t('sys_confirm_stop_msg', {name: confirmAction.service})}}
+        </p>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button class="btn-outline" @click="confirmAction=null">{{t('sys_cancel')}}</button>
+          <button class="btn-save" style="background:var(--danger);"
+                  @click="svcAction(confirmAction.service,'stop');confirmAction=null">&#9209; Stop</button>
         </div>
       </div>
     </div>
@@ -596,7 +875,7 @@
 </div>
 
 <script>
-const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, MODEL_LABELS,
         birdQuery, fmtDate, fmtTime, freshnessLabel,
         localDateStr, daysAgo, chartDefaults, navigateTo } = BIRDASH;
@@ -616,16 +895,363 @@ const app = createApp({
     const canvasModConf  = ref(null);
     const canvasModTrend = ref(null);
 
+    // ── Tab system ────────────────────────────────────────────────
+    const tabs = [
+      { id: 'health',   icon: '\u{1F4E1}', labelKey: 'sys_tab_health' },
+      { id: 'model',    icon: '\u{1F916}', labelKey: 'sys_tab_model' },
+      { id: 'data',     icon: '\u{1F4CA}', labelKey: 'sys_tab_data' },
+      { id: 'external', icon: '\u{1F30D}', labelKey: 'sys_tab_external' },
+    ];
+
+    const validTabs = ['health', 'model', 'data', 'external'];
+    const hashTab = location.hash.slice(1);
+    const initialTab = validTabs.includes(hashTab) ? hashTab : 'health';
+
+    const activeTab = ref(initialTab);
+    const tabLoaded = ref({ health: false, model: false, data: false, external: false });
+
+    function switchTab(id) {
+      activeTab.value = id;
+      location.hash = id;
+      if (!tabLoaded.value[id]) {
+        tabLoaded.value[id] = true;
+        loadTabData(id);
+      }
+    }
+
+    function loadTabData(tab) {
+      switch(tab) {
+        case 'health':   Promise.all([loadHealth(), loadServices(), loadAnalysis(), loadAudio(), loadBackup(), loadNetwork(), loadFresh(), loadApi()]); break;
+        case 'model':    Promise.all([loadModelMonitor(), loadModelCompare()]); break;
+        case 'data':     Promise.all([loadDb(), loadGaps(), loadActData(), loadHrlyData()]); break;
+        case 'external': Promise.all([loadRareLocal(), loadEbird(), loadBirdWeather()]); break;
+      }
+    }
+
+    // ── Helper functions ──────────────────────────────────────────
+    function fmtBytes(b) {
+      if (!b || b === 0) return '0 B';
+      const u = ['B','Ko','Mo','Go','To'];
+      const i = Math.floor(Math.log(b) / Math.log(1024));
+      return (b / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + u[i];
+    }
+
+    function fmtUptime(secs) {
+      if (!secs) return '\u2014';
+      const d = Math.floor(secs / 86400);
+      const h = Math.floor((secs % 86400) / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      if (d > 0) return `${d}j ${h}h`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    function barColor(pct) {
+      if (pct >= 90) return 'bar-danger';
+      if (pct >= 70) return 'bar-warn';
+      return 'bar-ok';
+    }
+
+    function svcDotClass(state) {
+      if (state === 'active') return 'dot-ok';
+      if (state === 'failed') return 'dot-err';
+      return 'dot-warn';
+    }
+
+    // ── Health tab state ──────────────────────────────────────────
     const api   = ref({ loading:true, error:null, latency:0, total:0 });
+    const health = ref({ loading:true, error:null, cpu:{usage:0,cores:0}, ram:{used:0,total:0,pct:0}, disk:{used:0,total:0,pct:0}, temp:0, uptime:0, loadAvg:'' });
+    const services = ref({ loading:true, error:null, list:[], refreshAt:'' });
+    const svcExpanded = ref(null);
+    const svcDetail = ref(null);
+    const confirmAction = ref(null);
+    const analysis = ref({ loading:true, error:null, modelLabel:'', backlog:0, lag:0, inferenceSpeed:'', confidenceThreshold:'', sensitivity:'', sfThresh:'' });
+    const audio = ref({ loading:true, error:null, card:'', channels:'', format:'' });
+    const backup = ref({ loading:true, error:null, nfsMounted:false, lastBackup:'', size:'' });
+    const network = ref({ loading:true, error:null, hostname:'', ip:'', nasPing:false, nasLatency:'' });
+    const fresh = ref({ loading:true, error:null, icon:'\u{1F7E2}', species:null, date:null, time:null, datetime:'\u2014', today:0, yesterday:0 });
+
+    let svcRefreshTimer = null;
+
+    async function loadHealth() {
+      health.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/system-health`);
+        const d = await res.json();
+        health.value = {
+          loading: false, error: null,
+          cpu: { usage: d.cpu_usage || 0, cores: d.cpu_cores || 0 },
+          ram: { used: d.ram_used || 0, total: d.ram_total || 0, pct: d.ram_pct || 0 },
+          disk: { used: d.disk_used || 0, total: d.disk_total || 0, pct: d.disk_pct || 0 },
+          temp: d.temperature || 0,
+          uptime: d.uptime || 0,
+          loadAvg: d.load_avg || ''
+        };
+      } catch(e) { health.value = { ...health.value, loading:false, error:e.message }; }
+    }
+
+    async function loadServices() {
+      services.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/services`);
+        const data = await res.json();
+        services.value = {
+          loading: false, error: null,
+          list: data.services || [],
+          refreshAt: new Date().toLocaleTimeString('fr-BE', {hour:'2-digit',minute:'2-digit'})
+        };
+      } catch(e) { services.value = { ...services.value, loading:false, error:e.message }; }
+    }
+
+    async function toggleSvc(name) {
+      if (svcExpanded.value === name) {
+        svcExpanded.value = null;
+        svcDetail.value = null;
+        return;
+      }
+      svcExpanded.value = name;
+      svcDetail.value = null;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/services/${encodeURIComponent(name)}/status`);
+        svcDetail.value = await res.json();
+      } catch(e) { svcDetail.value = { pid: null, memory: 0, uptime: 0, logs: ['Error: ' + e.message] }; }
+    }
+
+    async function svcAction(name, action) {
+      try {
+        await fetch(`${BIRD_CONFIG.apiUrl}/services/${encodeURIComponent(name)}/${action}`, { method: 'POST' });
+        // Reload services list and detail after action
+        await loadServices();
+        if (svcExpanded.value === name) {
+          svcExpanded.value = null;
+          await nextTick();
+          toggleSvc(name);
+        }
+      } catch(e) { console.error('svcAction:', e); }
+    }
+
+    function confirmStop(name) {
+      confirmAction.value = { service: name };
+    }
+
+    async function loadAnalysis() {
+      analysis.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/analysis-status`);
+        const d = await res.json();
+        const rawModel = d.model || '';
+        analysis.value = {
+          loading: false, error: null,
+          modelLabel: MODEL_LABELS[rawModel] || rawModel.replace(/_/g, ' '),
+          backlog: d.backlog || 0,
+          lag: d.lag || 0,
+          inferenceSpeed: d.inference_speed || '\u2014',
+          confidenceThreshold: d.confidence_threshold || '\u2014',
+          sensitivity: d.sensitivity || '\u2014',
+          sfThresh: d.sf_thresh || '\u2014'
+        };
+      } catch(e) { analysis.value = { ...analysis.value, loading:false, error:e.message }; }
+    }
+
+    async function loadAudio() {
+      audio.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/audio-device`);
+        const d = await res.json();
+        audio.value = {
+          loading: false, error: null,
+          card: d.card || '\u2014',
+          channels: d.channels || '\u2014',
+          format: d.format || '\u2014'
+        };
+      } catch(e) { audio.value = { ...audio.value, loading:false, error:e.message }; }
+    }
+
+    async function loadBackup() {
+      backup.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/backup-status`);
+        const d = await res.json();
+        backup.value = {
+          loading: false, error: null,
+          nfsMounted: d.nfs_mounted || false,
+          lastBackup: d.last_backup || '\u2014',
+          size: d.size || '\u2014'
+        };
+      } catch(e) { backup.value = { ...backup.value, loading:false, error:e.message }; }
+    }
+
+    async function loadNetwork() {
+      network.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/network-info`);
+        const d = await res.json();
+        network.value = {
+          loading: false, error: null,
+          hostname: d.hostname || '\u2014',
+          ip: d.ip || '\u2014',
+          nasPing: d.nas_ping || false,
+          nasLatency: d.nas_latency || '\u2014'
+        };
+      } catch(e) { network.value = { ...network.value, loading:false, error:e.message }; }
+    }
+
+    async function loadApi() {
+      api.value.loading = true;
+      const t0 = Date.now();
+      try {
+        const res  = await fetch(`${BIRD_CONFIG.apiUrl}/health`);
+        const data = await res.json();
+        api.value  = { loading:false, error:null, latency:Date.now()-t0, total:data.total_detections||0 };
+      } catch(e) { api.value = { loading:false, error:e.message, latency:0, total:0 }; }
+    }
+
+    async function loadFresh() {
+      fresh.value.loading = true;
+      try {
+        const [last]  = await birdQuery(`SELECT Date,Time,Com_Name FROM detections ORDER BY Date DESC,Time DESC LIMIT 1`);
+        const [today] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [localDateStr()]);
+        const [yest]  = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [daysAgo(1)]);
+        const diffMin = last ? Math.floor((Date.now()-new Date(`${last.Date}T${last.Time}`).getTime())/60000) : null;
+        const icon    = diffMin===null?'\u26AB':diffMin<30?'\u{1F7E2}':diffMin<120?'\u{1F7E1}':'\u{1F534}';
+        fresh.value   = { loading:false, error:null, icon,
+                          species:last?last.Com_Name:null, date:last?last.Date:null, time:last?last.Time:null,
+                          datetime:last?`${fmtDate(last.Date)} ${fmtTime(last.Time)}`:'\u2014',
+                          today:today?today.n:0, yesterday:yest?yest.n:0 };
+      } catch(e) { fresh.value = {...fresh.value, loading:false, error:e.message}; }
+    }
+
+    // ── Data tab state ────────────────────────────────────────────
     const db    = ref({ loading:true, error:null, total:0, species:0, days:0,
                         first:null, last:null, avgConf:0, minConf:0, maxConf:0 });
-    const fresh = ref({ loading:true, error:null, icon:'🟢', species:null,
-                        date:null, time:null, datetime:'—', today:0, yesterday:0 });
     const gaps  = ref({ loading:true, error:null, total:0, list:[] });
     const actData  = ref({ labels:[], values:[], colors:[], borderColors:[] });
     const hrlyData = ref({ values:[] });
 
-    // Model monitoring
+    async function loadDb() {
+      db.value.loading = true;
+      try {
+        const [s] = await birdQuery(
+          `SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species,
+                  COUNT(DISTINCT Date) as days, MIN(Date) as first, MAX(Date) as last
+           FROM detections`);
+        const [c] = await birdQuery(
+          `SELECT ROUND(AVG(Confidence)*100,1) as avg_conf,
+                  ROUND(MIN(Confidence)*100,1) as min_conf,
+                  ROUND(MAX(Confidence)*100,1) as max_conf
+           FROM detections`);
+        db.value = { loading:false, error:null,
+                     total:s.total, species:s.species, days:s.days,
+                     first:s.first, last:s.last,
+                     avgConf:c.avg_conf, minConf:c.min_conf, maxConf:c.max_conf };
+      } catch(e) { db.value = {...db.value, loading:false, error:e.message}; }
+    }
+
+    async function loadGaps() {
+      gaps.value.loading = true;
+      try {
+        const rows  = await birdQuery(`SELECT Date FROM detections GROUP BY Date ORDER BY Date ASC`);
+        const found = [];
+        for (let i=1;i<rows.length;i++) {
+          const diff = Math.round((new Date(rows[i].Date)-new Date(rows[i-1].Date))/86400000);
+          if (diff>1) found.push({from:rows[i-1].Date, to:rows[i].Date, days:diff-1});
+        }
+        found.sort((a,b)=>b.days-a.days);
+        gaps.value = { loading:false, error:null, total:found.length, list:found.slice(0,8) };
+      } catch(e) { gaps.value = {...gaps.value, loading:false, error:e.message}; }
+    }
+
+    async function loadActData() {
+      try {
+        const rows = await birdQuery(
+          `SELECT Date,COUNT(*) as n FROM detections WHERE Date>=? GROUP BY Date ORDER BY Date ASC`,
+          [daysAgo(29)]);
+        const map = {};
+        rows.forEach(r => { map[r.Date]=r.n; });
+        const values=[],colors=[],borderColors=[];
+        for (let i=29;i>=0;i--) {
+          const d=daysAgo(i), n=map[d]||0;
+          values.push(n);
+          colors.push(n===0?'rgba(224,108,74,.3)':'rgba(90,158,58,.65)');
+          borderColors.push(n===0?'#e06c4a':'#5a9e3a');
+        }
+        actData.value = { values, colors, borderColors };
+      } catch(e) { console.error('activity:',e); }
+    }
+
+    async function loadHrlyData() {
+      try {
+        const rows = await birdQuery(
+          `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n
+           FROM detections GROUP BY h ORDER BY h ASC`);
+        const vals = Array(24).fill(0);
+        rows.forEach(r => { vals[r.h]=r.n; });
+        hrlyData.value = { values:vals };
+      } catch(e) { console.error('hourly:',e); }
+    }
+
+    // Charts — rebuilt if data OR language changes
+    watch([actData, lang], async () => {
+      if (activeTab.value !== 'data') return;
+      await nextTick();
+      const d = actData.value;
+      if (!d.values||!d.values.length||!canvasActivity.value) return;
+      const labels=[];
+      for (let i=29;i>=0;i--) {
+        const date=daysAgo(i);
+        const mo=t('months_short')[new Date(date).getMonth()];
+        labels.push(`${new Date(date).getDate()} ${mo}`);
+      }
+      const base=chartDefaults();
+      mountAct(canvasActivity, ()=>({
+        type:'bar',
+        data:{ labels, datasets:[{ label:t('detections'), data:d.values,
+               backgroundColor:d.colors, borderColor:d.borderColors, borderWidth:1, borderRadius:2 }] },
+        options:{...base, plugins:{...base.plugins,legend:{display:false}},
+                 scales:{x:{...base.scales.x,ticks:{maxTicksLimit:10,font:{size:9}}},
+                         y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    watch([hrlyData, lang], async () => {
+      if (activeTab.value !== 'data') return;
+      await nextTick();
+      const d = hrlyData.value;
+      if (!d.values||!d.values.length||!canvasHourly.value) return;
+      const base=chartDefaults();
+      mountHrly(canvasHourly, ()=>({
+        type:'bar',
+        data:{ labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),
+               datasets:[{ label:t('detections'), data:d.values,
+               backgroundColor:'rgba(74,138,181,.65)', borderColor:'#4a8ab5',
+               borderWidth:1, borderRadius:2 }] },
+        options:{...base, plugins:{...base.plugins,legend:{display:false}},
+                 scales:{x:{...base.scales.x,ticks:{font:{size:10}}},
+                         y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    // Re-render data charts when switching to data tab (canvas refs become available)
+    watch(activeTab, async (newTab) => {
+      if (newTab === 'data' && tabLoaded.value.data) {
+        await nextTick();
+        // Trigger chart renders by touching reactive deps
+        const d = actData.value;
+        if (d.values && d.values.length) {
+          actData.value = { ...d };
+        }
+        const h = hrlyData.value;
+        if (h.values && h.values.length) {
+          hrlyData.value = { ...h };
+        }
+      }
+      if (newTab === 'model' && tabLoaded.value.model) {
+        await nextTick();
+        renderModCharts();
+      }
+    });
+
+    // ── Model monitoring ──────────────────────────────────────────
     const modPeriod  = ref('today');
     const modPeriods = computed(() => [
       { label: t('mod_today'), val:'today' },
@@ -773,8 +1399,8 @@ const app = createApp({
       }
     }
 
-    // ── Model Comparison ─────────────────────────────────────────────────
-    const cmpDate = ref(daysAgo(1));  // default: yesterday (adjust to model switch date)
+    // ── Model Comparison ─────────────────────────────────────────
+    const cmpDate = ref(daysAgo(1));
     const cmp = ref({
       loading:true, error:null,
       beforeRange:'', afterRange:'',
@@ -788,14 +1414,10 @@ const app = createApp({
       cmp.value.loading = true;
       try {
         const splitDate = cmpDate.value;
-        // "Before" = same number of days before split, ending day before split
-        // "After" = split date to today
         const afterStart = splitDate;
         const todayStr = localDateStr();
 
-        // Calculate how many days in "after"
         const afterDays = Math.max(1, Math.round((new Date(todayStr) - new Date(afterStart)) / 86400000) + 1);
-        // "Before" covers same duration ending the day before split
         const splitD = new Date(afterStart + 'T12:00:00');
         const beforeEndD = new Date(splitD); beforeEndD.setDate(beforeEndD.getDate() - 1);
         const beforeStartD = new Date(beforeEndD); beforeStartD.setDate(beforeStartD.getDate() - afterDays + 1);
@@ -861,7 +1483,6 @@ const app = createApp({
         const speciesTable = Array.from(allSci).map(sci => {
           const b = beforeMap[sci] || {};
           const a = afterMap[sci] || {};
-          // Normalize to per-day for fair comparison
           const bPerDay = bDays.d > 0 ? b.count / bDays.d : 0;
           const aPerDay = aDays.d > 0 ? (a.count || 0) / aDays.d : 0;
           const delta = bPerDay > 0 ? Math.round((aPerDay - bPerDay) / bPerDay * 100) : 0;
@@ -884,8 +1505,8 @@ const app = createApp({
 
         cmp.value = {
           loading: false, error: null,
-          beforeRange: `${fmtDate(beforeStart)} → ${fmtDate(beforeEnd)}`,
-          afterRange: `${fmtDate(afterStart)} → ${fmtDate(todayStr)}`,
+          beforeRange: `${fmtDate(beforeStart)} \u2192 ${fmtDate(beforeEnd)}`,
+          afterRange: `${fmtDate(afterStart)} \u2192 ${fmtDate(todayStr)}`,
           before: { totalDet: bKpi.total, detPerDay: bDetDay, species: bKpi.species, avgConf: bKpi.avg_conf || 0 },
           after:  { totalDet: aKpi.total, detPerDay: aDetDay, species: aKpi.species, avgConf: aKpi.avg_conf || 0 },
           detDayDelta, speciesDelta, confDelta,
@@ -896,11 +1517,9 @@ const app = createApp({
       }
     }
 
-    // Alertes raretés locales
+    // ── External tab state ────────────────────────────────────────
     const rareLocal = ref({ loading:true, rows:[] });
-    // eBird notable
     const ebird = ref({ loading:false, error:null, hasKey:true, obs:[], fetchedAt:'' });
-    // BirdWeather
     const bwPeriod  = ref('day');
     const bwPeriods = [
       { label:'Auj.',  val:'day'   },
@@ -909,133 +1528,6 @@ const app = createApp({
       { label:'Tout',  val:'all'   },
     ];
     const bw = ref({ loading:false, error:null, hasStation:false, stationId:'', stats:{}, species:[] });
-
-    async function loadApi() {
-      api.value.loading = true;
-      const t0 = Date.now();
-      try {
-        const res  = await fetch(`${BIRD_CONFIG.apiUrl}/health`);
-        const data = await res.json();
-        api.value  = { loading:false, error:null, latency:Date.now()-t0, total:data.total_detections||0 };
-      } catch(e) { api.value = { loading:false, error:e.message, latency:0, total:0 }; }
-    }
-
-    async function loadDb() {
-      db.value.loading = true;
-      try {
-        const [s] = await birdQuery(
-          `SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species,
-                  COUNT(DISTINCT Date) as days, MIN(Date) as first, MAX(Date) as last
-           FROM detections`);
-        const [c] = await birdQuery(
-          `SELECT ROUND(AVG(Confidence)*100,1) as avg_conf,
-                  ROUND(MIN(Confidence)*100,1) as min_conf,
-                  ROUND(MAX(Confidence)*100,1) as max_conf
-           FROM detections`);
-        db.value = { loading:false, error:null,
-                     total:s.total, species:s.species, days:s.days,
-                     first:s.first, last:s.last,
-                     avgConf:c.avg_conf, minConf:c.min_conf, maxConf:c.max_conf };
-      } catch(e) { db.value = {...db.value, loading:false, error:e.message}; }
-    }
-
-    async function loadFresh() {
-      fresh.value.loading = true;
-      try {
-        const [last]  = await birdQuery(`SELECT Date,Time,Com_Name FROM detections ORDER BY Date DESC,Time DESC LIMIT 1`);
-        const [today] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [localDateStr()]);
-        const [yest]  = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [daysAgo(1)]);
-        const diffMin = last ? Math.floor((Date.now()-new Date(`${last.Date}T${last.Time}`).getTime())/60000) : null;
-        const icon    = diffMin===null?'⚫':diffMin<30?'🟢':diffMin<120?'🟡':'🔴';
-        fresh.value   = { loading:false, error:null, icon,
-                          species:last?last.Com_Name:null, date:last?last.Date:null, time:last?last.Time:null,
-                          datetime:last?`${fmtDate(last.Date)} ${fmtTime(last.Time)}`:'—',
-                          today:today?today.n:0, yesterday:yest?yest.n:0 };
-      } catch(e) { fresh.value = {...fresh.value, loading:false, error:e.message}; }
-    }
-
-    async function loadGaps() {
-      gaps.value.loading = true;
-      try {
-        const rows  = await birdQuery(`SELECT Date FROM detections GROUP BY Date ORDER BY Date ASC`);
-        const found = [];
-        for (let i=1;i<rows.length;i++) {
-          const diff = Math.round((new Date(rows[i].Date)-new Date(rows[i-1].Date))/86400000);
-          if (diff>1) found.push({from:rows[i-1].Date, to:rows[i].Date, days:diff-1});
-        }
-        found.sort((a,b)=>b.days-a.days);
-        gaps.value = { loading:false, error:null, total:found.length, list:found.slice(0,8) };
-      } catch(e) { gaps.value = {...gaps.value, loading:false, error:e.message}; }
-    }
-
-    async function loadActData() {
-      try {
-        const rows = await birdQuery(
-          `SELECT Date,COUNT(*) as n FROM detections WHERE Date>=? GROUP BY Date ORDER BY Date ASC`,
-          [daysAgo(29)]);
-        const map = {};
-        rows.forEach(r => { map[r.Date]=r.n; });
-        const values=[],colors=[],borderColors=[];
-        for (let i=29;i>=0;i--) {
-          const d=daysAgo(i), n=map[d]||0;
-          values.push(n);
-          colors.push(n===0?'rgba(224,108,74,.3)':'rgba(90,158,58,.65)');
-          borderColors.push(n===0?'#e06c4a':'#5a9e3a');
-        }
-        actData.value = { values, colors, borderColors };
-      } catch(e) { console.error('activity:',e); }
-    }
-
-    async function loadHrlyData() {
-      try {
-        const rows = await birdQuery(
-          `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n
-           FROM detections GROUP BY h ORDER BY h ASC`);
-        const vals = Array(24).fill(0);
-        rows.forEach(r => { vals[r.h]=r.n; });
-        hrlyData.value = { values:vals };
-      } catch(e) { console.error('hourly:',e); }
-    }
-
-    // Graphiques — reconstruits si données OU langue change
-    // (labels de l'axe mois + dataset label retraduits)
-    watch([actData, lang], async () => {
-      await nextTick();
-      const d = actData.value;
-      if (!d.values||!d.values.length||!canvasActivity.value) return;
-      const labels=[];
-      for (let i=29;i>=0;i--) {
-        const date=daysAgo(i);
-        const mo=t('months_short')[new Date(date).getMonth()];
-        labels.push(`${new Date(date).getDate()} ${mo}`);
-      }
-      const base=chartDefaults();
-      mountAct(canvasActivity, ()=>({
-        type:'bar',
-        data:{ labels, datasets:[{ label:t('detections'), data:d.values,
-               backgroundColor:d.colors, borderColor:d.borderColors, borderWidth:1, borderRadius:2 }] },
-        options:{...base, plugins:{...base.plugins,legend:{display:false}},
-                 scales:{x:{...base.scales.x,ticks:{maxTicksLimit:10,font:{size:9}}},
-                         y:{...base.scales.y,beginAtZero:true}}}
-      }));
-    });
-
-    watch([hrlyData, lang], async () => {
-      await nextTick();
-      const d = hrlyData.value;
-      if (!d.values||!d.values.length||!canvasHourly.value) return;
-      const base=chartDefaults();
-      mountHrly(canvasHourly, ()=>({
-        type:'bar',
-        data:{ labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),
-               datasets:[{ label:t('detections'), data:d.values,
-               backgroundColor:'rgba(74,138,181,.65)', borderColor:'#4a8ab5',
-               borderWidth:1, borderRadius:2 }] },
-        options:{...base, plugins:{...base.plugins,legend:{display:false}},
-                 scales:{x:{...base.scales.x,ticks:{font:{size:10}}},
-                         y:{...base.scales.y,beginAtZero:true}}}
-      }));
-    });
 
     async function loadRareLocal() {
       rareLocal.value.loading = true;
@@ -1065,7 +1557,7 @@ const app = createApp({
           return;
         }
 
-        // Croiser avec les espèces locales
+        // Cross-reference with local species
         const localSpecies = new Set(
           (await birdQuery(`SELECT DISTINCT Com_Name FROM detections`)).map(r => r.Com_Name)
         );
@@ -1118,20 +1610,52 @@ const app = createApp({
       }
     }
 
-    onMounted(async () => {
-      await Promise.all([loadApi(), loadDb(), loadFresh(), loadGaps(), loadActData(), loadHrlyData(), loadModelMonitor(), loadModelCompare(), loadRareLocal(), loadEbird(), loadBirdWeather()]);
+    // ── Lifecycle ─────────────────────────────────────────────────
+    onMounted(() => {
+      // Load initial tab
+      tabLoaded.value[activeTab.value] = true;
+      loadTabData(activeTab.value);
+
+      // Auto-refresh services every 30s when health tab is active
+      svcRefreshTimer = setInterval(() => {
+        if (activeTab.value === 'health' && tabLoaded.value.health) {
+          loadServices();
+        }
+      }, 30000);
+
+      // Listen for hash changes (browser back/forward)
+      window.addEventListener('hashchange', () => {
+        const h = location.hash.slice(1);
+        if (validTabs.includes(h) && h !== activeTab.value) {
+          switchTab(h);
+        }
+      });
+    });
+
+    onUnmounted(() => {
+      if (svcRefreshTimer) clearInterval(svcRefreshTimer);
     });
 
     function openUrl(url) { window.open(url, '_blank'); }
 
     return {
       lang, t,
-      api, db, fresh, gaps,
+      // Tabs
+      tabs, activeTab, tabLoaded, switchTab,
+      // Health tab
+      api, health, services, svcExpanded, svcDetail, confirmAction, analysis, audio, backup, network, fresh,
+      loadHealth, loadServices, toggleSvc, svcAction, confirmStop, svcDotClass,
+      loadApi, loadFresh,
+      // Model tab
       mod, modPeriod, modPeriods, loadModelMonitor,
       cmp, cmpDate, loadModelCompare,
+      // Data tab
+      db, gaps,
+      // External tab
       rareLocal, ebird,
       bw, bwPeriod, bwPeriods, loadBirdWeather,
-      fmtDate, fmtTime, freshnessLabel, navigateTo, openUrl,
+      // Helpers
+      fmtDate, fmtTime, fmtBytes, fmtUptime, barColor, freshnessLabel, navigateTo, openUrl,
       canvasActivity, canvasHourly, canvasModConf, canvasModTrend,
     };
   },

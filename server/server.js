@@ -988,6 +988,279 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ══════════════════════════════════════════════════════════════════════════════
+  // ── SYSTEM HEALTH ENDPOINTS ────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  // ── Route : GET /api/system-health ────────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/system-health') {
+    (async () => {
+      try {
+        // Memory
+        const memRaw = await fsp.readFile('/proc/meminfo', 'utf8');
+        const memParse = k => parseInt((memRaw.match(new RegExp(k + ':\\s+(\\d+)')) || [0,0])[1]) * 1024;
+        const memTotal = memParse('MemTotal'), memAvail = memParse('MemAvailable');
+        const memUsed = memTotal - memAvail;
+
+        // Load average
+        const loadRaw = await fsp.readFile('/proc/loadavg', 'utf8');
+        const loadParts = loadRaw.trim().split(/\s+/);
+        const loadAvg = [parseFloat(loadParts[0]), parseFloat(loadParts[1]), parseFloat(loadParts[2])];
+
+        // CPU cores
+        const cpuRaw = await fsp.readFile('/proc/cpuinfo', 'utf8');
+        const cores = (cpuRaw.match(/^processor/gm) || []).length;
+
+        // Uptime
+        const uptimeRaw = await fsp.readFile('/proc/uptime', 'utf8');
+        const uptimeSecs = parseFloat(uptimeRaw.split(/\s+/)[0]);
+
+        // Temperature
+        let temperature = null;
+        try {
+          const tempRaw = await fsp.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8');
+          temperature = parseInt(tempRaw.trim()) / 1000;
+        } catch(e) {}
+
+        // Disk
+        const dfOut = await execCmd('df', ['-B1', '/']);
+        const dfLine = dfOut.split('\n')[1];
+        const dfParts = dfLine.trim().split(/\s+/);
+        const disk = { total: parseInt(dfParts[1]), used: parseInt(dfParts[2]), free: parseInt(dfParts[3]), percent: parseInt(dfParts[4]) };
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          cpu: { cores, usage: Math.round(loadAvg[0] / cores * 100) },
+          memory: { total: memTotal, used: memUsed, free: memAvail, percent: Math.round(memUsed / memTotal * 100) },
+          disk,
+          temperature,
+          uptime: Math.floor(uptimeSecs),
+          loadAvg
+        }));
+      } catch(e) {
+        console.error('[system-health]', e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/services/:name/status ────────────────────────────────────
+  const svcStatusMatch = pathname.match(/^\/api\/services\/([^/]+)\/status$/);
+  if (req.method === 'GET' && svcStatusMatch) {
+    const svcName = svcStatusMatch[1];
+    if (!ALLOWED_SERVICES.includes(svcName)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Service not allowed: ${svcName}` }));
+      return;
+    }
+    (async () => {
+      try {
+        const props = await execCmd('systemctl', ['show', svcName,
+          '--property=ActiveState,SubState,MainPID,MemoryCurrent,ExecMainStartTimestamp,Description']);
+        const info = {};
+        for (const line of props.split('\n')) {
+          const eq = line.indexOf('=');
+          if (eq > 0) info[line.slice(0, eq)] = line.slice(eq + 1);
+        }
+        let logs = [];
+        try {
+          const logRaw = await execCmd('journalctl', ['-u', svcName, '-n', '25', '--no-pager', '-o', 'short-iso']);
+          logs = logRaw.split('\n').filter(l => l.trim() && !l.startsWith('--'));
+        } catch(e) {}
+
+        const memBytes = info.MemoryCurrent === '[not set]' ? 0 : parseInt(info.MemoryCurrent || '0');
+        let uptimeSecs = 0;
+        if (info.ExecMainStartTimestamp && info.ExecMainStartTimestamp !== '') {
+          const startMs = new Date(info.ExecMainStartTimestamp).getTime();
+          if (!isNaN(startMs)) uptimeSecs = Math.floor((Date.now() - startMs) / 1000);
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          name: svcName,
+          state: info.ActiveState || 'unknown',
+          subState: info.SubState || 'unknown',
+          pid: parseInt(info.MainPID || '0'),
+          memory: memBytes,
+          uptime: uptimeSecs,
+          description: info.Description || '',
+          logs
+        }));
+      } catch(e) {
+        console.error('[service-status]', e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : POST /api/services/:name/:action (start|stop) ────────────────────
+  const svcActionMatch = pathname.match(/^\/api\/services\/([^/]+)\/(start|stop)$/);
+  if (req.method === 'POST' && svcActionMatch) {
+    const svcName = svcActionMatch[1];
+    const action = svcActionMatch[2];
+    if (!ALLOWED_SERVICES.includes(svcName)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Service not allowed: ${svcName}` }));
+      return;
+    }
+    (async () => {
+      try {
+        await execCmd('sudo', ['systemctl', action, svcName]);
+        console.log(`[services] ${action}: ${svcName}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, service: svcName, action }));
+      } catch(e) {
+        console.error(`[services] ${action} ${svcName}:`, e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/analysis-status ──────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/analysis-status') {
+    (async () => {
+      try {
+        const conf = await parseBirdnetConf();
+        const streamDir = path.join(process.env.HOME, 'BirdSongs', 'StreamData');
+        let backlog = 0, lagSecs = 0, newestFile = '';
+        try {
+          const files = (await fsp.readdir(streamDir)).filter(f => f.endsWith('.wav')).sort();
+          backlog = files.length;
+          if (files.length > 0) {
+            newestFile = files[files.length - 1];
+            const stat = await fsp.stat(path.join(streamDir, newestFile));
+            lagSecs = Math.floor((Date.now() - stat.mtimeMs) / 1000);
+          }
+        } catch(e) {}
+
+        // Get last analysis log line for inference speed
+        let inferenceTime = null;
+        try {
+          const logOut = await execCmd('journalctl', ['-u', 'birdnet_analysis', '-n', '50', '--no-pager']);
+          const timeMatch = logOut.match(/DONE! Time ([\d.]+) SECONDS/g);
+          if (timeMatch && timeMatch.length > 0) {
+            const last = timeMatch[timeMatch.length - 1];
+            inferenceTime = parseFloat(last.match(/([\d.]+)/)[1]);
+          }
+        } catch(e) {}
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          model: conf.MODEL || 'unknown',
+          sfThresh: parseFloat(conf.SF_THRESH || '0.03'),
+          sensitivity: parseFloat(conf.SENSITIVITY || '1.0'),
+          confidence: parseFloat(conf.CONFIDENCE || '0.7'),
+          backlog,
+          lagSecs,
+          inferenceTime,
+          recordingLength: parseInt(conf.RECORDING_LENGTH || '45')
+        }));
+      } catch(e) {
+        console.error('[analysis-status]', e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/audio-device ─────────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/audio-device') {
+    (async () => {
+      try {
+        const conf = await parseBirdnetConf();
+        let devices = '';
+        try { devices = await execCmd('arecord', ['-l']); } catch(e) { devices = e.message; }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          recCard: conf.REC_CARD || 'default',
+          channels: parseInt(conf.CHANNELS || '1'),
+          audioFmt: conf.AUDIOFMT || 'mp3',
+          devices
+        }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/backup-status ────────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/backup-status') {
+    (async () => {
+      try {
+        const nfsPath = (_localConfig && _localConfig.nfsMountPath) || '/mnt/backup';
+        const backupPath = (_localConfig && _localConfig.backupPath) || path.join(nfsPath, 'Backup', 'biloute');
+        let mounted = false;
+        try {
+          await execCmd('mountpoint', ['-q', nfsPath]);
+          mounted = true;
+        } catch(e) {}
+
+        let lastBackup = null, backupSize = null;
+        if (mounted) {
+          try {
+            const sizeOut = await execCmd('du', ['-sb', backupPath]);
+            backupSize = parseInt(sizeOut.split(/\s/)[0]);
+          } catch(e) {}
+          // Last backup from log
+          try {
+            const logRaw = await fsp.readFile('/var/log/backup-biloute.log', 'utf8');
+            const matches = logRaw.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] Backup terminé/g);
+            if (matches && matches.length > 0) {
+              const last = matches[matches.length - 1];
+              lastBackup = last.match(/\[(.+?)\]/)[1];
+            }
+          } catch(e) {}
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ nfsPath, mounted, lastBackup, backupSize }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/network-info ─────────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/network-info') {
+    (async () => {
+      try {
+        const hostname = (await fsp.readFile('/etc/hostname', 'utf8')).trim();
+        let ip = '';
+        try { ip = (await execCmd('hostname', ['-I'])).trim().split(/\s+/)[0]; } catch(e) {}
+
+        const nasIp = (_localConfig && _localConfig.nasIp) || null;
+        let nasPing = null;
+        if (nasIp) {
+          try {
+            const pingOut = await execCmd('ping', ['-c', '1', '-W', '2', nasIp]);
+            const latMatch = pingOut.match(/time=([\d.]+)/);
+            nasPing = { reachable: true, latency: latMatch ? parseFloat(latMatch[1]) : 0 };
+          } catch(e) {
+            nasPing = { reachable: false, latency: 0 };
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ hostname, ip, nasIp, nasPing }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
   // ── Route : GET /api/models ─────────────────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/models') {
     (async () => {
