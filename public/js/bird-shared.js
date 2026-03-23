@@ -279,7 +279,7 @@
     } catch(e) {}
     // Fetch from API
     try {
-      const res = await fetch(`${config.apiUrl}/taxonomy`);
+      const res = await fetch(`${BIRD_CONFIG.apiUrl}/taxonomy`);
       const data = await res.json();
       if (data.species) {
         _taxonomyCache = data;
