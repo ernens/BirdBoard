@@ -52,12 +52,12 @@
         </div>
         <div v-if="taxonomyOrders.length" class="ctrl-section">
           <span class="ctrl-label">{{t('filter_order')}}</span>
-          <select class="ctrl-select" v-model="fOrder" @change="onTaxChange" style="width:100%;font-size:.78rem;">
+          <select v-model="fOrder" @change="onTaxChange" style="width:100%;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.35rem .5rem;">
             <option value="">{{t('all_orders')}}</option>
             <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
           </select>
           <span class="ctrl-label" style="margin-top:.4rem;">{{t('filter_family')}}</span>
-          <select class="ctrl-select" v-model="fFamily" @change="onTaxChange" style="width:100%;font-size:.78rem;">
+          <select v-model="fFamily" @change="onTaxChange" style="width:100%;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.35rem .5rem;">
             <option value="">{{t('all_families')}}</option>
             <option v-for="f in taxonomyAllFamilies" :key="f.sci" :value="f.sci">{{f.com}}</option>
           </select>

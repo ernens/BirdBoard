@@ -441,9 +441,12 @@ const app = createApp({
 
     onMounted(async () => {
       const sp=getUrlParam('species'), dt=getUrlParam('date');
+      const orderParam=getUrlParam('order'), familyParam=getUrlParam('family');
       // Navigation depuis une autre page → pré-sélectionner l'espèce
       if (sp) fSpecies.value=[decodeURIComponent(sp)];
       if (dt) { fDateFrom.value=dt; fDateTo.value=dt; }
+      if (orderParam) fOrder.value=decodeURIComponent(orderParam);
+      if (familyParam) fFamily.value=decodeURIComponent(familyParam);
       await loadSpecies();
       // Load taxonomy data (cached in sessionStorage)
       const tax = await BIRDASH_UTILS.loadTaxonomy();
