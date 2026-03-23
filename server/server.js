@@ -322,6 +322,133 @@ dbWrite.pragma('busy_timeout = 5000');
 
 console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
+// ── Taxonomy database ─────────────────────────────────────────────────────────
+const TAXONOMY_DB_PATH = path.join(__dirname, '..', 'config', 'taxonomy.db');
+const TAXONOMY_CSV_URL = 'https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=csv&cat=species';
+const TAXONOMY_CACHE_PATH = path.join(__dirname, '..', 'config', 'ebird-taxonomy.csv');
+// Synonymes BirdNET → eBird (noms scientifiques qui diffèrent)
+const TAXONOMY_SYNONYMS = {
+  'Charadrius dubius': 'Thinornis dubius',
+  'Corvus monedula': 'Coloeus monedula',
+  'Carduelis carduelis': 'Carduelis carduelis',
+};
+
+let taxonomyDb;
+try {
+  taxonomyDb = new Database(TAXONOMY_DB_PATH);
+  taxonomyDb.pragma('journal_mode = WAL');
+  taxonomyDb.exec(`CREATE TABLE IF NOT EXISTS species_taxonomy (
+    sci_name    TEXT PRIMARY KEY,
+    order_name  TEXT,
+    family_sci  TEXT,
+    family_com  TEXT,
+    ebird_code  TEXT,
+    taxon_order REAL
+  )`);
+  taxonomyDb.exec(`CREATE INDEX IF NOT EXISTS idx_tax_order ON species_taxonomy(order_name)`);
+  taxonomyDb.exec(`CREATE INDEX IF NOT EXISTS idx_tax_family ON species_taxonomy(family_sci)`);
+  console.log('[BIRDASH] taxonomy.db ouvert');
+} catch(e) {
+  console.error('[BIRDASH] taxonomy.db error:', e.message);
+  taxonomyDb = null;
+}
+
+// Download eBird taxonomy CSV and populate the taxonomy DB
+async function refreshTaxonomy() {
+  if (!taxonomyDb) return;
+  const count = taxonomyDb.prepare('SELECT COUNT(*) as n FROM species_taxonomy').get().n;
+  if (count > 1000) { console.log(`[BIRDASH] Taxonomy already populated (${count} species)`); return; }
+
+  console.log('[BIRDASH] Downloading eBird taxonomy...');
+  let csvData;
+  // Try cached file first
+  try {
+    const stat = await fsp.stat(TAXONOMY_CACHE_PATH);
+    const age = Date.now() - stat.mtimeMs;
+    if (age < 30 * 24 * 3600 * 1000) { // less than 30 days old
+      csvData = await fsp.readFile(TAXONOMY_CACHE_PATH, 'utf8');
+      console.log('[BIRDASH] Using cached eBird taxonomy CSV');
+    }
+  } catch(e) {}
+
+  if (!csvData) {
+    try {
+      csvData = await new Promise((resolve, reject) => {
+        https.get(TAXONOMY_CSV_URL, res => {
+          if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => resolve(data));
+          res.on('error', reject);
+        }).on('error', reject);
+      });
+      await fsp.writeFile(TAXONOMY_CACHE_PATH, csvData);
+      console.log('[BIRDASH] eBird taxonomy downloaded and cached');
+    } catch(e) {
+      console.error('[BIRDASH] Failed to download eBird taxonomy:', e.message);
+      return;
+    }
+  }
+
+  // Parse CSV and populate DB
+  const lines = csvData.split('\n');
+  const header = lines[0];
+  // Find column indices by header names
+  const cols = header.split(',');
+  const iSci = cols.indexOf('SCIENTIFIC_NAME');
+  const iOrder = cols.indexOf('ORDER');
+  const iFamCom = cols.indexOf('FAMILY_COM_NAME');
+  const iFamSci = cols.indexOf('FAMILY_SCI_NAME');
+  const iCode = cols.indexOf('SPECIES_CODE');
+  const iTaxon = cols.indexOf('TAXON_ORDER');
+
+  if (iSci < 0 || iOrder < 0) {
+    console.error('[BIRDASH] eBird CSV format unrecognized');
+    return;
+  }
+
+  const insert = taxonomyDb.prepare(
+    'INSERT OR REPLACE INTO species_taxonomy (sci_name, order_name, family_sci, family_com, ebird_code, taxon_order) VALUES (?,?,?,?,?,?)'
+  );
+  const tx = taxonomyDb.transaction((rows) => { for (const r of rows) insert.run(...r); });
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    // Parse CSV respecting quoted fields
+    const fields = [];
+    let field = '', inQuote = false;
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j];
+      if (ch === '"') { inQuote = !inQuote; continue; }
+      if (ch === ',' && !inQuote) { fields.push(field); field = ''; continue; }
+      field += ch;
+    }
+    fields.push(field);
+    if (fields.length <= Math.max(iSci, iOrder, iFamSci, iFamCom)) continue;
+    rows.push([
+      fields[iSci], fields[iOrder], fields[iFamSci] || '', fields[iFamCom] || '',
+      fields[iCode] || '', parseFloat(fields[iTaxon]) || 0
+    ]);
+  }
+  tx(rows);
+
+  // Add synonyms for BirdNET species that use different names
+  const synInsert = taxonomyDb.prepare(
+    'INSERT OR IGNORE INTO species_taxonomy (sci_name, order_name, family_sci, family_com, ebird_code, taxon_order) ' +
+    'SELECT ?, order_name, family_sci, family_com, ebird_code, taxon_order FROM species_taxonomy WHERE sci_name = ?'
+  );
+  for (const [birdnet, ebird] of Object.entries(TAXONOMY_SYNONYMS)) {
+    synInsert.run(birdnet, ebird);
+  }
+
+  console.log(`[BIRDASH] Taxonomy populated: ${rows.length} species`);
+}
+
+// Populate taxonomy in background after startup
+setTimeout(() => refreshTaxonomy().catch(e => console.error('[BIRDASH] Taxonomy refresh error:', e.message)), 3000);
+
 // --- Validation de sécurité
 const ALLOWED_START = /^\s*(SELECT|PRAGMA|WITH)\s/i;
 const FORBIDDEN     = /(DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|ATTACH|DETACH|REINDEX|VACUUM)\s/i;
@@ -1686,6 +1813,102 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Route : GET /api/taxonomy ─────────────────────────────────────────────
+  // Returns taxonomy for all detected species (joined with detections)
+  if (req.method === 'GET' && pathname === '/api/taxonomy') {
+    (async () => {
+      try {
+        if (!taxonomyDb) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Taxonomy database not available' }));
+          return;
+        }
+        // Get all detected species
+        const detected = db.prepare('SELECT DISTINCT Sci_Name, Com_Name FROM detections ORDER BY Sci_Name').all();
+        // Lookup taxonomy for each
+        const lookup = taxonomyDb.prepare('SELECT * FROM species_taxonomy WHERE sci_name = ?');
+        const result = detected.map(d => {
+          const tax = lookup.get(d.Sci_Name);
+          return {
+            sciName: d.Sci_Name,
+            comName: d.Com_Name,
+            order: tax ? tax.order_name : null,
+            familySci: tax ? tax.family_sci : null,
+            familyCom: tax ? tax.family_com : null,
+            ebirdCode: tax ? tax.ebird_code : null,
+            taxonOrder: tax ? tax.taxon_order : null,
+          };
+        });
+        // Build summary: orders and families with counts
+        const orders = {}, families = {};
+        for (const r of result) {
+          if (r.order) orders[r.order] = (orders[r.order] || 0) + 1;
+          if (r.familySci) {
+            if (!families[r.familySci]) families[r.familySci] = { name: r.familyCom, order: r.order, count: 0 };
+            families[r.familySci].count++;
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ species: result, orders, families }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
+  // ── Route : GET /api/detections-by-taxonomy ─────────────────────────────────
+  // Returns detection counts grouped by order and family
+  if (req.method === 'GET' && pathname === '/api/detections-by-taxonomy') {
+    (async () => {
+      try {
+        if (!taxonomyDb) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Taxonomy database not available' }));
+          return;
+        }
+        const params = new URL(req.url, 'http://x').searchParams;
+        const dateFrom = params.get('from') || '';
+        const dateTo = params.get('to') || '';
+
+        let whereClause = '';
+        const args = [];
+        if (dateFrom) { whereClause += ' AND d.Date >= ?'; args.push(dateFrom); }
+        if (dateTo)   { whereClause += ' AND d.Date <= ?'; args.push(dateTo); }
+
+        // Get detection counts per species
+        const rows = db.prepare(
+          `SELECT Sci_Name, Com_Name, COUNT(*) as count FROM detections d WHERE 1=1 ${whereClause} GROUP BY Sci_Name ORDER BY count DESC`
+        ).all(...args);
+
+        const lookup = taxonomyDb.prepare('SELECT * FROM species_taxonomy WHERE sci_name = ?');
+
+        // Build grouped results
+        const byOrder = {};
+        for (const r of rows) {
+          const tax = lookup.get(r.Sci_Name);
+          const order = tax ? tax.order_name : 'Unknown';
+          const family = tax ? tax.family_sci : 'Unknown';
+          const familyCom = tax ? tax.family_com : 'Unknown';
+          if (!byOrder[order]) byOrder[order] = { count: 0, species: 0, families: {} };
+          byOrder[order].count += r.count;
+          byOrder[order].species++;
+          if (!byOrder[order].families[family]) byOrder[order].families[family] = { name: familyCom, count: 0, species: 0 };
+          byOrder[order].families[family].count += r.count;
+          byOrder[order].families[family].species++;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ byOrder, total: rows.reduce((s, r) => s + r.count, 0) }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
   // ── Route : GET /api/backup-config ──────────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/backup-config') {
     (async () => {
@@ -2047,5 +2270,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[BIRDASH] API démarrée sur http://127.0.0.1:${PORT}`);
 });
 
-process.on('SIGTERM', () => { db.close(); process.exit(0); });
-process.on('SIGINT',  () => { db.close(); process.exit(0); });
+process.on('SIGTERM', () => { db.close(); if (taxonomyDb) taxonomyDb.close(); process.exit(0); });
+process.on('SIGINT',  () => { db.close(); if (taxonomyDb) taxonomyDb.close(); process.exit(0); });

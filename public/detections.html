@@ -59,6 +59,20 @@
             </div>
           </div>
         </div>
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_order')}}</span>
+          <select class="fp-select" v-model="fOrder" @change="onOrderChange">
+            <option value="">{{t('all_orders')}}</option>
+            <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
+          </select>
+        </div>
+        <div v-if="fOrder && taxonomyFamilies.length">
+          <span class="fp-label">{{t('filter_family')}}</span>
+          <select class="fp-select" v-model="fFamily">
+            <option value="">{{t('all_families')}}</option>
+            <option v-for="f in taxonomyFamilies" :key="f.sci" :value="f.sci">{{f.com}} ({{f.sci}})</option>
+          </select>
+        </div>
         <div>
           <span class="fp-label">{{t('date_range')}}</span>
           <input type="date" class="fp-date-input" v-model="fDateFrom">
@@ -215,6 +229,34 @@ const app = createApp({
     const activeQuick = ref(-1);
     const speciesList = ref([]);
 
+    // Taxonomy filters
+    const fOrder  = ref('');
+    const fFamily = ref('');
+    const taxonomyData = ref([]);  // [{sciName, comName, order, familySci, familyCom}]
+    const taxonomyOrders = computed(() => {
+      const set = new Set(taxonomyData.value.map(s => s.order).filter(Boolean));
+      return [...set].sort();
+    });
+    const taxonomyFamilies = computed(() => {
+      if (!fOrder.value) return [];
+      const map = {};
+      for (const s of taxonomyData.value) {
+        if (s.order === fOrder.value && s.familySci && !map[s.familySci]) {
+          map[s.familySci] = { sci: s.familySci, com: s.familyCom };
+        }
+      }
+      return Object.values(map).sort((a, b) => a.com.localeCompare(b.com));
+    });
+    function onOrderChange() { fFamily.value = ''; }
+
+    // Get species names matching current order/family filter
+    function taxonomyFilteredSpecies() {
+      if (!fOrder.value) return null; // no filter
+      return taxonomyData.value
+        .filter(s => s.order === fOrder.value && (!fFamily.value || s.familySci === fFamily.value))
+        .map(s => s.comName);
+    }
+
     // Édition directe de la valeur de confiance
     const confEditing  = ref(false);
     const confEditVal  = ref(70);
@@ -310,12 +352,24 @@ const app = createApp({
 
     function buildWhere() {
       const wheres=['1=1'], params=[];
-      // Multi-select : IN (?,?,?) si plusieurs, = ? si une seule
-      if (fSpecies.value.length === 1) {
-        wheres.push('Com_Name=?'); params.push(fSpecies.value[0]);
-      } else if (fSpecies.value.length > 1) {
-        wheres.push(`Com_Name IN (${fSpecies.value.map(()=>'?').join(',')})`);
-        params.push(...fSpecies.value);
+      // Taxonomy filter: inject matching species from order/family
+      const taxSpecies = taxonomyFilteredSpecies();
+      // Combine with manual species selection
+      let effectiveSpecies = fSpecies.value.length ? [...fSpecies.value] : [];
+      if (taxSpecies) {
+        if (effectiveSpecies.length) {
+          // Intersection: keep only species that match both filters
+          effectiveSpecies = effectiveSpecies.filter(s => taxSpecies.includes(s));
+        } else {
+          effectiveSpecies = taxSpecies;
+        }
+        if (!effectiveSpecies.length) effectiveSpecies = ['__NO_MATCH__']; // force empty result
+      }
+      if (effectiveSpecies.length === 1) {
+        wheres.push('Com_Name=?'); params.push(effectiveSpecies[0]);
+      } else if (effectiveSpecies.length > 1) {
+        wheres.push(`Com_Name IN (${effectiveSpecies.map(()=>'?').join(',')})`);
+        params.push(...effectiveSpecies);
       }
       if (fDateFrom.value) { wheres.push('Date>=?');       params.push(fDateFrom.value); }
       if (fDateTo.value)   { wheres.push('Date<=?');       params.push(fDateTo.value); }
@@ -377,6 +431,7 @@ const app = createApp({
     function resetFilters() {
       fSpecies.value=[]; fDateFrom.value=daysAgo(BIRD_CONFIG.recentDays);
       fDateTo.value=localDateStr(); fConf.value=BIRD_CONFIG.defaultConfidence;
+      fOrder.value=''; fFamily.value='';
       uniqueMode.value=false; activeQuick.value=-1; spSearch.value='';
       page.value=1; loadDetections();
     }
@@ -391,12 +446,18 @@ const app = createApp({
       if (sp) fSpecies.value=[decodeURIComponent(sp)];
       if (dt) { fDateFrom.value=dt; fDateTo.value=dt; }
       await loadSpecies();
+      // Load taxonomy data
+      try {
+        const tax = await fetch(BIRD_CONFIG.apiUrl + '/taxonomy').then(r => r.json());
+        if (tax.species) taxonomyData.value = tax.species;
+      } catch(e) {}
       await loadDetections();
     });
 
     return {
       lang,t,
       fSpecies,fDateFrom,fDateTo,fConf,uniqueMode,
+      fOrder,fFamily,taxonomyOrders,taxonomyFamilies,onOrderChange,
       activeQuick,quickDates,applyQuick,speciesList,
       spSearch,spDropdownOpen,filteredSpeciesList,
       closeSpDropdown,removeSpecies,
