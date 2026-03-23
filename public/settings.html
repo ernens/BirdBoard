@@ -350,23 +350,6 @@
           </div>
         </div>
 
-        <!-- ═══ Services ═══ -->
-        <div class="card">
-          <div class="section-title">🔧 {{t('set_services')}}</div>
-          <div v-if="svcLoading" class="spinner"><div></div><div></div><div></div></div>
-          <template v-else>
-            <div v-for="s in services" :key="s.name" class="svc-row">
-              <div>
-                <span class="svc-dot" :class="s.active ? 'svc-active' : 'svc-inactive'"></span>
-                <span class="svc-name">{{s.name}}</span>
-              </div>
-              <button class="svc-btn" @click="restartService(s.name)" :disabled="s.restarting">
-                {{s.restarting ? '...' : t('set_restart')}}
-              </button>
-            </div>
-          </template>
-        </div>
-
       </div><!-- /settings-grid (system) -->
 
       <!-- ═══ Species Lists ═══ -->
