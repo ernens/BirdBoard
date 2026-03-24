@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Biodiversité</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js" integrity="sha384-BQKzmHvQLMCAnL3UtDBA1Al5tFjsCz1wrMlIUA1wkzo14DYkRWjywW+p9pCj0cwd" crossorigin="anonymous"></script>
   <script src="js/birdash-local.js" onerror=""></script>
   <script src="js/bird-config.js"></script>
   <script src="js/bird-shared.js"></script>
@@ -16,7 +18,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="biodiversity">
+  <birdash-shell page="biodiversity" :title="t('nav_biodiversity')">
 
     <!-- Barre de période -->
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -30,16 +32,17 @@
       <span style="font-size:.75rem;color:var(--text-faint);margin-left:.5rem;">
         {{fDateFrom || '…'}} → {{fDateTo || t('today')}}
       </span>
+      <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-left:auto;">⬇ CSV</button>
     </div>
 
     <!-- Richesse journalière -->
-    <div class="card" style="margin-bottom:1rem;">
+    <div class="card">
       <div class="card-title">{{t('richness_per_day')}}</div>
       <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasRichness"></canvas></div>
     </div>
 
     <!-- Matrice espèce × mois — pleine largeur -->
-    <div class="card" style="margin-bottom:1rem;">
+    <div class="card">
       <div class="card-title">{{t('species_x_month')}}</div>
       <div class="matrix-wrap">
         <div v-if="matrix.loading" class="spinner"><div></div><div></div><div></div></div>
@@ -49,7 +52,7 @@
     </div>
 
     <!-- Top espèces ce mois — pleine largeur -->
-    <div class="card" style="margin-bottom:1rem;">
+    <div class="card">
       <div class="card-title">{{t('top_species')}} — {{t('this_month')}}</div>
       <div v-if="monthly.loading" class="spinner"><div></div><div></div><div></div></div>
       <div v-else-if="!monthly.rows.length" class="error-msg">{{t('no_data')}}</div>
@@ -58,6 +61,10 @@
              style="display:flex;align-items:center;gap:.6rem;cursor:pointer;"
              @click="navigateTo('species.html',{species:r.Com_Name})">
           <div style="font-size:.72rem;color:var(--text-faint);min-width:16px;text-align:right;">{{i+1}}</div>
+          <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+            <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+            <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+          </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</div>
             <div style="height:4px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
@@ -70,7 +77,7 @@
     </div>
 
     <!-- Heatmap heure × jour — pleine largeur, compact -->
-    <div class="card" style="margin-bottom:1rem;">
+    <div class="card">
       <div class="card-title">{{t('heatmap_hour_day')}}</div>
       <div class="heatmap-wrap">
         <div v-if="heatmap.loading" class="spinner"><div></div><div></div><div></div></div>
@@ -79,27 +86,27 @@
       </div>
     </div>
 
-    <!-- Répartition taxonomique — donut -->
-    <div class="grid-2" style="margin-bottom:1rem;">
-      <div class="card">
-        <div class="card-title">{{t('bio_taxonomy_orders')}}</div>
-        <div class="chart-wrap"><canvas ref="canvasTaxOrders"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">{{t('bio_taxonomy_families')}}</div>
-        <div v-if="taxFamilies.length" style="max-height:300px;overflow-y:auto;">
-          <div v-for="f in taxFamilies" :key="f.sci"
-               style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
-               @click="navigateTo('detections.html',{family:f.sci})">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:.8rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{f.com}}</div>
-              <div style="font-size:.68rem;color:var(--text-faint);">{{f.sci}} · {{f.order}}</div>
-            </div>
-            <div style="font-size:.75rem;color:var(--accent);font-weight:600;min-width:28px;text-align:right;">{{f.count}}</div>
+    <!-- Répartition taxonomique — pie chart ECharts -->
+    <div class="card">
+      <div class="card-title">{{t('bio_taxonomy_orders')}}</div>
+      <div ref="elTaxOrders" style="width:100%;height:420px;"></div>
+    </div>
+
+    <!-- Familles détectées -->
+    <div class="card">
+      <div class="card-title">{{t('bio_taxonomy_families')}} ({{taxFamilies.length}})</div>
+      <div v-if="taxFamilies.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 1rem;max-height:400px;overflow-y:auto;">
+        <div v-for="f in taxFamilies" :key="f.sci"
+             style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
+             @click="navigateTo('detections.html',{family:f.sci})">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.8rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{f.com}}</div>
+            <div style="font-size:.68rem;color:var(--text-faint);">{{f.sci}} · {{f.order}}</div>
           </div>
+          <div style="font-size:.75rem;color:var(--accent);font-weight:600;min-width:28px;text-align:right;">{{f.count}} <span style="font-size:.65rem;color:var(--text-faint);">{{t('species').toLowerCase()}}</span></div>
         </div>
-        <div v-else class="spinner"><div></div><div></div><div></div></div>
       </div>
+      <div v-else class="spinner"><div></div><div></div><div></div></div>
     </div>
 
   </birdash-shell>
@@ -108,7 +115,7 @@
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
-        birdQuery, escHtml, chartDefaults, daysAgo, localDateStr, navigateTo } = BIRDASH;
+        birdQuery, escHtml, chartDefaults, daysAgo, localDateStr, navigateTo, fetchCachedPhoto } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -117,10 +124,11 @@ const app = createApp({
     const { navItems, siteName } = useNav('biodiversity');
     const { mountChart: mountRichness } = useChart();
     const { mountChart: mountTaxChart } = useChart();
+    let _echartsOrders = null;
     const { spName } = useSpeciesNames();
 
     const canvasRichness = ref(null);
-    const canvasTaxOrders = ref(null);
+    const elTaxOrders = ref(null);
     const taxFamilies = ref([]);
     const CONF = BIRD_CONFIG.defaultConfidence;
 
@@ -189,6 +197,18 @@ const app = createApp({
       } catch(e) { console.error('[biodiversity]', e); heatmap.value = { loading:false, error:t('error_generic') || 'Erreur de chargement', html:'' }; }
     }
 
+    async function loadPhotosFor(targetRef, rows) {
+      const seen = new Set();
+      const tasks = rows.filter(r => { const s = r.Sci_Name; if (!s || seen.has(s)) return false; seen.add(s); return true; });
+      for (let i = 0; i < tasks.length; i += 4) {
+        await Promise.all(tasks.slice(i, i + 4).map(async r => {
+          const url = await fetchCachedPhoto(r.Sci_Name);
+          rows.forEach(d => { if (d.Sci_Name === r.Sci_Name) d.photoUrl = url; });
+        }));
+        targetRef.value = { ...targetRef.value, rows: [...rows] };
+      }
+    }
+
     async function loadMonthly() {
       monthly.value.loading = true;
       try {
@@ -197,6 +217,7 @@ const app = createApp({
           `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n FROM detections WHERE SUBSTR(Date,1,7)=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC LIMIT 15`,
           [ym, CONF]);
         monthly.value = { loading:false, rows };
+        loadPhotosFor(monthly, rows);
       } catch(e) { monthly.value = { loading:false, rows:[] }; }
     }
 
@@ -264,11 +285,11 @@ const app = createApp({
     });
 
     // Heatmap et matrice : retraduits si lang change
-    watch(lang, () => { loadHeatmap(); loadMonthly(); loadMatrix(); });
+    watch(lang, () => { loadHeatmap(); loadMonthly(); loadMatrix(); loadTaxonomy(); });
 
     // ── Taxonomy donut chart ────────────────────────────────────────────
     async function loadTaxonomy() {
-      const tax = await BIRDASH_UTILS.loadTaxonomy();
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
       if (!tax.orders || !Object.keys(tax.orders).length) return;
 
       // Build families list
@@ -280,32 +301,96 @@ const app = createApp({
       }
       taxFamilies.value = Object.values(famMap).sort((a, b) => b.count - a.count);
 
-      // Render donut chart
+      // Render ECharts pie
       await nextTick();
-      if (!canvasTaxOrders.value) return;
+      const el = elTaxOrders.value;
+      if (!el) return;
+      if (_echartsOrders) _echartsOrders.dispose();
+      _echartsOrders = echarts.init(el, null, { renderer: 'canvas' });
+
       const orders = Object.entries(tax.orders).sort((a, b) => b[1] - a[1]);
+      const totalSp = orders.reduce((s, [, n]) => s + n, 0);
       const palette = ['#5a9e3a','#c8a84b','#4a90d9','#d96b4a','#9b59b6','#1abc9c','#e67e22','#e74c3c',
                         '#3498db','#2ecc71','#f39c12','#8e44ad','#16a085','#d35400','#c0392b','#2980b9','#27ae60'];
-      const base = chartDefaults();
-      mountTaxChart(canvasTaxOrders, () => ({
-        type: 'doughnut',
-        data: {
-          labels: orders.map(([o]) => o),
-          datasets: [{
-            data: orders.map(([, n]) => n),
-            backgroundColor: orders.map((_, i) => palette[i % palette.length]),
-            borderWidth: 1,
-            borderColor: 'var(--bg-card)',
-          }]
+
+      _echartsOrders.setOption({
+        backgroundColor: 'transparent',
+        graphic: [{
+          type: 'text', left: 'center', top: 'middle',
+          style: {
+            text: totalSp + '\n' + t('species').toLowerCase(),
+            textAlign: 'center', fill: '#9abf9a',
+            fontSize: 15, fontFamily: 'Lora, serif', lineHeight: 20,
+          }
+        }],
+        tooltip: {
+          trigger: 'item',
+          backgroundColor: 'rgba(10,20,12,0.92)',
+          borderColor: 'rgba(90,158,58,.4)', borderWidth: 1,
+          textStyle: { color: '#c8e6c0', fontFamily: 'Lora, serif', fontSize: 13 },
+          formatter: function(p) {
+            const famCount = taxFamilies.value.filter(f => f.order === p.name).length;
+            return '<b>' + p.name + '</b><br>'
+              + p.value + ' ' + t('species').toLowerCase() + ' · ' + p.percent + '%'
+              + '<br>' + famCount + ' ' + t('bio_taxonomy_families').toLowerCase();
+          }
         },
-        options: {
-          responsive: true, maintainAspectRatio: true,
-          plugins: {
-            legend: { position: 'right', labels: { color: base.scales?.y?.ticks?.color || '#aaa', font: { size: 10 }, boxWidth: 12, padding: 6 } },
-            tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} ${t('species')}` } },
+        series: [{
+          type: 'pie',
+          radius: ['30%', '70%'],
+          center: ['50%', '50%'],
+          avoidLabelOverlap: true,
+          itemStyle: { borderRadius: 4, borderColor: 'var(--bg-card)', borderWidth: 2 },
+          label: {
+            show: true,
+            formatter: function(p) {
+              if (p.percent < 3) return '';
+              return '{name|' + p.name + '}\n{val|' + p.value + ' sp · ' + p.percent + '%}';
+            },
+            rich: {
+              name: { fontSize: 11, fontFamily: 'Lora, serif', color: '#c8e6c0', lineHeight: 16 },
+              val:  { fontSize: 10, fontFamily: 'Lora, serif', color: '#8a9a8a', lineHeight: 14 },
+            }
           },
+          labelLine: { length: 12, length2: 8, lineStyle: { color: 'rgba(255,255,255,.15)' } },
+          emphasis: {
+            label: { show: true, fontSize: 12, fontWeight: 'bold' },
+            itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,.3)' }
+          },
+          data: orders.map(([name, value], i) => ({
+            name, value,
+            itemStyle: { color: palette[i % palette.length] }
+          }))
+        }]
+      });
+
+      window.addEventListener('resize', () => { if (_echartsOrders) _echartsOrders.resize(); });
+    }
+
+    async function exportCsv() {
+      try {
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n, ROUND(AVG(Confidence)*100,1) as avg_conf, MIN(Date) as first_date, MAX(Date) as last_date, COUNT(DISTINCT Date) as days, COUNT(DISTINCT SUBSTR(Date,1,7)) as months FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC`,
+          [fDateFrom.value || '2000-01-01', fDateTo.value || localDateStr(), CONF]
+        );
+        if (!rows.length) return;
+        const headers = ['Species','Scientific_Name','Detections','Avg_Confidence','First_Date','Last_Date','Days','Months'];
+        const csvRows = [headers.join(',')];
+        for (const r of rows) {
+          csvRows.push([
+            '"' + (r.Com_Name || '').replace(/"/g, '""') + '"',
+            '"' + (r.Sci_Name || '').replace(/"/g, '""') + '"',
+            r.n, r.avg_conf + '%', r.first_date, r.last_date, r.days, r.months
+          ].join(','));
         }
-      }));
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'birdash-biodiversity-' + localDateStr() + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { console.error('[export]', e); }
     }
 
     onMounted(() => { loadAll(); loadTaxonomy(); });
@@ -313,9 +398,9 @@ const app = createApp({
     return {
       lang, t,
       heatmap, monthly, matrix,
-      canvasRichness, canvasTaxOrders, taxFamilies,
+      canvasRichness, elTaxOrders, taxFamilies,
       fDateFrom, fDateTo, activePeriod, quickDates, setPeriod,
-      chartColor, navigateTo, spName,
+      chartColor, navigateTo, spName, exportCsv,
     };
   }
 });
