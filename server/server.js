@@ -124,7 +124,15 @@ const SETTINGS_VALIDATORS = {
   APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: v => v == 0 || v == 1,
   APPRISE_WEEKLY_REPORT: v => v == 0 || v == 1,
   APPRISE_NOTIFICATION_TITLE: v => typeof v === 'string' && v.length <= 200,
+  APPRISE_NOTIFICATION_BODY: v => typeof v === 'string' && v.length <= 500,
   APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES: v => !isNaN(v) && v >= 0,
+  BIRDASH_ALERT_TEMP_WARN: v => !isNaN(v) && v >= 30 && v <= 100,
+  BIRDASH_ALERT_TEMP_CRIT: v => !isNaN(v) && v >= 30 && v <= 100,
+  BIRDASH_ALERT_DISK_WARN: v => !isNaN(v) && v >= 30 && v <= 99,
+  BIRDASH_ALERT_DISK_CRIT: v => !isNaN(v) && v >= 30 && v <= 99,
+  BIRDASH_ALERT_RAM_WARN:  v => !isNaN(v) && v >= 30 && v <= 99,
+  BIRDASH_ALERT_BACKLOG:   v => !isNaN(v) && v >= 1 && v <= 1000,
+  BIRDASH_ALERT_NO_DET_H:  v => !isNaN(v) && v >= 1 && v <= 168,
   IMAGE_PROVIDER:  v => ['WIKIPEDIA','FLICKR'].includes(v),
   RARE_SPECIES_THRESHOLD: v => !isNaN(v) && v >= 1 && v <= 365,
   RAW_SPECTROGRAM: v => v == 0 || v == 1,
@@ -460,6 +468,158 @@ async function refreshTaxonomy() {
 
 // Populate taxonomy in background after startup
 setTimeout(() => refreshTaxonomy().catch(e => console.error('[BIRDASH] Taxonomy refresh error:', e.message)), 3000);
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SYSTEM ALERTS — background monitoring loop
+// ══════════════════════════════════════════════════════════════════════════════
+const ALERT_CHECK_INTERVAL = 60000; // 60 seconds
+const ALERT_COOLDOWN = 600000;      // 10 minutes between same alert type
+const _alertLastSent = {};          // { alertType: timestamp }
+
+// Default thresholds (can be overridden in birdnet.conf via BIRDASH_ALERT_*)
+const ALERT_DEFAULTS = {
+  temp_warn: 70,       // °C
+  temp_crit: 80,       // °C
+  disk_warn: 85,       // %
+  disk_crit: 95,       // %
+  ram_warn: 90,        // %
+  backlog_warn: 50,    // files
+  no_detection_hours: 4, // hours without any detection
+  service_down: 1,     // 1=enabled, 0=disabled
+};
+
+function getAlertThresholds() {
+  const t = { ...ALERT_DEFAULTS };
+  try {
+    const confRaw = fs.readFileSync(BIRDNET_CONF, 'utf8');
+    const match = (key) => { const m = confRaw.match(new RegExp(`^${key}=(.+)`, 'm')); return m ? m[1].replace(/"/g, '').trim() : null; };
+    if (match('BIRDASH_ALERT_TEMP_WARN')) t.temp_warn = parseFloat(match('BIRDASH_ALERT_TEMP_WARN'));
+    if (match('BIRDASH_ALERT_TEMP_CRIT')) t.temp_crit = parseFloat(match('BIRDASH_ALERT_TEMP_CRIT'));
+    if (match('BIRDASH_ALERT_DISK_WARN')) t.disk_warn = parseFloat(match('BIRDASH_ALERT_DISK_WARN'));
+    if (match('BIRDASH_ALERT_DISK_CRIT')) t.disk_crit = parseFloat(match('BIRDASH_ALERT_DISK_CRIT'));
+    if (match('BIRDASH_ALERT_RAM_WARN'))  t.ram_warn = parseFloat(match('BIRDASH_ALERT_RAM_WARN'));
+    if (match('BIRDASH_ALERT_BACKLOG'))   t.backlog_warn = parseInt(match('BIRDASH_ALERT_BACKLOG'));
+    if (match('BIRDASH_ALERT_NO_DET_H'))  t.no_detection_hours = parseInt(match('BIRDASH_ALERT_NO_DET_H'));
+  } catch(e) {}
+  return t;
+}
+
+async function sendAlert(type, title, body) {
+  const now = Date.now();
+  if (_alertLastSent[type] && (now - _alertLastSent[type]) < ALERT_COOLDOWN) return;
+
+  const appriseFile = path.join(process.env.HOME || '/home/bjorn', 'BirdNET-Pi', 'apprise.txt');
+  const appriseBin = path.join(process.env.HOME || '/home/bjorn', 'BirdNET-Pi', 'birdnet', 'bin', 'apprise');
+
+  // Check apprise.txt exists and has content
+  try {
+    const content = await fsp.readFile(appriseFile, 'utf8');
+    if (!content.trim()) return;
+  } catch(e) { return; }
+
+  try {
+    const { execFile } = require('child_process');
+    await new Promise((resolve, reject) => {
+      execFile(appriseBin, ['-t', title, '-b', body, '--config=' + appriseFile],
+        { timeout: 15000 }, (err) => { if (err) reject(err); else resolve(); });
+    });
+    _alertLastSent[type] = now;
+    console.log(`[ALERT] ${type}: ${title}`);
+  } catch(e) {
+    console.error(`[ALERT] Failed to send ${type}:`, e.message);
+  }
+}
+
+async function checkSystemAlerts() {
+  const thresholds = getAlertThresholds();
+
+  try {
+    // ── Temperature ──
+    try {
+      const tempRaw = await fsp.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8');
+      const temp = parseFloat(tempRaw) / 1000;
+      if (temp >= thresholds.temp_crit) {
+        await sendAlert('temp_crit', '🔥 BIRDASH — Critical temperature!', `Temperature: ${temp.toFixed(1)}°C (threshold: ${thresholds.temp_crit}°C). Risk of thermal throttling or shutdown.`);
+      } else if (temp >= thresholds.temp_warn) {
+        await sendAlert('temp_warn', '🌡️ BIRDASH — High temperature', `Temperature: ${temp.toFixed(1)}°C (threshold: ${thresholds.temp_warn}°C).`);
+      }
+    } catch(e) {}
+
+    // ── Disk ──
+    try {
+      const { execSync } = require('child_process');
+      const dfOut = execSync("df -B1 / | tail -1", { encoding: 'utf8' });
+      const parts = dfOut.trim().split(/\s+/);
+      const diskPct = parseInt(parts[4]);
+      if (diskPct >= thresholds.disk_crit) {
+        await sendAlert('disk_crit', '💾 BIRDASH — Disk almost full!', `Disk usage: ${diskPct}% (threshold: ${thresholds.disk_crit}%). Recordings may stop.`);
+      } else if (diskPct >= thresholds.disk_warn) {
+        await sendAlert('disk_warn', '💾 BIRDASH — Disk space low', `Disk usage: ${diskPct}% (threshold: ${thresholds.disk_warn}%).`);
+      }
+    } catch(e) {}
+
+    // ── RAM ──
+    try {
+      const meminfo = await fsp.readFile('/proc/meminfo', 'utf8');
+      const total = parseInt(meminfo.match(/MemTotal:\s+(\d+)/)?.[1] || '0');
+      const avail = parseInt(meminfo.match(/MemAvailable:\s+(\d+)/)?.[1] || '0');
+      const ramPct = total ? Math.round((total - avail) / total * 100) : 0;
+      if (ramPct >= thresholds.ram_warn) {
+        await sendAlert('ram_warn', '🧠 BIRDASH — RAM critical', `RAM usage: ${ramPct}% (threshold: ${thresholds.ram_warn}%).`);
+      }
+    } catch(e) {}
+
+    // ── Service down ──
+    if (thresholds.service_down) {
+      const criticalServices = ['birdnet_analysis', 'birdnet_recording'];
+      for (const svc of criticalServices) {
+        try {
+          const { execSync } = require('child_process');
+          const state = execSync(`systemctl is-active ${svc} 2>/dev/null`, { encoding: 'utf8' }).trim();
+          if (state === 'failed' || state === 'inactive') {
+            await sendAlert('svc_' + svc, `⚠️ BIRDASH — Service ${svc} is ${state}`, `The service ${svc} is ${state}. Detection may have stopped. Check system page for details.`);
+          }
+        } catch(e) {
+          // execSync throws if exit code != 0 (service not active)
+          await sendAlert('svc_' + svc, `⚠️ BIRDASH — Service ${svc} is down`, `The service ${svc} is not running. Detection may have stopped.`);
+        }
+      }
+    }
+
+    // ── Analysis backlog ──
+    try {
+      const streamDir = path.join(process.env.HOME || '/home/bjorn', 'BirdSongs', 'StreamData');
+      const files = (await fsp.readdir(streamDir)).filter(f => f.endsWith('.wav'));
+      if (files.length >= thresholds.backlog_warn) {
+        await sendAlert('backlog', '📊 BIRDASH — Analysis backlog growing', `${files.length} files pending analysis (threshold: ${thresholds.backlog_warn}). The analysis pipeline may be stuck or overloaded.`);
+      }
+    } catch(e) {}
+
+    // ── No detection for X hours ──
+    try {
+      if (db) {
+        const row = db.prepare('SELECT MAX(Date || " " || Time) as last FROM detections').get();
+        if (row && row.last) {
+          const lastDet = new Date(row.last);
+          const hoursSince = (Date.now() - lastDet.getTime()) / 3600000;
+          if (hoursSince >= thresholds.no_detection_hours) {
+            await sendAlert('no_detection', '🔇 BIRDASH — No detections', `No bird detections in the last ${Math.round(hoursSince)} hours (threshold: ${thresholds.no_detection_hours}h). Recording or analysis may be offline.`);
+          }
+        }
+      }
+    } catch(e) {}
+
+  } catch(e) {
+    console.error('[ALERT] checkSystemAlerts error:', e.message);
+  }
+}
+
+// Start monitoring loop after 30s (let services stabilize)
+setTimeout(() => {
+  console.log('[BIRDASH] System alerts monitoring started (every 60s)');
+  setInterval(checkSystemAlerts, ALERT_CHECK_INTERVAL);
+  checkSystemAlerts(); // Initial check
+}, 30000);
 
 // --- Validation de sécurité
 const ALLOWED_START = /^\s*(SELECT|PRAGMA|WITH)\s/i;
@@ -1188,6 +1348,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Route : GET /api/alert-thresholds ───────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/alert-thresholds') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getAlertThresholds()));
+    return;
+  }
+
+  // ── Route : GET /api/alert-status ─────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/alert-status') {
+    const status = {};
+    for (const [type, ts] of Object.entries(_alertLastSent)) {
+      status[type] = { lastSent: new Date(ts).toISOString(), cooldownRemaining: Math.max(0, ALERT_COOLDOWN - (Date.now() - ts)) };
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ alerts: status, interval: ALERT_CHECK_INTERVAL, cooldown: ALERT_COOLDOWN }));
+    return;
+  }
+
   // ── Route : GET /api/services ───────────────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/services') {
     (async () => {
@@ -1448,7 +1626,7 @@ const server = http.createServer((req, res) => {
           sensitivity: parseFloat(conf.SENSITIVITY || '1.0'),
           confidence: parseFloat(conf.CONFIDENCE || '0.7'),
           backlog,
-          lagSecs,
+          lagSecs, lag: lagSecs,
           inferenceTime,
           recordingLength: parseInt(conf.RECORDING_LENGTH || '45')
         }));

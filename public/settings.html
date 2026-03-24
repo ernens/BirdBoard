@@ -409,6 +409,60 @@
 
       </div><!-- /settings-grid (system) -->
 
+        <!-- ═══ System Alerts ═══ -->
+        <div class="card">
+          <div class="section-title">🚨 {{t('set_alerts_title')}}</div>
+          <p style="font-size:.75rem;color:var(--text-muted);margin:0 0 .6rem 0;">{{t('set_alerts_desc')}}</p>
+          <div class="settings-grid" style="gap:.5rem .8rem;">
+            <div class="set-row">
+              <label class="set-label" style="flex:1;">🌡️ {{t('set_alert_temp_warn')}}</label>
+              <input type="number" v-model.number="alertThresholds.temp_warn" min="40" max="90" step="1"
+                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+              <span style="font-size:.75rem;color:var(--text-faint);">°C</span>
+            </div>
+            <div class="set-row">
+              <label class="set-label" style="flex:1;">🔥 {{t('set_alert_temp_crit')}}</label>
+              <input type="number" v-model.number="alertThresholds.temp_crit" min="50" max="100" step="1"
+                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+              <span style="font-size:.75rem;color:var(--text-faint);">°C</span>
+            </div>
+            <div class="set-row">
+              <label class="set-label" style="flex:1;">💾 {{t('set_alert_disk_warn')}}</label>
+              <input type="number" v-model.number="alertThresholds.disk_warn" min="50" max="99" step="1"
+                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+              <span style="font-size:.75rem;color:var(--text-faint);">%</span>
+            </div>
+            <div class="set-row">
+              <label class="set-label" style="flex:1;">🧠 {{t('set_alert_ram_warn')}}</label>
+              <input type="number" v-model.number="alertThresholds.ram_warn" min="50" max="99" step="1"
+                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+              <span style="font-size:.75rem;color:var(--text-faint);">%</span>
+            </div>
+            <div class="set-row">
+              <label class="set-label" style="flex:1;">📊 {{t('set_alert_backlog')}}</label>
+              <input type="number" v-model.number="alertThresholds.backlog_warn" min="10" max="500" step="5"
+                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+              <span style="font-size:.75rem;color:var(--text-faint);">files</span>
+            </div>
+            <div class="set-row">
+              <label class="set-label" style="flex:1;">🔇 {{t('set_alert_no_det')}}</label>
+              <input type="number" v-model.number="alertThresholds.no_detection_hours" min="1" max="48" step="1"
+                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+              <span style="font-size:.75rem;color:var(--text-faint);">h</span>
+            </div>
+            <div class="set-row">
+              <label class="set-check">
+                <input type="checkbox" v-model="alertThresholds.service_down" true-value="1" false-value="0">
+                <span>⚠️ {{t('set_alert_svc_down')}}</span>
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-secondary" style="margin-top:.6rem;font-size:.75rem;padding:.25rem .6rem;" @click="saveAlertThresholds" :disabled="savingAlerts">
+            {{savingAlerts ? '…' : t('set_save')}}
+          </button>
+          <span v-if="alertSaveMsg" style="font-size:.72rem;margin-left:.5rem;" :style="{color:alertSaveErr?'var(--danger)':'var(--accent)'}">{{alertSaveMsg}}</span>
+        </div>
+
       <!-- ═══ Species Lists ═══ -->
       <div class="card" style="margin-top:1.2rem;">
         <div class="section-title">📋 {{t('set_species_lists')}} <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
@@ -814,6 +868,46 @@ const app = createApp({
         else { appriseMsg.value = data.error; appriseErr.value = true; }
       } catch(e) { appriseMsg.value = e.message; appriseErr.value = true; }
       savingApprise.value = false;
+    }
+
+    // ── Alert thresholds ─────────────────────────────────────
+    const alertThresholds = reactive({ temp_warn:70, temp_crit:80, disk_warn:85, disk_crit:95, ram_warn:90, backlog_warn:50, no_detection_hours:4, service_down:1 });
+    const savingAlerts = ref(false);
+    const alertSaveMsg = ref('');
+    const alertSaveErr = ref(false);
+
+    async function loadAlertThresholds() {
+      try {
+        const res = await fetch(API + '/alert-thresholds');
+        const data = await res.json();
+        Object.assign(alertThresholds, data);
+      } catch(e) {}
+    }
+
+    async function saveAlertThresholds() {
+      savingAlerts.value = true;
+      alertSaveMsg.value = '';
+      try {
+        // Save as BIRDASH_ALERT_* keys in birdnet.conf
+        const updates = {
+          BIRDASH_ALERT_TEMP_WARN: String(alertThresholds.temp_warn),
+          BIRDASH_ALERT_TEMP_CRIT: String(alertThresholds.temp_crit),
+          BIRDASH_ALERT_DISK_WARN: String(alertThresholds.disk_warn),
+          BIRDASH_ALERT_DISK_CRIT: String(alertThresholds.disk_crit),
+          BIRDASH_ALERT_RAM_WARN: String(alertThresholds.ram_warn),
+          BIRDASH_ALERT_BACKLOG: String(alertThresholds.backlog_warn),
+          BIRDASH_ALERT_NO_DET_H: String(alertThresholds.no_detection_hours),
+        };
+        const res = await fetch(API + '/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates }),
+        });
+        const data = await res.json();
+        if (data.ok) { alertSaveMsg.value = '✓'; alertSaveErr.value = false; }
+        else { alertSaveMsg.value = data.error || 'Error'; alertSaveErr.value = true; }
+      } catch(e) { alertSaveMsg.value = e.message; alertSaveErr.value = true; }
+      savingAlerts.value = false;
     }
 
     async function testApprise() {
@@ -1498,7 +1592,7 @@ const app = createApp({
       return html;
     });
 
-    onMounted(() => { reload(); loadApprise(); });
+    onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); });
 
     return {
       t, lang, conf, models, languages, services,
@@ -1506,6 +1600,7 @@ const app = createApp({
       loading, saving, svcLoading, saveMsg, saveErr,
       includeList, excludeList, savingLists,
       appriseUrls, savingApprise, testingApprise, appriseMsg, appriseErr, saveApprise, testApprise,
+      alertThresholds, savingAlerts, alertSaveMsg, alertSaveErr, saveAlertThresholds,
       modelLabel, modelDescription,
       reload, save, restartService, saveSpeciesLists,
       helpKey, helpTitle, helpBody,
