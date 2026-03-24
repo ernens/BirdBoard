@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Récent</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -16,7 +17,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="recent">
+  <birdash-shell page="recent" :title="t('nav_recent')">
 
     <!-- ── Navigation de date ───────────────────────────────────── -->
     <div class="date-nav">
@@ -84,7 +85,7 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-value">{{kpis.lastHour}}</div>
-        <div class="kpi-label">{{t('this_week').split(' ')[1]||''}} heure</div>
+        <div class="kpi-label">{{t('last_hour')}}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-value" style="color:var(--danger);">{{kpis.newSp}}</div>
@@ -93,7 +94,7 @@
     </div>
 
     <!-- ── Graphique horaire ───────────────────────────────────── -->
-    <div class="card" style="margin-bottom:1rem;padding:.6rem .85rem .5rem;">
+    <div class="card" style="padding:.6rem .85rem .5rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;">
         <span style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">{{t('hourly_distrib')}}</span>
         <span style="font-size:.72rem;color:var(--text-faint);">{{kpis.det}} détections · {{kpis.sp}} espèces</span>

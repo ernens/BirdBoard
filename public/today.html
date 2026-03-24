@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Aujourd'hui</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -15,7 +16,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="today">
+  <birdash-shell page="today" :title="t('nav_today')">
 
     <!-- ── Titre + date ─────────────────────────────────────────── -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
@@ -60,11 +61,11 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-value">{{kpis.lastHour}}</div>
-        <div class="kpi-label">{{t('this_week').split(' ')[1]||''}} heure</div>
+        <div class="kpi-label">{{t('last_hour')}}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-value" style="color:var(--danger);">{{kpis.newSp}}</div>
-        <div class="kpi-label">Nouvelles espèces</div>
+        <div class="kpi-label">{{t('new_species')}}</div>
       </div>
     </div>
 

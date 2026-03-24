@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Spectrogram</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -15,7 +16,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="spectrogram">
+  <birdash-shell page="spectrogram" :title="t('nav_spectrogram')">
   <div class="spectro-page" style="padding:0;flex:1;display:flex;flex-direction:column;">
 
     <!-- ── Barre de contrôles ──────────────────────────────────── -->

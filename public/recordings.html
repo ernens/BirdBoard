@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Meilleurs enregistrements</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -15,7 +16,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="recordings">
+  <birdash-shell page="recordings" :title="t('nav_recordings')">
 
     <!-- ── Titre + tri global ────────────────────────────────────── -->
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -225,7 +226,7 @@
 
             <!-- Pied de carte : bouton Détails + liens externes -->
             <div class="rec-footer">
-              <a :href="'species.html?name='+encodeURIComponent(rec.Com_Name)"
+              <a :href="'species.html?species='+encodeURIComponent(rec.Com_Name)"
                  class="btn-details">
                 🔍 {{t('species_detail')}}
               </a>

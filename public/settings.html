@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Settings</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -115,7 +116,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="settings">
+  <birdash-shell page="settings" :title="t('nav_settings')">
 
     <!-- Info modal -->
     <div v-if="helpKey" class="info-overlay" @click.self="helpKey=null">
@@ -149,7 +150,7 @@
       <div v-if="activeTab==='detection'">
 
       <!-- ═══ Model Selection ═══ -->
-      <div class="card" style="margin-bottom:1.2rem;">
+      <div class="card">
         <div class="section-title">🤖 {{t('set_model')}} <button class="info-btn" @click="helpKey='model'">i</button></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.8rem;">
           <div v-for="m in models" :key="m"

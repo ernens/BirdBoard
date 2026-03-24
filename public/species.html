@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Espèces</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -16,13 +17,21 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="species">
+  <birdash-shell page="species" :title="t('nav_species')">
 
     <!-- Spinner initial -->
     <div v-if="mode==='loading'" class="spinner" style="padding:4rem;"><div></div><div></div><div></div></div>
 
     <!-- Fiche espèce -->
     <div v-if="mode==='detail' || mode==='picker'">
+
+      <!-- Back button -->
+      <div style="margin-bottom:.6rem;">
+        <a href="javascript:history.back()" style="font-size:.8rem;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;"
+           onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">
+          <span style="font-size:1rem;">←</span> {{t('nav_detections')}}
+        </a>
+      </div>
 
       <!-- ── Hero : Photo carousel + infos ──────────────────────── -->
       <div class="sp-hero">
@@ -124,7 +133,7 @@
       </div>
 
       <!-- ── Wikipedia description ──────────────────────────────── -->
-      <div v-if="wikiSummary" class="card" style="margin-bottom:1rem;">
+      <div v-if="wikiSummary" class="card">
         <div class="card-title">📖 {{t('description')}}</div>
         <p style="line-height:1.7;color:var(--text-main);margin:0;">{{wikiSummary}}</p>
         <p v-if="wikiSummaryAlt" style="line-height:1.7;color:var(--text-muted);margin:.75rem 0 0 0;font-size:.9rem;">
@@ -133,7 +142,7 @@
       </div>
 
       <!-- ── Graphiques ─────────────────────────────────────────── -->
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
         <div class="card">
           <div class="card-title">{{t('activity_by_hour')}}</div>
           <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
@@ -144,7 +153,7 @@
         </div>
       </div>
 
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
         <div class="card">
           <div class="card-title">{{t('activity_30d')}}</div>
           <div class="chart-wrap"><canvas ref="canvas30d"></canvas></div>
@@ -156,7 +165,7 @@
       </div>
 
       <!-- ── Heatmap jour/heure ─────────────────────────────────── -->
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div class="card-title">{{t('activity_by_weekday')}}</div>
         <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
       </div>
@@ -446,7 +455,7 @@ const app = createApp({
     async function loadSpeciesInfo(sciName) {
       try {
         const cachedUrl = BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sciName);
-        const res = await fetch(BIRD_CONFIG.apiUrl + '/species-info?sci=' + encodeURIComponent(sciName));
+        const res = await fetch(BIRD_CONFIG.apiUrl + '/species-info?sci=' + encodeURIComponent(sciName) + '&lang=' + lang.value);
         if (res.ok) {
           const data = await res.json();
           if (data.photos?.length) {
@@ -686,11 +695,14 @@ const app = createApp({
       }));
     });
 
-    watch(lang, () => { if (sp.value.name) loadDetail(sp.value.name); });
+    watch(lang, async () => {
+      await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      if (sp.value.name) loadDetail(sp.value.name);
+    });
 
     onMounted(async () => {
       // Pre-load taxonomy data (cached in sessionStorage)
-      BIRDASH_UTILS.loadTaxonomy();
+      BIRDASH_UTILS.loadTaxonomy(lang.value);
       // Always load species list for the inline picker
       try {
         const rows = await birdQuery(`SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC`);

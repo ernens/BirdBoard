@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Vue d'ensemble</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -16,7 +17,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="index">
+  <birdash-shell page="index" :title="t('nav_overview')">
 
     <!-- KPIs -->
     <div class="kpi-grid kpi-grid-6">
@@ -328,7 +329,7 @@ const app = createApp({
         const mm0 = String(oneHourAgo.getMinutes()).padStart(2,'0');
         const [lh] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=? AND Time>=? AND Time<=?`,[today, `${hh0}:${mm0}:00`, `${hh}:${mm}:59`]);
         // Espèces rares aujourd'hui (≤5 détections all-time)
-        const rares = await birdQuery(`SELECT COUNT(DISTINCT d.Com_Name) as n FROM detections d INNER JOIN (SELECT Com_Name FROM detections GROUP BY Com_Name HAVING COUNT(*)<=5) r ON d.Com_Name=r.Com_Name WHERE d.Date=?`,[today]);
+        const rares = await birdQuery(`WITH today_sp AS (SELECT DISTINCT Com_Name FROM detections WHERE Date=?), rare_sp AS (SELECT Com_Name FROM detections GROUP BY Com_Name HAVING COUNT(*)<=5) SELECT COUNT(*) as n FROM today_sp INNER JOIN rare_sp USING(Com_Name)`,[today]);
         kpis.value = {
           det: td?td.det.toLocaleString():'0', sp: td?td.sp:'0',
           conf: td&&td.conf?td.conf+'%':'—', total: tot?tot.n.toLocaleString():'0',

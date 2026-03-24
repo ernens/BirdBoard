@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Système</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -52,7 +53,7 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="system">
+  <birdash-shell page="system" :title="t('nav_system')">
 
     <!-- ── Tab Navigation ──────────────────────────────────────── -->
     <div class="sys-tabs">
@@ -69,7 +70,7 @@
          ════════════════════════════════════════════════════════════ -->
     <div v-if="activeTab==='health'">
 
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
 
         <!-- System Health -->
         <div class="card">
@@ -184,7 +185,7 @@
 
       </div>
 
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
 
         <!-- Analysis Status -->
         <div class="card">
@@ -246,7 +247,7 @@
 
       </div>
 
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
 
         <!-- Backup Status -->
         <div class="card">
@@ -299,7 +300,7 @@
 
       </div>
 
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
         <!-- Data Freshness -->
         <div class="card">
           <div class="card-title">{{t('data_freshness')}}</div>
@@ -386,7 +387,7 @@
     <div v-if="activeTab==='model'">
 
       <!-- Model Performance Monitor -->
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
           <div class="card-title" style="margin:0;">&#129302; {{t('mod_title')}}</div>
           <div class="fp-quick-btns">
@@ -409,7 +410,7 @@
           </div>
 
           <!-- KPIs row -->
-          <div class="kpi-grid" style="margin-bottom:1rem;">
+          <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-value">{{mod.totalDet?.toLocaleString() || '0'}}</div>
               <div class="kpi-label">{{t('mod_detections')}}</div>
@@ -475,7 +476,7 @@
       </div>
 
       <!-- Model Comparison -->
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
           <div class="card-title" style="margin:0;">&#128260; {{t('cmp_title')}}</div>
           <div style="display:flex;align-items:center;gap:.5rem;">
@@ -643,7 +644,7 @@
          ════════════════════════════════════════════════════════════ -->
     <div v-if="activeTab==='data'">
 
-      <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="grid-2">
 
         <!-- Database Status -->
         <div class="card">
@@ -700,12 +701,12 @@
 
       </div>
 
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div class="card-title">{{t('sys_activity_30d')}}</div>
         <div class="chart-wrap"><canvas ref="canvasActivity"></canvas></div>
       </div>
 
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div class="card-title">{{t('sys_hourly_distrib')}}</div>
         <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
       </div>
@@ -718,7 +719,7 @@
     <div v-if="activeTab==='external'">
 
       <!-- Local Rare Species -->
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
           <div class="card-title" style="margin:0;">&#128142; Raretés locales récentes</div>
           <span style="font-size:.72rem;color:var(--text-faint);">&#8804;5 détections total</span>
@@ -748,7 +749,7 @@
       </div>
 
       <!-- eBird Notable Observations -->
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem;">
           <div class="card-title" style="margin:0;">&#127757; eBird — Observations notables Belgique</div>
           <div style="display:flex;align-items:center;gap:.5rem;">
@@ -814,7 +815,7 @@
       </div>
 
       <!-- BirdWeather Station -->
-      <div class="card" style="margin-bottom:1rem;">
+      <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
           <div style="display:flex;align-items:center;gap:.6rem;">
             <img src="https://app.birdweather.com/favicon.ico" style="width:20px;height:20px;border-radius:4px;" alt="">
@@ -852,22 +853,22 @@
         <!-- Data -->
         <div v-else>
           <!-- KPIs BirdWeather -->
-          <div class="kpi-grid" style="margin-bottom:1rem;">
+          <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-value">{{bw.stats.detections?.toLocaleString() || '—'}}</div>
-              <div class="kpi-label">Détections</div>
+              <div class="kpi-label">{{t('detections')}}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-value amber">{{bw.stats.species_count || '—'}}</div>
-              <div class="kpi-label">Espèces</div>
+              <div class="kpi-label">{{t('species')}}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-value blue">{{bw.species.length || '—'}}</div>
-              <div class="kpi-label">Top espèces</div>
+              <div class="kpi-label">{{t('top_species')}}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-value" style="font-size:.85rem;">{{bw.stats.top_species?.commonName || '—'}}</div>
-              <div class="kpi-label">Espèce dominante</div>
+              <div class="kpi-label">{{t('top_species')}} #1</div>
             </div>
           </div>
 
