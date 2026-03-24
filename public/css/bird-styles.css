@@ -237,28 +237,42 @@ a:hover { opacity: .85; }
 }
 
 .brand-model {
-  font-size:     .7rem;
-  font-weight:   600;
-  letter-spacing:.03em;
-  color:         var(--accent);
-  background:    color-mix(in srgb, var(--accent) 12%, transparent);
-  padding:       .25rem .6rem;
-  border-radius: .35rem;
-  white-space:   nowrap;
+  font-size:      .7rem;
+  font-weight:    600;
+  letter-spacing: .03em;
+  color:          var(--accent);
+  background:     color-mix(in srgb, var(--accent) 12%, transparent);
+  padding:        .25rem .6rem;
+  border-radius:  .35rem;
+  white-space:    nowrap;
+  text-decoration:none;
+  cursor:         pointer;
+  transition:     all .15s;
+}
+.brand-model:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color:      var(--accent);
 }
 
 .header-right {
   display:     flex;
   align-items: center;
-  gap:         1rem;
+  gap:         .75rem;
 }
 
-/* ── Sélecteur de langue (dropdown moderne) ─────────────────────────────── */
-.lang-dropdown {
+.header-dropdowns {
+  display:     flex;
+  flex-direction: column;
+  gap:         .25rem;
+  align-items: flex-end;
+}
+
+/* ── Unified dropdown style (theme + lang) ─────────────────────────────── */
+.hdr-dropdown {
   position: relative;
 }
 
-.lang-toggle {
+.hdr-toggle {
   display:        flex;
   align-items:    center;
   gap:            .35rem;
@@ -266,56 +280,48 @@ a:hover { opacity: .85; }
   border:         1px solid var(--border);
   color:          var(--text-main);
   border-radius:  20px;
-  font-size:      .78rem;
+  font-size:      .75rem;
   font-family:    var(--font-body);
-  padding:        .3rem .65rem .3rem .5rem;
+  padding:        .22rem .55rem .22rem .4rem;
   cursor:         pointer;
   transition:     all .15s;
   font-weight:    500;
 }
-
-.lang-toggle:hover {
-  border-color: var(--accent);
-}
-
-.lang-dropdown.open .lang-toggle {
+.hdr-toggle:hover { border-color: var(--accent); }
+.hdr-dropdown.open .hdr-toggle {
   border-color: var(--accent);
   box-shadow:   0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-.lang-flag { font-size: 1rem; line-height: 1; }
-.lang-code { letter-spacing: .03em; }
+.lang-flag { font-size: .9rem; line-height: 1; }
+.hdr-label { letter-spacing: .03em; }
 
-.lang-chevron {
+.hdr-chevron {
   transition: transform .2s;
   color: var(--text-muted);
   flex-shrink: 0;
 }
+.hdr-dropdown.open .hdr-chevron { transform: rotate(180deg); }
 
-.lang-dropdown.open .lang-chevron {
-  transform: rotate(180deg);
-}
-
-.lang-menu {
+.hdr-menu {
   position:       absolute;
-  top:            calc(100% + 6px);
+  top:            calc(100% + 4px);
   right:          0;
-  min-width:      160px;
+  min-width:      150px;
   background:     var(--bg-card);
   border:         1px solid var(--border);
   border-radius:  var(--radius);
   box-shadow:     0 8px 24px rgba(0,0,0,.18);
   z-index:        100;
   padding:        .3rem;
-  animation:      langMenuIn .15s ease-out;
+  animation:      hdrMenuIn .15s ease-out;
 }
-
-@keyframes langMenuIn {
+@keyframes hdrMenuIn {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.lang-option {
+.hdr-option {
   display:        flex;
   align-items:    center;
   gap:            .5rem;
@@ -323,68 +329,31 @@ a:hover { opacity: .85; }
   background:     transparent;
   border:         none;
   color:          var(--text-main);
-  font-size:      .82rem;
+  font-size:      .8rem;
   font-family:    var(--font-body);
-  padding:        .45rem .6rem;
+  padding:        .4rem .55rem;
   cursor:         pointer;
   border-radius:  calc(var(--radius) - 2px);
   transition:     background .1s;
 }
+.hdr-option:hover { background: var(--bg-card2); }
+.hdr-option.active { color: var(--accent); font-weight: 600; }
+.hdr-option-label { flex: 1; text-align: left; }
+.hdr-check { font-size: .75rem; color: var(--accent); font-weight: 700; }
 
-.lang-option:hover {
-  background: var(--bg-card2);
-}
-
-.lang-option.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.lang-label { flex: 1; text-align: left; }
-
-.lang-check {
-  font-size: .75rem;
-  color: var(--accent);
-  font-weight: 700;
-}
-
-/* ── Sélecteur de thème ──────────────────────────────────────────────────── */
-#theme-switcher {
-  display:     flex;
-  align-items: center;
-  gap:         .35rem;
-}
-
-.theme-btn {
-  width:         20px;
-  height:        20px;
+/* ── Theme dot (color indicator) ─────────────────────────────────────────── */
+.theme-dot {
+  display:       inline-block;
+  width:         14px;
+  height:        14px;
   border-radius: 50%;
-  border:        2px solid transparent;
-  cursor:        pointer;
-  transition:    all .15s;
-  padding:       0;
-  background:    none;
-  position:      relative;
+  flex-shrink:   0;
 }
-
-.theme-btn::after {
-  content:       '';
-  position:      absolute;
-  inset:         2px;
-  border-radius: 50%;
-}
-
-.theme-btn[data-t="forest"]::after { background: linear-gradient(135deg, #34d399, #0f1418); }
-.theme-btn[data-t="night"]::after  { background: linear-gradient(135deg, #a78bfa, #0e1018); }
-.theme-btn[data-t="paper"]::after  { background: linear-gradient(135deg, #0d9488, #faf8f4); }
-.theme-btn[data-t="ocean"]::after  { background: linear-gradient(135deg, #22d3ee, #0a1220); }
-.theme-btn[data-t="dusk"]::after   { background: linear-gradient(135deg, #f472b6, #161218); }
-
-.theme-btn:hover,
-.theme-btn.active {
-  border-color: var(--accent);
-  transform:    scale(1.15);
-}
+.theme-dot[data-t="forest"] { background: linear-gradient(135deg, #34d399, #0f1418); }
+.theme-dot[data-t="night"]  { background: linear-gradient(135deg, #a78bfa, #0e1018); }
+.theme-dot[data-t="paper"]  { background: linear-gradient(135deg, #0d9488, #faf8f4); }
+.theme-dot[data-t="ocean"]  { background: linear-gradient(135deg, #22d3ee, #0a1220); }
+.theme-dot[data-t="dusk"]   { background: linear-gradient(135deg, #f472b6, #161218); }
 
 /* ── Navigation ──────────────────────────────────────────────────────────── */
 .app-nav {
@@ -902,4 +871,6 @@ a:hover { opacity: .85; }
   .nav-label { display: none; }
   .nav-link  { padding: .55rem .5rem; }
   .kpi-grid  { grid-template-columns: repeat(2, 1fr); }
+  .hdr-label { display: none; }
+  .header-dropdowns { flex-direction: row; gap: .3rem; }
 }

@@ -1235,14 +1235,16 @@
       const { theme, themes, setTheme } = useTheme();
       const { navItems, siteName }      = useNav(props.page);
       const langOpen = ref(false);
+      const themeOpen = ref(false);
       const currentLang = computed(() => langs.find(l => l.code === lang.value) || langs[0]);
+      const currentTheme = computed(() => themes.find(th => th.id === theme.value) || themes[0]);
       const modelName = ref('');
       // Fetch active model from settings (non-blocking)
       fetch(`${BIRD_CONFIG.apiUrl}/settings`).then(r => r.json()).then(conf => {
         const raw = conf.MODEL || '';
         modelName.value = MODEL_LABELS[raw] || raw.replace(/_/g, ' ');
       }).catch(() => {});
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, siteName, langOpen, currentLang, modelName };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName };
     },
     directives: {
       'click-outside': {
@@ -1265,27 +1267,39 @@
       </div>
     </div>
     <div class="header-right">
-      <span class="brand-model" v-if="modelName">{{modelName}}</span>
-      <div class="theme-switcher-wrap">
-        <button v-for="th in themes" :key="th.id" class="theme-btn"
-                :class="{active:theme===th.id}" :data-t="th.id" :title="th.label"
-                :aria-label="th.label" @click="setTheme(th.id)"></button>
-      </div>
-      <div class="lang-dropdown" :class="{open:langOpen}" v-click-outside="()=>langOpen=false">
-        <button class="lang-toggle" @click="langOpen=!langOpen" :aria-expanded="langOpen" aria-haspopup="listbox">
-          <span class="lang-flag">{{currentLang.flag}}</span>
-          <span class="lang-code">{{lang.toUpperCase()}}</span>
-          <svg class="lang-chevron" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-        </button>
-        <div class="lang-menu" role="listbox" v-show="langOpen">
-          <button v-for="l in langs" :key="l.code" class="lang-option"
-                  :class="{active:lang===l.code}" role="option"
-                  :aria-selected="lang===l.code"
-                  @click="setLang(l.code);langOpen=false">
-            <span class="lang-flag">{{l.flag}}</span>
-            <span class="lang-label">{{l.label}}</span>
-            <span class="lang-check" v-if="lang===l.code">✓</span>
+      <a v-if="modelName" class="brand-model" href="settings.html#detection" title="Detection settings">{{modelName}}</a>
+      <div class="header-dropdowns">
+        <div class="hdr-dropdown" :class="{open:themeOpen}" v-click-outside="()=>themeOpen=false">
+          <button class="hdr-toggle" @click="themeOpen=!themeOpen" :aria-expanded="themeOpen">
+            <span class="theme-dot" :data-t="theme"></span>
+            <span class="hdr-label">{{currentTheme.label}}</span>
+            <svg class="hdr-chevron" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
           </button>
+          <div class="hdr-menu" v-show="themeOpen">
+            <button v-for="th in themes" :key="th.id" class="hdr-option"
+                    :class="{active:theme===th.id}"
+                    @click="setTheme(th.id);themeOpen=false">
+              <span class="theme-dot" :data-t="th.id"></span>
+              <span class="hdr-option-label">{{th.label}}</span>
+              <span class="hdr-check" v-if="theme===th.id">✓</span>
+            </button>
+          </div>
+        </div>
+        <div class="hdr-dropdown" :class="{open:langOpen}" v-click-outside="()=>langOpen=false">
+          <button class="hdr-toggle" @click="langOpen=!langOpen" :aria-expanded="langOpen">
+            <span class="lang-flag">{{currentLang.flag}}</span>
+            <span class="hdr-label">{{lang.toUpperCase()}}</span>
+            <svg class="hdr-chevron" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div class="hdr-menu" v-show="langOpen">
+            <button v-for="l in langs" :key="l.code" class="hdr-option"
+                    :class="{active:lang===l.code}"
+                    @click="setLang(l.code);langOpen=false">
+              <span class="lang-flag">{{l.flag}}</span>
+              <span class="hdr-option-label">{{l.label}}</span>
+              <span class="hdr-check" v-if="lang===l.code">✓</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
