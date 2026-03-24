@@ -126,16 +126,31 @@
 
   // ── Species image ────────────────────────────────────────────────────────
 
-  async function fetchSpeciesImage(sciName) {
+  async function fetchSpeciesImage(sciName, lang) {
     if (!sciName) return null;
+    var wikiLang = (lang && lang !== 'en') ? lang : 'en';
     var title = sciName.replace(/ /g, '_');
     try {
+      // Try user's language first
       var res = await fetch(
-        'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title)
+        'https://' + wikiLang + '.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title)
       );
-      if (!res.ok) return null;
-      var data = await res.json();
-      return (data.thumbnail && data.thumbnail.source) || null;
+      if (res.ok) {
+        var data = await res.json();
+        if (data.thumbnail && data.thumbnail.source) return data.thumbnail.source.replace(/\/(\d+)px-/, '/150px-');
+      }
+      // Fallback to English if no image in user's language
+      if (wikiLang !== 'en') {
+        var res2 = await fetch(
+          'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title)
+        );
+        if (res2.ok) {
+          var data2 = await res2.json();
+          var u = (data2.thumbnail && data2.thumbnail.source) || null;
+          return u ? u.replace(/\/(\d+)px-/, '/150px-') : null;
+        }
+      }
+      return null;
     } catch(e) { return null; }
   }
 
@@ -184,8 +199,8 @@
             }
           }
           if (taxon && taxon.default_photo) {
-            url = taxon.default_photo.medium_url
-               || taxon.default_photo.square_url
+            url = taxon.default_photo.square_url
+               || taxon.default_photo.medium_url
                || taxon.default_photo.url
                || null;
           }
@@ -203,6 +218,8 @@
         if (res3.ok) {
           var wData = await res3.json();
           url = (wData.thumbnail && wData.thumbnail.source) || null;
+          // Reduce Wikipedia thumbnail to 150px for performance
+          if (url) url = url.replace(/\/(\d+)px-/, '/150px-');
         }
       } catch(e) {}
     }
@@ -269,21 +286,37 @@
 
   // ── Taxonomy helper (shared across all pages) ──────────────────────────
   let _taxonomyCache = null;
+  let _taxonomyCacheLang = null;
 
-  async function loadTaxonomy() {
-    if (_taxonomyCache) return _taxonomyCache;
-    // Try sessionStorage
+  const _TAXONOMY_CACHE_VER = 2; // Bump to invalidate sessionStorage
+
+  async function loadTaxonomy(lang) {
+    lang = lang || '';
+    if (_taxonomyCache && _taxonomyCacheLang === lang) return _taxonomyCache;
+    // Clean up legacy/stale cache keys
     try {
-      const cached = sessionStorage.getItem('birdash-taxonomy');
-      if (cached) { _taxonomyCache = JSON.parse(cached); return _taxonomyCache; }
+      sessionStorage.removeItem('birdash-taxonomy');
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith('birdash-taxonomy-') && !k.endsWith('-v' + _TAXONOMY_CACHE_VER))
+          sessionStorage.removeItem(k);
+      }
+    } catch(e) {}
+    // Try sessionStorage (keyed by lang + version)
+    const cacheKey = `birdash-taxonomy-${lang || 'en'}-v${_TAXONOMY_CACHE_VER}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) { _taxonomyCache = JSON.parse(cached); _taxonomyCacheLang = lang; return _taxonomyCache; }
     } catch(e) {}
     // Fetch from API
     try {
-      const res = await fetch(`${BIRD_CONFIG.apiUrl}/taxonomy`);
+      const langParam = lang ? `?lang=${lang}` : '';
+      const res = await fetch(`${BIRD_CONFIG.apiUrl}/taxonomy${langParam}`);
       const data = await res.json();
       if (data.species) {
         _taxonomyCache = data;
-        try { sessionStorage.setItem('birdash-taxonomy', JSON.stringify(data)); } catch(e) {}
+        _taxonomyCacheLang = lang;
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch(e) {}
         return data;
       }
     } catch(e) { console.warn('Could not load taxonomy:', e); }

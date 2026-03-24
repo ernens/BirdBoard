@@ -347,6 +347,12 @@ try {
   )`);
   taxonomyDb.exec(`CREATE INDEX IF NOT EXISTS idx_tax_order ON species_taxonomy(order_name)`);
   taxonomyDb.exec(`CREATE INDEX IF NOT EXISTS idx_tax_family ON species_taxonomy(family_sci)`);
+  taxonomyDb.exec(`CREATE TABLE IF NOT EXISTS family_translations (
+    family_sci  TEXT NOT NULL,
+    locale      TEXT NOT NULL,
+    family_com  TEXT,
+    PRIMARY KEY (family_sci, locale)
+  )`);
   console.log('[BIRDASH] taxonomy.db ouvert');
 } catch(e) {
   console.error('[BIRDASH] taxonomy.db error:', e.message);
@@ -357,7 +363,11 @@ try {
 async function refreshTaxonomy() {
   if (!taxonomyDb) return;
   const count = taxonomyDb.prepare('SELECT COUNT(*) as n FROM species_taxonomy').get().n;
-  if (count > 1000) { console.log(`[BIRDASH] Taxonomy already populated (${count} species)`); return; }
+  if (count > 1000) {
+    console.log(`[BIRDASH] Taxonomy already populated (${count} species)`);
+    console.log(`[BIRDASH] Family translations: ${taxonomyDb.prepare('SELECT COUNT(*) as n FROM family_translations').get().n} entries`);
+    return;
+  }
 
   console.log('[BIRDASH] Downloading eBird taxonomy...');
   let csvData;
@@ -444,6 +454,8 @@ async function refreshTaxonomy() {
   }
 
   console.log(`[BIRDASH] Taxonomy populated: ${rows.length} species`);
+
+  console.log(`[BIRDASH] Family translations: ${taxonomyDb.prepare('SELECT COUNT(*) as n FROM family_translations').get().n} entries`);
 }
 
 // Populate taxonomy in background after startup
@@ -664,7 +676,9 @@ const server = http.createServer((req, res) => {
   // ── Route : GET /api/species-info?sci=Pica+pica ───────────────────────────
   // Returns multiple photos + Wikipedia summary for species detail page
   if (req.method === 'GET' && pathname === '/api/species-info') {
-    const sciName = new URL(req.url, 'http://localhost').searchParams.get('sci');
+    const spParams = new URL(req.url, 'http://localhost').searchParams;
+    const sciName = spParams.get('sci');
+    const infoLang = spParams.get('lang') || 'fr';
     if (!sciName || !/^[a-zA-Z ]+$/.test(sciName)) {
       res.writeHead(400); res.end(JSON.stringify({ error: 'sci param required' })); return;
     }
@@ -734,12 +748,14 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        // 3. French Wikipedia — description FR + extract habitat/diet info
-        const wikiFr = await fetchJson(
-          `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`
-        );
-        if (wikiFr?.extract) {
-          result.summaryFr = wikiFr.extract;
+        // 3. Localized Wikipedia — description in user's language
+        if (infoLang !== 'en') {
+          const wikiLocal = await fetchJson(
+            `https://${infoLang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`
+          );
+          if (wikiLocal?.extract) {
+            result.summaryFr = wikiLocal.extract;
+          }
         }
 
         // 4. Try Wikidata for structured data (size, wingspan, habitat, diet)
@@ -1823,18 +1839,29 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: 'Taxonomy database not available' }));
           return;
         }
+        const params = new URL(req.url, 'http://x').searchParams;
+        const lang = params.get('lang') || '';
+
+        // Build a family_sci → localized family_com map if lang is provided
+        const famTr = {};
+        if (lang && lang !== 'en') {
+          const trRows = taxonomyDb.prepare('SELECT family_sci, family_com FROM family_translations WHERE locale = ?').all(lang);
+          for (const r of trRows) famTr[r.family_sci] = r.family_com;
+        }
+
         // Get all detected species
         const detected = db.prepare('SELECT DISTINCT Sci_Name, Com_Name FROM detections ORDER BY Sci_Name').all();
         // Lookup taxonomy for each
         const lookup = taxonomyDb.prepare('SELECT * FROM species_taxonomy WHERE sci_name = ?');
         const result = detected.map(d => {
           const tax = lookup.get(d.Sci_Name);
+          const familyCom = tax ? (famTr[tax.family_sci] || tax.family_com) : null;
           return {
             sciName: d.Sci_Name,
             comName: d.Com_Name,
             order: tax ? tax.order_name : null,
             familySci: tax ? tax.family_sci : null,
-            familyCom: tax ? tax.family_com : null,
+            familyCom,
             ebirdCode: tax ? tax.ebird_code : null,
             taxonOrder: tax ? tax.taxon_order : null,
           };
@@ -1871,6 +1898,14 @@ const server = http.createServer((req, res) => {
         const params = new URL(req.url, 'http://x').searchParams;
         const dateFrom = params.get('from') || '';
         const dateTo = params.get('to') || '';
+        const lang = params.get('lang') || '';
+
+        // Build a family_sci → localized family_com map if lang is provided
+        const famTr = {};
+        if (lang && lang !== 'en') {
+          const trRows = taxonomyDb.prepare('SELECT family_sci, family_com FROM family_translations WHERE locale = ?').all(lang);
+          for (const r of trRows) famTr[r.family_sci] = r.family_com;
+        }
 
         let whereClause = '';
         const args = [];
@@ -1890,7 +1925,7 @@ const server = http.createServer((req, res) => {
           const tax = lookup.get(r.Sci_Name);
           const order = tax ? tax.order_name : 'Unknown';
           const family = tax ? tax.family_sci : 'Unknown';
-          const familyCom = tax ? tax.family_com : 'Unknown';
+          const familyCom = tax ? (famTr[tax.family_sci] || tax.family_com) : 'Unknown';
           if (!byOrder[order]) byOrder[order] = { count: 0, species: 0, families: {} };
           byOrder[order].count += r.count;
           byOrder[order].species++;
