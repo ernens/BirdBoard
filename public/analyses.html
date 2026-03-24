@@ -212,7 +212,14 @@
               <tbody>
                 <tr v-for="(sp,i) in breakdown" :key="sp.name" style="border-bottom:1px solid var(--border-faint);">
                   <td style="padding:.35rem .5rem;color:var(--text-faint);">{{i+1}}</td>
-                  <td style="padding:.35rem .5rem;">{{spName(sp.name, sp.sci)}}</td>
+                  <td style="padding:.35rem .5rem;">
+                    <div style="display:flex;align-items:center;gap:.45rem;">
+                      <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                        <bird-img :src="photoUrl(sp.sci)" :alt="sp.name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                      </div>
+                      <span>{{spName(sp.name, sp.sci)}}</span>
+                    </div>
+                  </td>
                   <td style="padding:.35rem .5rem;font-size:.72rem;color:var(--text-muted);">{{sp.familyCom}}</td>
                   <td style="text-align:right;padding:.35rem .5rem;font-variant-numeric:tabular-nums;">{{sp.count.toLocaleString()}}</td>
                   <td style="text-align:right;padding:.35rem .5rem;">
@@ -425,6 +432,7 @@ const app = createApp({
     function sqlInClause(arr) {
       return arr.map(() => '?').join(',');
     }
+    function photoUrl(sci) { return sci ? BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sci) : ''; }
     function zeroPad(n) { return n < 10 ? '0' + n : '' + n; }
     function fmtTimeFull(t) { return t ? t.substring(0, 5) : '—'; }
     function toggleAudioFile(fileName) {
@@ -931,7 +939,7 @@ const app = createApp({
       loading, kpis, breakdown, narrativeHtml, narrativeLoading, heatmapHtml, heatmapLoading,
       thumbUrl, elPolar, elSeries, polarDetail,
       speciesLabel, polarTitle, seriesTitle, heatmapTitle,
-      playingFile, fmtTime, zeroPad, fmtTimeFull, toggleAudioFile,
+      playingFile, fmtTime, zeroPad, fmtTimeFull, toggleAudioFile, photoUrl,
       setRange, setAll, applyFilters, toggleSpecies, removeTag, selectTopN, selectAllFiltered, clearSelection, exportCsv,
     };
   }
