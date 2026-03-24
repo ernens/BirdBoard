@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>BIRDASH — Détections</title>
   <link rel="stylesheet" href="css/bird-styles.css">
   <link rel="stylesheet" href="css/bird-pages.css">
@@ -15,16 +16,30 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="detections">
+  <birdash-shell page="detections" :title="t('nav_detections')">
     <div class="det-layout">
 
       <!-- Panneau filtres -->
       <div class="filter-panel">
+        <!-- Taxonomy cascade first -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_order')}}</span>
+          <select class="fp-select" v-model="fOrder" @change="onOrderChange" :aria-label="t('filter_order')">
+            <option value="">{{t('all_orders')}}</option>
+            <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
+          </select>
+        </div>
+        <div v-if="taxonomyAllFamilies.length">
+          <span class="fp-label">{{t('filter_family')}}</span>
+          <select class="fp-select" v-model="fFamily" @change="onFamilyChange" :aria-label="t('filter_family')">
+            <option value="">{{t('all_families')}}</option>
+            <option v-for="f in taxonomyAllFamilies" :key="f.sci" :value="f.sci">{{f.com}}</option>
+          </select>
+        </div>
+        <!-- Species picker filtered by taxonomy -->
         <div>
           <span class="fp-label">{{t('filter_species')}}</span>
-          <!-- Multi-select avec recherche -->
           <div class="ms-wrap" v-click-outside="closeSpDropdown">
-            <!-- Trigger -->
             <div class="ms-trigger" :class="{open:spDropdownOpen}"
                  @click="spDropdownOpen=!spDropdownOpen">
               <span v-if="!fSpecies.length" class="ms-placeholder">{{t('all_species_placeholder')}}</span>
@@ -34,18 +49,17 @@
               </span>
               <span class="ms-caret">{{spDropdownOpen?'▲':'▼'}}</span>
             </div>
-            <!-- Dropdown -->
             <div v-if="spDropdownOpen" class="ms-dropdown">
               <div class="ms-search-wrap">
-                <input class="ms-search" type="search"
-                       placeholder="🔍 Rechercher…"
+                <input ref="spSearchInput" class="ms-search" type="search"
+                       placeholder="🔍 Rechercher… (appuyez /)"
                        v-model="spSearch" @click.stop>
               </div>
               <div class="ms-actions">
                 <button class="ms-action-btn" @click.stop="fSpecies=[]">{{t('clear_all')}}</button>
                 <button class="ms-action-btn"
                         @click.stop="fSpecies=filteredSpeciesList.map(s=>s)">
-                  {{t('select_all')}}
+                  {{t('select_all')}} ({{filteredSpeciesList.length}})
                 </button>
               </div>
               <div class="ms-list">
@@ -59,24 +73,10 @@
             </div>
           </div>
         </div>
-        <div v-if="taxonomyOrders.length">
-          <span class="fp-label">{{t('filter_order')}}</span>
-          <select class="fp-select" v-model="fOrder" @change="onOrderChange">
-            <option value="">{{t('all_orders')}}</option>
-            <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
-          </select>
-        </div>
-        <div v-if="taxonomyAllFamilies.length">
-          <span class="fp-label">{{t('filter_family')}}</span>
-          <select class="fp-select" v-model="fFamily">
-            <option value="">{{t('all_families')}}</option>
-            <option v-for="f in taxonomyAllFamilies" :key="f.sci" :value="f.sci">{{f.com}} ({{f.sci}})</option>
-          </select>
-        </div>
         <div>
           <span class="fp-label">{{t('date_range')}}</span>
-          <input type="date" class="fp-date-input" v-model="fDateFrom">
-          <input type="date" class="fp-date-input" v-model="fDateTo" style="margin-bottom:.45rem;">
+          <input type="date" class="fp-date-input" v-model="fDateFrom" :aria-label="t('filter_date_from')">
+          <input type="date" class="fp-date-input" v-model="fDateTo" style="margin-bottom:.45rem;" :aria-label="t('filter_date_to')">
           <div class="fp-quick-btns">
             <button v-for="(q,idx) in quickDates" :key="idx" class="fp-quick-btn"
                     :class="{active:activeQuick===idx}" @click="applyQuick(q,idx)">{{q.label}}</button>
@@ -101,7 +101,7 @@
                           padding:.1rem .3rem;text-align:right;"
                    ref="confInput">
           </div>
-          <input type="range" min="0" max="1" step="0.01" v-model.number="fConf"
+          <input type="range" min="0" max="1" step="0.01" v-model.number="fConf" :aria-label="t('filter_confidence')"
                  :style="'background:linear-gradient(to right,var(--accent) '+fConf*100+'%,var(--bg-deep) '+fConf*100+'%)'">
           <div class="fp-slider-marks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
         </div>
@@ -126,12 +126,16 @@
             {{displayTotal.toLocaleString()}} {{t('results')}}
             <span v-if="uniqueMode" style="font-size:.72rem;color:var(--accent);margin-left:.4rem;">✦ Unique</span>
           </span>
-          <span v-if="!uniqueMode">{{t('page')}} {{page}} {{t('of')}} {{totalPages}}</span>
+          <span style="display:flex;align-items:center;gap:.6rem;">
+            <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;">⬇ CSV</button>
+            <span v-if="!uniqueMode">{{t('page')}} {{page}} {{t('of')}} {{totalPages}}</span>
+          </span>
         </div>
         <div class="card" style="padding:0;overflow:hidden;">
           <div v-if="loading" class="spinner" style="padding:3rem;"><div></div><div></div><div></div></div>
           <div v-else-if="!displayRows.length" class="error-msg" style="padding:2rem;">{{t('no_data')}}</div>
-          <table v-else class="bird-table">
+          <div v-else class="det-table-wrap">
+          <table class="bird-table">
             <thead><tr>
               <th style="width:44px;"></th>
               <th style="width:36px;"></th>
@@ -179,6 +183,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
         <div class="pagination" v-if="!uniqueMode && totalPages>1">
           <button class="btn btn-secondary" :disabled="page<=1" @click="goPage(page-1)">{{t('prev_page')}}</button>
@@ -194,7 +199,7 @@
 </div>
 
 <script>
-const { createApp, ref, computed, watch, onMounted } = Vue;
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf,
         localDateStr, daysAgo, getUrlParam, navigateTo,
@@ -247,13 +252,24 @@ const app = createApp({
       return Object.values(map).sort((a, b) => a.com.localeCompare(b.com));
     });
     function onOrderChange() { fFamily.value = ''; }
+    function onFamilyChange() {}
 
-    // Get species names matching current order/family filter
+    // Set of species allowed by taxonomy filters
+    const taxonomyAllowed = computed(() => {
+      if (!fOrder.value && !fFamily.value) return null;
+      const set = new Set();
+      for (const s of taxonomyData.value) {
+        if (fOrder.value && s.order !== fOrder.value) continue;
+        if (fFamily.value && s.familySci !== fFamily.value) continue;
+        set.add(s.comName);
+      }
+      return set;
+    });
+
+    // Get species names matching current order/family filter (for SQL query)
     function taxonomyFilteredSpecies() {
-      if (!fOrder.value && !fFamily.value) return null; // no filter
-      return taxonomyData.value
-        .filter(s => (!fOrder.value || s.order === fOrder.value) && (!fFamily.value || s.familySci === fFamily.value))
-        .map(s => s.comName);
+      if (!taxonomyAllowed.value) return null;
+      return [...taxonomyAllowed.value];
     }
 
     // Édition directe de la valeur de confiance
@@ -279,9 +295,14 @@ const app = createApp({
     function removeSpecies(s) { fSpecies.value = fSpecies.value.filter(x => x !== s); }
 
     const filteredSpeciesList = computed(() => {
+      let list = speciesList.value;
+      // Apply taxonomy filter
+      const allowed = taxonomyAllowed.value;
+      if (allowed) list = list.filter(s => allowed.has(s));
+      // Apply text search
       const q = spSearch.value.toLowerCase();
-      if (!q) return speciesList.value;
-      return speciesList.value.filter(s => s.toLowerCase().includes(q));
+      if (q) list = list.filter(s => s.toLowerCase().includes(q));
+      return list;
     });
 
     const quickDates = computed(() => [
@@ -426,6 +447,35 @@ const app = createApp({
       }
     }
 
+    async function exportCsv() {
+      try {
+        const { where, params } = buildWhere();
+        const data = await birdQuery(
+          `SELECT Date, Time, Com_Name, Sci_Name, ROUND(Confidence*100,1) as Confidence FROM detections WHERE ${where} ORDER BY Date DESC, Time DESC LIMIT 10000`,
+          params
+        );
+        if (!data.length) return;
+        const headers = ['Date','Time','Species','Scientific_Name','Confidence'];
+        const csvRows = [headers.join(',')];
+        for (const r of data) {
+          csvRows.push([
+            r.Date,
+            r.Time,
+            '"' + (r.Com_Name || '').replace(/"/g, '""') + '"',
+            '"' + (r.Sci_Name || '').replace(/"/g, '""') + '"',
+            r.Confidence + '%'
+          ].join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'birdash-detections-' + localDateStr() + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { console.error('[export]', e); }
+    }
+
     function applyFilters() { page.value=1; loadDetections(); }
     function resetFilters() {
       fSpecies.value=[]; fDateFrom.value=daysAgo(BIRD_CONFIG.recentDays);
@@ -437,9 +487,23 @@ const app = createApp({
     function goPage(p) { page.value=p; window.scrollTo(0,0); loadDetections(); }
 
     watch(uniqueMode, () => { page.value=1; loadDetections(); });
-    watch(lang, () => loadDetections());
+    watch(lang, async () => {
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      taxonomyData.value = tax.species || [];
+      loadDetections();
+    });
+
+    const spSearchInput = ref(null);
+    function onKeydown(e) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        spDropdownOpen.value = true;
+        nextTick(() => { if (spSearchInput.value) spSearchInput.value.focus(); });
+      }
+    }
 
     onMounted(async () => {
+      document.addEventListener('keydown', onKeydown);
       const sp=getUrlParam('species'), dt=getUrlParam('date');
       const orderParam=getUrlParam('order'), familyParam=getUrlParam('family');
       // Navigation depuis une autre page → pré-sélectionner l'espèce
@@ -449,15 +513,17 @@ const app = createApp({
       if (familyParam) fFamily.value=decodeURIComponent(familyParam);
       await loadSpecies();
       // Load taxonomy data (cached in sessionStorage)
-      const tax = await BIRDASH_UTILS.loadTaxonomy();
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
       taxonomyData.value = tax.species || [];
       await loadDetections();
     });
 
+    onUnmounted(() => { document.removeEventListener('keydown', onKeydown); });
+
     return {
       lang,t,
       fSpecies,fDateFrom,fDateTo,fConf,uniqueMode,
-      fOrder,fFamily,taxonomyOrders,taxonomyAllFamilies,onOrderChange,
+      fOrder,fFamily,taxonomyOrders,taxonomyAllFamilies,onOrderChange,onFamilyChange,spSearchInput,
       activeQuick,quickDates,applyQuick,speciesList,
       spSearch,spDropdownOpen,filteredSpeciesList,
       closeSpDropdown,removeSpecies,
@@ -466,7 +532,7 @@ const app = createApp({
       displayRows,displayTotal,
       playingFile,toggleAudio, buildAudioUrl,
       fmtDate,fmtTime,fmtConf,navigateTo,spName,shortModel,
-      applyFilters,resetFilters,goPage,
+      applyFilters,resetFilters,goPage,exportCsv,
     };
   }
 });
