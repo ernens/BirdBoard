@@ -322,7 +322,7 @@
           </div>
         </div>
 
-        <!-- ═══ Notifications ═══ -->
+        <!-- ═══ Notifications — configuration du canal ═══ -->
         <div class="card">
           <div class="section-title">🔔 {{t('set_notifications')}}</div>
 
@@ -355,34 +355,6 @@
 
           <hr style="border:none;border-top:1px solid var(--border);margin:.8rem 0;">
 
-          <!-- Notification triggers -->
-          <div class="set-row">
-            <label class="set-check">
-              <input type="checkbox" v-model="conf.APPRISE_NOTIFY_EACH_DETECTION" true-value="1" false-value="0">
-              <span>{{t('set_notify_each')}}</span>
-            </label>
-          </div>
-          <div class="set-row">
-            <label class="set-check">
-              <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES" true-value="1" false-value="0">
-              <span>{{t('set_notify_new_species')}}</span>
-            </label>
-          </div>
-          <div class="set-row">
-            <label class="set-check">
-              <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY" true-value="1" false-value="0">
-              <span>{{t('set_notify_new_daily')}}</span>
-            </label>
-          </div>
-          <div class="set-row">
-            <label class="set-check">
-              <input type="checkbox" v-model="conf.APPRISE_WEEKLY_REPORT" true-value="1" false-value="0">
-              <span>{{t('set_weekly_report')}}</span>
-            </label>
-          </div>
-
-          <hr style="border:none;border-top:1px solid var(--border);margin:.8rem 0;">
-
           <!-- Title & Body templates -->
           <div class="set-row" style="flex-direction:column;align-items:stretch;">
             <label class="set-label" style="margin-bottom:.2rem;">{{t('set_notif_title')}}</label>
@@ -398,8 +370,6 @@
               {{t('set_notif_body_help')}}
             </div>
           </div>
-
-          <!-- Cooldown -->
           <div class="set-row" style="margin-top:.5rem;">
             <label class="set-label" style="flex:1;">{{t('set_notif_cooldown')}}</label>
             <input type="number" v-model="conf.APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES" min="0" max="86400" step="1"
@@ -409,55 +379,88 @@
 
       </div><!-- /settings-grid (system) -->
 
-        <!-- ═══ System Alerts ═══ -->
+        <!-- ═══ Notifications — choix des événements ═══ -->
         <div class="card">
-          <div class="section-title">🚨 {{t('set_alerts_title')}}</div>
-          <p style="font-size:.75rem;color:var(--text-muted);margin:0 0 .6rem 0;">{{t('set_alerts_desc')}}</p>
-          <div class="settings-grid" style="gap:.5rem .8rem;">
-            <div class="set-row">
-              <label class="set-label" style="flex:1;">🌡️ {{t('set_alert_temp_warn')}}</label>
-              <input type="number" v-model.number="alertThresholds.temp_warn" min="40" max="90" step="1"
-                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
-              <span style="font-size:.75rem;color:var(--text-faint);">°C</span>
+          <div class="section-title">📋 {{t('set_notif_events_title')}}</div>
+          <p style="font-size:.75rem;color:var(--text-muted);margin:0 0 .8rem 0;">{{t('set_notif_events_desc')}}</p>
+
+          <!-- Détections d'espèces -->
+          <div style="margin-bottom:.8rem;">
+            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.4rem;padding-bottom:.25rem;border-bottom:1px solid var(--border);">
+              🐦 {{t('set_notif_cat_birds')}}
             </div>
-            <div class="set-row">
-              <label class="set-label" style="flex:1;">🔥 {{t('set_alert_temp_crit')}}</label>
-              <input type="number" v-model.number="alertThresholds.temp_crit" min="50" max="100" step="1"
-                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
-              <span style="font-size:.75rem;color:var(--text-faint);">°C</span>
-            </div>
-            <div class="set-row">
-              <label class="set-label" style="flex:1;">💾 {{t('set_alert_disk_warn')}}</label>
-              <input type="number" v-model.number="alertThresholds.disk_warn" min="50" max="99" step="1"
-                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
-              <span style="font-size:.75rem;color:var(--text-faint);">%</span>
-            </div>
-            <div class="set-row">
-              <label class="set-label" style="flex:1;">🧠 {{t('set_alert_ram_warn')}}</label>
-              <input type="number" v-model.number="alertThresholds.ram_warn" min="50" max="99" step="1"
-                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
-              <span style="font-size:.75rem;color:var(--text-faint);">%</span>
-            </div>
-            <div class="set-row">
-              <label class="set-label" style="flex:1;">📊 {{t('set_alert_backlog')}}</label>
-              <input type="number" v-model.number="alertThresholds.backlog_warn" min="10" max="500" step="5"
-                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
-              <span style="font-size:.75rem;color:var(--text-faint);">files</span>
-            </div>
-            <div class="set-row">
-              <label class="set-label" style="flex:1;">🔇 {{t('set_alert_no_det')}}</label>
-              <input type="number" v-model.number="alertThresholds.no_detection_hours" min="1" max="48" step="1"
-                     style="width:70px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
-              <span style="font-size:.75rem;color:var(--text-faint);">h</span>
-            </div>
-            <div class="set-row">
-              <label class="set-check">
-                <input type="checkbox" v-model="alertThresholds.service_down" true-value="1" false-value="0">
-                <span>⚠️ {{t('set_alert_svc_down')}}</span>
-              </label>
-            </div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="conf.APPRISE_NOTIFY_EACH_DETECTION" true-value="1" false-value="0">
+              <span>{{t('set_notify_each')}}</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES" true-value="1" false-value="0">
+              <span>{{t('set_notify_new_species')}}</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY" true-value="1" false-value="0">
+              <span>{{t('set_notify_new_daily')}}</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="conf.APPRISE_WEEKLY_REPORT" true-value="1" false-value="0">
+              <span>{{t('set_weekly_report')}}</span>
+            </label></div>
           </div>
-          <button class="btn btn-secondary" style="margin-top:.6rem;font-size:.75rem;padding:.25rem .6rem;" @click="saveAlertThresholds" :disabled="savingAlerts">
+
+          <!-- Alertes système -->
+          <div style="margin-bottom:.8rem;">
+            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.4rem;padding-bottom:.25rem;border-bottom:1px solid var(--border);">
+              🖥️ {{t('set_notif_cat_system')}}
+            </div>
+            <div class="set-row" style="gap:.4rem;">
+              <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_temp" true-value="1" false-value="0">
+                <span>🌡️ {{t('set_alert_temp_warn')}}</span></label>
+              <input type="number" v-model.number="alertThresholds.temp_warn" min="40" max="90" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+              <span style="font-size:.72rem;color:var(--text-faint);">°C</span>
+            </div>
+            <div class="set-row" style="gap:.4rem;">
+              <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_temp_crit" true-value="1" false-value="0">
+                <span>🔥 {{t('set_alert_temp_crit')}}</span></label>
+              <input type="number" v-model.number="alertThresholds.temp_crit" min="50" max="100" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+              <span style="font-size:.72rem;color:var(--text-faint);">°C</span>
+            </div>
+            <div class="set-row" style="gap:.4rem;">
+              <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_disk" true-value="1" false-value="0">
+                <span>💾 {{t('set_alert_disk_warn')}}</span></label>
+              <input type="number" v-model.number="alertThresholds.disk_warn" min="50" max="99" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+              <span style="font-size:.72rem;color:var(--text-faint);">%</span>
+            </div>
+            <div class="set-row" style="gap:.4rem;">
+              <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_ram" true-value="1" false-value="0">
+                <span>🧠 {{t('set_alert_ram_warn')}}</span></label>
+              <input type="number" v-model.number="alertThresholds.ram_warn" min="50" max="99" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+              <span style="font-size:.72rem;color:var(--text-faint);">%</span>
+            </div>
+            <div class="set-row" style="gap:.4rem;">
+              <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_backlog" true-value="1" false-value="0">
+                <span>📊 {{t('set_alert_backlog')}}</span></label>
+              <input type="number" v-model.number="alertThresholds.backlog_warn" min="10" max="500" step="5"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+              <span style="font-size:.72rem;color:var(--text-faint);">files</span>
+            </div>
+            <div class="set-row" style="gap:.4rem;">
+              <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_no_det" true-value="1" false-value="0">
+                <span>🔇 {{t('set_alert_no_det')}}</span></label>
+              <input type="number" v-model.number="alertThresholds.no_detection_hours" min="1" max="48" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+              <span style="font-size:.72rem;color:var(--text-faint);">h</span>
+            </div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.service_down" true-value="1" false-value="0">
+              <span>⚠️ {{t('set_alert_svc_down')}}</span>
+            </label></div>
+          </div>
+
+          <button class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;" @click="saveAlertThresholds" :disabled="savingAlerts">
             {{savingAlerts ? '…' : t('set_save')}}
           </button>
           <span v-if="alertSaveMsg" style="font-size:.72rem;margin-left:.5rem;" :style="{color:alertSaveErr?'var(--danger)':'var(--accent)'}">{{alertSaveMsg}}</span>
@@ -871,7 +874,10 @@ const app = createApp({
     }
 
     // ── Alert thresholds ─────────────────────────────────────
-    const alertThresholds = reactive({ temp_warn:70, temp_crit:80, disk_warn:85, disk_crit:95, ram_warn:90, backlog_warn:50, no_detection_hours:4, service_down:1 });
+    const alertThresholds = reactive({
+      temp_warn:70, temp_crit:80, disk_warn:85, disk_crit:95, ram_warn:90, backlog_warn:50, no_detection_hours:4, service_down:1,
+      alert_temp:1, alert_temp_crit:1, alert_disk:1, alert_ram:1, alert_backlog:1, alert_no_det:1,
+    });
     const savingAlerts = ref(false);
     const alertSaveMsg = ref('');
     const alertSaveErr = ref(false);
@@ -897,6 +903,12 @@ const app = createApp({
           BIRDASH_ALERT_RAM_WARN: String(alertThresholds.ram_warn),
           BIRDASH_ALERT_BACKLOG: String(alertThresholds.backlog_warn),
           BIRDASH_ALERT_NO_DET_H: String(alertThresholds.no_detection_hours),
+          BIRDASH_ALERT_ON_TEMP: String(alertThresholds.alert_temp || 0),
+          BIRDASH_ALERT_ON_TEMP_CRIT: String(alertThresholds.alert_temp_crit || 0),
+          BIRDASH_ALERT_ON_DISK: String(alertThresholds.alert_disk || 0),
+          BIRDASH_ALERT_ON_RAM: String(alertThresholds.alert_ram || 0),
+          BIRDASH_ALERT_ON_BACKLOG: String(alertThresholds.alert_backlog || 0),
+          BIRDASH_ALERT_ON_NO_DET: String(alertThresholds.alert_no_det || 0),
         };
         const res = await fetch(API + '/settings', {
           method: 'POST',
