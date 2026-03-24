@@ -1472,3 +1472,44 @@
       padding: 2px 0; pointer-events: none;
     }
     .colorbar-label { font-size: .58rem; font-family: monospace; color: var(--text-spectro); text-align: right; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE FIXES & MOBILE IMPROVEMENTS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+    /* ── KPI grid: intermediate tablet breakpoint ──────────────────── */
+    @media (max-width: 700px) {
+      .kpi-grid-6 { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 420px) {
+      .kpi-grid-6 { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ── Detection table: horizontal scroll on mobile ──────────────── */
+    @media (max-width: 640px) {
+      .det-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .bird-table { min-width: 600px; }
+    }
+
+    /* ── Touch targets: minimum 44px ───────────────────────────────── */
+    @media (pointer: coarse) {
+      .fp-quick-btn, .quick-btn { min-height: 36px; min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
+      .pd-det-play { min-width: 44px; min-height: 44px; }
+      .sp-tag-x, .ms-tag-x { min-width: 28px; min-height: 28px; font-size: 1rem; }
+      .sp-item, .ms-item { min-height: 44px; }
+      .dl-btn { min-height: 40px; padding: .3rem .65rem; }
+      input[type=range] { height: 8px; }
+      input[type=range]::-webkit-slider-thumb { width: 24px; height: 24px; }
+    }
+
+    /* ── Active/touch feedback (supplement hover) ──────────────────── */
+    .sp-item:active, .ms-item:active, .det-item:active { background: var(--bg-hover); }
+    .kpi-card:active { transform: scale(0.98); }
+    .fp-quick-btn:active, .quick-btn:active { transform: scale(0.95); }
+
+    /* ── Sidebar widths — explicit constraints ─────────────────────── */
+    .filter-panel { max-width: 280px; }
+    .ctrl-panel   { max-width: 280px; }
+    @media (max-width: 860px) {
+      .filter-panel, .ctrl-panel { max-width: 100%; }
+    }
