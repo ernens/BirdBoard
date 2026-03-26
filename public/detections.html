@@ -52,7 +52,7 @@
             <div v-if="spDropdownOpen" class="ms-dropdown">
               <div class="ms-search-wrap">
                 <input ref="spSearchInput" class="ms-search" type="search"
-                       placeholder="🔍 Rechercher… (appuyez /)"
+                       :placeholder="'🔍 '+t('search_species_ph')"
                        v-model="spSearch" @click.stop>
               </div>
               <div class="ms-actions">
@@ -88,7 +88,7 @@
             <!-- Valeur cliquable → input éditable -->
             <span v-if="!confEditing" class="fp-slider-val"
                   style="cursor:pointer;text-decoration:underline dotted;"
-                  :title="'Cliquer pour saisir une valeur'"
+                  :title="t('click_to_edit_value')"
                   @click="startConfEdit">{{Math.round(fConf*100)}}%</span>
             <input v-else type="number" min="0" max="100" step="1"
                    v-model.number="confEditVal"
@@ -163,7 +163,7 @@
                   <a v-if="d.File_Name"
                      :href="buildAudioUrl(d.File_Name)"
                      :download="d.Com_Name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+d.Date+'_'+d.Time.substring(0,5).replace(':','')+'.mp3'"
-                     class="dl-btn" title="Télécharger" @click.stop>⬇</a>
+                     class="dl-btn" :title="t('download')" @click.stop>⬇</a>
                 </td>
                 <td style="font-size:.8rem;color:var(--text-muted);">{{fmtDate(d.Date)}}</td>
                 <td style="font-family:monospace;font-size:.8rem;">{{fmtTime(d.Time)}}</td>

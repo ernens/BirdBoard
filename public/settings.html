@@ -123,7 +123,7 @@
       <div class="info-modal">
         <button class="info-modal-close" @click="helpKey=null">&times;</button>
         <div class="info-modal-title">ⓘ {{helpTitle}}</div>
-        <div class="info-modal-body" v-html="helpBody"></div>
+        <div class="info-modal-body" v-html="safeHtml(helpBody)"></div>
       </div>
     </div>
 
@@ -178,22 +178,22 @@
           <div class="set-row">
             <span class="set-label">{{t('set_confidence')}} <button class="info-btn" @click="helpKey='confidence'">i</button></span>
             <span class="set-range-val">{{conf.CONFIDENCE}}</span>
-            <input v-model="conf.CONFIDENCE" type="range" min="0.01" max="0.99" step="0.01" class="set-range">
+            <input v-model="conf.CONFIDENCE" type="range" min="0.01" max="0.99" step="0.01" class="set-range" :aria-label="t('set_confidence')">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_sensitivity')}} <button class="info-btn" @click="helpKey='sensitivity'">i</button></span>
             <span class="set-range-val">{{conf.SENSITIVITY}}</span>
-            <input v-model="conf.SENSITIVITY" type="range" min="0.5" max="1.5" step="0.05" class="set-range">
+            <input v-model="conf.SENSITIVITY" type="range" min="0.5" max="1.5" step="0.05" class="set-range" :aria-label="t('set_sensitivity')">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_species_freq_thresh')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
             <span class="set-range-val">{{conf.SF_THRESH}}</span>
-            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range">
+            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range" :aria-label="t('set_species_freq_thresh')">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_overlap')}} <button class="info-btn" @click="helpKey='overlap'">i</button></span>
             <span class="set-range-val">{{conf.OVERLAP}}</span>
-            <input v-model="conf.OVERLAP" type="range" min="0" max="2.9" step="0.1" class="set-range">
+            <input v-model="conf.OVERLAP" type="range" min="0" max="2.9" step="0.1" class="set-range" :aria-label="t('set_overlap')">
           </div>
         </div>
 
@@ -305,7 +305,7 @@
           <div class="set-row">
             <span class="set-label">{{t('set_purge_threshold')}} <button class="info-btn" @click="helpKey='purge_threshold'">i</button></span>
             <span class="set-range-val">{{conf.PURGE_THRESHOLD}}%</span>
-            <input v-model="conf.PURGE_THRESHOLD" type="range" min="50" max="99" step="1" class="set-range">
+            <input v-model="conf.PURGE_THRESHOLD" type="range" min="50" max="99" step="1" class="set-range" :aria-label="t('set_purge_threshold')">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_max_files')}} <button class="info-btn" @click="helpKey='max_files'">i</button></span>
@@ -337,7 +337,7 @@
               <code style="color:var(--accent);">ntfy://ntfy.sh/my-topic</code> ·
               <code style="color:var(--accent);">tgram://bottoken/chatid</code> ·
               <code style="color:var(--accent);">discord://webhook_id/webhook_token</code><br>
-              <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener" style="color:var(--accent);font-size:.68rem;">Apprise Wiki — 80+ services</a>
+              <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:.68rem;">Apprise Wiki — 80+ services</a>
             </div>
             <div v-if="!appriseUrls.trim()" style="margin-top:.4rem;padding:.3rem .5rem;background:rgba(251,191,36,.1);border-left:3px solid var(--amber);border-radius:3px;font-size:.72rem;color:var(--amber);">
               {{t('set_notif_no_urls')}}
@@ -759,6 +759,23 @@
                 </div>
               </div>
 
+              <!-- Schedule info -->
+              <div v-if="bkpSchedule" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.45rem .65rem;background:var(--bg-card2);border-radius:6px;">
+                <span style="font-size:1rem;">⏰</span>
+                <div style="flex:1;font-size:.8rem;">
+                  <div style="color:var(--text-main);">
+                    {{bkpSchedule.type === 'daily' ? t('set_backup_schedule_daily') : t('set_backup_schedule_weekly')}}
+                    — {{bkpSchedule.time}}
+                  </div>
+                  <div style="font-size:.72rem;color:var(--text-faint);">
+                    {{t('set_backup_next_run')||'Prochain'}}: {{fmtDateTimeFull(bkpSchedule.nextRun)}}
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="bkp.schedule === 'manual'" style="font-size:.78rem;color:var(--text-faint);margin-bottom:.5rem;">
+                {{t('set_backup_no_schedule')||'Aucune planification — mode manuel'}}
+              </div>
+
               <!-- Last run info (when not active) -->
               <div v-if="bkpProgress.state !== 'running' && bkpProgress.state !== 'paused'" style="font-size:.82rem;color:var(--text-muted);margin-bottom:.5rem;">
                 {{t('set_backup_last_status')}}:
@@ -780,6 +797,22 @@
                         style="font-size:.85rem;padding:.5rem 1.2rem;">
                   {{(bkpProgress.state === 'running' || bkpProgress.state === 'paused') ? t('set_backup_running') : t('set_backup_run_now')}}
                 </button>
+              </div>
+
+              <!-- Backup history -->
+              <div v-if="bkpHistory.length" style="margin-top:.8rem;border-top:1px solid var(--border);padding-top:.6rem;">
+                <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:.4rem;">
+                  {{t('set_backup_history')||'Historique'}}
+                </div>
+                <div v-for="h in bkpHistory" :key="h.startedAt"
+                     style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--bg-card2);font-size:.78rem;">
+                  <span :style="{color: h.status==='success' ? 'var(--accent)' : 'var(--danger)', fontSize:'.9rem'}">
+                    {{h.status === 'success' ? '✓' : '✗'}}
+                  </span>
+                  <span style="color:var(--text-main);min-width:120px;">{{fmtDateTimeFull(h.startedAt)}}</span>
+                  <span style="color:var(--text-faint);font-size:.72rem;">{{h.steps}}</span>
+                  <span style="margin-left:auto;font-family:monospace;color:var(--text-muted);">{{h.size}}</span>
+                </div>
               </div>
             </div>
 
@@ -808,7 +841,7 @@
 
 <script>
 const { createApp, ref, reactive, onMounted, computed } = Vue;
-const { useI18n, useTheme, useNav, registerComponents } = BIRDASH;
+const { useI18n, useTheme, useNav, registerComponents, safeHtml } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -894,8 +927,15 @@ const app = createApp({
       savingAlerts.value = true;
       alertSaveMsg.value = '';
       try {
-        // Save as BIRDASH_ALERT_* keys in birdnet.conf
+        // Save bird notification event toggles + system alert thresholds
         const updates = {
+          APPRISE_NOTIFY_EACH_DETECTION: String(conf.APPRISE_NOTIFY_EACH_DETECTION || 0),
+          APPRISE_NOTIFY_NEW_SPECIES: String(conf.APPRISE_NOTIFY_NEW_SPECIES || 0),
+          APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: String(conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY || 0),
+          APPRISE_WEEKLY_REPORT: String(conf.APPRISE_WEEKLY_REPORT || 0),
+          APPRISE_NOTIFICATION_TITLE: conf.APPRISE_NOTIFICATION_TITLE || '',
+          APPRISE_NOTIFICATION_BODY: conf.APPRISE_NOTIFICATION_BODY || '',
+          APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES: String(conf.APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES || 0),
           BIRDASH_ALERT_TEMP_WARN: String(alertThresholds.temp_warn),
           BIRDASH_ALERT_TEMP_CRIT: String(alertThresholds.temp_crit),
           BIRDASH_ALERT_DISK_WARN: String(alertThresholds.disk_warn),
@@ -1020,6 +1060,7 @@ const app = createApp({
           stopBackupPoll();
           runningBkp.value = false;
           await loadBackupConfig();
+          loadBackupHistory();
         }
       } catch(e) { /* silent */ }
     }
@@ -1031,6 +1072,32 @@ const app = createApp({
 
     function stopBackupPoll() {
       if (_bkpPollTimer) { clearInterval(_bkpPollTimer); _bkpPollTimer = null; }
+    }
+
+    // ── Schedule & History ──────────────────────────────────────────────────
+    const bkpSchedule = ref(null);
+    const bkpHistory = ref([]);
+
+    async function loadBackupSchedule() {
+      try {
+        const data = await fetch(API + '/backup-schedule').then(r => r.json());
+        bkpSchedule.value = data.schedule || null;
+      } catch(e) {}
+    }
+
+    async function loadBackupHistory() {
+      try {
+        const data = await fetch(API + '/backup-history').then(r => r.json());
+        bkpHistory.value = (data || []).reverse(); // most recent first
+      } catch(e) {}
+    }
+
+    function fmtDateTimeFull(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      const pad = n => (n < 10 ? '0' : '') + n;
+      return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() +
+             ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
 
     function fmtSize(bytes) {
@@ -1074,7 +1141,7 @@ const app = createApp({
           body: JSON.stringify({ ...bkp }),
         });
         const data = await res.json();
-        if (data.ok) { saveMsg.value = t('set_backup_saved'); saveErr.value = false; }
+        if (data.ok) { saveMsg.value = t('set_backup_saved'); saveErr.value = false; loadBackupSchedule(); }
         else { saveMsg.value = data.error || 'Error'; saveErr.value = true; }
       } catch(e) { saveMsg.value = e.message; saveErr.value = true; }
       savingBkp.value = false;
@@ -1152,6 +1219,8 @@ const app = createApp({
       loading.value = false;
       loadServices();
       loadBackupConfig();
+      loadBackupSchedule();
+      loadBackupHistory();
     }
 
     async function loadServices() {
@@ -1333,7 +1402,7 @@ const app = createApp({
         },
         birdweather: {
           title: 'BirdWeather Station ID',
-          body: `Identifiant de votre station BirdWeather pour partager vos détections en temps réel sur <a href="https://app.birdweather.com" target="_blank" style="color:var(--accent);">birdweather.com</a>.<br><br>
+          body: `Identifiant de votre station BirdWeather pour partager vos détections en temps réel sur <a href="https://app.birdweather.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">birdweather.com</a>.<br><br>
             Créez un compte gratuit sur BirdWeather et obtenez votre Station ID. Vos détections seront automatiquement téléversées et visibles sur la carte mondiale.<br><br>
             <strong>Vide</strong> = désactivé.`,
           rec: 'Optionnel mais recommandé pour contribuer à la communauté scientifique.'
@@ -1487,7 +1556,7 @@ const app = createApp({
         },
         birdweather: {
           title: 'BirdWeather Station ID',
-          body: 'Your BirdWeather station ID to share detections on <a href="https://app.birdweather.com" target="_blank" style="color:var(--accent);">birdweather.com</a>. Empty = disabled.',
+          body: 'Your BirdWeather station ID to share detections on <a href="https://app.birdweather.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">birdweather.com</a>. Empty = disabled.',
           rec: 'Optional but recommended to contribute to citizen science.'
         },
         rtsp: {
@@ -1607,7 +1676,7 @@ const app = createApp({
     onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); });
 
     return {
-      t, lang, conf, models, languages, services,
+      t, lang, safeHtml, conf, models, languages, services,
       tabs, activeTab, switchTab,
       loading, saving, svcLoading, saveMsg, saveErr,
       includeList, excludeList, savingLists,
@@ -1619,7 +1688,8 @@ const app = createApp({
       bkp, backupDests, savingBkp, runningBkp, bkpProgress,
       toggleBackupContent, saveBackupConfig, runBackup,
       bkpStepLabel, bkpElapsed, pollBackupProgress,
-      pauseBackup, stopBackup, fmtSize,
+      pauseBackup, stopBackup, fmtSize, fmtDateTimeFull,
+      bkpSchedule, bkpHistory,
     };
   }
 });

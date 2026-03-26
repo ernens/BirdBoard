@@ -19,151 +19,168 @@
 <div id="app">
   <birdash-shell page="stats" :title="t('nav_stats')">
 
-    <!-- Barre de filtres stats -->
-    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;padding:.65rem .85rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
-      <!-- Période -->
-      <span style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">{{t('period')}}</span>
-      <div style="display:flex;flex-wrap:nowrap;gap:.25rem;">
-        <button v-for="(q,qi) in quickDates" :key="qi"
-                style="font-size:.68rem;padding:.18rem .42rem;border-radius:20px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-muted);cursor:pointer;transition:all .12s;white-space:nowrap;"
-                :style="activePeriod===qi?'background:var(--accent);color:#fff;border-color:var(--accent);':''"
-                @click="setPeriod(q,qi)">{{q.label}}</button>
+    <div class="det-layout">
+
+      <!-- ── Filter panel (sidebar) ─────────────────────────────── -->
+      <div class="filter-panel">
+        <div>
+          <span class="fp-label">{{t('period')}}</span>
+          <input type="date" class="fp-date-input" v-model="fDateFrom">
+          <input type="date" class="fp-date-input" v-model="fDateTo" style="margin-bottom:.45rem;">
+          <div class="fp-quick-btns">
+            <button class="fp-quick-btn" :class="{active:activePeriod===0}" @click="setPeriod(quickDates[0],0)">{{t('quick_1d')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===1}" @click="setPeriod(quickDates[1],1)">{{t('quick_7d')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===2}" @click="setPeriod(quickDates[2],2)">{{t('quick_1m')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===3}" @click="setPeriod(quickDates[3],3)">{{t('quick_3m')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===4}" @click="setPeriod(quickDates[4],4)">{{t('quick_6m')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===5}" @click="setPeriod(quickDates[5],5)">{{t('quick_1y')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===6}" @click="setPeriod(quickDates[6],6)">{{t('quick_all')}}</button>
+          </div>
+        </div>
+        <div>
+          <div class="fp-slider-row">
+            <span class="fp-label" style="margin:0;">{{t('conf_min')}}</span>
+            <span v-if="!confEditing" class="fp-slider-val"
+                  style="cursor:pointer;text-decoration:underline dotted;"
+                  @click="startConfEdit">{{Math.round(fConf*100)}}%</span>
+            <input v-else ref="confInput" type="number" min="0" max="100" step="1"
+                   v-model.number="confEditVal"
+                   @keydown.enter="commitConfEdit" @blur="commitConfEdit" @keydown.escape="confEditing=false"
+                   style="width:52px;font-size:.8rem;font-family:monospace;font-weight:600;color:var(--accent);background:var(--bg-deep);border:1px solid var(--accent);border-radius:4px;padding:.1rem .3rem;text-align:right;">
+          </div>
+          <input type="range" min="0" max="1" step="0.05" v-model.number="fConf"
+                 :aria-label="t('filter_confidence')"
+                 :style="'background:linear-gradient(to right,var(--accent) '+fConf*100+'%,var(--bg-deep) '+fConf*100+'%)'">
+          <div class="fp-slider-marks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')}}</button>
+        <button class="btn btn-primary" style="width:100%;" @click="loadAll">{{t('apply_filter')}}</button>
       </div>
-      <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
-      <!-- Confiance -->
-      <span style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">{{t('conf_min')}}</span>
-      <div style="display:flex;align-items:center;gap:.4rem;">
-        <input type="range" min="0" max="1" step="0.05" v-model.number="fConf"
-               style="width:90px;-webkit-appearance:none;height:4px;border-radius:2px;outline:none;"
-               :style="'background:linear-gradient(to right,var(--accent) '+fConf*100+'%,var(--bg-card2) '+fConf*100+'%)'">
-        <span v-if="!confEditing"
-              style="font-size:.8rem;font-family:monospace;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline dotted;min-width:36px;"
-              @click="startConfEdit">{{Math.round(fConf*100)}}%</span>
-        <input v-else ref="confInput" type="number" min="0" max="100" step="1"
-               v-model.number="confEditVal"
-               @keydown.enter="commitConfEdit" @blur="commitConfEdit" @keydown.escape="confEditing=false"
-               style="width:52px;font-size:.8rem;font-family:monospace;font-weight:600;color:var(--accent);background:var(--bg-deep);border:1px solid var(--accent);border-radius:4px;padding:.1rem .3rem;text-align:right;">
-      </div>
-      <button class="btn btn-primary" style="padding:.25rem .7rem;font-size:.78rem;" @click="loadAll">{{t('apply_filter')}}</button>
-      <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-left:auto;">⬇ CSV</button>
-    </div>
 
-    <!-- KPIs globaux -->
-    <div class="kpi-grid">
-      <div v-if="kpis.loading" class="spinner" style="grid-column:1/-1;"><div></div><div></div><div></div></div>
-      <template v-else>
-        <div class="kpi-card"><div class="kpi-value">{{kpis.total}}</div><div class="kpi-label">{{t('all_time')}} ({{t('detections')}})</div></div>
-        <div class="kpi-card"><div class="kpi-value amber">{{kpis.sp}}</div><div class="kpi-label">{{t('sys_species_distinct')}}</div></div>
-        <div class="kpi-card"><div class="kpi-value blue">{{kpis.avgConf}}%</div><div class="kpi-label">{{t('avg_confidence')}}</div></div>
-        <div class="kpi-card"><div class="kpi-value">{{kpis.perDay}}</div><div class="kpi-label">{{t('detections')}} {{t('per_day_avg')}}</div></div>
-        <div class="kpi-card"><div class="kpi-value">{{kpis.days}}</div><div class="kpi-label">{{t('sys_days_recorded')}}</div></div>
-        <div class="kpi-card"><div class="kpi-value amber">{{kpis.maxConf}}%</div><div class="kpi-label">{{t('max_confidence')}}</div></div>
-      </template>
-    </div>
+      <!-- ── Main content ───────────────────────────────────────── -->
+      <div>
 
-    <!-- Totaux mensuels -->
-    <div class="card">
-      <div class="card-title">{{t('monthly_totals')}}</div>
-      <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasMonthly"></canvas></div>
-    </div>
+        <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-bottom:.75rem;">⬇ CSV</button>
 
-    <!-- Classements -->
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">{{t('top_by_count')}}</div>
-        <div v-if="topCount.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else>
-          <div v-for="(r,i) in topCount.rows" :key="r.Com_Name"
-               style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;cursor:pointer;"
-               @click="navigateTo('species.html',{species:r.Com_Name})">
-            <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
-            <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
-              <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
-              <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</span>
-                <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.n.toLocaleString()}}</span>
+        <!-- KPIs globaux -->
+        <div class="kpi-grid">
+          <div v-if="kpis.loading" class="spinner" style="grid-column:1/-1;"><div></div><div></div><div></div></div>
+          <template v-else>
+            <div class="kpi-card"><div class="kpi-value">{{kpis.total}}</div><div class="kpi-label">{{t('all_time')}} ({{t('detections')}})</div></div>
+            <div class="kpi-card"><div class="kpi-value amber">{{kpis.sp}}</div><div class="kpi-label">{{t('sys_species_distinct')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value blue">{{kpis.avgConf}}%</div><div class="kpi-label">{{t('avg_confidence')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value">{{kpis.perDay}}</div><div class="kpi-label">{{t('detections')}} {{t('per_day_avg')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value">{{kpis.days}}</div><div class="kpi-label">{{t('sys_days_recorded')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value amber">{{kpis.maxConf}}%</div><div class="kpi-label">{{t('max_confidence')}}</div></div>
+          </template>
+        </div>
+
+        <!-- Totaux mensuels -->
+        <div class="card">
+          <div class="card-title">{{t('monthly_totals')}}</div>
+          <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasMonthly"></canvas></div>
+        </div>
+
+        <!-- Classements -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">{{t('top_by_count')}}</div>
+            <div v-if="topCount.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else>
+              <div v-for="(r,i) in topCount.rows" :key="r.Com_Name"
+                   style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;cursor:pointer;"
+                   @click="navigateTo('species.html',{species:r.Com_Name})">
+                <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
+                <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                  <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                  <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</span>
+                    <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.n.toLocaleString()}}</span>
+                  </div>
+                  <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
+                    <div :style="{height:'100%',width:Math.round(r.n/topCount.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px'}"></div>
+                  </div>
+                </div>
               </div>
-              <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
-                <div :style="{height:'100%',width:Math.round(r.n/topCount.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px'}"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">{{t('top_by_confidence')}}</div>
+            <div v-if="topConf.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else>
+              <div v-for="(r,i) in topConf.rows" :key="r.Com_Name"
+                   style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;cursor:pointer;"
+                   @click="navigateTo('species.html',{species:r.Com_Name})">
+                <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
+                <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                  <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                  <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</span>
+                    <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.avg_conf}}%</span>
+                  </div>
+                  <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
+                    <div :style="{height:'100%',width:Math.round(r.avg_conf/topConf.rows[0].avg_conf*100)+'%',background:chartColor(i),borderRadius:'2px'}"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <div class="card-title">{{t('top_by_confidence')}}</div>
-        <div v-if="topConf.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else>
-          <div v-for="(r,i) in topConf.rows" :key="r.Com_Name"
-               style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;cursor:pointer;"
-               @click="navigateTo('species.html',{species:r.Com_Name})">
-            <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
-            <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
-              <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
-              <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</span>
-                <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.avg_conf}}%</span>
+        <!-- Conf distrib + Records -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">{{t('confidence_distrib')}}</div>
+            <div class="chart-wrap"><canvas ref="canvasConf"></canvas></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">{{t('stats_daily_records')}}</div>
+            <div v-if="records.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else style="display:flex;flex-direction:column;gap:.75rem;padding:.25rem 0;">
+              <div class="det-item">
+                <div style="font-size:1.5rem;">📊</div>
+                <div style="flex:1;">
+                  <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_most_det')}}</div>
+                  <div><strong>{{records.maxDet ? fmtDate(records.maxDet.Date) : '—'}}</strong></div>
+                </div>
+                <div class="kpi-value" style="font-size:1.4rem;">{{records.maxDet ? records.maxDet.n.toLocaleString() : '—'}}</div>
               </div>
-              <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
-                <div :style="{height:'100%',width:Math.round(r.avg_conf/topConf.rows[0].avg_conf*100)+'%',background:chartColor(i),borderRadius:'2px'}"></div>
+              <div class="det-item">
+                <div style="font-size:1.5rem;">🦜</div>
+                <div style="flex:1;">
+                  <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_most_sp')}}</div>
+                  <div><strong>{{records.maxSp ? fmtDate(records.maxSp.Date) : '—'}}</strong></div>
+                </div>
+                <div class="kpi-value amber" style="font-size:1.4rem;">{{records.maxSp ? records.maxSp.n : '—'}}</div>
+              </div>
+              <div class="det-item">
+                <div style="font-size:1.5rem;">🎯</div>
+                <div style="flex:1;">
+                  <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_max_conf')}}</div>
+                  <div style="font-size:.85rem;"><strong>{{records.maxConf ? spName(records.maxConf.Com_Name, records.maxConf.Sci_Name) : '—'}}</strong></div>
+                  <div style="font-size:.75rem;color:var(--text-muted);">{{records.maxConf ? fmtDate(records.maxConf.Date) : ''}}</div>
+                </div>
+                <div class="conf-badge conf-high" style="font-size:.9rem;">{{records.maxConf ? records.maxConf.conf+'%' : '—'}}</div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Conf distrib + Records -->
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">{{t('confidence_distrib')}}</div>
-        <div class="chart-wrap"><canvas ref="canvasConf"></canvas></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">{{t('stats_daily_records')}}</div>
-        <div v-if="records.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else style="display:flex;flex-direction:column;gap:.75rem;padding:.25rem 0;">
-          <div class="det-item">
-            <div style="font-size:1.5rem;">📊</div>
-            <div style="flex:1;">
-              <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_most_det')}}</div>
-              <div><strong>{{records.maxDet ? fmtDate(records.maxDet.Date) : '—'}}</strong></div>
-            </div>
-            <div class="kpi-value" style="font-size:1.4rem;">{{records.maxDet ? records.maxDet.n.toLocaleString() : '—'}}</div>
-          </div>
-          <div class="det-item">
-            <div style="font-size:1.5rem;">🦜</div>
-            <div style="flex:1;">
-              <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_most_sp')}}</div>
-              <div><strong>{{records.maxSp ? fmtDate(records.maxSp.Date) : '—'}}</strong></div>
-            </div>
-            <div class="kpi-value amber" style="font-size:1.4rem;">{{records.maxSp ? records.maxSp.n : '—'}}</div>
-          </div>
-          <div class="det-item">
-            <div style="font-size:1.5rem;">🎯</div>
-            <div style="flex:1;">
-              <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_max_conf')}}</div>
-              <div style="font-size:.85rem;"><strong>{{records.maxConf ? spName(records.maxConf.Com_Name, records.maxConf.Sci_Name) : '—'}}</strong></div>
-              <div style="font-size:.75rem;color:var(--text-muted);">{{records.maxConf ? fmtDate(records.maxConf.Date) : ''}}</div>
-            </div>
-            <div class="conf-badge conf-high" style="font-size:.9rem;">{{records.maxConf ? records.maxConf.conf+'%' : '—'}}</div>
-          </div>
+        <!-- Annuel -->
+        <div class="card">
+          <div class="card-title">{{t('stats_annual_evolution')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasYearly"></canvas></div>
         </div>
-      </div>
-    </div>
 
-    <!-- Annuel -->
-    <div class="card">
-      <div class="card-title">{{t('stats_annual_evolution')}}</div>
-      <div class="chart-wrap"><canvas ref="canvasYearly"></canvas></div>
+      </div>
     </div>
 
   </birdash-shell>
@@ -190,9 +207,9 @@ const app = createApp({
 
     // ── Filtres ────────────────────────────────────────────────────
     const fConf       = ref(BIRD_CONFIG.defaultConfidence);
-    const fDateFrom   = ref('');
-    const fDateTo     = ref('');
-    const activePeriod= ref(3);
+    const fDateFrom   = ref(localDateStr());
+    const fDateTo     = ref(localDateStr());
+    const activePeriod= ref(0);
     const confEditing = ref(false);
     const confEditVal = ref(70);
     const confInput   = ref(null);
@@ -201,12 +218,19 @@ const app = createApp({
     function commitConfEdit() { fConf.value=Math.max(0,Math.min(100,Math.round(confEditVal.value||0)))/100; confEditing.value=false; }
 
     const quickDates = computed(() => [
-      { label:t('quick_7d'),  from:()=>daysAgo(6),   to:()=>localDateStr() },
-      { label:t('quick_30d'), from:()=>daysAgo(29),  to:()=>localDateStr() },
-      { label:t('quick_1y'),  from:()=>daysAgo(364), to:()=>localDateStr() },
-      { label:t('quick_all'), from:()=>'',           to:()=>''             },
+      { from:()=>localDateStr(),  to:()=>localDateStr() },
+      { from:()=>daysAgo(6),      to:()=>localDateStr() },
+      { from:()=>daysAgo(29),     to:()=>localDateStr() },
+      { from:()=>daysAgo(89),     to:()=>localDateStr() },
+      { from:()=>daysAgo(179),    to:()=>localDateStr() },
+      { from:()=>daysAgo(364),    to:()=>localDateStr() },
+      { from:()=>'',              to:()=>''             },
     ]);
     function setPeriod(q,qi) { fDateFrom.value=q.from(); fDateTo.value=q.to(); activePeriod.value=qi; loadAll(); }
+    function resetDefaults() {
+      fConf.value = BIRD_CONFIG.defaultConfidence;
+      activePeriod.value = 0; setPeriod(quickDates.value[0], 0);
+    }
 
     function buildWhere() {
       const parts = [`Confidence>=?`];
@@ -386,7 +410,7 @@ const app = createApp({
       confEditing, confEditVal, confInput, startConfEdit, commitConfEdit,
       kpis, topCount, topConf, records,
       canvasMonthly, canvasConf, canvasYearly,
-      fmtDate, navigateTo, chartColor, loadAll, exportCsv,
+      fmtDate, navigateTo, chartColor, loadAll, resetDefaults, exportCsv,
     };
   }
 });

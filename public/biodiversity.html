@@ -20,93 +20,120 @@
 <div id="app">
   <birdash-shell page="biodiversity" :title="t('nav_biodiversity')">
 
-    <!-- Barre de période -->
-    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-      <span style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">{{t('period')}}</span>
-      <div style="display:flex;flex-wrap:nowrap;gap:.25rem;">
-        <button v-for="(q,idx) in quickDates" :key="idx"
-                style="font-size:.68rem;padding:.18rem .42rem;border-radius:20px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-muted);cursor:pointer;transition:all .12s;white-space:nowrap;"
-                :style="activePeriod===idx?'background:var(--accent);color:#fff;border-color:var(--accent);':''"
-                @click="setPeriod(q,idx)">{{q.label}}</button>
-      </div>
-      <span style="font-size:.75rem;color:var(--text-faint);margin-left:.5rem;">
-        {{fDateFrom || '…'}} → {{fDateTo || t('today')}}
-      </span>
-      <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-left:auto;">⬇ CSV</button>
-    </div>
+    <div class="det-layout">
 
-    <!-- Richesse journalière -->
-    <div class="card">
-      <div class="card-title">{{t('richness_per_day')}}</div>
-      <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasRichness"></canvas></div>
-    </div>
-
-    <!-- Matrice espèce × mois — pleine largeur -->
-    <div class="card">
-      <div class="card-title">{{t('species_x_month')}}</div>
-      <div class="matrix-wrap">
-        <div v-if="matrix.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="matrix.error" class="error-msg">⚠ {{matrix.error}}</div>
-        <div v-else v-html="matrix.html"></div>
-      </div>
-    </div>
-
-    <!-- Top espèces ce mois — pleine largeur -->
-    <div class="card">
-      <div class="card-title">{{t('top_species')}} — {{t('this_month')}}</div>
-      <div v-if="monthly.loading" class="spinner"><div></div><div></div><div></div></div>
-      <div v-else-if="!monthly.rows.length" class="error-msg">{{t('no_data')}}</div>
-      <div v-else style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.5rem;">
-        <div v-for="(r,i) in monthly.rows" :key="r.Com_Name"
-             style="display:flex;align-items:center;gap:.6rem;cursor:pointer;"
-             @click="navigateTo('species.html',{species:r.Com_Name})">
-          <div style="font-size:.72rem;color:var(--text-faint);min-width:16px;text-align:right;">{{i+1}}</div>
-          <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
-            <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
-            <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+      <!-- ── Filter panel (sidebar) ─────────────────────────────── -->
+      <div class="filter-panel">
+        <!-- Période -->
+        <div>
+          <span class="fp-label">{{t('period')}}</span>
+          <input type="date" class="fp-date-input" v-model="fDateFrom">
+          <input type="date" class="fp-date-input" v-model="fDateTo" style="margin-bottom:.45rem;">
+          <div class="fp-quick-btns">
+            <button class="fp-quick-btn" :class="{active:activePeriod===0}" @click="setPeriod(quickDates[0],0)">{{t('quick_1d')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===1}" @click="setPeriod(quickDates[1],1)">{{t('quick_7d')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===2}" @click="setPeriod(quickDates[2],2)">{{t('quick_1m')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===3}" @click="setPeriod(quickDates[3],3)">{{t('quick_3m')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===4}" @click="setPeriod(quickDates[4],4)">{{t('quick_6m')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===5}" @click="setPeriod(quickDates[5],5)">{{t('quick_1y')}}</button>
+            <button class="fp-quick-btn" :class="{active:activePeriod===6}" @click="setPeriod(quickDates[6],6)">{{t('quick_all')}}</button>
           </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</div>
-            <div style="height:4px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
-              <div :style="{height:'100%',width:Math.round(r.n/monthly.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px',transition:'width .4s'}"></div>
+        </div>
+
+        <!-- Confiance -->
+        <div>
+          <div class="fp-slider-row">
+            <span class="fp-label" style="margin:0;">{{t('conf_min')}}</span>
+            <span class="fp-slider-val">{{Math.round(fConf*100)}}%</span>
+          </div>
+          <input type="range" min="0" max="1" step="0.05" v-model.number="fConf" :aria-label="t('filter_confidence')">
+          <div class="fp-slider-marks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+        </div>
+
+        <!-- Actions -->
+        <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')}}</button>
+        <button class="btn btn-primary" style="width:100%;" @click="loadAll">{{t('apply_filter')}}</button>
+      </div>
+
+      <!-- ── Main content ───────────────────────────────────────── -->
+      <div>
+        <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-bottom:.75rem;">⬇ CSV</button>
+
+        <!-- Richesse journalière -->
+        <div class="card">
+          <div class="card-title">{{t('richness_per_day')}}</div>
+          <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasRichness"></canvas></div>
+        </div>
+
+        <!-- Matrice espèce × mois -->
+        <div class="card">
+          <div class="card-title">{{t('species_x_month')}}</div>
+          <div class="matrix-wrap">
+            <div v-if="matrix.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else-if="matrix.error" class="error-msg">⚠ {{matrix.error}}</div>
+            <div v-else v-html="safeHtml(matrix.html)"></div>
+          </div>
+        </div>
+
+        <!-- Top espèces ce mois -->
+        <div class="card">
+          <div class="card-title">{{t('top_species')}} — {{t('this_month')}}</div>
+          <div v-if="monthly.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="!monthly.rows.length" class="error-msg">{{t('no_data')}}</div>
+          <div v-else style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.5rem;">
+            <div v-for="(r,i) in monthly.rows" :key="r.Com_Name"
+                 style="display:flex;align-items:center;gap:.6rem;cursor:pointer;"
+                 @click="navigateTo('species.html',{species:r.Com_Name})">
+              <div style="font-size:.72rem;color:var(--text-faint);min-width:16px;text-align:right;">{{i+1}}</div>
+              <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</div>
+                <div style="height:4px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
+                  <div :style="{height:'100%',width:Math.round(r.n/monthly.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px',transition:'width .4s'}"></div>
+                </div>
+              </div>
+              <div style="font-size:.78rem;color:var(--text-muted);min-width:40px;text-align:right;">{{r.n.toLocaleString()}}</div>
             </div>
           </div>
-          <div style="font-size:.78rem;color:var(--text-muted);min-width:40px;text-align:right;">{{r.n.toLocaleString()}}</div>
         </div>
-      </div>
-    </div>
 
-    <!-- Heatmap heure × jour — pleine largeur, compact -->
-    <div class="card">
-      <div class="card-title">{{t('heatmap_hour_day')}}</div>
-      <div class="heatmap-wrap">
-        <div v-if="heatmap.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="heatmap.error" class="error-msg">⚠ {{heatmap.error}}</div>
-        <div v-else v-html="heatmap.html"></div>
-      </div>
-    </div>
-
-    <!-- Répartition taxonomique — pie chart ECharts -->
-    <div class="card">
-      <div class="card-title">{{t('bio_taxonomy_orders')}}</div>
-      <div ref="elTaxOrders" style="width:100%;height:420px;"></div>
-    </div>
-
-    <!-- Familles détectées -->
-    <div class="card">
-      <div class="card-title">{{t('bio_taxonomy_families')}} ({{taxFamilies.length}})</div>
-      <div v-if="taxFamilies.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 1rem;max-height:400px;overflow-y:auto;">
-        <div v-for="f in taxFamilies" :key="f.sci"
-             style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
-             @click="navigateTo('detections.html',{family:f.sci})">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.8rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{f.com}}</div>
-            <div style="font-size:.68rem;color:var(--text-faint);">{{f.sci}} · {{f.order}}</div>
+        <!-- Heatmap heure × jour -->
+        <div class="card">
+          <div class="card-title">{{t('heatmap_hour_day')}}</div>
+          <div class="heatmap-wrap">
+            <div v-if="heatmap.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else-if="heatmap.error" class="error-msg">⚠ {{heatmap.error}}</div>
+            <div v-else v-html="safeHtml(heatmap.html)"></div>
           </div>
-          <div style="font-size:.75rem;color:var(--accent);font-weight:600;min-width:28px;text-align:right;">{{f.count}} <span style="font-size:.65rem;color:var(--text-faint);">{{t('species').toLowerCase()}}</span></div>
+        </div>
+
+        <!-- Répartition taxonomique — pie chart ECharts -->
+        <div class="card">
+          <div class="card-title">{{t('bio_taxonomy_orders')}}</div>
+          <div ref="elTaxOrders" style="width:100%;height:420px;"></div>
+        </div>
+
+        <!-- Familles détectées -->
+        <div class="card">
+          <div class="card-title">{{t('bio_taxonomy_families')}} ({{taxFamilies.length}})</div>
+          <div v-if="taxFamilies.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 1rem;max-height:400px;overflow-y:auto;">
+            <div v-for="f in taxFamilies" :key="f.sci"
+                 style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
+                 @click="navigateTo('detections.html',{family:f.sci})">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.8rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{f.com}}</div>
+                <div style="font-size:.68rem;color:var(--text-faint);">{{f.sci}} · {{f.order}}</div>
+              </div>
+              <div style="font-size:.75rem;color:var(--accent);font-weight:600;min-width:28px;text-align:right;">{{f.count}} <span style="font-size:.65rem;color:var(--text-faint);">{{t('species').toLowerCase()}}</span></div>
+            </div>
+          </div>
+          <div v-else class="spinner"><div></div><div></div><div></div></div>
         </div>
       </div>
-      <div v-else class="spinner"><div></div><div></div><div></div></div>
+
     </div>
 
   </birdash-shell>
@@ -115,7 +142,7 @@
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
-        birdQuery, escHtml, chartDefaults, daysAgo, localDateStr, navigateTo, fetchCachedPhoto } = BIRDASH;
+        birdQuery, escHtml, safeHtml, chartDefaults, daysAgo, localDateStr, navigateTo, fetchCachedPhoto } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -130,23 +157,29 @@ const app = createApp({
     const canvasRichness = ref(null);
     const elTaxOrders = ref(null);
     const taxFamilies = ref([]);
-    const CONF = BIRD_CONFIG.defaultConfidence;
+    const fConf = ref(BIRD_CONFIG.defaultConfidence);
 
     // Période filtre
-    const fDateFrom   = ref(daysAgo(89));
+    const fDateFrom   = ref(localDateStr());
     const fDateTo     = ref(localDateStr());
-    const activePeriod= ref(2);
+    const activePeriod= ref(0);
 
     const quickDates = computed(() => [
-      { label:t('quick_7d'),   from:()=>daysAgo(6),    to:()=>localDateStr(), days:7   },
-      { label:t('quick_30d'),  from:()=>daysAgo(29),   to:()=>localDateStr(), days:30  },
-      { label:t('quick_90d'),  from:()=>daysAgo(89),   to:()=>localDateStr(), days:90  },
-      { label:t('quick_1y'),   from:()=>daysAgo(364),  to:()=>localDateStr(), days:365 },
-      { label:t('quick_all'),  from:()=>'',            to:()=>'',             days:0   },
+      { from:()=>localDateStr(),  to:()=>localDateStr() },
+      { from:()=>daysAgo(6),      to:()=>localDateStr() },
+      { from:()=>daysAgo(29),     to:()=>localDateStr() },
+      { from:()=>daysAgo(89),     to:()=>localDateStr() },
+      { from:()=>daysAgo(179),    to:()=>localDateStr() },
+      { from:()=>daysAgo(364),    to:()=>localDateStr() },
+      { from:()=>'',              to:()=>''             },
     ]);
     function setPeriod(q, idx) {
       fDateFrom.value=q.from(); fDateTo.value=q.to(); activePeriod.value=idx;
       loadAll();
+    }
+    function resetDefaults() {
+      fConf.value = BIRD_CONFIG.defaultConfidence;
+      activePeriod.value = 0; setPeriod(quickDates.value[0], 0);
     }
 
     const richnessData = ref(null);
@@ -162,11 +195,11 @@ const app = createApp({
 
     async function loadRichnessData() {
       try {
-        const from = fDateFrom.value || daysAgo(364);
+        const from = fDateFrom.value || '2000-01-01';
         const rows = await birdQuery(
           `SELECT Date, COUNT(DISTINCT Com_Name) as sp, COUNT(*) as det
            FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC`,
-          [from, fDateTo.value || localDateStr(), CONF]);
+          [from, fDateTo.value || localDateStr(), fConf.value]);
         richnessData.value = rows;
       } catch(e) {}
     }
@@ -174,11 +207,11 @@ const app = createApp({
     async function loadHeatmap() {
       heatmap.value.loading = true;
       try {
-        const from = fDateFrom.value || daysAgo(364);
+        const from = fDateFrom.value || '2000-01-01';
         const rows = await birdQuery(
           `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, CAST(strftime('%w',Date) AS INTEGER) as dow, COUNT(*) as n
            FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY hour,dow`,
-          [from, fDateTo.value || localDateStr(), CONF]);
+          [from, fDateTo.value || localDateStr(), fConf.value]);
         const grid = Array.from({length:7}, ()=>Array(24).fill(0));
         let maxVal = 0;
         rows.forEach(r => { grid[r.dow][r.hour]=r.n; if(r.n>maxVal) maxVal=r.n; });
@@ -215,7 +248,7 @@ const app = createApp({
         const ym = localDateStr().substring(0,7);
         const rows = await birdQuery(
           `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n FROM detections WHERE SUBSTR(Date,1,7)=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC LIMIT 15`,
-          [ym, CONF]);
+          [ym, fConf.value]);
         monthly.value = { loading:false, rows };
         loadPhotosFor(monthly, rows);
       } catch(e) { monthly.value = { loading:false, rows:[] }; }
@@ -224,13 +257,13 @@ const app = createApp({
     async function loadMatrix() {
       matrix.value.loading = true;
       try {
-        const topRows = await birdQuery(`SELECT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT 20`,[CONF]);
+        const topRows = await birdQuery(`SELECT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT 20`,[fConf.value]);
         const topSp = topRows.map(r=>r.Com_Name);
         const sciMap = {}; topRows.forEach(r=>{sciMap[r.Com_Name]=r.Sci_Name;});
         if (!topSp.length) { matrix.value={loading:false,error:null,html:`<p class="error-msg">${t('no_data')}</p>`}; return; }
         const rows = await birdQuery(
           `SELECT Com_Name, CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM detections WHERE Com_Name IN (${topSp.map(()=>'?').join(',')}) AND Confidence>=? GROUP BY Com_Name,m`,
-          [...topSp, CONF]);
+          [...topSp, fConf.value]);
         const data = {};
         topSp.forEach(sp=>{data[sp]=Array(12).fill(0);});
         rows.forEach(r=>{if(data[r.Com_Name]) data[r.Com_Name][r.m-1]=r.n;});
@@ -257,7 +290,7 @@ const app = createApp({
       const map={};
       d.forEach(r=>{map[r.Date]=r;});
       // Construire les labels sur la plage réelle
-      const from = new Date(fDateFrom.value || daysAgo(364));
+      const from = new Date(fDateFrom.value || '2000-01-01');
       const to   = new Date(fDateTo.value   || localDateStr());
       const days = Math.round((to-from)/86400000);
       const labels=[],spData=[],detData=[];
@@ -371,7 +404,7 @@ const app = createApp({
       try {
         const rows = await birdQuery(
           `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n, ROUND(AVG(Confidence)*100,1) as avg_conf, MIN(Date) as first_date, MAX(Date) as last_date, COUNT(DISTINCT Date) as days, COUNT(DISTINCT SUBSTR(Date,1,7)) as months FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC`,
-          [fDateFrom.value || '2000-01-01', fDateTo.value || localDateStr(), CONF]
+          [fDateFrom.value || '2000-01-01', fDateTo.value || localDateStr(), fConf.value]
         );
         if (!rows.length) return;
         const headers = ['Species','Scientific_Name','Detections','Avg_Confidence','First_Date','Last_Date','Days','Months'];
@@ -396,10 +429,10 @@ const app = createApp({
     onMounted(() => { loadAll(); loadTaxonomy(); });
 
     return {
-      lang, t,
+      lang, t, safeHtml,
       heatmap, monthly, matrix,
       canvasRichness, elTaxOrders, taxFamilies,
-      fDateFrom, fDateTo, activePeriod, quickDates, setPeriod,
+      fConf, fDateFrom, fDateTo, activePeriod, quickDates, setPeriod, resetDefaults, loadAll,
       chartColor, navigateTo, spName, exportCsv,
     };
   }

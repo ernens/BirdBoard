@@ -145,6 +145,7 @@
         <div class="toolbar-group">
           <label>🔊</label>
           <input type="range" min="0" max="1" step="0.05" v-model.number="volume"
+                 aria-label="Volume"
                  style="width:60px;accent-color:var(--accent);"
                  @input="setVolume">
         </div>
@@ -162,7 +163,7 @@
           </button>
           <template v-if="cleanMode">
             <input type="range" min="0.2" max="1.0" step="0.05"
-                   v-model.number="cleanStrength"
+                   v-model.number="cleanStrength" aria-label="Clean strength"
                    style="width:55px;accent-color:var(--accent);">
             <span style="font-size:.68rem;font-family:monospace;color:var(--accent);min-width:28px;">
               {{Math.round(cleanStrength*100)}}%

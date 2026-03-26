@@ -19,27 +19,33 @@
 <body>
 <div id="app">
   <birdash-shell page="analyses" :title="t('nav_analyses')">
-  <div @click="pickerOpen=false" style="max-width:100%;overflow-x:hidden;">
-    <div class="analyses-layout">
+  <div @click="pickerOpen=false">
+    <div class="det-layout">
 
-      <aside class="ctrl-panel" @click.stop>
-        <!-- Taxonomy cascade filters -->
-        <div v-if="taxonomyOrders.length" class="ctrl-section">
-          <span class="ctrl-label">{{t('filter_order')}}</span>
-          <select v-model="fOrder" @change="onOrderChange" :aria-label="t('filter_order')" style="width:100%;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.35rem .5rem;">
+      <!-- ── Filter panel (sidebar) ──────────────────────────────── -->
+      <div class="filter-panel" @click.stop>
+
+        <!-- Ordre -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_order')}}</span>
+          <select class="fp-select" v-model="fOrder" @change="onOrderChange" :aria-label="t('filter_order')">
             <option value="">{{t('all_orders')}}</option>
             <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
           </select>
-          <span class="ctrl-label" style="margin-top:.4rem;">{{t('filter_family')}}</span>
-          <select v-model="fFamily" @change="onFamilyChange" :aria-label="t('filter_family')" style="width:100%;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.35rem .5rem;">
+        </div>
+
+        <!-- Famille -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_family')}}</span>
+          <select class="fp-select" v-model="fFamily" @change="onFamilyChange" :aria-label="t('filter_family')">
             <option value="">{{t('all_families')}}</option>
             <option v-for="f in availableFamilies" :key="f.sci" :value="f.sci">{{f.com}}</option>
           </select>
         </div>
 
-        <!-- Species picker -->
-        <div class="ctrl-section">
-          <span class="ctrl-label">{{t('filter_species')}}</span>
+        <!-- Espèces -->
+        <div>
+          <span class="fp-label">{{t('filter_species')}}</span>
           <div class="sp-picker" @click.stop>
             <div class="sp-tags-bar" @click="pickerOpen=!pickerOpen">
               <template v-if="selectedSpecies.length===0">
@@ -57,12 +63,16 @@
               <span class="sp-caret">{{pickerOpen?'&#x25B4;':'&#x25BE;'}}</span>
             </div>
             <div v-show="pickerOpen" class="sp-dropdown">
-              <div class="sp-topn-bar">
-                <button class="sp-topn-btn" @click="selectAllFiltered" style="flex:1;">{{t('select_all')}} ({{filteredSpeciesList.length}})</button>
-                <span style="margin:0 .2rem;">{{t('analyses_topn_label')||'Top'}}</span>
-                <input type="number" class="sp-topn-input" v-model.number="topN" min="1" max="100">
-                <button class="sp-topn-btn" @click="selectTopN">{{t('analyses_topn_btn')||'OK'}}</button>
-                <button class="sp-clear-btn" @click="clearSelection">{{t('analyses_clear_btn')||'Clear'}}</button>
+              <div class="sp-topn-bar" style="flex-wrap:wrap;">
+                <div style="display:flex;gap:.4rem;width:100%;">
+                  <button class="sp-topn-btn" @click="selectAllFiltered" style="flex:1;">{{t('select_all')}} ({{filteredSpeciesList.length}})</button>
+                  <button class="sp-clear-btn" @click="clearSelection" style="flex:1;">{{t('analyses_clear_btn')||'Clear'}}</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:.4rem;width:100%;">
+                  <span>{{t('analyses_topn_label')||'Top'}}</span>
+                  <input type="number" class="sp-topn-input" v-model.number="topN" min="1" max="100">
+                  <button class="sp-topn-btn" @click="selectTopN">{{t('analyses_topn_btn')||'OK'}}</button>
+                </div>
               </div>
               <div class="sp-search-wrap">
                 <input ref="spSearchInput" type="text" class="sp-search" v-model="spSearch" :placeholder="t('analyses_search_ph')+' (/)' || 'Filter... (/)'">
@@ -84,38 +94,52 @@
           </div>
         </div>
 
-        <div class="ctrl-section">
-          <span class="ctrl-label">{{t('analyses_date_range')}}</span>
-          <input type="date" v-model="fromDate" :aria-label="t('filter_date_from')">
-          <input type="date" v-model="toDate" :aria-label="t('filter_date_to')">
-          <div class="quick-btns" style="margin-top:.4rem;">
-            <button class="quick-btn" :class="{active:quickActive===7}"   @click="setRange(7)">{{t('analyses_quick_7d')}}</button>
-            <button class="quick-btn" :class="{active:quickActive===30}"  @click="setRange(30)">{{t('analyses_quick_30d')}}</button>
-            <button class="quick-btn" :class="{active:quickActive===90}"  @click="setRange(90)">{{t('analyses_quick_90d')}}</button>
-            <button class="quick-btn" :class="{active:quickActive===365}" @click="setRange(365)">{{t('analyses_quick_1y')}}</button>
-            <button class="quick-btn" :class="{active:quickActive===0}"   @click="setAll()">{{t('analyses_quick_all')}}</button>
+        <!-- Période -->
+        <div>
+          <span class="fp-label">{{t('analyses_date_range')}}</span>
+          <input type="date" class="fp-date-input" v-model="fromDate" :aria-label="t('filter_date_from')">
+          <input type="date" class="fp-date-input" v-model="toDate" style="margin-bottom:.45rem;" :aria-label="t('filter_date_to')">
+          <div class="fp-quick-btns">
+            <button class="fp-quick-btn" :class="{active:quickActive===1}"   @click="setRange(1)">{{t('quick_1d')}}</button>
+            <button class="fp-quick-btn" :class="{active:quickActive===7}"   @click="setRange(7)">{{t('quick_7d')}}</button>
+            <button class="fp-quick-btn" :class="{active:quickActive===30}"  @click="setRange(30)">{{t('quick_1m')}}</button>
+            <button class="fp-quick-btn" :class="{active:quickActive===90}"  @click="setRange(90)">{{t('quick_3m')}}</button>
+            <button class="fp-quick-btn" :class="{active:quickActive===180}" @click="setRange(180)">{{t('quick_6m')}}</button>
+            <button class="fp-quick-btn" :class="{active:quickActive===365}" @click="setRange(365)">{{t('quick_1y')}}</button>
+            <button class="fp-quick-btn" :class="{active:quickActive===0}"   @click="setAll()">{{t('quick_all')}}</button>
           </div>
         </div>
-        <div class="ctrl-section">
-          <span class="ctrl-label">{{t('resolution')}}</span>
-          <div class="radio-group">
-            <label class="radio-row"><input type="radio" v-model="resample" value="raw"><label>{{t('analyses_resample_raw')}}</label></label>
-            <label class="radio-row"><input type="radio" v-model="resample" value="15min"><label>{{t('analyses_resample_15')}}</label></label>
-            <label class="radio-row"><input type="radio" v-model="resample" value="hourly"><label>{{t('analyses_resample_1h')}}</label></label>
-            <label class="radio-row"><input type="radio" v-model="resample" value="daily"><label>{{t('analyses_resample_1d')}}</label></label>
-          </div>
-        </div>
-        <div class="ctrl-section">
-          <span class="ctrl-label">{{t('analyses_conf_label')}} — <strong>{{confSlider}}%</strong></span>
-          <div class="range-wrap">
-            <input type="range" v-model.number="confSlider" min="50" max="95" step="5" :aria-label="t('analyses_conf_label')">
-            <div class="range-labels"><span>50%</span><span>95%</span></div>
-          </div>
-        </div>
-        <button class="btn-apply" @click="applyFilters">{{t('apply_filter')}}</button>
-      </aside>
 
-      <div class="main-content">
+        <!-- Résolution -->
+        <div>
+          <span class="fp-label">{{t('resolution')}}</span>
+          <div style="display:flex;flex-direction:column;gap:.25rem;font-size:.82rem;">
+            <label><input type="radio" v-model="resample" value="raw"> {{t('analyses_resample_raw')}}</label>
+            <label><input type="radio" v-model="resample" value="15min"> {{t('analyses_resample_15')}}</label>
+            <label><input type="radio" v-model="resample" value="hourly"> {{t('analyses_resample_1h')}}</label>
+            <label><input type="radio" v-model="resample" value="daily"> {{t('analyses_resample_1d')}}</label>
+          </div>
+        </div>
+
+        <!-- Confiance -->
+        <div>
+          <div class="fp-slider-row">
+            <span class="fp-label" style="margin:0;">{{t('analyses_conf_label')}}</span>
+            <span class="fp-slider-val">{{confSlider}}%</span>
+          </div>
+          <input type="range" v-model.number="confSlider" min="50" max="95" step="5" :aria-label="t('analyses_conf_label')"
+                 :style="'background:linear-gradient(to right,var(--accent) '+(confSlider-50)/(95-50)*100+'%,var(--bg-deep) '+(confSlider-50)/(95-50)*100+'%)'">
+          <div class="fp-slider-marks"><span>50%</span><span>70%</span><span>95%</span></div>
+        </div>
+
+        <!-- Actions -->
+        <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')||'Défaut'}}</button>
+        <button class="btn btn-primary" style="width:100%;margin-top:-.4rem;" @click="applyFilters">{{t('apply_filter')}}</button>
+
+      </div>
+
+      <!-- ── Main content ────────────────────────────────────────── -->
+      <div>
 
         <!-- Header: adapts to selection context -->
         <div class="species-header" v-if="selectedSpecies.length">
@@ -183,7 +207,7 @@
             </div>
             <div class="activity-narrative">
               <div v-if="narrativeLoading" class="spinner"><div></div><div></div><div></div></div>
-              <div v-else v-html="narrativeHtml"></div>
+              <div v-else v-html="safeHtml(narrativeHtml)"></div>
             </div>
           </div>
         </div>
@@ -217,7 +241,8 @@
                       <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
                         <bird-img :src="photoUrl(sp.sci)" :alt="sp.name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
                       </div>
-                      <span>{{spName(sp.name, sp.sci)}}</span>
+                      <a @click.stop="navigateTo('species.html',{species:sp.name})" style="cursor:pointer;color:var(--text-main);text-decoration:none;" @mouseenter="$event.target.style.color='var(--accent)'" @mouseleave="$event.target.style.color='var(--text-main)'"
+                        >{{spName(sp.name, sp.sci)}}</a>
                     </div>
                   </td>
                   <td style="padding:.35rem .5rem;font-size:.72rem;color:var(--text-muted);">{{sp.familyCom}}</td>
@@ -245,7 +270,7 @@
           <div class="chart-card-title">{{heatmapTitle}}</div>
           <div class="daily-heatmap-wrap" style="overflow-x:auto;">
             <div v-if="heatmapLoading" class="spinner"><div></div><div></div><div></div></div>
-            <div v-else v-html="heatmapHtml"></div>
+            <div v-else v-html="safeHtml(heatmapHtml)"></div>
           </div>
         </div>
 
@@ -263,8 +288,8 @@
 <script>
 const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
-        birdQuery, escHtml, fmtDate, fmtTime, localDateStr, daysAgo, fetchSpeciesImage,
-        buildAudioUrl } = BIRDASH;
+        birdQuery, escHtml, safeHtml, fmtDate, fmtTime, localDateStr, daysAgo, fetchSpeciesImage,
+        buildAudioUrl, navigateTo } = BIRDASH;
 
 let _chartPolar  = null;
 let _chartSeries = null;
@@ -278,11 +303,11 @@ const app = createApp({
     const { spName, spNamesReady }   = useSpeciesNames();
 
     // ── State ──────────────────────────────────────────────────────────────
-    const fromDate    = ref(daysAgo(364));
+    const fromDate    = ref(localDateStr());
     const toDate      = ref(localDateStr());
     const resample    = ref('15min');
     const confSlider  = ref(70);
-    const quickActive = ref(365);
+    const quickActive = ref(1);
 
     const fOrder  = ref('');
     const fFamily = ref('');
@@ -457,6 +482,17 @@ const app = createApp({
         const [r] = await birdQuery('SELECT MIN(Date) as f, MAX(Date) as l FROM detections');
         if (r) { fromDate.value = r.f; toDate.value = r.l; }
       } catch(e) {}
+      await applyFilters();
+    }
+
+    function resetDefaults() {
+      fOrder.value = ''; fFamily.value = '';
+      selectedSpecies.value = [];
+      fromDate.value = localDateStr(); toDate.value = localDateStr();
+      quickActive.value = 1; resample.value = '15min'; confSlider.value = 70;
+      kpis.value = []; breakdown.value = [];
+      narrativeHtml.value = ''; heatmapHtml.value = '';
+      applyFilters();
     }
 
     // ── Species selection ──────────────────────────────────────────────────
@@ -498,9 +534,13 @@ const app = createApp({
           [fromDate.value, toDate.value, conf]
         );
         speciesList.value = rows.map(r => ({ name: r.Com_Name, sci: r.Sci_Name || '', n: r.n }));
-        // Keep only selected species that still exist
+        // Auto-select all if none selected, otherwise keep valid selection
         const available = new Set(rows.map(r => r.Com_Name));
-        selectedSpecies.value = selectedSpecies.value.filter(s => available.has(s));
+        if (selectedSpecies.value.length === 0) {
+          selectedSpecies.value = rows.map(r => r.Com_Name);
+        } else {
+          selectedSpecies.value = selectedSpecies.value.filter(s => available.has(s));
+        }
         if (selectedSpecies.value.length) await loadAnalysis();
       } catch(e) { console.error('[analyses] applyFilters:', e); }
       loading.value = false;
@@ -885,10 +925,6 @@ const app = createApp({
       document.addEventListener('keydown', onKeydown);
       const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
       taxonomyData.value = tax.species || [];
-      try {
-        const r = (await birdQuery('SELECT MIN(Date) as f, MAX(Date) as l FROM detections'))[0];
-        if (r) { fromDate.value = r.f; toDate.value = r.l; quickActive.value = 0; }
-      } catch(e) {}
       await applyFilters();
       window.addEventListener('resize', onResize);
     });
@@ -936,11 +972,11 @@ const app = createApp({
       fOrder, fFamily, taxonomyOrders, availableFamilies, onOrderChange, onFamilyChange,
       speciesList, selectedSpecies, mainSpecies, spSearch, spSearchInput, pickerOpen, topN,
       filteredSpeciesList, selCtx, headerTitle,
-      loading, kpis, breakdown, narrativeHtml, narrativeLoading, heatmapHtml, heatmapLoading,
-      thumbUrl, elPolar, elSeries, polarDetail,
+      loading, kpis, breakdown, narrativeHtml, narrativeLoading, heatmapHtml, heatmapLoading, safeHtml,
+      navigateTo, thumbUrl, elPolar, elSeries, polarDetail,
       speciesLabel, polarTitle, seriesTitle, heatmapTitle,
       playingFile, fmtTime, zeroPad, fmtTimeFull, toggleAudioFile, photoUrl,
-      setRange, setAll, applyFilters, toggleSpecies, removeTag, selectTopN, selectAllFiltered, clearSelection, exportCsv,
+      setRange, setAll, resetDefaults, applyFilters, toggleSpecies, removeTag, selectTopN, selectAllFiltered, clearSelection, exportCsv,
     };
   }
 });

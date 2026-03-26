@@ -46,7 +46,7 @@
       <!-- ── Filtre espèces (gauche) ────────────────────────────── -->
       <div class="filter-panel">
         <input class="filter-search" type="search" :placeholder="'🔍 '+t('filter_species_ph')"
-               v-model="spSearch">
+               v-model="spSearch" :aria-label="t('filter_species_ph')">
         <div class="filter-actions">
           <button class="btn btn-secondary" style="flex:1;font-size:.75rem;padding:.3rem;"
                   @click="selectedSpecies=[]">{{t('clear_all')}}</button>
@@ -88,7 +88,7 @@
             <!-- Noms + confiance -->
             <div class="rec-header">
               <div class="rec-names">
-                <div class="rec-com-name">{{spName(rec.Com_Name, rec.Sci_Name)}}</div>
+                <a class="rec-com-name" :href="'species.html?species='+encodeURIComponent(rec.Com_Name)" style="text-decoration:none;color:inherit;" @mouseenter="$event.target.style.color='var(--accent)'" @mouseleave="$event.target.style.color='inherit'">{{spName(rec.Com_Name, rec.Sci_Name)}}</a>
                 <div class="rec-sci-name">{{rec.Sci_Name}}</div>
               </div>
               <div class="rec-badges">
@@ -119,7 +119,7 @@
               <a v-if="rec.File_Name"
                  :href="dlUrl(rec)"
                  :download="dlName(rec)"
-                 class="dl-btn" title="Télécharger l'audio">⬇</a>
+                 class="dl-btn" :title="t('download_audio')">⬇</a>
               <button class="rec-spectro-btn"
                       :class="{open: spectroUid===rec.uid}"
                       :title="spectroUid===rec.uid ? t('spectro_close') : t('spectro_show')"
@@ -139,7 +139,7 @@
               <canvas :ref="el => { if(el) spectroCanvases[rec.uid]=el }"
                       :width="600" :height="140" style="padding-left:28px;box-sizing:border-box;"></canvas>
               <div v-if="spectroLoading===rec.uid" class="rec-spectro-loading">
-                ⏳ Analyse FFT…
+                ⏳ {{t('fft_analysis')}}
               </div>
               <!-- Badge CLEAN sur le spectrogramme -->
               <div v-if="cleanState[rec.uid]?.mode"
@@ -166,7 +166,7 @@
                 </button>
                 <template v-if="cleanState[rec.uid]?.mode && !cleanState[rec.uid]?.processing">
                   <input type="range" min="0.2" max="1.0" step="0.05"
-                         :value="cleanState[rec.uid]?.strength ?? 0.75"
+                         :value="cleanState[rec.uid]?.strength ?? 0.75" aria-label="Clean strength"
                          @change="e => { cleanState[rec.uid].strength=parseFloat(e.target.value); reapplyClean(rec); }"
                          style="flex:1;min-width:50px;accent-color:var(--accent);">
                   <span class="rstb-val">{{Math.round((cleanState[rec.uid]?.strength ?? 0.75)*100)}}%</span>
@@ -232,7 +232,7 @@
               </a>
               <div class="rec-links">
                 <a v-for="(lnk,key) in buildSpeciesLinks(rec.Sci_Name, rec.Com_Name)"
-                   :key="key" :href="lnk.url" target="_blank" class="rec-link"
+                   :key="key" :href="lnk.url" target="_blank" rel="noopener noreferrer" class="rec-link"
                    :title="lnk.label">
                   {{lnk.icon}}
                 </a>

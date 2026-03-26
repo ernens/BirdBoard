@@ -725,7 +725,7 @@
           <span style="font-size:.72rem;color:var(--text-faint);">&#8804;5 détections total</span>
         </div>
         <div v-if="rareLocal.loading" class="spinner"><div></div><div></div><div></div></div>
-        <div v-else-if="!rareLocal.rows.length" class="error-msg">Aucune rareté détectée récemment</div>
+        <div v-else-if="!rareLocal.rows.length" class="error-msg">{{t('no_rarities_detected')}}</div>
         <div v-else>
           <div v-for="r in rareLocal.rows" :key="r.Com_Name" class="det-item"
                style="cursor:pointer;gap:.5rem;border-left:2px solid var(--danger);padding-left:.5rem;"
@@ -759,20 +759,20 @@
             <span v-if="!ebird.hasKey"
                   style="font-size:.72rem;color:var(--warning);background:color-mix(in srgb,var(--warning) 10%,transparent);
                          padding:.15rem .45rem;border-radius:6px;border:1px solid color-mix(in srgb,var(--warning) 30%,transparent);">
-              &#9888; Clé API manquante
+              &#9888; {{t('ebird_api_missing')}}
             </span>
           </div>
         </div>
 
         <!-- No API key -->
         <div v-if="!ebird.hasKey" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
-          Pour activer cette section, obtenez une clé gratuite sur
-          <a href="https://ebird.org/api/keygen" target="_blank" style="color:var(--accent);">ebird.org/api/keygen</a>
-          puis configurez-la sur le Pi :<br>
+          {{t('ebird_enable_text')}}
+          <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">ebird.org/api/keygen</a>
+          {{t('ebird_then_configure')}}<br>
           <code style="background:var(--bg-deep);padding:.2rem .5rem;border-radius:4px;font-size:.78rem;display:inline-block;margin-top:.4rem;">
             sudo systemctl edit birdash-api --force
           </code><br>
-          <span style="font-size:.75rem;color:var(--text-faint);">Ajouter : <code>Environment=EBIRD_API_KEY=votre_cle</code></span>
+          <span style="font-size:.75rem;color:var(--text-faint);">{{t('ebird_add_env')}} <code>Environment=EBIRD_API_KEY={{t('ebird_your_key')}}</code></span>
         </div>
 
         <!-- Loading -->
@@ -783,12 +783,12 @@
 
         <!-- Results -->
         <div v-else-if="!ebird.obs.length" class="error-msg">
-          Aucune observation notable ces 7 derniers jours en Belgique.
+          {{t('ebird_no_notable')}}
         </div>
         <div v-else>
           <div v-for="obs in ebird.obs" :key="obs.subId" class="det-item"
                style="gap:.5rem;cursor:pointer;" @click="openUrl(obs.obsUrl)">
-            <div style="font-size:1rem;flex-shrink:0;" :title="obs.localMatch?'Également détecté localement':'Pas détecté localement'">
+            <div style="font-size:1rem;flex-shrink:0;" :title="obs.localMatch?t('detected_locally'):t('not_detected_locally')">
               {{obs.localMatch ? '&#9989;' : '&#128065;'}}
             </div>
             <div style="flex:1;min-width:0;">
@@ -806,9 +806,9 @@
             </div>
           </div>
           <div style="text-align:right;margin-top:.5rem;">
-            <a href="https://ebird.org/region/BE/recent-notable" target="_blank"
+            <a href="https://ebird.org/region/BE/recent-notable" target="_blank" rel="noopener noreferrer"
                class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
-              Voir sur eBird &#8594;
+              {{t('ebird_see_on')}} &#8594;
             </a>
           </div>
         </div>
@@ -828,19 +828,19 @@
                       @click="bwPeriod=p.val;loadBirdWeather()">{{p.label}}</button>
             </div>
             <a v-if="bw.stationId" :href="'https://app.birdweather.com/stations/'+bw.stationId"
-               target="_blank" class="btn btn-secondary"
-               style="font-size:.72rem;padding:.22rem .55rem;">Voir sur BirdWeather &#8599;</a>
+               target="_blank" rel="noopener noreferrer" class="btn btn-secondary"
+               style="font-size:.72rem;padding:.22rem .55rem;">{{t('bw_see_on')}} &#8599;</a>
           </div>
         </div>
 
         <!-- Not configured -->
         <div v-if="!bw.hasStation" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
-          Ajouter dans <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">birdash-local.js</code> :
+          {{t('bw_add_in')}} <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">birdash-local.js</code> :
           <code style="display:block;background:var(--bg-deep);padding:.4rem .65rem;border-radius:5px;margin-top:.4rem;font-size:.78rem;">
             birdweatherStationId: 'YOUR_STATION_ID',
           </code>
           <div style="font-size:.72rem;color:var(--text-faint);margin-top:.3rem;">
-            L'ID est visible dans l'URL : app.birdweather.com/stations/<strong>XXXX</strong>
+            {{t('bw_id_in_url')}} app.birdweather.com/stations/<strong>XXXX</strong>
           </div>
         </div>
 
@@ -874,7 +874,7 @@
 
           <!-- Top species BirdWeather -->
           <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
-            Top espèces détectées
+            {{t('top_detected')}}
           </div>
           <div v-if="!bw.species.length" class="error-msg" style="font-size:.8rem;">Aucune donnée</div>
           <div v-else>

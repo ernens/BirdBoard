@@ -39,10 +39,6 @@
                   style="padding:.15rem .6rem;font-size:.75rem;">↺ {{t('loading').replace('…','')}}</button>
         </div>
       </div>
-      <div style="font-size:.72rem;color:var(--text-faint);text-align:right;">
-        {{t('data_freshness')}}<br>
-        <span style="color:var(--accent);">{{freshness}}</span>
-      </div>
     </div>
 
     <!-- ── KPIs ─────────────────────────────────────────────────── -->
@@ -80,7 +76,7 @@
               {{t('species')}} — {{speciesList.length}}
             </div>
             <input type="text" v-model="searchQ" class="bird-input"
-                   placeholder="🔍 filtrer…"
+                   :placeholder="'🔍 '+t('search_filter_ph')"
                    style="width:120px;padding:.2rem .5rem;font-size:.78rem;">
           </div>
 
@@ -121,8 +117,8 @@
         <!-- Pas de sélection -->
         <div v-if="!selected" class="card hint-empty">
           <div class="hint-icon">🎵</div>
-          <div style="color:var(--text-muted);">Sélectionnez une espèce</div>
-          <div style="font-size:.78rem;">pour écouter et voir le spectrogramme</div>
+          <div style="color:var(--text-muted);">{{t('select_species_prompt')}}</div>
+          <div style="font-size:.78rem;">{{t('listen_spectro_hint')}}</div>
         </div>
 
         <!-- Panneau lecteur -->
@@ -135,7 +131,7 @@
               <span v-else>🦜</span>
             </div>
             <div class="player-species">
-              <div class="player-name">{{selected.Com_Name}}</div>
+              <a class="player-name" @click="navigateTo('species.html',{species:selected.Com_Name})" style="cursor:pointer;text-decoration:none;color:inherit;" @mouseenter="$event.target.style.color='var(--accent)'" @mouseleave="$event.target.style.color='inherit'">{{selected.Com_Name}}</a>
               <div class="player-sci">{{selected.sci}}</div>
               <div class="player-meta">
                 <span class="conf-badge" :class="parseFloat(currentDet.Confidence)>=0.8?'conf-high':'conf-mid'">
@@ -197,7 +193,7 @@
               <button v-if="nextAudioIdx >= 0" class="btn btn-secondary"
                       style="margin-top:.5rem;font-size:.75rem;"
                       @click="loadDetection(nextAudioIdx)">
-                Prochaine détection avec audio →
+                {{t('next_det_audio')}}
               </button>
             </div>
 
@@ -248,7 +244,7 @@
               </span>
               <input type="range" min="0.2" max="1.0" step="0.05"
                      v-model.number="cleanStrength"
-                     @change="reapplyClean"
+                     @change="reapplyClean" aria-label="Clean strength"
                      style="flex:1;min-width:80px;accent-color:var(--accent);">
               <span style="font-size:.72rem;font-family:monospace;color:var(--accent);
                            min-width:32px;text-align:right;align-self:center;">

@@ -71,7 +71,7 @@
     if (!dateStr || !timeStr) return '\u2014';
     const last    = new Date(`${dateStr}T${timeStr}`);
     const diffMs  = Date.now() - last.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
+    const diffMin = Math.max(0, Math.floor(diffMs / 60000));
     if (diffMin < 60)   return t('minutes_ago', { n: diffMin });
     if (diffMin < 1440) return t('hours_ago',   { n: Math.floor(diffMin / 60) });
     return t('days_ago', { n: Math.floor(diffMin / 1440) });
@@ -264,6 +264,62 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── HTML sanitizer (for v-html) ─────────────────────────────────────
+  // Uses DOMPurify if available, otherwise falls back to a strict whitelist
+  // approach that strips anything not explicitly allowed.
+
+  const _SAFE_TAGS = new Set([
+    'p','br','strong','b','em','i','u','span','div',
+    'table','thead','tbody','tfoot','tr','th','td','caption',
+    'ul','ol','li','a','h1','h2','h3','h4','h5','h6',
+    'img','svg','path','line','rect','circle','text',
+  ]);
+  const _SAFE_ATTRS = new Set([
+    'style','class','title','href','target','rel','colspan','rowspan',
+    'width','height','alt','src','loading','d','viewBox','stroke',
+    'stroke-width','fill','cx','cy','r','x','y','x1','y1','x2','y2',
+    'onclick',  // needed for biodiversity matrix navigation
+  ]);
+
+  function safeHtml(html) {
+    if (!html) return '';
+    // Prefer DOMPurify if loaded
+    if (typeof DOMPurify !== 'undefined') {
+      return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [..._SAFE_TAGS],
+        ALLOWED_ATTR: [..._SAFE_ATTRS],
+        ALLOW_DATA_ATTR: false,
+      });
+    }
+    // Fallback: parse and whitelist via DOM
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      _sanitizeNode(doc.body);
+      return doc.body.innerHTML;
+    } catch(e) {
+      return escHtml(html);
+    }
+  }
+
+  function _sanitizeNode(node) {
+    const children = [...node.childNodes];
+    for (const child of children) {
+      if (child.nodeType === 3) continue; // text node — safe
+      if (child.nodeType !== 1) { child.remove(); continue; } // remove comments etc
+      if (!_SAFE_TAGS.has(child.tagName.toLowerCase())) {
+        child.remove();
+        continue;
+      }
+      // Strip disallowed attributes
+      for (const attr of [...child.attributes]) {
+        if (!_SAFE_ATTRS.has(attr.name.toLowerCase())) {
+          child.removeAttribute(attr.name);
+        }
+      }
+      _sanitizeNode(child);
+    }
+  }
+
   // ── Model short labels ───────────────────────────────────────────────
 
   const _MODEL_SHORT = {
@@ -347,6 +403,7 @@
     fetchCachedPhoto: fetchCachedPhoto,
     chartDefaults: chartDefaults,
     escHtml: escHtml,
+    safeHtml: safeHtml,
     spinnerHTML: spinnerHTML,
     shortModel: shortModel,
     loadTaxonomy: loadTaxonomy,

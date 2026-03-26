@@ -239,6 +239,23 @@
 
 /* ── recent.html ─────────────────────────────────────────────────────── */
 
+    /* ── Panneau nouvelles espèces ─────────────────────────────────── */
+    .new-sp-panel {
+      position:absolute; top:calc(100% + 6px); right:0; z-index:200;
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:0 6px 24px rgba(0,0,0,.28); padding:.5rem 0;
+      min-width:260px; max-width:340px; max-height:300px; overflow-y:auto;
+    }
+    .new-sp-title {
+      font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;
+      color:var(--text-muted); padding:.3rem .75rem .5rem; border-bottom:1px solid var(--border);
+    }
+    .new-sp-item {
+      display:flex; align-items:center; gap:.5rem; padding:.45rem .75rem;
+      cursor:pointer; transition:background .1s;
+    }
+    .new-sp-item:hover { background:var(--bg-card2); }
+
     /* ── Layout 2 colonnes ──────────────────────────────────────────── */
     .today-layout {
       display: grid;
@@ -447,8 +464,10 @@
 
     .det-layout { display:grid; grid-template-columns:240px 1fr; gap:1rem; align-items:start; }
     @media(max-width:860px){ .det-layout{grid-template-columns:1fr;} }
+    @media(max-width:860px){ .det-layout .filter-panel { position:static; } }
     @media(max-width:640px){ .hide-sm{display:none;} }
-    .filter-panel { position:sticky; top:1rem; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:.85rem; display:flex; flex-direction:column; gap:.85rem; }
+    .filter-panel { position:sticky; top:1rem; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:.85rem; display:flex; flex-direction:column; gap:.85rem; min-width:0; overflow:hidden; box-sizing:border-box; }
+    .filter-panel > * { min-width:0; max-width:100%; }
     .fp-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:.35rem; display:block; }
     .fp-date-input { width:100%; box-sizing:border-box; background:var(--bg-deep); border:1px solid var(--border); color:var(--text-main); border-radius:4px; padding:.3rem .45rem; font-size:.8rem; margin-bottom:.3rem; }
     .fp-quick-btns { display:flex; flex-wrap:nowrap; gap:.25rem; }
@@ -861,7 +880,7 @@
     .sp-tag { display:inline-flex; align-items:center; gap:.25rem; background:var(--accent); color:#fff; padding:.1rem .45rem; border-radius:12px; font-size:.74rem; font-weight:500; }
     .sp-tag-x { background:none; border:none; color:rgba(255,255,255,.75); cursor:pointer; padding:0 .1rem; font-size:.8rem; line-height:1; }
     .sp-tag-x:hover { color:#fff; }
-    .sp-dropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); z-index:100; box-shadow:0 6px 24px rgba(0,0,0,.25); }
+    .sp-dropdown { position:absolute; top:calc(100% + 4px); left:0; min-width:300px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); z-index:200; box-shadow:0 6px 24px rgba(0,0,0,.25); }
     .sp-topn-bar { display:flex; align-items:center; gap:.4rem; padding:.5rem .7rem; border-bottom:1px solid var(--border); font-size:.78rem; color:var(--text-muted); }
     .sp-topn-input { width:44px; background:var(--bg-deep); border:1px solid var(--border); color:var(--text-main); border-radius:4px; padding:.2rem .35rem; font-size:.78rem; text-align:center; }
     .sp-topn-btn,.sp-clear-btn { font-size:.72rem; padding:.18rem .5rem; border-radius:12px; border:1px solid var(--border); cursor:pointer; transition:all .12s; }
@@ -1512,4 +1531,104 @@
     .ctrl-panel   { max-width: 280px; }
     @media (max-width: 860px) {
       .filter-panel, .ctrl-panel { max-width: 100%; }
+    }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   FILTER BAR — shared horizontal filter strip below nav
+   ══════════════════════════════════════════════════════════════════════════════ */
+    .filter-bar-wrap {
+      padding:0 0 .5rem; position:relative; z-index:50;
+    }
+    .filter-bar {
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:.55rem .9rem; box-sizing:border-box;
+    }
+    .filter-bar-inner {
+      display:flex; align-items:flex-start; gap:.8rem; flex-wrap:nowrap;
+    }
+    .filter-sep {
+      width:1px; align-self:stretch; background:var(--border); margin:.2rem .6rem; flex-shrink:0;
+    }
+    .filter-group {
+      display:flex; flex-direction:column; gap:.25rem; min-width:0; flex-shrink:0;
+    }
+    .filter-group-label {
+      font-size:.68rem; text-transform:uppercase; letter-spacing:.06em;
+      color:var(--text-faint); white-space:nowrap;
+    }
+    .filter-group select,
+    .filter-group input[type="date"] {
+      background:var(--bg-deep); border:1px solid var(--border); color:var(--text-main);
+      border-radius:4px; padding:.25rem .4rem; font-size:.76rem;
+      font-family:var(--font-body); min-width:120px; box-sizing:border-box;
+    }
+    .filter-group select:focus,
+    .filter-group input[type="date"]:focus { outline:none; border-color:var(--accent); }
+    /* Species picker */
+    .filter-sp-picker { position:relative; min-width:0; }
+    .filter-sp-bar {
+      background:var(--bg-deep); border:1px solid var(--border); border-radius:4px;
+      padding:.3rem .5rem; min-height:28px; cursor:pointer;
+      display:flex; align-items:center; flex-wrap:nowrap; gap:.25rem;
+      font-size:.78rem; color:var(--text-faint); overflow:hidden;
+    }
+    .filter-sp-bar:hover { border-color:var(--accent); }
+    .filter-sp-bar .sp-tag { font-size:.7rem; padding:.05rem .35rem; flex-shrink:0; }
+    .filter-sp-picker .sp-dropdown {
+      position:absolute; top:calc(100% + 4px); left:0;
+      min-width:320px; width:max-content; max-width:420px;
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+      z-index:500; box-shadow:0 8px 32px rgba(0,0,0,.35);
+    }
+    /* Date range */
+    .filter-dates { display:flex; align-items:center; gap:.35rem; }
+    .filter-dates input[type="date"] { width:130px; }
+    .filter-dates-sep { color:var(--text-faint); font-size:.75rem; }
+    /* Quick range pills */
+    .filter-quick { display:flex; gap:.25rem; flex-wrap:wrap; }
+    .filter-quick .quick-btn { font-size:.68rem; padding:.15rem .4rem; }
+    /* Resolution radio */
+    .filter-res { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+    .filter-res label {
+      display:flex; align-items:center; gap:.2rem; font-size:.78rem;
+      color:var(--text-main); cursor:pointer; white-space:nowrap;
+    }
+    .filter-res input[type="radio"] { accent-color:var(--accent); }
+    /* Confidence */
+    .filter-conf { display:flex; align-items:center; gap:.4rem; }
+    .filter-conf input[type="range"] { width:100%; flex:1; min-width:60px; }
+    .filter-conf-val {
+      font-size:.78rem; font-weight:600; color:var(--accent);
+      font-family:var(--font-mono); min-width:32px; flex-shrink:0;
+    }
+    /* Action buttons */
+    .filter-actions {
+      display:flex; flex-direction:column; gap:.35rem;
+      align-self:center; flex-shrink:0;
+    }
+    .filter-default {
+      padding:.3rem .8rem; background:transparent; color:var(--text-muted);
+      border:1px solid var(--border); border-radius:var(--radius);
+      font-size:.74rem; font-family:var(--font-body); font-weight:500;
+      cursor:pointer; white-space:nowrap; transition:all .15s;
+    }
+    .filter-default:hover { color:var(--text-main); border-color:var(--border-light); }
+    .filter-apply {
+      padding:.3rem .8rem; background:var(--accent); color:#fff; border:none;
+      border-radius:var(--radius); font-size:.74rem; font-family:var(--font-body);
+      font-weight:500; cursor:pointer; white-space:nowrap; transition:opacity .15s;
+    }
+    .filter-apply:hover { opacity:.85; }
+    /* Mobile */
+    @media (max-width:900px) {
+      .filter-bar-inner { flex-wrap:wrap; gap:.6rem; }
+      .filter-group { min-width:45%; flex:1; flex-shrink:1; }
+      .filter-group select, .filter-group input[type="date"] { width:100%; }
+      .filter-sp-picker { width:100%; }
+      .filter-sp-picker .sp-dropdown { min-width:0; width:100%; max-width:none; }
+      .filter-dates { flex-direction:column; align-items:stretch; }
+      .filter-dates input[type="date"] { width:100%; }
+      .filter-conf input[type="range"] { flex:1; }
+      .filter-apply, .filter-default { width:100%; }
+      .filter-sep { display:none; }
     }

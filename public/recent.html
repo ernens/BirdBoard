@@ -19,101 +19,125 @@
 <div id="app">
   <birdash-shell page="recent" :title="t('nav_recent')">
 
-    <!-- ── Navigation de date ───────────────────────────────────── -->
-    <div class="date-nav">
-      <!-- Flèches navigation -->
-      <button class="date-nav-btn" @click="prevDay" title="Jour précédent">←</button>
-      <div class="date-nav-display" @click="openDatePicker" :title="'Cliquer pour choisir une date'">
-        {{fmtDateLong(selDate)}}
-        <span v-if="selDate===today" style="font-size:.72rem;color:var(--accent);margin-left:.3rem;">· {{t('today_label')}}</span>
-      </div>
-      <button class="date-nav-btn" @click="nextDay" :disabled="selDate>=today" title="Jour suivant">→</button>
-      <!-- Input date caché -->
-      <input ref="datePickerInput" type="date" class="date-input-hidden"
-             :max="today" v-model="selDate" @change="onDateChange">
+    <div class="det-layout">
 
-      <div class="date-nav-sep"></div>
+      <!-- ── Filter panel (sidebar) ─────────────────────────────── -->
+      <div class="filter-panel">
 
-      <!-- Presets rapides -->
-      <div class="date-nav-quick">
-        <button class="date-nav-quick-btn" :class="{active:selDate===today}" @click="goToday">{{t('today_label')}}</button>
-        <button class="date-nav-quick-btn" :class="{active:selDate===yesterday}" @click="goYesterday">{{t('yesterday')}}</button>
-        <button v-for="q in recentQuicks" :key="q.label"
-                class="date-nav-quick-btn" :class="{active:activeQuick===q.label}"
-                @click="goQuick(q)">{{q.label}}</button>
+        <!-- Date navigation -->
+        <div>
+          <span class="fp-label">{{t('period')}}</span>
+          <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.35rem;">
+            <button v-if="!rangeMode" class="date-nav-btn" @click="prevDay" :title="t('nav_prev_day')">←</button>
+            <div v-if="!rangeMode" class="date-nav-display" @click="openDatePicker" style="cursor:pointer;font-size:.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center;">
+              {{fmtDateLong(selDate)}}
+            </div>
+            <div v-else style="font-size:.78rem;font-weight:600;color:var(--text-main);text-align:center;flex:1;">
+              {{fmtDateLong(selDate)}} → {{fmtDateLong(selDateEnd)}}
+            </div>
+            <button v-if="!rangeMode" class="date-nav-btn" @click="nextDay" :disabled="selDate>=today" :title="t('nav_next_day')">→</button>
+            <input ref="datePickerInput" type="date" class="date-input-hidden"
+                   :max="today" v-model="selDate" @change="onDateChange">
+          </div>
+          <div class="fp-quick-btns">
+            <button class="fp-quick-btn" :class="{active:selDate===today}" @click="goToday">{{t('today_label')}}</button>
+            <button class="fp-quick-btn" :class="{active:selDate===yesterday}" @click="goYesterday">{{t('yesterday')}}</button>
+            <button v-for="q in recentQuicks" :key="q.label"
+                    class="fp-quick-btn" :class="{active:activeQuick===q.label}"
+                    @click="goQuick(q)">{{q.label}}</button>
+          </div>
+        </div>
+
+        <!-- Confiance -->
+        <div>
+          <div class="fp-slider-row">
+            <span class="fp-label" style="margin:0;">{{t('conf_min')}}</span>
+            <span v-if="!confEditing" class="fp-slider-val"
+                  style="cursor:pointer;text-decoration:underline dotted;"
+                  @click="startConfEdit">{{Math.round(minConf*100)}}%</span>
+            <input v-else ref="confInput" type="number" min="0" max="100" step="1"
+                   v-model.number="confEditVal"
+                   @keydown.enter="commitConfEdit" @blur="commitConfEdit" @keydown.escape="confEditing=false"
+                   style="width:52px;font-size:.8rem;font-family:monospace;font-weight:600;
+                          color:var(--accent);background:var(--bg-deep);
+                          border:1px solid var(--accent);border-radius:4px;
+                          padding:.1rem .3rem;text-align:right;">
+          </div>
+          <input type="range" min="0" max="1" step="0.01" v-model.number="minConf" @change="loadAll"
+                 :aria-label="t('conf_min')"
+                 :style="'background:linear-gradient(to right,var(--accent) '+minConf*100+'%,var(--bg-deep) '+minConf*100+'%)'">
+          <div class="fp-slider-marks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+        </div>
+
+        <!-- Actions -->
+        <button class="btn btn-primary" @click="loadAll">{{t('apply_filter')}}</button>
       </div>
 
-      <!-- Slider confiance -->
-      <div class="conf-slider-wrap">
-        <span class="conf-slider-label">{{t('conf_min')}}</span>
-        <input type="range" min="0" max="1" step="0.01" v-model.number="minConf"
-               @change="loadAll"
-               :style="'background:linear-gradient(to right,var(--accent) '+minConf*100+'%,var(--bg-deep) '+minConf*100+'%)'">
-        <span v-if="!confEditing" class="conf-slider-val"
-              @click="startConfEdit" title="Cliquer pour saisir">
-          {{Math.round(minConf*100)}}%
-        </span>
-        <input v-else ref="confInput" type="number" min="0" max="100" step="1"
-               v-model.number="confEditVal"
-               @keydown.enter="commitConfEdit" @blur="commitConfEdit"
-               @keydown.escape="confEditing=false"
-               style="width:48px;font-size:.8rem;font-family:monospace;font-weight:600;
-                      color:var(--accent);background:var(--bg-deep);
-                      border:1px solid var(--accent);border-radius:4px;
-                      padding:.1rem .3rem;text-align:right;">
-        <span style="font-size:.72rem;color:var(--text-faint);">
-          {{freshness}}
-        </span>
-        <button class="btn btn-secondary" @click="loadAll"
-                style="padding:.15rem .55rem;font-size:.72rem;">↺</button>
-      </div>
-    </div>
-
-    <!-- ── KPIs ─────────────────────────────────────────────────── -->
-    <div class="kpi-strip">
-      <div class="kpi-card">
-        <div class="kpi-value">{{kpis.det}}</div>
-        <div class="kpi-label">{{t('detections')}}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value amber">{{kpis.sp}}</div>
-        <div class="kpi-label">{{t('species')}}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value blue">{{kpis.conf}}</div>
-        <div class="kpi-label">{{t('avg_confidence')}}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value">{{kpis.lastHour}}</div>
-        <div class="kpi-label">{{t('last_hour')}}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value" style="color:var(--danger);">{{kpis.newSp}}</div>
-        <div class="kpi-label">{{t('new_species')}}</div>
-      </div>
-    </div>
-
-    <!-- ── Graphique horaire ───────────────────────────────────── -->
-    <div class="card" style="padding:.6rem .85rem .5rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;">
-        <span style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">{{t('hourly_distrib')}}</span>
-        <span style="font-size:.72rem;color:var(--text-faint);">{{kpis.det}} détections · {{kpis.sp}} espèces</span>
-      </div>
-      <div class="hourly-chart-wrap"><canvas ref="canvasHourly"></canvas></div>
-    </div>
-
-    <!-- ── Layout principal ─────────────────────────────────────── -->
-    <div class="today-layout">
-
-      <!-- Colonne gauche : liste espèces -->
+      <!-- ── Main content ───────────────────────────────────────── -->
       <div>
+
+        <!-- KPIs -->
+        <div class="kpi-strip">
+          <div class="kpi-card">
+            <div class="kpi-value">{{kpis.det}}</div>
+            <div class="kpi-label">{{t('detections')}}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value amber">{{kpis.sp}}</div>
+            <div class="kpi-label">{{t('species')}}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value blue">{{kpis.conf}}</div>
+            <div class="kpi-label">{{t('avg_confidence')}}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value">{{kpis.lastHour}}</div>
+            <div class="kpi-label">{{t('last_hour')}}</div>
+          </div>
+          <div class="kpi-card" style="position:relative;cursor:pointer;" @click="toggleNewSp">
+            <div class="kpi-value" style="color:var(--danger);">{{kpis.newSp}}</div>
+            <div class="kpi-label">{{t('new_species')}}</div>
+            <!-- Panneau nouvelles espèces -->
+            <div v-if="newSpOpen && newSpList.length" class="new-sp-panel" @click.stop>
+              <div class="new-sp-title">{{t('new_species')}} ({{newSpList.length}})</div>
+              <div v-for="s in newSpList" :key="s.Com_Name" class="new-sp-item"
+                   @click.stop="navigateTo('species.html',{species:s.Com_Name})">
+                <bird-img v-if="s.photoUrl" :src="s.photoUrl" :alt="s.Com_Name"
+                     style="width:32px;height:32px;border-radius:6px;object-fit:cover;flex-shrink:0;"></bird-img>
+                <div v-else style="width:32px;height:32px;border-radius:6px;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">🐦</div>
+                <div style="flex:1;min-width:0;text-align:left;">
+                  <div style="font-size:.82rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(s.Com_Name, s.sci)}}</div>
+                  <div style="font-size:.68rem;color:var(--text-muted);font-style:italic;">{{s.sci}}</div>
+                </div>
+                <span :class="'conf-badge '+(parseFloat(s.max_conf)>=0.8?'conf-high':'conf-mid')" style="flex-shrink:0;">
+                  {{fmtConf(s.max_conf)}}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graphique horaire -->
+        <div class="card" style="padding:.6rem .85rem .5rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;">
+            <span style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">{{t('hourly_distrib')}}</span>
+            <span style="font-size:.72rem;color:var(--text-faint);">{{kpis.det}} détections · {{kpis.sp}} espèces</span>
+          </div>
+          <div class="hourly-chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+        </div>
+
+        <!-- Layout espèces + lecteur -->
+        <div class="today-layout">
+
+          <!-- Colonne gauche : liste espèces -->
+          <div>
         <div class="card" style="padding:0;overflow:hidden;">
           <div style="padding:.6rem .85rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
             <div class="card-title" style="margin:0;">
               {{t('species')}} — {{speciesList.length}}
             </div>
             <input type="text" v-model="searchQ" class="bird-input"
-                   placeholder="🔍 filtrer…"
+                   :placeholder="'🔍 '+t('search_filter_ph')"
                    style="width:120px;padding:.2rem .5rem;font-size:.78rem;">
           </div>
 
@@ -154,8 +178,8 @@
         <!-- Pas de sélection -->
         <div v-if="!selected" class="card hint-empty">
           <div class="hint-icon">🎵</div>
-          <div style="color:var(--text-muted);">Sélectionnez une espèce</div>
-          <div style="font-size:.78rem;">pour écouter et voir le spectrogramme</div>
+          <div style="color:var(--text-muted);">{{t('select_species_prompt')}}</div>
+          <div style="font-size:.78rem;">{{t('listen_spectro_hint')}}</div>
         </div>
 
         <!-- Panneau lecteur -->
@@ -168,7 +192,7 @@
               <span v-else>🦜</span>
             </div>
             <div class="player-species">
-              <div class="player-name">{{spName(selected.Com_Name, selected.sci)}}</div>
+              <a class="player-name" @click="navigateTo('species.html',{species:selected.Com_Name})" style="cursor:pointer;text-decoration:none;color:inherit;" @mouseenter="$event.target.style.color='var(--accent)'" @mouseleave="$event.target.style.color='inherit'">{{spName(selected.Com_Name, selected.sci)}}</a>
               <div class="player-sci">{{selected.sci}}</div>
               <div class="player-meta">
                 <span class="conf-badge" :class="parseFloat(currentDet.Confidence)>=0.8?'conf-high':'conf-mid'">
@@ -230,7 +254,7 @@
               <button v-if="nextAudioIdx >= 0" class="btn btn-secondary"
                       style="margin-top:.5rem;font-size:.75rem;"
                       @click="loadDetection(nextAudioIdx)">
-                Prochaine détection avec audio →
+                {{t('next_det_audio')}}
               </button>
             </div>
 
@@ -260,7 +284,7 @@
             <a v-if="currentDet.File_Name"
                :href="cleanMode && cleanBlobForDownload ? cleanBlobForDownload : buildAudioUrl(currentDet.File_Name)"
                :download="(selected?.Com_Name||'bird').replace(/[^a-zA-Z0-9]/g,'_')+'_'+selDate+'_'+fmtTime(currentDet.Time).replace(':','')+(cleanMode&&cleanBlobForDownload?'.wav':'.mp3')"
-               class="dl-btn" title="Télécharger">⬇</a>
+               class="dl-btn" :title="t('download')">⬇</a>
             <div style="font-size:.72rem;color:var(--text-faint);text-align:right;min-width:60px;">
               {{currentDetIdx+1}} / {{selectedDets.length}}
             </div>
@@ -286,7 +310,7 @@
               </span>
               <input type="range" min="0.2" max="1.0" step="0.05"
                      v-model.number="cleanStrength"
-                     @change="reapplyClean"
+                     @change="reapplyClean" aria-label="Clean strength"
                      style="flex:1;min-width:80px;accent-color:var(--accent);">
               <span style="font-size:.72rem;font-family:monospace;color:var(--accent);
                            min-width:32px;text-align:right;align-self:center;">
@@ -319,7 +343,9 @@
         </div>
       </div>
 
-    </div>
+        </div><!-- /today-layout -->
+      </div><!-- /main content -->
+    </div><!-- /det-layout -->
   </birdash-shell>
 </div>
 
@@ -577,20 +603,37 @@ const app = createApp({
 
     // ── Date sélectionnée (réactive) ──────────────────────────────
     const selDate     = ref(today);
+    const selDateEnd  = ref(today);   // fin de plage (= selDate en mode jour unique)
+    const rangeMode   = ref(false);   // true quand 7j/30j actif
     const activeQuick = ref('');
     const recentQuicks = computed(() => [
-      { label:t('quick_7d'),  days: 6   },
-      { label:t('quick_30d'), days: 29  },
+      { label:t('quick_7d'),  days: 7  },
+      { label:t('quick_30d'), days: 30 },
     ]);
+    // Helpers pour requêtes : retourne [dateFrom, dateTo]
+    function dateRange() {
+      return rangeMode.value ? [selDate.value, selDateEnd.value] : [selDate.value, selDate.value];
+    }
 
     const datePickerInput = ref(null);
     function openDatePicker() { datePickerInput.value?.showPicker?.() || datePickerInput.value?.click(); }
-    function prevDay() { const d=new Date(selDate.value); d.setDate(d.getDate()-1); selDate.value=d.toISOString().split('T')[0]; activeQuick.value=''; onDateChange(); }
-    function nextDay() { if (selDate.value>=today) return; const d=new Date(selDate.value); d.setDate(d.getDate()+1); selDate.value=d.toISOString().split('T')[0]; activeQuick.value=''; onDateChange(); }
-    function goToday()     { selDate.value=today;     activeQuick.value=''; onDateChange(); }
-    function goYesterday() { selDate.value=yesterday; activeQuick.value=''; onDateChange(); }
-    function goQuick(q)    { selDate.value=daysAgo(q.days); activeQuick.value=q.label; onDateChange(); }
-    function onDateChange() { selected.value=null; selectedDets.value=[]; loadAll(); }
+    function prevDay() {
+      const d=new Date(selDate.value); d.setDate(d.getDate()-1);
+      selDate.value=d.toISOString().split('T')[0];
+      activeQuick.value=''; rangeMode.value=false; selDateEnd.value=selDate.value;
+      onDateChange();
+    }
+    function nextDay() {
+      if (selDate.value>=today) return;
+      const d=new Date(selDate.value); d.setDate(d.getDate()+1);
+      selDate.value=d.toISOString().split('T')[0];
+      activeQuick.value=''; rangeMode.value=false; selDateEnd.value=selDate.value;
+      onDateChange();
+    }
+    function goToday()     { selDate.value=today;     selDateEnd.value=today;     rangeMode.value=false; activeQuick.value=''; onDateChange(); }
+    function goYesterday() { selDate.value=yesterday; selDateEnd.value=yesterday; rangeMode.value=false; activeQuick.value=''; onDateChange(); }
+    function goQuick(q)    { selDate.value=daysAgo(q.days - 1); selDateEnd.value=today; rangeMode.value=true; activeQuick.value=q.label; onDateChange(); }
+    function onDateChange() { if (!rangeMode.value) selDateEnd.value=selDate.value; selected.value=null; selectedDets.value=[]; loadAll(); }
 
     // ── Confiance ─────────────────────────────────────────────────
     const minConf     = ref(BIRD_CONFIG.defaultConfidence);
@@ -605,6 +648,15 @@ const app = createApp({
     const hourlyData   = ref(null);
 
     const searchQ = ref('');
+    const newSpList = ref([]);
+    const newSpOpen = ref(false);
+    function toggleNewSp(e) {
+      if (newSpList.value.length === 0) return;
+      newSpOpen.value = !newSpOpen.value;
+      e.stopPropagation();
+    }
+    // Fermer le panneau au clic extérieur
+    onMounted(() => document.addEventListener('click', () => { newSpOpen.value = false; }));
 
     const kpis     = ref({ det:'—', sp:'—', conf:'—', lastHour:'—', newSp:'—' });
     const freshness = ref('—');
@@ -661,26 +713,31 @@ const app = createApp({
 
     async function loadKpis() {
       try {
+        const [dFrom, dTo] = dateRange();
         const [d] = await birdQuery(
           `SELECT COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp,
                   ROUND(AVG(Confidence)*100,1) as conf,
                   MAX(Date) as last_date, MAX(Time) as last_time
-           FROM detections WHERE Date=? AND Confidence>=?`, [selDate.value, minConf.value]);
+           FROM detections WHERE Date BETWEEN ? AND ? AND Confidence>=?`, [dFrom, dTo, minConf.value]);
         const [lh] = await birdQuery(
           `SELECT COUNT(*) as n FROM detections
-           WHERE Date=? AND Confidence>=? AND Time >= time('now','-1 hour','localtime')`,
-          [selDate.value, minConf.value]);
-        const [ns] = await birdQuery(
-          `SELECT COUNT(*) as n FROM (
-             SELECT Com_Name FROM detections WHERE Confidence>=?
-             GROUP BY Com_Name HAVING MIN(Date)=?
-           )`, [minConf.value, selDate.value]);
+           WHERE Date BETWEEN ? AND ? AND Confidence>=? AND Time >= time('now','-1 hour','localtime')`,
+          [dFrom, dTo, minConf.value]);
+        const nsRows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as sci, MAX(Confidence) as max_conf
+           FROM detections WHERE Confidence>=?
+           GROUP BY Com_Name HAVING MIN(Date) BETWEEN ? AND ?
+           ORDER BY MAX(Confidence) DESC`, [minConf.value, dFrom, dTo]);
+        newSpList.value = (nsRows || []).map(r => ({
+          ...r,
+          photoUrl: BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(r.sci || r.Com_Name),
+        }));
         kpis.value = {
           det: d ? d.n.toLocaleString() : '0',
           sp:  d ? d.sp : '0',
           conf: d && d.conf ? d.conf+'%' : '—',
           lastHour: lh ? lh.n.toLocaleString() : '0',
-          newSp: ns ? ns.n : '0',
+          newSp: newSpList.value.length,
         };
         if (d?.last_date) freshness.value = freshnessLabel(d.last_date, d.last_time, t);
       } catch(e) { console.error('kpis:', e); }
@@ -689,11 +746,12 @@ const app = createApp({
     async function loadSpecies() {
       loadingList.value = true;
       try {
+        const [dFrom, dTo] = dateRange();
         const rows = await birdQuery(
           `SELECT Com_Name, MAX(Sci_Name) as sci, COUNT(*) as n,
                   MAX(Time) as last_time, MAX(Confidence) as max_conf
-           FROM detections WHERE Date=? AND Confidence>=?
-           GROUP BY Com_Name ORDER BY n DESC`, [selDate.value, minConf.value]);
+           FROM detections WHERE Date BETWEEN ? AND ? AND Confidence>=?
+           GROUP BY Com_Name ORDER BY n DESC`, [dFrom, dTo, minConf.value]);
         speciesList.value = rows.map(r => ({
           ...r,
           imgUrl: BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(r.sci || r.Com_Name),
@@ -705,10 +763,11 @@ const app = createApp({
 
     async function loadHourlyData() {
       try {
+        const [dFrom, dTo] = dateRange();
         const rows = await birdQuery(
           `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n
-           FROM detections WHERE Date=? AND Confidence>=?
-           GROUP BY h ORDER BY h ASC`, [selDate.value, minConf.value]);
+           FROM detections WHERE Date BETWEEN ? AND ? AND Confidence>=?
+           GROUP BY h ORDER BY h ASC`, [dFrom, dTo, minConf.value]);
         const vals = Array(24).fill(0);
         rows.forEach(r => { vals[r.h] = r.n; });
         hourlyData.value = vals;
@@ -722,10 +781,11 @@ const app = createApp({
       currentDetIdx.value = 0;
       spectro.value       = { state: 'idle' };
       try {
+        const [dFrom, dTo] = dateRange();
         const rows = await birdQuery(
-          `SELECT Time, Confidence, File_Name
-           FROM detections WHERE Date=? AND Com_Name=? AND Confidence>=?
-           ORDER BY Time DESC`, [selDate.value, sp.Com_Name, minConf.value]);
+          `SELECT Date, Time, Confidence, File_Name
+           FROM detections WHERE Date BETWEEN ? AND ? AND Com_Name=? AND Confidence>=?
+           ORDER BY Date DESC, Time DESC`, [dFrom, dTo, sp.Com_Name, minConf.value]);
         selectedDets.value = rows;
         if (!sp.imgUrl && sp.sci) sp.imgUrl = BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sp.sci);
         await loadDetection(0);
@@ -919,13 +979,13 @@ const app = createApp({
 
     return {
       lang, t, spName,
-      today, yesterday, selDate, activeQuick, recentQuicks,
+      today, yesterday, selDate, selDateEnd, rangeMode, activeQuick, recentQuicks,
       datePickerInput, openDatePicker,
       prevDay, nextDay, goToday, goYesterday, goQuick, onDateChange,
       minConf, confEditing, confEditVal, confInput, startConfEdit, commitConfEdit,
       canvasHourly,
       searchQ,
-      kpis, freshness,
+      kpis, freshness, newSpList, newSpOpen, toggleNewSp,
       loadingList, speciesList, filteredSpecies,
       selected, selectedDets, currentDet, currentDetIdx, nextAudioIdx,
       spectroCanvas, spectro,
