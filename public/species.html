@@ -75,10 +75,12 @@
           <!-- Title + inline species picker -->
           <div class="sp-title-row">
             <h1 class="sp-title">{{spName(sp.name, sp.sci)}}</h1>
-            <div class="sp-picker-inline" v-if="speciesList.length">
+            <div class="sp-picker-inline" v-if="speciesList.length" style="display:flex;align-items:center;gap:.3rem;">
+              <button class="date-nav-btn" @click="prevSpecies" :disabled="!hasPrevSpecies" title="←" style="width:26px;height:26px;font-size:.8rem;">←</button>
               <select class="bird-select sp-picker-select" v-model="pickerVal" @change="onPickerChange">
                 <option v-for="s in speciesList" :key="s.com" :value="s.com">{{spName(s.com, s.sci)}}</option>
               </select>
+              <button class="date-nav-btn" @click="nextSpecies" :disabled="!hasNextSpecies" title="→" style="width:26px;height:26px;font-size:.8rem;">→</button>
             </div>
           </div>
           <div class="sp-sci">{{sp.sci}}</div>
@@ -143,6 +145,19 @@
         <p v-if="wikiSummaryAlt" style="line-height:1.7;color:var(--text-muted);margin:.75rem 0 0 0;font-size:.9rem;">
           {{wikiSummaryAlt}}
         </p>
+      </div>
+
+      <!-- ── Personal notes ─────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-title">📝 {{t('personal_notes')}}</div>
+        <textarea v-model="personalNote" @blur="savePersonalNote"
+                  :placeholder="t('personal_notes')+'...'"
+                  style="width:100%;min-height:80px;box-sizing:border-box;padding:.5rem;font-size:.85rem;
+                         font-family:var(--font-body);line-height:1.6;resize:vertical;
+                         background:var(--bg-deep);color:var(--text-main);border:1px solid var(--border);
+                         border-radius:var(--radius);outline:none;"
+                  @focus="$event.target.style.borderColor='var(--accent)'"
+                  @focusout="$event.target.style.borderColor='var(--border)'"></textarea>
       </div>
 
       <!-- ── Graphiques ─────────────────────────────────────────── -->
@@ -362,6 +377,23 @@ const app = createApp({
       return 'dd';
     });
 
+    // Personal notes
+    const personalNote = ref('');
+    function loadPersonalNote(sciName) {
+      if (!sciName) { personalNote.value = ''; return; }
+      personalNote.value = localStorage.getItem('birdash_note_' + sciName) || '';
+    }
+    function savePersonalNote() {
+      const sci = sp.value.sci;
+      if (!sci) return;
+      const val = personalNote.value.trim();
+      if (val) {
+        localStorage.setItem('birdash_note_' + sci, val);
+      } else {
+        localStorage.removeItem('birdash_note_' + sci);
+      }
+    }
+
     // Chart data refs
     const hourlyData  = ref(null);
     const monthlyData = ref(null);
@@ -377,6 +409,25 @@ const app = createApp({
         if (photoIdx.value >= photos.value.length) photoIdx.value = 0;
       } else {
         photos.value = [];
+      }
+    }
+
+    // Species prev/next navigation
+    const currentSpeciesIdx = computed(() => speciesList.value.findIndex(s => s.com === pickerVal.value));
+    const hasPrevSpecies = computed(() => currentSpeciesIdx.value > 0);
+    const hasNextSpecies = computed(() => currentSpeciesIdx.value >= 0 && currentSpeciesIdx.value < speciesList.value.length - 1);
+    function prevSpecies() {
+      const idx = currentSpeciesIdx.value;
+      if (idx > 0) {
+        pickerVal.value = speciesList.value[idx - 1].com;
+        onPickerChange();
+      }
+    }
+    function nextSpecies() {
+      const idx = currentSpeciesIdx.value;
+      if (idx >= 0 && idx < speciesList.value.length - 1) {
+        pickerVal.value = speciesList.value[idx + 1].com;
+        onPickerChange();
       }
     }
 
@@ -434,6 +485,7 @@ const app = createApp({
         };
         document.title = `BIRDASH — ${speciesName}`;
         mode.value = 'detail';
+        loadPersonalNote(stats.sci || speciesName);
 
         // Pre-populate taxonomy from cached eBird data (instant)
         const tax = BIRDASH_UTILS.getTaxonomy(stats.sci || speciesName);
@@ -834,7 +886,8 @@ const app = createApp({
     return {
       lang, t, spName,
       mode, speciesList, pickerVal, onPickerChange,
-      sp, feed, extLinks, speciesInfo,
+      hasPrevSpecies, hasNextSpecies, prevSpecies, nextSpecies,
+      sp, feed, extLinks, speciesInfo, personalNote, savePersonalNote,
       photos, photoIdx, photosLoading, wikiSummary, wikiSummaryAlt, conservation, conservationClass,
       prevPhoto, nextPhoto, photoErr,
       playingFile, toggleAudio,

@@ -63,6 +63,22 @@
       <div>
         <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-bottom:.75rem;">⬇ CSV</button>
 
+        <!-- Shannon diversity KPIs -->
+        <div v-if="shannonH !== null" class="kpi-strip" style="margin-bottom:.75rem;">
+          <div class="kpi-card">
+            <div class="kpi-value" style="color:var(--accent);">{{shannonH}}</div>
+            <div class="kpi-label">{{t('shannon_index')}} (H')</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value amber">{{shannonJ}}</div>
+            <div class="kpi-label">{{t('shannon_evenness')}} (J')</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value blue">{{shannonS}}</div>
+            <div class="kpi-label">{{t('species')}}</div>
+          </div>
+        </div>
+
         <!-- Richesse journalière -->
         <div class="card">
           <div class="card-title">{{t('richness_per_day')}}</div>
@@ -193,8 +209,34 @@ const app = createApp({
 
     const chartColor = i => BIRD_CONFIG.chartColors[i % BIRD_CONFIG.chartColors.length];
 
+    // Shannon diversity index
+    const shannonH = ref(null);
+    const shannonJ = ref(null);
+    const shannonS = ref(null);
+
+    async function loadShannon() {
+      try {
+        const from = fDateFrom.value || '2000-01-01';
+        const rows = await birdQuery(
+          `SELECT Com_Name, COUNT(*) as n FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name`,
+          [from, fDateTo.value || localDateStr(), fConf.value]);
+        if (!rows.length) { shannonH.value = null; shannonJ.value = null; shannonS.value = null; return; }
+        const total = rows.reduce((s, r) => s + r.n, 0);
+        const S = rows.length;
+        let H = 0;
+        for (const r of rows) {
+          const pi = r.n / total;
+          if (pi > 0) H -= pi * Math.log(pi);
+        }
+        const J = S > 1 ? H / Math.log(S) : 1;
+        shannonH.value = H.toFixed(3);
+        shannonJ.value = J.toFixed(3);
+        shannonS.value = S;
+      } catch(e) { console.error('[shannon]', e); }
+    }
+
     async function loadAll() {
-      await Promise.all([loadRichnessData(), loadHeatmap(), loadMonthly(), loadMatrix()]);
+      await Promise.all([loadRichnessData(), loadHeatmap(), loadMonthly(), loadMatrix(), loadShannon()]);
     }
 
     async function loadRichnessData() {
@@ -434,6 +476,7 @@ const app = createApp({
 
     return {
       lang, t, safeHtml,
+      shannonH, shannonJ, shannonS,
       heatmap, monthly, matrix,
       canvasRichness, elTaxOrders, taxFamilies,
       fConf, fDateFrom, fDateTo, activePeriod, quickDates, setPeriod, resetDefaults, loadAll,

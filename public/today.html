@@ -227,6 +227,9 @@
               {{currentDetIdx+1}} / {{selectedDets.length}}
             </div>
           </div>
+          <div style="text-align:center;font-size:.68rem;color:var(--text-faint);padding:0 .75rem .3rem;opacity:.7;">
+            {{t('kb_shortcuts_hint')}}
+          </div>
 
           <!-- Nettoyage audio -->
           <div v-if="spectro.state==='ready' || processingClean"
@@ -800,9 +803,26 @@ const app = createApp({
       return `${parseInt(day)} ${months[parseInt(mo)-1]} ${y}`;
     }
 
+    // ── Keyboard shortcuts ──────────────────────────────────────────────
+    function _onKeydown(e) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        if (currentDetIdx.value < selectedDets.value.length - 1) loadDetection(currentDetIdx.value + 1);
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentDetIdx.value > 0) loadDetection(currentDetIdx.value - 1);
+      }
+    }
+
     watch(lang, () => loadKpis());
-    onMounted(() => loadAll());
+    onMounted(() => { document.addEventListener('keydown', _onKeydown); loadAll(); });
     onUnmounted(() => {
+      document.removeEventListener('keydown', _onKeydown);
       _stopRaf(); stopAudio();
       if (_cleanBlobUrl) { URL.revokeObjectURL(_cleanBlobUrl); _cleanBlobUrl = null; }
     });

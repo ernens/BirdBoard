@@ -501,6 +501,102 @@ const ALERT_CHECK_INTERVAL = 60000; // 60 seconds
 const ALERT_COOLDOWN = 600000;      // 10 minutes between same alert type
 const _alertLastSent = {};          // { alertType: timestamp }
 
+// ── Alert message translations ──────────────────────────────────────────────
+const ALERT_I18N = {
+  en: {
+    temp_crit_title:   '🔥 BIRDASH — Critical temperature!',
+    temp_crit_body:    (temp, th) => `Temperature: ${temp}°C (threshold: ${th}°C). Risk of thermal throttling or shutdown.`,
+    temp_warn_title:   '🌡️ BIRDASH — High temperature',
+    temp_warn_body:    (temp, th) => `Temperature: ${temp}°C (threshold: ${th}°C).`,
+    disk_crit_title:   '💾 BIRDASH — Disk almost full!',
+    disk_crit_body:    (pct, th) => `Disk usage: ${pct}% (threshold: ${th}%). Recordings may stop.`,
+    disk_warn_title:   '💾 BIRDASH — Disk space low',
+    disk_warn_body:    (pct, th) => `Disk usage: ${pct}% (threshold: ${th}%).`,
+    ram_warn_title:    '🧠 BIRDASH — RAM critical',
+    ram_warn_body:     (pct, th) => `RAM usage: ${pct}% (threshold: ${th}%).`,
+    svc_state_title:   (svc, state) => `⚠️ BIRDASH — Service ${svc} is ${state}`,
+    svc_state_body:    (svc, state) => `The service ${svc} is ${state}. Detection may have stopped. Check system page for details.`,
+    svc_down_title:    (svc) => `⚠️ BIRDASH — Service ${svc} is down`,
+    svc_down_body:     (svc) => `The service ${svc} is not running. Detection may have stopped.`,
+    backlog_title:     '📊 BIRDASH — Analysis backlog growing',
+    backlog_body:      (count, th) => `${count} files pending analysis (threshold: ${th}). The analysis pipeline may be stuck or overloaded.`,
+    no_det_title:      '🔇 BIRDASH — No detections',
+    no_det_body:       (hours, th) => `No bird detections in the last ${hours} hours (threshold: ${th}h). Recording or analysis may be offline.`,
+  },
+  fr: {
+    temp_crit_title:   '🔥 BIRDASH — Température critique !',
+    temp_crit_body:    (temp, th) => `Température : ${temp}°C (seuil : ${th}°C). Risque de ralentissement thermique ou d'arrêt.`,
+    temp_warn_title:   '🌡️ BIRDASH — Température élevée',
+    temp_warn_body:    (temp, th) => `Température : ${temp}°C (seuil : ${th}°C).`,
+    disk_crit_title:   '💾 BIRDASH — Disque presque plein !',
+    disk_crit_body:    (pct, th) => `Utilisation disque : ${pct}% (seuil : ${th}%). Les enregistrements peuvent s'arrêter.`,
+    disk_warn_title:   '💾 BIRDASH — Espace disque faible',
+    disk_warn_body:    (pct, th) => `Utilisation disque : ${pct}% (seuil : ${th}%).`,
+    ram_warn_title:    '🧠 BIRDASH — RAM critique',
+    ram_warn_body:     (pct, th) => `Utilisation RAM : ${pct}% (seuil : ${th}%).`,
+    svc_state_title:   (svc, state) => `⚠️ BIRDASH — Le service ${svc} est ${state}`,
+    svc_state_body:    (svc, state) => `Le service ${svc} est ${state}. La détection a peut-être cessé. Vérifiez la page système.`,
+    svc_down_title:    (svc) => `⚠️ BIRDASH — Le service ${svc} est arrêté`,
+    svc_down_body:     (svc) => `Le service ${svc} ne fonctionne pas. La détection a peut-être cessé.`,
+    backlog_title:     '📊 BIRDASH — File d\'analyse en croissance',
+    backlog_body:      (count, th) => `${count} fichiers en attente d'analyse (seuil : ${th}). Le pipeline d'analyse est peut-être bloqué ou surchargé.`,
+    no_det_title:      '🔇 BIRDASH — Aucune détection',
+    no_det_body:       (hours, th) => `Aucune détection d'oiseaux depuis ${hours} heures (seuil : ${th}h). L'enregistrement ou l'analyse est peut-être hors ligne.`,
+  },
+  de: {
+    temp_crit_title:   '🔥 BIRDASH — Kritische Temperatur!',
+    temp_crit_body:    (temp, th) => `Temperatur: ${temp}°C (Schwellenwert: ${th}°C). Risiko einer thermischen Drosselung oder Abschaltung.`,
+    temp_warn_title:   '🌡️ BIRDASH — Hohe Temperatur',
+    temp_warn_body:    (temp, th) => `Temperatur: ${temp}°C (Schwellenwert: ${th}°C).`,
+    disk_crit_title:   '💾 BIRDASH — Festplatte fast voll!',
+    disk_crit_body:    (pct, th) => `Festplattennutzung: ${pct}% (Schwellenwert: ${th}%). Aufnahmen könnten stoppen.`,
+    disk_warn_title:   '💾 BIRDASH — Speicherplatz knapp',
+    disk_warn_body:    (pct, th) => `Festplattennutzung: ${pct}% (Schwellenwert: ${th}%).`,
+    ram_warn_title:    '🧠 BIRDASH — RAM kritisch',
+    ram_warn_body:     (pct, th) => `RAM-Nutzung: ${pct}% (Schwellenwert: ${th}%).`,
+    svc_state_title:   (svc, state) => `⚠️ BIRDASH — Dienst ${svc} ist ${state}`,
+    svc_state_body:    (svc, state) => `Der Dienst ${svc} ist ${state}. Die Erkennung wurde möglicherweise gestoppt. Überprüfen Sie die Systemseite.`,
+    svc_down_title:    (svc) => `⚠️ BIRDASH — Dienst ${svc} ist ausgefallen`,
+    svc_down_body:     (svc) => `Der Dienst ${svc} läuft nicht. Die Erkennung wurde möglicherweise gestoppt.`,
+    backlog_title:     '📊 BIRDASH — Analyserückstand wächst',
+    backlog_body:      (count, th) => `${count} Dateien warten auf Analyse (Schwellenwert: ${th}). Die Analysepipeline ist möglicherweise blockiert oder überlastet.`,
+    no_det_title:      '🔇 BIRDASH — Keine Erkennungen',
+    no_det_body:       (hours, th) => `Keine Vogelerkennungen in den letzten ${hours} Stunden (Schwellenwert: ${th}h). Aufnahme oder Analyse ist möglicherweise offline.`,
+  },
+  nl: {
+    temp_crit_title:   '🔥 BIRDASH — Kritieke temperatuur!',
+    temp_crit_body:    (temp, th) => `Temperatuur: ${temp}°C (drempel: ${th}°C). Risico op thermische beperking of uitschakeling.`,
+    temp_warn_title:   '🌡️ BIRDASH — Hoge temperatuur',
+    temp_warn_body:    (temp, th) => `Temperatuur: ${temp}°C (drempel: ${th}°C).`,
+    disk_crit_title:   '💾 BIRDASH — Schijf bijna vol!',
+    disk_crit_body:    (pct, th) => `Schijfgebruik: ${pct}% (drempel: ${th}%). Opnames kunnen stoppen.`,
+    disk_warn_title:   '💾 BIRDASH — Weinig schijfruimte',
+    disk_warn_body:    (pct, th) => `Schijfgebruik: ${pct}% (drempel: ${th}%).`,
+    ram_warn_title:    '🧠 BIRDASH — RAM kritiek',
+    ram_warn_body:     (pct, th) => `RAM-gebruik: ${pct}% (drempel: ${th}%).`,
+    svc_state_title:   (svc, state) => `⚠️ BIRDASH — Service ${svc} is ${state}`,
+    svc_state_body:    (svc, state) => `De service ${svc} is ${state}. Detectie is mogelijk gestopt. Controleer de systeempagina.`,
+    svc_down_title:    (svc) => `⚠️ BIRDASH — Service ${svc} is uitgevallen`,
+    svc_down_body:     (svc) => `De service ${svc} draait niet. Detectie is mogelijk gestopt.`,
+    backlog_title:     '📊 BIRDASH — Analyse-achterstand groeit',
+    backlog_body:      (count, th) => `${count} bestanden wachten op analyse (drempel: ${th}). De analysepijplijn is mogelijk vastgelopen of overbelast.`,
+    no_det_title:      '🔇 BIRDASH — Geen detecties',
+    no_det_body:       (hours, th) => `Geen vogeldetecties in de afgelopen ${hours} uur (drempel: ${th}u). Opname of analyse is mogelijk offline.`,
+  },
+};
+
+// Helper: get translated alert messages for the user's configured language
+function getAlertLang() {
+  try {
+    const confRaw = fs.readFileSync(BIRDNET_CONF, 'utf8');
+    const m = confRaw.match(/^DATABASE_LANG=(.+)/m);
+    const lang = m ? m[1].replace(/"/g, '').trim().slice(0, 2) : 'en';
+    return ALERT_I18N[lang] || ALERT_I18N.en;
+  } catch(e) {
+    return ALERT_I18N.en;
+  }
+}
+
 // Default thresholds (can be overridden in birdnet.conf via BIRDASH_ALERT_*)
 const ALERT_DEFAULTS = {
   temp_warn: 70, temp_crit: 80,     // °C
@@ -565,6 +661,7 @@ async function sendAlert(type, title, body) {
 
 async function checkSystemAlerts() {
   const th = getAlertThresholds();
+  const t = getAlertLang();
 
   try {
     // ── Temperature ──
@@ -573,9 +670,9 @@ async function checkSystemAlerts() {
         const tempRaw = await fsp.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf8');
         const temp = parseFloat(tempRaw) / 1000;
         if (th.alert_temp_crit && temp >= th.temp_crit) {
-          await sendAlert('temp_crit', '🔥 BIRDASH — Critical temperature!', `Temperature: ${temp.toFixed(1)}°C (threshold: ${th.temp_crit}°C). Risk of thermal throttling or shutdown.`);
+          await sendAlert('temp_crit', t.temp_crit_title, t.temp_crit_body(temp.toFixed(1), th.temp_crit));
         } else if (th.alert_temp && temp >= th.temp_warn) {
-          await sendAlert('temp_warn', '🌡️ BIRDASH — High temperature', `Temperature: ${temp.toFixed(1)}°C (threshold: ${th.temp_warn}°C).`);
+          await sendAlert('temp_warn', t.temp_warn_title, t.temp_warn_body(temp.toFixed(1), th.temp_warn));
         }
       } catch(e) {}
     }
@@ -588,9 +685,9 @@ async function checkSystemAlerts() {
         const parts = dfOut.trim().split(/\s+/);
         const diskPct = parseInt(parts[4]);
         if (diskPct >= th.disk_crit) {
-          await sendAlert('disk_crit', '💾 BIRDASH — Disk almost full!', `Disk usage: ${diskPct}% (threshold: ${th.disk_crit}%). Recordings may stop.`);
+          await sendAlert('disk_crit', t.disk_crit_title, t.disk_crit_body(diskPct, th.disk_crit));
         } else if (diskPct >= th.disk_warn) {
-          await sendAlert('disk_warn', '💾 BIRDASH — Disk space low', `Disk usage: ${diskPct}% (threshold: ${th.disk_warn}%).`);
+          await sendAlert('disk_warn', t.disk_warn_title, t.disk_warn_body(diskPct, th.disk_warn));
         }
       } catch(e) {}
     }
@@ -603,7 +700,7 @@ async function checkSystemAlerts() {
         const avail = parseInt(meminfo.match(/MemAvailable:\s+(\d+)/)?.[1] || '0');
         const ramPct = total ? Math.round((total - avail) / total * 100) : 0;
         if (ramPct >= th.ram_warn) {
-          await sendAlert('ram_warn', '🧠 BIRDASH — RAM critical', `RAM usage: ${ramPct}% (threshold: ${th.ram_warn}%).`);
+          await sendAlert('ram_warn', t.ram_warn_title, t.ram_warn_body(ramPct, th.ram_warn));
         }
       } catch(e) {}
     }
@@ -616,11 +713,11 @@ async function checkSystemAlerts() {
           const { execSync } = require('child_process');
           const state = execSync(`systemctl is-active ${svc} 2>/dev/null`, { encoding: 'utf8' }).trim();
           if (state === 'failed' || state === 'inactive') {
-            await sendAlert('svc_' + svc, `⚠️ BIRDASH — Service ${svc} is ${state}`, `The service ${svc} is ${state}. Detection may have stopped. Check system page for details.`);
+            await sendAlert('svc_' + svc, t.svc_state_title(svc, state), t.svc_state_body(svc, state));
           }
         } catch(e) {
           // execSync throws if exit code != 0 (service not active)
-          await sendAlert('svc_' + svc, `⚠️ BIRDASH — Service ${svc} is down`, `The service ${svc} is not running. Detection may have stopped.`);
+          await sendAlert('svc_' + svc, t.svc_down_title(svc), t.svc_down_body(svc));
         }
       }
     }
@@ -631,7 +728,7 @@ async function checkSystemAlerts() {
         const streamDir = path.join(process.env.HOME || '/home/bjorn', 'BirdSongs', 'StreamData');
         const files = (await fsp.readdir(streamDir)).filter(f => f.endsWith('.wav'));
         if (files.length >= th.backlog_warn) {
-          await sendAlert('backlog', '📊 BIRDASH — Analysis backlog growing', `${files.length} files pending analysis (threshold: ${th.backlog_warn}). The analysis pipeline may be stuck or overloaded.`);
+          await sendAlert('backlog', t.backlog_title, t.backlog_body(files.length, th.backlog_warn));
         }
       } catch(e) {}
     }
@@ -645,7 +742,7 @@ async function checkSystemAlerts() {
             const lastDet = new Date(row.last);
             const hoursSince = (Date.now() - lastDet.getTime()) / 3600000;
             if (hoursSince >= th.no_detection_hours) {
-              await sendAlert('no_detection', '🔇 BIRDASH — No detections', `No bird detections in the last ${Math.round(hoursSince)} hours (threshold: ${th.no_detection_hours}h). Recording or analysis may be offline.`);
+              await sendAlert('no_detection', t.no_det_title, t.no_det_body(Math.round(hoursSince), th.no_detection_hours));
             }
           }
         }
