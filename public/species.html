@@ -451,7 +451,7 @@ const app = createApp({
       wikiSummary.value = '';
       wikiSummaryAlt.value = '';
       conservationRaw.value = '';
-      Object.assign(speciesInfo, { order: '', family: '', size: '', wingspan: '', diet: '' });
+      Object.assign(speciesInfo, { order: '', family: '', familyCom: '', size: '', wingspan: '', diet: '' });
 
       try {
         // Load species list in background if not loaded
@@ -529,9 +529,15 @@ const app = createApp({
           }
           conservationRaw.value = data.conservation || '';
           // Structured info
-          if (data.order) speciesInfo.order = data.order;
-          if (data.family) speciesInfo.family = data.family;
-          if (data.size) speciesInfo.size = data.size;
+          // Only override taxonomy if the API provides more specific data
+          // (avoid replacing 'Charadriiformes' with 'Aves' from iconic_taxon_name)
+          if (data.order && data.order !== 'Aves' && data.order !== 'Animalia')
+            speciesInfo.order = data.order;
+          if (data.family && !speciesInfo.family)
+            speciesInfo.family = data.family;
+          if (data.familyCom)
+            speciesInfo.familyCom = data.familyCom;
+          if (data.size)    speciesInfo.size = data.size;
           if (data.wingspan) speciesInfo.wingspan = data.wingspan;
         } else {
           photos.value = [{ url: cachedUrl, attr: '', src: 'cache' }];
