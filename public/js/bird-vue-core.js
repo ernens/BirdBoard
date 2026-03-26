@@ -21,7 +21,7 @@
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  const { ref, computed, watch, onUnmounted } = Vue;
+  const { ref, computed, watch, onUnmounted, onMounted, nextTick } = Vue;
 
   // ── Traductions inline ────────────────────────────────────────────────────
   // Même contenu que bird-i18n.js — pas de fetch, disponible immédiatement.
@@ -314,6 +314,7 @@
       top_detected:'Top espèces détectées',
       detected_locally:'Également détecté localement', not_detected_locally:'Pas détecté localement',
       no_rarities_detected:'Aucune rareté détectée récemment',
+      search_placeholder:'Rechercher une espèce\u2026',
     },
 
     en: {
@@ -580,6 +581,7 @@
       top_detected:'Top detected species',
       detected_locally:'Also detected locally', not_detected_locally:'Not detected locally',
       no_rarities_detected:'No rarities detected recently',
+      search_placeholder:'Search species\u2026',
     },
 
     de: {
@@ -846,6 +848,7 @@
       top_detected:'Top erkannte Arten',
       detected_locally:'Auch lokal erkannt', not_detected_locally:'Nicht lokal erkannt',
       no_rarities_detected:'Keine Seltenheiten kürzlich erkannt',
+      search_placeholder:'Art suchen\u2026',
     },
 
     nl: {
@@ -1112,6 +1115,7 @@
       top_detected:'Top gedetecteerde soorten',
       detected_locally:'Ook lokaal gedetecteerd', not_detected_locally:'Niet lokaal gedetecteerd',
       no_rarities_detected:'Geen zeldzaamheden recent gedetecteerd',
+      search_placeholder:'Soort zoeken\u2026',
     },
   };
 
@@ -1364,6 +1368,7 @@
       const { lang, t, setLang, langs } = useI18n();
       const { theme, themes, setTheme } = useTheme();
       const { navItems, siteName }      = useNav(props.page);
+      const { spName, spNamesReady }    = useSpeciesNames();
       const langOpen = ref(false);
       const themeOpen = ref(false);
       const currentLang = computed(() => langs.find(l => l.code === lang.value) || langs[0]);
@@ -1374,7 +1379,99 @@
         const raw = conf.MODEL || '';
         modelName.value = MODEL_LABELS[raw] || raw.replace(/_/g, ' ');
       }).catch(() => {});
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName };
+
+      // ── Global search bar ──────────────────────────────────────────────
+      const searchQuery = ref('');
+      const searchOpen = ref(false);
+      const searchExpanded = ref(false);
+      const searchHighlight = ref(-1);
+      const searchInputRef = ref(null);
+      const dbSpecies = ref([]);
+
+      // Load species list from DB once
+      U.birdQuery('SELECT DISTINCT Com_Name, Sci_Name FROM detections ORDER BY Com_Name')
+        .then(rows => { dbSpecies.value = rows; })
+        .catch(() => {});
+
+      const searchResults = computed(() => {
+        const q = (searchQuery.value || '').trim().toLowerCase();
+        if (!q) return [];
+        const seen = new Set();
+        const results = [];
+        for (const row of dbSpecies.value) {
+          const com = row.Com_Name || '';
+          const sci = row.Sci_Name || '';
+          const translated = spName(com, sci);
+          if (
+            translated.toLowerCase().includes(q) ||
+            com.toLowerCase().includes(q) ||
+            sci.toLowerCase().includes(q)
+          ) {
+            const key = sci || com;
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push({ comName: com, sciName: sci, displayName: translated });
+              if (results.length >= 8) break;
+            }
+          }
+        }
+        return results;
+      });
+
+      function onSearchInput() {
+        searchOpen.value = searchQuery.value.trim().length > 0;
+        searchHighlight.value = -1;
+      }
+
+      function selectSearchResult(result) {
+        window.location.href = 'species.html?species=' + encodeURIComponent(result.comName);
+      }
+
+      function onSearchKeydown(e) {
+        const results = searchResults.value;
+        if (e.key === 'Escape') {
+          searchOpen.value = false;
+          searchQuery.value = '';
+          searchExpanded.value = false;
+          e.target.blur();
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          searchHighlight.value = Math.min(searchHighlight.value + 1, results.length - 1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          searchHighlight.value = Math.max(searchHighlight.value - 1, -1);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (searchHighlight.value >= 0 && searchHighlight.value < results.length) {
+            selectSearchResult(results[searchHighlight.value]);
+          } else if (results.length === 1) {
+            selectSearchResult(results[0]);
+          }
+        }
+      }
+
+      function closeSearch() {
+        searchOpen.value = false;
+        searchExpanded.value = false;
+        searchQuery.value = '';
+        searchHighlight.value = -1;
+      }
+
+      function toggleMobileSearch() {
+        searchExpanded.value = !searchExpanded.value;
+        if (searchExpanded.value) {
+          nextTick(() => {
+            const inp = document.querySelector('.gSearch-input');
+            if (inp) inp.focus();
+          });
+        } else {
+          closeSearch();
+        }
+      }
+
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch };
     },
     directives: {
       'click-outside': {
@@ -1398,6 +1495,32 @@
     </div>
     <div class="header-right">
       <a v-if="modelName" class="brand-model" href="settings.html#detection" title="Detection settings">{{modelName}}</a>
+      <!-- Global species search -->
+      <div class="gSearch" :class="{ expanded: searchExpanded }" v-click-outside="closeSearch">
+        <button class="gSearch-icon-btn" @click="toggleMobileSearch" aria-label="Search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <div class="gSearch-field">
+          <svg class="gSearch-lens" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="gSearch-input" type="text"
+                 :placeholder="t('search_placeholder')"
+                 v-model="searchQuery"
+                 @input="onSearchInput"
+                 @keydown="onSearchKeydown"
+                 @focus="searchOpen = searchQuery.trim().length > 0"
+                 autocomplete="off" spellcheck="false">
+          <button v-if="searchQuery" class="gSearch-clear" @click="searchQuery='';searchOpen=false;searchHighlight=-1" aria-label="Clear">&times;</button>
+        </div>
+        <div class="gSearch-dropdown" v-show="searchOpen && searchResults.length">
+          <button v-for="(r, i) in searchResults" :key="r.sciName||r.comName"
+                  class="gSearch-result" :class="{ highlighted: i === searchHighlight }"
+                  @mousedown.prevent="selectSearchResult(r)"
+                  @mouseenter="searchHighlight = i">
+            <span class="gSearch-rname">{{ r.displayName }}</span>
+            <span class="gSearch-rsci">{{ r.sciName }}</span>
+          </button>
+        </div>
+      </div>
       <div class="header-dropdowns">
         <div class="hdr-dropdown" :class="{open:themeOpen}" v-click-outside="()=>themeOpen=false">
           <button class="hdr-toggle" @click="themeOpen=!themeOpen" :aria-expanded="themeOpen">
