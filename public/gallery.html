@@ -204,11 +204,12 @@ async function renderMiniSpectro(url, canvas) {
 
 <script>
 const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+const { birdQuery, buildAudioUrl } = BIRDASH;
 
 const app = createApp({
   setup() {
-    const { t, lang } = BirdVue.useI18n();
-    const { theme }   = BirdVue.useTheme();
+    const { t, lang } = BIRDASH.useI18n();
+    const { theme }   = BIRDASH.useTheme();
 
     const loading      = ref(false);
     const activePeriod = ref('30d');
@@ -261,7 +262,7 @@ const app = createApp({
             };
           }
           if (map[r.Com_Name].dets.length < 3) {
-            const audioUrl = getAudioUrl(r.File_Name);
+            const audioUrl = buildAudioUrl(r.File_Name);
             map[r.Com_Name].dets.push({
               date: r.Date,
               time: (r.Time || '').slice(0, 5),
@@ -360,7 +361,7 @@ const app = createApp({
   }
 });
 
-BirdVue.registerComponents(app);
+BIRDASH.registerComponents(app);
 app.mount('#app');
 </script>
 </body>
