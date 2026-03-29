@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" width="200" height="220">
+  <!-- Corps principal -->
+  <ellipse cx="100" cy="130" rx="62" ry="58" fill="#6b3d1e"/>
+  <!-- Ventre crème -->
+  <ellipse cx="100" cy="148" rx="38" ry="35" fill="#f0ece4"/>
+  <!-- Poitrine orange -->
+  <path d="M68 115 Q72 92 100 88 Q125 88 130 105 Q135 120 125 138 Q115 150 98 150 Q80 150 68 138 Q62 128 68 115Z" fill="#e8621a"/>
+  <!-- Tête -->
+  <circle cx="118" cy="88" r="36" fill="#6b3d1e"/>
+  <!-- Masque orange visage -->
+  <path d="M100 62 Q118 55 135 65 Q148 75 148 92 Q148 105 135 110 Q120 115 105 108 Q92 102 90 88 Q89 75 100 62Z" fill="#e8621a"/>
+  <!-- Oeil blanc -->
+  <circle cx="128" cy="82" r="14" fill="white"/>
+  <!-- Oeil brun foncé -->
+  <circle cx="130" cy="83" r="10" fill="#2a1505"/>
+  <!-- Reflets oeil -->
+  <circle cx="134" cy="78" r="4" fill="white"/>
+  <circle cx="127" cy="86" r="1.5" fill="white"/>
+  <!-- Bec -->
+  <path d="M148 88 L170 84 L148 96Z" fill="#2a1505"/>
+  <path d="M148 88 L170 84 L158 87Z" fill="#3d2008"/>
+  <!-- Détail aile -->
+  <path d="M55 128 Q60 115 75 112 Q65 130 58 145 Q55 140 55 128Z" fill="#4a2810" opacity="0.6"/>
+  <path d="M58 125 Q68 110 82 110 Q72 128 62 142Z" fill="#3d2008" opacity="0.35"/>
+  <!-- Queue -->
+  <path d="M48 138 Q38 128 30 138 Q36 148 48 138Z" fill="#4a2810"/>
+  <path d="M50 142 Q40 135 34 144 Q40 152 50 142Z" fill="#5a3015"/>
+  <!-- Pattes gauche -->
+  <line x1="88" y1="182" x2="80" y2="202" stroke="#8b5a3a" stroke-width="4" stroke-linecap="round"/>
+  <line x1="80" y1="202" x2="65" y2="210" stroke="#8b5a3a" stroke-width="3" stroke-linecap="round"/>
+  <line x1="80" y1="202" x2="78" y2="214" stroke="#8b5a3a" stroke-width="3" stroke-linecap="round"/>
+  <line x1="80" y1="202" x2="93" y2="211" stroke="#8b5a3a" stroke-width="3" stroke-linecap="round"/>
+  <!-- Pattes droite -->
+  <line x1="112" y1="182" x2="120" y2="202" stroke="#8b5a3a" stroke-width="4" stroke-linecap="round"/>
+  <line x1="120" y1="202" x2="106" y2="211" stroke="#8b5a3a" stroke-width="3" stroke-linecap="round"/>
+  <line x1="120" y1="202" x2="120" y2="215" stroke="#8b5a3a" stroke-width="3" stroke-linecap="round"/>
+  <line x1="120" y1="202" x2="134" y2="210" stroke="#8b5a3a" stroke-width="3" stroke-linecap="round"/>
+  <!-- Contours -->
+  <ellipse cx="100" cy="130" rx="62" ry="58" fill="none" stroke="#2a1505" stroke-width="4"/>
+  <circle cx="118" cy="88" r="36" fill="none" stroke="#2a1505" stroke-width="4"/>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Corps -->
+  <ellipse cx="15" cy="20" rx="10" ry="9" fill="#6b3d1e"/>
+  <!-- Ventre -->
+  <ellipse cx="15" cy="23" rx="6" ry="5.5" fill="#f0ece4"/>
+  <!-- Poitrine orange -->
+  <path d="M9 18 Q10 13 15 12 Q20 12 21 16 Q22 19 20 22 Q18 24 15 24 Q11 24 9 21 Q8 19 9 18Z" fill="#e8621a"/>
+  <!-- Tête -->
+  <circle cx="19" cy="13" r="7" fill="#6b3d1e"/>
+  <!-- Masque orange -->
+  <path d="M15 8 Q19 6 22 9 Q25 12 24 16 Q23 19 20 18 Q16 17 15 14 Q14 11 15 8Z" fill="#e8621a"/>
+  <!-- Oeil -->
+  <circle cx="21" cy="12" r="3" fill="white"/>
+  <circle cx="21.5" cy="12.5" r="2" fill="#2a1505"/>
+  <circle cx="22.5" cy="11.5" r="0.8" fill="white"/>
+  <!-- Bec -->
+  <path d="M24 13 L28 12.5 L24 14.5Z" fill="#2a1505"/>
+  <!-- Queue -->
+  <path d="M6 20 Q4 18 3 20 Q4 22 6 20Z" fill="#4a2810"/>
+  <!-- Contours -->
+  <ellipse cx="15" cy="20" rx="10" ry="9" fill="none" stroke="#2a1505" stroke-width="1.2"/>
+  <circle cx="19" cy="13" r="7" fill="none" stroke="#2a1505" stroke-width="1.2"/>
+</svg>

@@ -1,0 +1,2353 @@
+/**
+ * bird-vue-core.js — Vue 3 composables & components for BIRDASH
+ *
+ * Depends on: Vue 3 (CDN global), bird-config.js, bird-shared.js (BIRDASH_UTILS)
+ *
+ * Pure utility functions have been extracted to bird-shared.js.
+ * This file contains only Vue-specific code: composables, components,
+ * inline translations, and Service Worker registration.
+ *
+ * Expose via window.BIRDASH :
+ *   useI18n(), useTheme(), useNav(), useChart(), useAudio(), useSpeciesNames()
+ *   PibirdShell, BirdImg, registerComponents()
+ *   + re-exports of BIRDASH_UTILS for backward compatibility
+ */
+
+;(function (Vue, BIRD_CONFIG, U) {
+  'use strict';
+
+  // ── Service Worker ────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  const { ref, computed, watch, onUnmounted, onMounted, nextTick, reactive } = Vue;
+
+  // ── Spectrogram Modal — global reactive state ───────────────────────────
+  const _spectroModal = Vue.reactive({
+    open: false,
+    fileName: '',
+    speciesName: '',
+    sciName: '',
+    confidence: 0,
+    date: '',
+    time: ''
+  });
+
+  function openSpectroModal(opts) {
+    Object.assign(_spectroModal, { open: true, ...opts });
+  }
+  function closeSpectroModal() {
+    _spectroModal.open = false;
+  }
+
+  // ── Traductions inline ────────────────────────────────────────────────────
+  // Même contenu que bird-i18n.js — pas de fetch, disponible immédiatement.
+  //
+  // ═══ AJOUTER UNE NOUVELLE LANGUE ════════════════════════════════════════
+  // 1. Copier un bloc existant (ex: 'en') et le renommer (ex: 'es')
+  // 2. Remplir _meta: { lang:'es', label:'Español', flag:'🇪🇸' }
+  // 3. Traduire toutes les clés (164 clés)
+  // 4. La langue apparaîtra automatiquement dans le sélecteur
+  // ═══════════════════════════════════════════════════════════════════════
+  const _TRANSLATIONS = {
+    fr: {
+      _meta: { lang:'fr', label:'Français', flag:'🇫🇷' },
+      nav_overview:'Vue d\'ensemble', nav_today:'Aujourd\'hui', nav_recent:'Récent',
+      nav_detections:'Détections', nav_species:'Espèces',
+      nav_biodiversity:'Biodiversité', nav_rarities:'Rarités', nav_stats:'Statistiques',
+      nav_system:'Système', nav_analyses:'Analyses', nav_review:'Revue', nav_terminal:'Terminal', nav_spectrogram:'Spectrogramme', nav_recordings:'Enregistrements', nav_gallery:'Galerie sonore', nav_settings:'Réglages',
+      gallery_title:'Galerie sonore', top_detections_per_species:'meilleures détections',
+      // Settings page
+      set_location:'Localisation', set_site_name:'Nom du site', set_latitude:'Latitude', set_longitude:'Longitude',
+      set_model:'Modèle de détection', set_model_choice:'Modèle IA', set_species_freq_thresh:'Seuil fréquence espèces',
+      set_analysis:'Analyse', set_confidence:'Confiance', set_sensitivity:'Sensibilité',
+      set_language:'Langue des espèces', set_notifications:'Notifications',
+      set_notify_each:'Notifier chaque détection', set_notify_new_species:'Notifier nouvelle espèce (jamais vue)',
+      set_notify_new_daily:'Notifier première espèce du jour', set_weekly_report:'Rapport hebdomadaire',
+      set_notif_urls:'URLs de notification (Apprise)', set_notif_urls_help:'Une URL par ligne. Exemples :',
+      set_notif_title:'Titre de la notification', set_notif_body:'Corps du message',
+      set_notif_body_help:'Variables : $comname, $sciname, $confidence, $date, $time',
+      set_notif_test:'Tester', set_notif_testing:'Envoi en cours…', set_notif_test_ok:'Notification envoyée !',
+      set_notif_test_fail:'Échec : {error}', set_notif_cooldown:'Délai min. entre notifications (secondes)',
+      set_notif_no_urls:'Aucune URL configurée — les notifications ne seront pas envoyées.',
+      set_alerts_title:'Alertes système', set_alerts_desc:'Recevez une notification quand un seuil critique est dépassé.',
+      set_notif_events_title:'Événements notifiés', set_notif_events_desc:'Cochez les événements pour lesquels vous souhaitez recevoir une notification.',
+      set_notif_cat_birds:'Détections d\'espèces', set_notif_cat_system:'Surveillance système',
+      set_alert_temp_warn:'Température alerte', set_alert_temp_crit:'Température critique',
+      set_alert_disk_warn:'Espace disque alerte', set_alert_ram_warn:'Mémoire RAM alerte',
+      set_alert_backlog:'Backlog analyse', set_alert_no_det:'Silence détections',
+      set_alert_svc_down:'Alerter si un service critique tombe',
+      set_notif_cat_bird_smart:'Alertes oiseaux intelligentes',
+      set_alert_influx:'Afflux inhabituel (>3x la moyenne)', set_alert_missing:'Espèce commune absente (après midi)', set_alert_rare_visitor:'Visiteur rare détecté',
+      set_tab_detection:'Détection', set_tab_station:'Station', set_tab_system:'Système', set_tab_backup:'Sauvegarde',
+      set_save:'Enregistrer', set_saved:'Configuration enregistrée avec succès', set_reload:'Recharger',
+      set_recording:'Enregistrement audio', set_overlap:'Chevauchement (s)', set_rec_length:'Durée enregistrement (s)',
+      set_extraction_length:'Durée extraction (s)', set_channels:'Canaux micro', set_audio_format:'Format audio',
+      set_disk_mgmt:'Gestion du disque', set_full_disk:'Disque plein', set_purge_threshold:'Seuil de purge (%)',
+      set_max_files:'Max fichiers/espèce (0=illimité)', set_privacy:'Confidentialité', set_privacy_threshold:'Filtre voix humaine',
+      set_services:'Services BirdNET', set_restart:'Redémarrer', set_service_active:'Actif', set_service_inactive:'Inactif',
+      set_species_lists:'Listes d\'espèces', set_include_list:'Liste d\'inclusion', set_exclude_list:'Liste d\'exclusion',
+      set_whitelist:'Passe-droit (bypass seuil)', set_birdweather:'BirdWeather', set_image_provider:'Source des images',
+      set_rtsp:'Flux RTSP', set_rtsp_stream:'URL du flux RTSP',
+      set_model_desc_birdnet:'BirdNET V2.4 — 6500 espèces, optimisé Pi (recommandé)',
+      set_model_desc_mdata:'BirdNET V2.4 + filtre géographique — filtre les espèces par localisation et semaine',
+      set_model_desc_mdata_v2:'BirdNET V2.4 + filtre géo V2 — filtre amélioré par localisation et semaine',
+      set_model_desc_v1:'BirdNET V1 — ancien modèle, moins précis (legacy)',
+      set_model_desc_perch:'Perch v2 (Google) — 15000 espèces, oiseaux + amphibiens + mammifères, plus précis',
+      set_model_desc_go:'BirdNET-Go — variante expérimentale',
+      set_restart_confirm:'Redémarrer les services pour appliquer ?', set_save_restart:'Enregistrer et redémarrer',
+      today:'Aujourd\'hui', this_week:'Cette semaine', this_month:'Ce mois', all_time:'Total',
+      detections:'Détections', species:'Espèces', avg_confidence:'Confiance moy.',
+      last_detection:'Dernière détection', top_species:'Top espèces',
+      activity_7d:'Activité 7 jours', activity_today:'Activité aujourd\'hui',
+      last_hour:'Dernière heure', new_species:'Nouvelles espèces', rare_today:'Espèces rares aujourd\'hui',
+      recent_detections:'Détections récentes',
+      no_data:'Aucune donnée', loading:'Chargement…', error:'Erreur',
+      date:'Date', time:'Heure', species_name:'Espèce', scientific_name:'Nom scientifique',
+      confidence:'Confiance', audio:'Audio', play:'Écouter',
+      filter_species:'Filtrer par espèce', filter_order:'Ordre taxonomique', filter_family:'Famille',
+      all_orders:'Tous les ordres', all_families:'Toutes les familles',
+      filter_date_from:'Du', filter_date_to:'Au',
+      filter_confidence:'Confiance min.', all_species:'Toutes espèces',
+      apply_filter:'Appliquer', reset_filter:'Réinitialiser', default_btn:'Défaut',
+      prev_page:'← Précédent', next_page:'Suivant →', page:'Page', of:'sur', results:'résultats',
+      species_detail:'Fiche espèce', first_detection:'Première détection', last_seen:'Dernière fois',
+      total_detections:'Total détections', max_confidence:'Confiance max.',
+      activity_by_hour:'Activité par heure', monthly_presence:'Présence mensuelle',
+      external_links:'Liens externes', listen_on:'Écouter sur', observe_on:'Observer sur',
+      species_x_month:'Espèces par mois', richness_per_day:'Richesse journalière',
+      heatmap_hour_day:'Activité heure × jour',
+      kb_shortcuts_hint:'Espace = lecture, ← → = navigation',
+      shannon_index:'Indice de Shannon', shannon_evenness:'Équitabilité', personal_notes:'Notes personnelles',
+      bio_taxonomy_orders:'Répartition par ordre', bio_taxonomy_families:'Familles détectées',
+      rare_species:'Espèces rares', rare_desc:'Espèces avec moins de {n} détections',
+      first_seen:'Vue la première fois', detections_count:'Nb détections',
+      top_by_count:'Classement par détections', top_by_confidence:'Classement par confiance',
+      confidence_distrib:'Distribution confiance', activity_calendar:'Calendrier d\'activité',
+      monthly_totals:'Totaux mensuels',
+      freq_range:'Plage de fréquence',
+      weather_activity:'Météo & Activité', temperature:'Température', precipitation:'Précipitations', wind:'Vent',
+      db_status:'État base de données', db_size:'Taille DB', db_total:'Total enregistrements',
+      db_first:'Première détection', db_last:'Dernière détection',
+      service_status:'État du service', api_ok:'API opérationnelle', api_error:'API hors ligne',
+      data_freshness:'Fraîcheur données',
+      minutes_ago:'il y a {n} min', hours_ago:'il y a {n}h', days_ago:'il y a {n}j',
+      months_short:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'],
+      months_long:['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'],
+      days_short:['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'],
+      analyses_period:'Explorer pour la période {from} → {to}',
+      analyses_what_species:'Quelle espèce explorer ?',
+      analyses_loading_ph:'— chargement… —', analyses_no_species:'— aucune espèce —',
+      analyses_topn_label:'Top', analyses_topn_unit:'espèces',
+      analyses_topn_btn:'Sélectionner', analyses_clear_btn:'✕ Tout désélectionner',
+      analyses_search_ph:'🔍  Filtrer les espèces…',
+      analyses_n_selected:'{n} espèce(s) sélectionnée(s)', analyses_n_total:'{n} espèce(s) au total',
+      analyses_kpi_raw:'Détections brutes', analyses_kpi_resampled:'Après rééchantillonnage',
+      analyses_kpi_conf:'Confiance moyenne', analyses_kpi_days:'Jours détectée', analyses_kpi_avg_day:'Moy. / jour',
+      analyses_polar_title:'Activité horaire · {species}',
+      analyses_series_title:'Détections dans le temps · {species}',
+      analyses_heatmap_title:'Heatmap journalière · {species}',
+      circadian_comparison:'Comparaison circadienne',
+      analyses_multi_polar:'Activité horaire · {species} (principale)',
+      analyses_multi_series:'Comparaison {n} espèces',
+      analyses_no_data_period:'Aucune donnée pour cette période.',
+      analyses_tooltip_det:'{n} détections · {pct}% de la journée',
+      analyses_resample_raw:'Brut', analyses_resample_15:'15 min',
+      analyses_resample_1h:'Horaire', analyses_resample_1d:'Journalier',
+      analyses_conf_label:'Confiance min.', analyses_date_from:'Du', analyses_date_to:'Au',
+      analyses_quick_7d:'7j', analyses_quick_30d:'30j', analyses_quick_90d:'90j',
+      analyses_quick_1y:'1 an', analyses_quick_all:'Tout',
+      resolution:'Résolution',
+      analyses_date_range:'Plage de dates',
+      analyses_pct_of_day:'de la journée',
+      analyses_quarter_distrib:'Distribution par quart d\'heure',
+      analyses_best_dets:'Meilleures détections',
+      analyses_no_det:'Aucune détection',
+      analyses_select_prompt:'Sélectionnez une ou plusieurs espèces pour explorer leurs données.',
+      analyses_last_60d:'Affichage des 60 derniers jours ({total} jours au total)',
+      analyses_peak_hour:'Heure de pointe',
+      narr_no_data:'Aucune donnée pour cette période.',
+      narr_period:'Sur la période {from} → {to},',
+      narr_habit_morning:'matinal', narr_habit_midday:'actif en milieu de journée',
+      narr_habit_afternoon:'actif en fin d\'après-midi',
+      narr_habit_night:'nocturne ou crépusculaire', narr_habit_day:'actif dans la journée',
+      narr_is:'est', narr_peak_at:'Son pic d\'activité se situe à {time}, représentant {pct}% des détections.',
+      narr_activity_range:'L\'activité démarre vers {start} et se termine vers {end}, soit environ {duration}.',
+      narr_duration:'{n}h d\'activité', narr_duration_short:'activité concentrée',
+      narr_second_peak:'Un second pic notable apparaît vers {time}.',
+      narr_night_pct:'{pct}% des détections se produisent entre 21h et 5h du matin.',
+      narr_total:'Total : {n} détections sur {h} heures actives.',
+      narr_multi_intro:'{n} espèces sélectionnées. Espèce principale : {species}.',
+      narr_multi_hint:'Le rose chart et la heatmap affichent les données de {species}. La série temporelle compare toutes les espèces.',
+      // Group taxonomy analysis
+      grp_mode_species:'Par espèce', grp_mode_taxo:'Par groupe taxonomique',
+      grp_title_order:'Analyse de l\'ordre {name}', grp_title_family:'Analyse de la famille {name}',
+      grp_kpi_species:'Espèces dans le groupe', grp_kpi_detections:'Détections totales',
+      grp_kpi_conf:'Confiance moyenne', grp_kpi_days:'Jours actifs', grp_kpi_avg_day:'Moy. / jour',
+      grp_polar_title:'Activité horaire · {name}',
+      grp_series_title:'Détections dans le temps · {name}',
+      grp_series_families:'Détections par famille · {name}',
+      grp_heatmap_title:'Heatmap journalière · {name}',
+      grp_breakdown_title:'Répartition par espèce',
+      grp_breakdown_species:'Espèce', grp_breakdown_count:'Détections', grp_breakdown_pct:'%',
+      grp_breakdown_conf:'Confiance',
+      grp_select_prompt:'Sélectionnez un ordre ou une famille pour analyser le groupe.',
+      grp_narr_period:'Sur la période {from} → {to}, le groupe <strong>{name}</strong> compte {species} espèces pour {total} détections.',
+      grp_narr_dominant:'L\'espèce dominante est <strong>{species}</strong> avec {pct}% des détections.',
+      grp_narr_peak:'Le pic d\'activité du groupe se situe à {time}.',
+      // Ecological guilds
+      guild_filter:'Guilde écologique', guild_all:'Toutes les guildes',
+      guild_raptors:'Rapaces', guild_waterbirds:'Oiseaux d\'eau', guild_woodpeckers:'Pics',
+      guild_passerines_forest:'Passereaux forestiers', guild_passerines_open:'Passereaux milieux ouverts',
+      guild_thrushes_chats:'Grives et gobemouches', guild_warblers:'Fauvettes et pouillots',
+      guild_corvids:'Corvidés', guild_swifts_swallows:'Martinets et hirondelles',
+      guild_pigeons_doves:'Pigeons et tourterelles', guild_other:'Autres',
+      sys_api_label:'API bird-server', sys_latency:'Latence', sys_port:'Port',
+      sys_species_distinct:'Espèces distinctes', sys_days_recorded:'Jours enregistrés',
+      sys_conf_range:'Confiance moy. / min / max', sys_last_det:'Dernière détection',
+      sys_date_time:'Date / Heure', sys_det_today:'Détections aujourd\'hui',
+      sys_det_yesterday:'Détections hier', sys_no_gap:'✓ Aucun gap détecté',
+      sys_no_gap_full:'✓ Aucun gap — données continues',
+      sys_gaps_found:'{n} gap(s) détecté(s) au total', sys_gap_missing:'{n} jour(s) manquant(s)',
+      sys_gaps_title:'⚠️ Jours sans données (> {n} jour de gap)',
+      sys_activity_30d:'📈 Activité quotidienne — 30 derniers jours',
+      sys_hourly_distrib:'🕐 Distribution horaire globale',
+      rarity_threshold_label:'Seuil rarité (max détections)',
+      rarity_seen_once:'💎 Vues une seule fois', rarity_last_rare:'🕐 Dernières détections rares',
+      latin_name:'Nom latin', bio_total:'Total', kpi_days_detected:'Jours détectée',
+      stats_daily_records:'🏆 Records journaliers', stats_annual_evolution:'📅 Évolution annuelle',
+      stats_record_most_det:'Jour avec le + de détections',
+      stats_record_most_sp:'Jour avec le + d\'espèces', stats_record_max_conf:'Confiance maximale',
+      // Filtres communs
+      period:'Période', conf_min:'Confiance min.', sort_by:'Trier par',
+      quick_1d:'1j', quick_7d:'7j', quick_1m:'1m', quick_3m:'3m', quick_6m:'6m', quick_30d:'30j', quick_90d:'90j', quick_1y:'1an', quick_all:'Tout',
+      // Stats
+      per_day_avg:'/ jour (moy.)', trend:'Tendance',
+      // Recordings
+      best_recordings:'Meilleurs enregistrements', sort_conf_desc:'Confiance ↓', sort_date_desc:'Date ↓',
+      sort_species_az:'Espèce A→Z', filter_species_ph:'Filtrer espèces…', clear_all:'Tout effacer',
+      select_all:'Tout sélect.', deselect_all:'Tout désélect.', no_recordings:'Aucun enregistrement trouvé.', load_more:'Charger plus',
+      remaining:'{n} restants', clean_audio:'Nettoyer le son', cleaned:'Nettoyé', cleaning:'Nettoyage…',
+      force:'Force', spectral_sub:'filtre passe-haut + soustraction spectrale',
+      af_gain:'Gain (dB)', af_highpass:'Passe-haut (Hz)', af_lowpass:'Passe-bas (Hz)', af_off:'Off',
+      af_file_info:'Infos fichier', af_duration:'Durée', af_type:'Type', af_size:'Taille',
+      af_sample_rate:'Fréq. échantillonnage', af_channels:'Canaux', af_file_path:'Chemin',
+      af_mono:'Mono', af_stereo:'Stéréo', af_filters:'Filtres audio',
+      // Model monitoring
+      mod_title:'Monitoring modèle', mod_current:'Modèle actif', mod_detections:'Détections',
+      mod_species:'Espèces', mod_confidence:'Confiance moy.', mod_rate:'Rythme',
+      mod_per_hour:'/h', mod_conf_dist:'Distribution confiance',
+      mod_top_species:'Top espèces', mod_trend:'Tendance 7j', mod_no_data:'Pas de données',
+      mod_today:'Auj.', mod_7d:'7j', mod_30d:'30j',
+      cmp_title:'Comparaison de périodes', cmp_split_date:'Date pivot',
+      cmp_before:'Avant', cmp_after:'Après', cmp_det_day:'Dét./jour',
+      cmp_species_gained:'Espèces gagnées', cmp_species_lost:'Espèces perdues',
+      cmp_nocturnal:'Détections nocturnes', cmp_nocturnal_sub:'22h – 4h',
+      cmp_none:'Aucune', cmp_per_day:'/j', cmp_change:'Variation',
+      cmp_species_detail:'Comparaison par espèce', cmp_count:'Nb',
+      // Delete management
+      del_manage:'Gérer les détections', del_this:'Supprimer cette détection',
+      del_all:'Supprimer tout', del_confirm_title:'Suppression irréversible',
+      del_confirm_body:'Cette action supprimera {count} détections et tous les fichiers audio pour « {name} ». Cette action est irréversible.',
+      del_type_name:'Tapez « {name} » pour confirmer :',
+      del_permanently:'Supprimer définitivement', cancel:'Annuler',
+      del_one_confirm:'Supprimer la détection du {date} à {time} (confiance : {conf}) ?\n\nLe fichier audio sera aussi supprimé.',
+      del_success:'détections supprimées', del_file_errors:'fichiers non supprimés',
+      del_done_title:'Suppression terminée', del_records_removed:'Détections supprimées',
+      del_files_removed:'Fichiers supprimés', del_close:'Fermer',
+      // Species detail
+      avg_conf_short:'Confiance moy.', days_detected:'Jours détectés',
+      activity_30d:'Activité — 30 jours', conf_distribution:'Distribution de confiance',
+      activity_by_weekday:'Activité par jour de la semaine', description:'Description',
+      // Detections
+      date_range:'Plage de dates', mode:'Mode', unique_mode:'Unique',
+      unique_desc:'Regroupe les séquences consécutives', all_species_placeholder:'— Toutes espèces —',
+      // Biodiversity
+      // Recent
+      today_label:'Aujourd\'hui', yesterday:'Hier', hourly_distrib:'Distribution horaire',
+      // Rarities
+      click_to_edit:'Cliquer pour saisir', never_seen:'jamais vu',
+      total_species:'Total espèces', rare_count:'Rares (≤{n})', seen_once:'Vues une fois',
+      new_this_year:'Nouvelles {year}',
+      // Spectrogram
+      idle:'Inactif', connecting:'Connexion…', live:'En direct',
+      start:'Démarrer', stop:'Arrêter', gain:'Gain', freq_max:'Fréq. max', clean:'Nettoyer',
+      today_count:'aujourd\'hui',
+      spectro_title:'Spectrogramme live', spectro_close:'Fermer spectrogramme', spectro_show:'Afficher spectrogramme',
+      spectro_idle_msg:'Cliquez sur Démarrer pour activer le spectrogramme.',
+      spectro_idle_desc:'L\'audio provient des MP3 récents de BirdNET — aucun conflit avec l\'analyse en cours.',
+      spectro_idle_overlay:'Les détections apparaissent en overlay automatiquement.',
+      spectro_connecting_msg:'Connexion au flux audio du Pi…',
+      colorbar_max:'max', colorbar_min:'min',
+      // System
+      all_rarities:'Toutes les rarités', updated_at:'Mis à jour {time}',
+      no_notable_obs:'Aucune observation notable ces 7 derniers jours.',
+      quick_today:'Auj.',
+      // System tabs & health
+      sys_tab_health:'Santé', sys_tab_model:'Modèle', sys_tab_data:'Données', sys_tab_external:'Externe',
+      sys_health_title:'Santé du système', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Disque',
+      sys_temp:'Température', sys_uptime_label:'Uptime', sys_load:'Charge',
+      sys_cores:'cœurs',
+      sys_services_title:'Services', sys_svc_logs:'Journaux', sys_svc_no_logs:'Aucun journal',
+      sys_confirm_stop:'Confirmer l\'arrêt', sys_confirm_stop_msg:'Arrêter le service « {name} » ? Cela peut interrompre l\'analyse.',
+      sys_cancel:'Annuler', sys_svc_starting:'Démarrage…', sys_svc_stopping:'Arrêt…',
+      sys_analysis_title:'Analyse en cours', sys_backlog:'Backlog', sys_lag:'Retard',
+      sys_inference:'Inférence', sys_model_active:'Modèle actif',
+      sys_files_pending:'fichiers en attente', sys_seconds:'secondes', sys_minutes:'min',
+      sys_audio_title:'Audio', sys_rec_card:'Carte d\'entrée', sys_channels_label:'Canaux', sys_format:'Format',
+      sys_backup_title:'Sauvegarde', sys_nfs_mount:'Montage NFS', sys_last_backup:'Dernier backup',
+      sys_backup_size:'Taille', sys_mounted:'Monté', sys_not_mounted:'Non monté', sys_not_configured:'Non configuré',
+      set_backup:'Sauvegarde', set_backup_dest:'Destination', set_backup_content:'Contenu à sauvegarder',
+      set_backup_dest_local:'Disque USB / Local', set_backup_dest_smb:'Partage SMB/CIFS', set_backup_dest_nfs:'Montage NFS',
+      set_backup_dest_sftp:'SFTP', set_backup_dest_s3:'Amazon S3', set_backup_dest_gdrive:'Google Drive',
+      set_backup_dest_webdav:'WebDAV', set_backup_content_db:'Base de données', set_backup_content_audio:'Fichiers audio',
+      set_backup_content_config:'Configuration', set_backup_content_all:'Tout sauvegarder',
+      set_backup_path:'Chemin / Point de montage', set_backup_host:'Serveur', set_backup_port:'Port',
+      set_backup_user:'Utilisateur', set_backup_pass:'Mot de passe', set_backup_share:'Partage',
+      set_backup_bucket:'Bucket', set_backup_region:'Région', set_backup_access_key:'Clé d\'accès',
+      set_backup_secret_key:'Clé secrète', set_backup_remote_path:'Chemin distant',
+      set_backup_schedule:'Planification', set_backup_schedule_manual:'Manuel uniquement',
+      set_backup_schedule_daily:'Quotidien', set_backup_schedule_weekly:'Hebdomadaire',
+      set_backup_schedule_time:'Heure de sauvegarde', set_backup_retention:'Rétention (jours)',
+      set_backup_run_now:'Lancer maintenant', set_backup_running:'Sauvegarde en cours…',
+      set_backup_save:'Enregistrer la configuration backup',
+      set_backup_saved:'Configuration backup enregistrée',
+      set_backup_last_status:'Dernier statut', set_backup_never:'Jamais exécuté',
+      set_backup_success:'Succès', set_backup_failed:'Échoué',
+      set_backup_gdrive_folder:'ID du dossier Google Drive',
+      set_backup_state_running:'En cours', set_backup_state_completed:'Terminé',
+      set_backup_state_failed:'Échoué', set_backup_state_stopped:'Arrêté',
+      set_backup_state_paused:'En pause',
+      set_backup_step:'Étape', set_backup_started:'Démarré il y a',
+      set_backup_pause:'Pause', set_backup_resume:'Reprendre', set_backup_stop:'Arrêter',
+      set_backup_stop_confirm:'Arrêter le backup en cours ? (rsync reprendra au prochain lancement)',
+      set_backup_transferred:'Transféré', set_backup_disk_free:'Espace libre',
+      sys_network_title:'Réseau', sys_hostname:'Nom d\'hôte', sys_ip:'Adresse IP',
+      sys_nas_ping:'Ping NAS', sys_reachable:'Joignable', sys_unreachable:'Injoignable',
+      sys_hardware_title:'Matériel',
+      // UI labels
+      nav_prev_day:'Jour précédent', nav_next_day:'Jour suivant',
+      select_species_prompt:'Sélectionnez une espèce', listen_spectro_hint:'pour écouter et voir le spectrogramme',
+      next_det_audio:'Prochaine détection avec audio →',
+      download:'Télécharger', download_audio:'Télécharger l\'audio',
+      ebird_export:'Export eBird',
+      click_to_edit_value:'Cliquer pour saisir une valeur',
+      search_filter_ph:'filtrer…', search_species_ph:'Rechercher… (appuyez /)',
+      fft_analysis:'Analyse FFT…',
+      // System — eBird / BirdWeather
+      ebird_api_missing:'Clé API manquante',
+      ebird_enable_text:'Pour activer cette section, obtenez une clé gratuite sur',
+      ebird_then_configure:'puis configurez-la sur le Pi :',
+      ebird_add_env:'Ajouter :', ebird_your_key:'votre_cle',
+      ebird_no_notable:'Aucune observation notable ces 7 derniers jours.',
+      ebird_see_on:'Voir sur eBird', bw_see_on:'Voir sur BirdWeather',
+      bw_add_in:'Ajouter dans', bw_id_in_url:'L\'ID est visible dans l\'URL :',
+      top_detected:'Top espèces détectées',
+      detected_locally:'Également détecté localement', not_detected_locally:'Pas détecté localement',
+      no_rarities_detected:'Aucune rareté détectée récemment',
+      search_placeholder:'Rechercher une espèce\u2026',
+      // Lifers
+      lifers_label:'Lifers', no_lifers:'Aucun lifer pour cette date',
+      // Morning summary
+      morning_summary:'Quoi de neuf', new_today:'Nouvelles aujourd\'hui', best_detection:'Meilleure détection',
+      vs_yesterday:'vs hier', no_new_species:'Aucune nouvelle espèce',
+      // Phenology & quick play
+      phenology:'Phénologie', first_arrival:'Première arrivée', last_departure:'Dernier départ', quick_play:'Écoute rapide',
+      // Validation
+      validation_confirmed:'Confirmée', validation_doubtful:'Douteuse', validation_rejected:'Rejetée', validation_unreviewed:'Non vérifiée',
+      hide_rejected:'Masquer rejetées', validation_stats:'Statistiques de validation',
+    },
+
+    en: {
+      _meta: { lang:'en', label:'English', flag:'🇬🇧' },
+      nav_overview:'Overview', nav_today:'Today', nav_recent:'Recent',
+      nav_detections:'Detections', nav_species:'Species',
+      nav_biodiversity:'Biodiversity', nav_rarities:'Rarities', nav_stats:'Statistics',
+      nav_system:'System', nav_analyses:'Analysis', nav_review:'Review', nav_terminal:'Terminal', nav_spectrogram:'Spectrogram', nav_recordings:'Recordings', nav_gallery:'Sound Gallery', nav_settings:'Settings',
+      gallery_title:'Sound Gallery', top_detections_per_species:'top detections',
+      set_location:'Location', set_site_name:'Site name', set_latitude:'Latitude', set_longitude:'Longitude',
+      set_model:'Detection model', set_model_choice:'AI Model', set_species_freq_thresh:'Species frequency threshold',
+      set_analysis:'Analysis', set_confidence:'Confidence', set_sensitivity:'Sensitivity',
+      set_language:'Species language', set_notifications:'Notifications',
+      set_notify_each:'Notify each detection', set_notify_new_species:'Notify new species (never seen)',
+      set_notify_new_daily:'Notify first species of the day', set_weekly_report:'Weekly report',
+      set_notif_urls:'Notification URLs (Apprise)', set_notif_urls_help:'One URL per line. Examples:',
+      set_notif_title:'Notification title', set_notif_body:'Message body',
+      set_notif_body_help:'Variables: $comname, $sciname, $confidence, $date, $time',
+      set_notif_test:'Test', set_notif_testing:'Sending…', set_notif_test_ok:'Notification sent!',
+      set_notif_test_fail:'Failed: {error}', set_notif_cooldown:'Min. delay between notifications (seconds)',
+      set_notif_no_urls:'No URLs configured — notifications will not be sent.',
+      set_alerts_title:'System alerts', set_alerts_desc:'Get notified when a critical threshold is exceeded.',
+      set_notif_events_title:'Notification events', set_notif_events_desc:'Check the events you want to receive notifications for.',
+      set_notif_cat_birds:'Species detections', set_notif_cat_system:'System monitoring',
+      set_alert_temp_warn:'Temperature warning', set_alert_temp_crit:'Temperature critical',
+      set_alert_disk_warn:'Disk space warning', set_alert_ram_warn:'RAM warning',
+      set_alert_backlog:'Analysis backlog', set_alert_no_det:'Detection silence',
+      set_alert_svc_down:'Alert when a critical service goes down',
+      set_notif_cat_bird_smart:'Smart bird alerts',
+      set_alert_influx:'Unusual influx (>3x average)', set_alert_missing:'Missing common species (after noon)', set_alert_rare_visitor:'Rare visitor detected',
+      set_tab_detection:'Detection', set_tab_station:'Station', set_tab_system:'System', set_tab_backup:'Backup',
+      set_save:'Save', set_saved:'Configuration saved successfully', set_reload:'Reload',
+      set_recording:'Audio recording', set_overlap:'Overlap (s)', set_rec_length:'Recording length (s)',
+      set_extraction_length:'Extraction length (s)', set_channels:'Mic channels', set_audio_format:'Audio format',
+      set_disk_mgmt:'Disk management', set_full_disk:'Full disk', set_purge_threshold:'Purge threshold (%)',
+      set_max_files:'Max files/species (0=unlimited)', set_privacy:'Privacy', set_privacy_threshold:'Human voice filter',
+      set_services:'BirdNET Services', set_restart:'Restart', set_service_active:'Active', set_service_inactive:'Inactive',
+      set_species_lists:'Species lists', set_include_list:'Include list', set_exclude_list:'Exclude list',
+      set_whitelist:'Whitelist (bypass threshold)', set_birdweather:'BirdWeather', set_image_provider:'Image source',
+      set_rtsp:'RTSP Stream', set_rtsp_stream:'RTSP stream URL',
+      set_model_desc_birdnet:'BirdNET V2.4 — 6,500 species, Pi-optimized (recommended)',
+      set_model_desc_mdata:'BirdNET V2.4 + geographic filter — filters species by location and week',
+      set_model_desc_mdata_v2:'BirdNET V2.4 + geo filter V2 — improved location and week filtering',
+      set_model_desc_v1:'BirdNET V1 — older model, less accurate (legacy)',
+      set_model_desc_perch:'Perch v2 (Google) — 15,000 species, birds + amphibians + mammals, more accurate',
+      set_model_desc_go:'BirdNET-Go — experimental variant',
+      set_restart_confirm:'Restart services to apply?', set_save_restart:'Save & restart',
+      today:'Today', this_week:'This week', this_month:'This month', all_time:'All time',
+      detections:'Detections', species:'Species', avg_confidence:'Avg confidence',
+      last_detection:'Last detection', top_species:'Top species',
+      activity_7d:'7-day activity', activity_today:'Today\'s activity',
+      last_hour:'Last hour', new_species:'New species', rare_today:'Rare species today',
+      recent_detections:'Recent detections',
+      no_data:'No data', loading:'Loading…', error:'Error',
+      date:'Date', time:'Time', species_name:'Species', scientific_name:'Scientific name',
+      confidence:'Confidence', audio:'Audio', play:'Play',
+      filter_species:'Filter by species', filter_order:'Taxonomic order', filter_family:'Family',
+      all_orders:'All orders', all_families:'All families',
+      filter_date_from:'From', filter_date_to:'To',
+      filter_confidence:'Min. confidence', all_species:'All species',
+      apply_filter:'Apply', reset_filter:'Reset', default_btn:'Default',
+      prev_page:'← Previous', next_page:'Next →', page:'Page', of:'of', results:'results',
+      species_detail:'Species detail', first_detection:'First detected', last_seen:'Last seen',
+      total_detections:'Total detections', max_confidence:'Max confidence',
+      activity_by_hour:'Hourly activity', monthly_presence:'Monthly presence',
+      external_links:'External links', listen_on:'Listen on', observe_on:'Observe on',
+      species_x_month:'Species by month', richness_per_day:'Daily richness',
+      heatmap_hour_day:'Activity hour × day',
+      kb_shortcuts_hint:'Space = play, ← → = navigate',
+      shannon_index:'Shannon index', shannon_evenness:'Evenness', personal_notes:'Personal notes',
+      bio_taxonomy_orders:'Distribution by order', bio_taxonomy_families:'Detected families',
+      rare_species:'Rare species', rare_desc:'Species with fewer than {n} detections',
+      first_seen:'First seen', detections_count:'Detections',
+      top_by_count:'Ranking by detections', top_by_confidence:'Ranking by confidence',
+      confidence_distrib:'Confidence distribution', activity_calendar:'Activity calendar',
+      monthly_totals:'Monthly totals',
+      freq_range:'Frequency range',
+      weather_activity:'Weather & Activity', temperature:'Temperature', precipitation:'Precipitation', wind:'Wind',
+      db_status:'Database status', db_size:'DB size', db_total:'Total records',
+      db_first:'First detection', db_last:'Last detection',
+      service_status:'Service status', api_ok:'API running', api_error:'API offline',
+      data_freshness:'Data freshness',
+      minutes_ago:'{n} min ago', hours_ago:'{n}h ago', days_ago:'{n}d ago',
+      months_short:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      months_long:['January','February','March','April','May','June','July','August','September','October','November','December'],
+      days_short:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      analyses_period:'Exploring period {from} → {to}',
+      analyses_what_species:'Which species to explore?',
+      analyses_loading_ph:'— loading… —', analyses_no_species:'— no species —',
+      analyses_topn_label:'Top', analyses_topn_unit:'species',
+      analyses_topn_btn:'Select', analyses_clear_btn:'✕ Clear all',
+      analyses_search_ph:'🔍  Filter species…',
+      analyses_n_selected:'{n} species selected', analyses_n_total:'{n} species total',
+      analyses_kpi_raw:'Raw detections', analyses_kpi_resampled:'After resampling',
+      analyses_kpi_conf:'Avg confidence', analyses_kpi_days:'Days detected', analyses_kpi_avg_day:'Avg / day',
+      analyses_polar_title:'Hourly activity · {species}',
+      analyses_series_title:'Detections over time · {species}',
+      analyses_heatmap_title:'Daily heatmap · {species}',
+      circadian_comparison:'Circadian comparison',
+      analyses_multi_polar:'Hourly activity · {species} (primary)',
+      analyses_multi_series:'Comparing {n} species',
+      analyses_no_data_period:'No data for this period.',
+      analyses_tooltip_det:'{n} detections · {pct}% of the day',
+      analyses_resample_raw:'Raw', analyses_resample_15:'15 min',
+      analyses_resample_1h:'Hourly', analyses_resample_1d:'Daily',
+      analyses_conf_label:'Min. confidence', analyses_date_from:'From', analyses_date_to:'To',
+      analyses_quick_7d:'7d', analyses_quick_30d:'30d', analyses_quick_90d:'90d',
+      analyses_quick_1y:'1yr', analyses_quick_all:'All',
+      resolution:'Resolution',
+      analyses_date_range:'Date range',
+      analyses_pct_of_day:'of the day',
+      analyses_quarter_distrib:'Quarter-hour distribution',
+      analyses_best_dets:'Best detections',
+      analyses_no_det:'No detections',
+      analyses_select_prompt:'Select one or more species to explore their data.',
+      analyses_last_60d:'Showing last 60 days ({total} days total)',
+      analyses_peak_hour:'Peak hour',
+      narr_no_data:'No data for this period.',
+      narr_period:'Over the period {from} → {to},',
+      narr_habit_morning:'a morning bird', narr_habit_midday:'most active around midday',
+      narr_habit_afternoon:'most active in the afternoon',
+      narr_habit_night:'nocturnal or crepuscular', narr_habit_day:'active during the day',
+      narr_is:'is', narr_peak_at:'Peak activity at {time}, representing {pct}% of daily detections.',
+      narr_activity_range:'Activity starts around {start} and ends around {end}, spanning {duration}.',
+      narr_duration:'{n}h of activity', narr_duration_short:'concentrated activity',
+      narr_second_peak:'A second notable peak appears around {time}.',
+      narr_night_pct:'{pct}% of detections occur between 9pm and 5am.',
+      narr_total:'Total: {n} detections over {h} active hours.',
+      narr_multi_intro:'{n} species selected. Primary species: {species}.',
+      narr_multi_hint:'The rose chart and heatmap show data for {species}. The time series compares all species.',
+      grp_mode_species:'By species', grp_mode_taxo:'By taxonomic group',
+      grp_title_order:'Order analysis · {name}', grp_title_family:'Family analysis · {name}',
+      grp_kpi_species:'Species in group', grp_kpi_detections:'Total detections',
+      grp_kpi_conf:'Avg confidence', grp_kpi_days:'Active days', grp_kpi_avg_day:'Avg / day',
+      grp_polar_title:'Hourly activity · {name}',
+      grp_series_title:'Detections over time · {name}',
+      grp_series_families:'Detections by family · {name}',
+      grp_heatmap_title:'Daily heatmap · {name}',
+      grp_breakdown_title:'Species breakdown',
+      grp_breakdown_species:'Species', grp_breakdown_count:'Detections', grp_breakdown_pct:'%',
+      grp_breakdown_conf:'Confidence',
+      grp_select_prompt:'Select an order or family to analyse the group.',
+      grp_narr_period:'Over the period {from} → {to}, the group <strong>{name}</strong> has {species} species with {total} detections.',
+      grp_narr_dominant:'The dominant species is <strong>{species}</strong> with {pct}% of detections.',
+      grp_narr_peak:'The group\'s peak activity is at {time}.',
+      // Ecological guilds
+      guild_filter:'Ecological guild', guild_all:'All guilds',
+      guild_raptors:'Raptors', guild_waterbirds:'Waterbirds', guild_woodpeckers:'Woodpeckers',
+      guild_passerines_forest:'Forest passerines', guild_passerines_open:'Open-land passerines',
+      guild_thrushes_chats:'Thrushes & chats', guild_warblers:'Warblers',
+      guild_corvids:'Corvids', guild_swifts_swallows:'Swifts & swallows',
+      guild_pigeons_doves:'Pigeons & doves', guild_other:'Other',
+      sys_api_label:'API bird-server', sys_latency:'Latency', sys_port:'Port',
+      sys_species_distinct:'Distinct species', sys_days_recorded:'Days recorded',
+      sys_conf_range:'Confidence avg / min / max', sys_last_det:'Last detection',
+      sys_date_time:'Date / Time', sys_det_today:'Detections today',
+      sys_det_yesterday:'Detections yesterday', sys_no_gap:'✓ No gaps detected',
+      sys_no_gap_full:'✓ No gaps — continuous data',
+      sys_gaps_found:'{n} gap(s) detected in total', sys_gap_missing:'{n} missing day(s)',
+      sys_gaps_title:'⚠️ Days without data (> {n} day gap)',
+      sys_activity_30d:'📈 Daily activity — last 30 days',
+      sys_hourly_distrib:'🕐 Global hourly distribution',
+      rarity_threshold_label:'Rarity threshold (max detections)',
+      rarity_seen_once:'💎 Seen only once', rarity_last_rare:'🕐 Latest rare detections',
+      latin_name:'Latin name', bio_total:'Total', kpi_days_detected:'Days detected',
+      stats_daily_records:'🏆 Daily records', stats_annual_evolution:'📅 Annual evolution',
+      stats_record_most_det:'Day with most detections',
+      stats_record_most_sp:'Day with most species', stats_record_max_conf:'Maximum confidence',
+      period:'Period', conf_min:'Min. confidence', sort_by:'Sort by',
+      quick_1d:'1d', quick_7d:'7d', quick_1m:'1m', quick_3m:'3m', quick_6m:'6m', quick_30d:'30d', quick_90d:'90d', quick_1y:'1yr', quick_all:'All',
+      per_day_avg:'/ day (avg)', trend:'Trend',
+      best_recordings:'Best recordings', sort_conf_desc:'Confidence ↓', sort_date_desc:'Date ↓',
+      sort_species_az:'Species A→Z', filter_species_ph:'Filter species…', clear_all:'Clear all',
+      select_all:'Select all', deselect_all:'Deselect all', no_recordings:'No recordings found.', load_more:'Load more',
+      remaining:'{n} remaining', clean_audio:'Clean audio', cleaned:'Cleaned', cleaning:'Cleaning…',
+      force:'Strength', spectral_sub:'high-pass filter + spectral subtraction',
+      af_gain:'Gain (dB)', af_highpass:'HighPass (Hz)', af_lowpass:'LowPass (Hz)', af_off:'Off',
+      af_file_info:'File info', af_duration:'Duration', af_type:'Type', af_size:'Size',
+      af_sample_rate:'Sample rate', af_channels:'Channels', af_file_path:'Path',
+      af_mono:'Mono', af_stereo:'Stereo', af_filters:'Audio filters',
+      mod_title:'Model monitoring', mod_current:'Active model', mod_detections:'Detections',
+      mod_species:'Species', mod_confidence:'Avg confidence', mod_rate:'Rate',
+      mod_per_hour:'/h', mod_conf_dist:'Confidence distribution',
+      mod_top_species:'Top species', mod_trend:'7d trend', mod_no_data:'No data',
+      mod_today:'Today', mod_7d:'7d', mod_30d:'30d',
+      cmp_title:'Period comparison', cmp_split_date:'Split date',
+      cmp_before:'Before', cmp_after:'After', cmp_det_day:'Det./day',
+      cmp_species_gained:'Species gained', cmp_species_lost:'Species lost',
+      cmp_nocturnal:'Nocturnal detections', cmp_nocturnal_sub:'10pm – 4am',
+      cmp_none:'None', cmp_per_day:'/d', cmp_change:'Change',
+      cmp_species_detail:'Per-species comparison', cmp_count:'Count',
+      del_manage:'Manage detections', del_this:'Delete this detection',
+      del_all:'Delete all', del_confirm_title:'Irreversible deletion',
+      del_confirm_body:'This will delete {count} detections and all audio files for "{name}". This action cannot be undone.',
+      del_type_name:'Type "{name}" to confirm:',
+      del_permanently:'Delete permanently', cancel:'Cancel',
+      del_one_confirm:'Delete detection from {date} at {time} (confidence: {conf})?\n\nThe audio file will also be deleted.',
+      del_success:'detections deleted', del_file_errors:'files could not be deleted',
+      del_done_title:'Deletion complete', del_records_removed:'Detections removed',
+      del_files_removed:'Files removed', del_close:'Close',
+      avg_conf_short:'Avg confidence', days_detected:'Days detected',
+      activity_30d:'Activity — 30 days', conf_distribution:'Confidence distribution',
+      activity_by_weekday:'Activity by day of week', description:'Description',
+      date_range:'Date range', mode:'Mode', unique_mode:'Unique',
+      unique_desc:'Groups consecutive sequences', all_species_placeholder:'— All species —',
+      today_label:'Today', yesterday:'Yesterday', hourly_distrib:'Hourly distribution',
+      click_to_edit:'Click to edit', never_seen:'never seen',
+      total_species:'Total species', rare_count:'Rare (≤{n})', seen_once:'Seen once',
+      new_this_year:'New in {year}',
+      idle:'Idle', connecting:'Connecting…', live:'Live',
+      start:'Start', stop:'Stop', gain:'Gain', freq_max:'Max freq.', clean:'Clean',
+      today_count:'today',
+      spectro_title:'Live spectrogram', spectro_close:'Close spectrogram', spectro_show:'Show spectrogram',
+      spectro_idle_msg:'Click Start to activate the spectrogram.',
+      spectro_idle_desc:'Audio comes from recent BirdNET MP3s — no conflict with ongoing analysis.',
+      spectro_idle_overlay:'Detections appear as overlays automatically.',
+      spectro_connecting_msg:'Connecting to the Pi audio stream…',
+      colorbar_max:'max', colorbar_min:'min',
+      all_rarities:'All rarities', updated_at:'Updated {time}',
+      no_notable_obs:'No notable observations in the last 7 days.',
+      quick_today:'Today',
+      sys_tab_health:'Health', sys_tab_model:'Model', sys_tab_data:'Data', sys_tab_external:'External',
+      sys_health_title:'System Health', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Disk',
+      sys_temp:'Temperature', sys_uptime_label:'Uptime', sys_load:'Load',
+      sys_cores:'cores',
+      sys_services_title:'Services', sys_svc_logs:'Logs', sys_svc_no_logs:'No logs',
+      sys_confirm_stop:'Confirm Stop', sys_confirm_stop_msg:'Stop service "{name}"? This may interrupt analysis.',
+      sys_cancel:'Cancel', sys_svc_starting:'Starting…', sys_svc_stopping:'Stopping…',
+      sys_analysis_title:'Analysis Status', sys_backlog:'Backlog', sys_lag:'Lag',
+      sys_inference:'Inference', sys_model_active:'Active Model',
+      sys_files_pending:'files pending', sys_seconds:'seconds', sys_minutes:'min',
+      sys_audio_title:'Audio', sys_rec_card:'Input Card', sys_channels_label:'Channels', sys_format:'Format',
+      sys_backup_title:'Backup', sys_nfs_mount:'NFS Mount', sys_last_backup:'Last Backup',
+      sys_backup_size:'Size', sys_mounted:'Mounted', sys_not_mounted:'Not Mounted', sys_not_configured:'Not configured',
+      set_backup:'Backup', set_backup_dest:'Destination', set_backup_content:'Content to back up',
+      set_backup_dest_local:'USB Disk / Local', set_backup_dest_smb:'SMB/CIFS Share', set_backup_dest_nfs:'NFS Mount',
+      set_backup_dest_sftp:'SFTP', set_backup_dest_s3:'Amazon S3', set_backup_dest_gdrive:'Google Drive',
+      set_backup_dest_webdav:'WebDAV', set_backup_content_db:'Database', set_backup_content_audio:'Audio files',
+      set_backup_content_config:'Configuration', set_backup_content_all:'Back up everything',
+      set_backup_path:'Path / Mount point', set_backup_host:'Server', set_backup_port:'Port',
+      set_backup_user:'Username', set_backup_pass:'Password', set_backup_share:'Share',
+      set_backup_bucket:'Bucket', set_backup_region:'Region', set_backup_access_key:'Access Key',
+      set_backup_secret_key:'Secret Key', set_backup_remote_path:'Remote path',
+      set_backup_schedule:'Schedule', set_backup_schedule_manual:'Manual only',
+      set_backup_schedule_daily:'Daily', set_backup_schedule_weekly:'Weekly',
+      set_backup_schedule_time:'Backup time', set_backup_retention:'Retention (days)',
+      set_backup_run_now:'Run now', set_backup_running:'Backup in progress…',
+      set_backup_save:'Save backup configuration',
+      set_backup_saved:'Backup configuration saved',
+      set_backup_last_status:'Last status', set_backup_never:'Never run',
+      set_backup_success:'Success', set_backup_failed:'Failed',
+      set_backup_gdrive_folder:'Google Drive folder ID',
+      set_backup_state_running:'Running', set_backup_state_completed:'Completed',
+      set_backup_state_failed:'Failed', set_backup_state_stopped:'Stopped',
+      set_backup_state_paused:'Paused',
+      set_backup_step:'Step', set_backup_started:'Started',
+      set_backup_pause:'Pause', set_backup_resume:'Resume', set_backup_stop:'Stop',
+      set_backup_stop_confirm:'Stop the running backup? (rsync will resume on next run)',
+      set_backup_transferred:'Transferred', set_backup_disk_free:'Free space',
+      sys_network_title:'Network', sys_hostname:'Hostname', sys_ip:'IP Address',
+      sys_nas_ping:'NAS Ping', sys_reachable:'Reachable', sys_unreachable:'Unreachable',
+      sys_hardware_title:'Hardware',
+      nav_prev_day:'Previous day', nav_next_day:'Next day',
+      select_species_prompt:'Select a species', listen_spectro_hint:'to listen and view the spectrogram',
+      next_det_audio:'Next detection with audio →',
+      download:'Download', download_audio:'Download audio',
+      ebird_export:'eBird export',
+      click_to_edit_value:'Click to enter a value',
+      search_filter_ph:'filter…', search_species_ph:'Search… (press /)',
+      fft_analysis:'FFT analysis…',
+      ebird_api_missing:'API key missing',
+      ebird_enable_text:'To enable this section, get a free key at',
+      ebird_then_configure:'then configure it on the Pi:',
+      ebird_add_env:'Add:', ebird_your_key:'your_key',
+      ebird_no_notable:'No notable observations in the last 7 days.',
+      ebird_see_on:'View on eBird', bw_see_on:'View on BirdWeather',
+      bw_add_in:'Add in', bw_id_in_url:'The ID is visible in the URL:',
+      top_detected:'Top detected species',
+      detected_locally:'Also detected locally', not_detected_locally:'Not detected locally',
+      no_rarities_detected:'No rarities detected recently',
+      search_placeholder:'Search species\u2026',
+      // Lifers
+      lifers_label:'Lifers', no_lifers:'No lifers for this date',
+      // Morning summary
+      morning_summary:'What\'s new', new_today:'New today', best_detection:'Best detection',
+      vs_yesterday:'vs yesterday', no_new_species:'No new species',
+      // Phenology & quick play
+      phenology:'Phenology', first_arrival:'First arrival', last_departure:'Last departure', quick_play:'Quick play',
+      // Validation
+      validation_confirmed:'Confirmed', validation_doubtful:'Doubtful', validation_rejected:'Rejected', validation_unreviewed:'Unreviewed',
+      hide_rejected:'Hide rejected', validation_stats:'Validation stats',
+    },
+
+    de: {
+      _meta: { lang:'de', label:'Deutsch', flag:'🇩🇪' },
+      nav_overview:'Übersicht', nav_today:'Heute', nav_recent:'Aktuell',
+      nav_detections:'Erkennungen', nav_species:'Arten',
+      nav_biodiversity:'Biodiversität', nav_rarities:'Seltenheiten',
+      nav_stats:'Statistiken', nav_system:'System', nav_analyses:'Analysen', nav_review:'Überprüfung', nav_terminal:'Terminal', nav_spectrogram:'Spektrogramm', nav_recordings:'Aufnahmen', nav_gallery:'Klanggalerie', nav_settings:'Einstellungen',
+      gallery_title:'Klanggalerie', top_detections_per_species:'beste Erkennungen',
+      set_location:'Standort', set_site_name:'Standortname', set_latitude:'Breitengrad', set_longitude:'Längengrad',
+      set_model:'Erkennungsmodell', set_model_choice:'KI-Modell', set_species_freq_thresh:'Artenhäufigkeitsschwelle',
+      set_analysis:'Analyse', set_confidence:'Konfidenz', set_sensitivity:'Empfindlichkeit',
+      set_language:'Artensprache', set_notifications:'Benachrichtigungen',
+      set_notify_each:'Bei jeder Erkennung benachrichtigen', set_notify_new_species:'Neue Art benachrichtigen',
+      set_notify_new_daily:'Erste Art des Tages benachrichtigen', set_weekly_report:'Wochenbericht',
+      set_notif_urls:'Benachrichtigungs-URLs (Apprise)', set_notif_urls_help:'Eine URL pro Zeile. Beispiele:',
+      set_notif_title:'Benachrichtigungstitel', set_notif_body:'Nachrichtentext',
+      set_notif_body_help:'Variablen: $comname, $sciname, $confidence, $date, $time',
+      set_notif_test:'Testen', set_notif_testing:'Wird gesendet…', set_notif_test_ok:'Benachrichtigung gesendet!',
+      set_notif_test_fail:'Fehlgeschlagen: {error}', set_notif_cooldown:'Min. Verzögerung zwischen Benachrichtigungen (Sek.)',
+      set_notif_no_urls:'Keine URLs konfiguriert — Benachrichtigungen werden nicht gesendet.',
+      set_alerts_title:'Systemalarme', set_alerts_desc:'Benachrichtigung bei Überschreitung kritischer Schwellenwerte.',
+      set_notif_events_title:'Benachrichtigungsereignisse', set_notif_events_desc:'Wählen Sie die Ereignisse, für die Sie benachrichtigt werden möchten.',
+      set_notif_cat_birds:'Artenerkennung', set_notif_cat_system:'Systemüberwachung',
+      set_alert_temp_warn:'Temperatur Warnung', set_alert_temp_crit:'Temperatur kritisch',
+      set_alert_disk_warn:'Speicherplatz Warnung', set_alert_ram_warn:'RAM Warnung',
+      set_alert_backlog:'Analyse-Rückstand', set_alert_no_det:'Erkennungsstille',
+      set_alert_svc_down:'Alarm bei Ausfall eines kritischen Dienstes',
+      set_notif_cat_bird_smart:'Intelligente Vogelalarme',
+      set_alert_influx:'Ungewöhnlicher Zustrom (>3x Durchschnitt)', set_alert_missing:'Häufige Art fehlt (nach Mittag)', set_alert_rare_visitor:'Seltener Besucher entdeckt',
+      set_tab_detection:'Erkennung', set_tab_station:'Station', set_tab_system:'System', set_tab_backup:'Sicherung',
+      set_save:'Speichern', set_saved:'Konfiguration erfolgreich gespeichert', set_reload:'Neu laden',
+      set_recording:'Audioaufnahme', set_overlap:'Überlappung (s)', set_rec_length:'Aufnahmedauer (s)',
+      set_extraction_length:'Extraktionsdauer (s)', set_channels:'Mikrofonkanäle', set_audio_format:'Audioformat',
+      set_disk_mgmt:'Datenträgerverwaltung', set_full_disk:'Datenträger voll', set_purge_threshold:'Bereinigungsschwelle (%)',
+      set_max_files:'Max Dateien/Art (0=unbegrenzt)', set_privacy:'Datenschutz', set_privacy_threshold:'Menschenstimmenfilter',
+      set_services:'BirdNET-Dienste', set_restart:'Neustart', set_service_active:'Aktiv', set_service_inactive:'Inaktiv',
+      set_species_lists:'Artenlisten', set_include_list:'Einschlussliste', set_exclude_list:'Ausschlussliste',
+      set_whitelist:'Whitelist (Schwelle umgehen)', set_birdweather:'BirdWeather', set_image_provider:'Bildquelle',
+      set_rtsp:'RTSP-Stream', set_rtsp_stream:'RTSP-Stream-URL',
+      set_model_desc_birdnet:'BirdNET V2.4 — 6.500 Arten, Pi-optimiert (empfohlen)',
+      set_model_desc_mdata:'BirdNET V2.4 + Geofilter — filtert Arten nach Standort und Woche',
+      set_model_desc_mdata_v2:'BirdNET V2.4 + Geofilter V2 — verbesserter Standort- und Wochenfilter',
+      set_model_desc_v1:'BirdNET V1 — alteres Modell, weniger genau (legacy)',
+      set_model_desc_perch:'Perch v2 (Google) — 15.000 Arten, Vogel + Amphibien + Saugetiere, genauer',
+      set_model_desc_go:'BirdNET-Go — experimentelle Variante',
+      set_restart_confirm:'Dienste neu starten um anzuwenden?', set_save_restart:'Speichern & Neustart',
+      today:'Heute', this_week:'Diese Woche', this_month:'Diesen Monat', all_time:'Gesamt',
+      detections:'Erkennungen', species:'Arten', avg_confidence:'Ø Konfidenz',
+      last_detection:'Letzte Erkennung', top_species:'Top-Arten',
+      activity_7d:'7-Tage-Aktivität', activity_today:'Aktivität heute',
+      last_hour:'Letzte Stunde', new_species:'Neue Arten', rare_today:'Seltene Arten heute',
+      recent_detections:'Letzte Erkennungen',
+      no_data:'Keine Daten', loading:'Laden…', error:'Fehler',
+      date:'Datum', time:'Uhrzeit', species_name:'Art', scientific_name:'Wissenschaftlicher Name',
+      confidence:'Konfidenz', audio:'Audio', play:'Abspielen',
+      filter_species:'Nach Art filtern', filter_order:'Taxonomische Ordnung', filter_family:'Familie',
+      all_orders:'Alle Ordnungen', all_families:'Alle Familien',
+      filter_date_from:'Von', filter_date_to:'Bis',
+      filter_confidence:'Min. Konfidenz', all_species:'Alle Arten',
+      apply_filter:'Anwenden', reset_filter:'Zurücksetzen', default_btn:'Standard',
+      prev_page:'← Zurück', next_page:'Weiter →', page:'Seite', of:'von', results:'Ergebnisse',
+      species_detail:'Artensteckbrief', first_detection:'Erste Erkennung', last_seen:'Zuletzt gesehen',
+      total_detections:'Erkennungen gesamt', max_confidence:'Max. Konfidenz',
+      activity_by_hour:'Aktivität pro Stunde', monthly_presence:'Monatliche Präsenz',
+      external_links:'Externe Links', listen_on:'Anhören auf', observe_on:'Beobachten auf',
+      species_x_month:'Arten pro Monat', richness_per_day:'Tagesvielfalt',
+      heatmap_hour_day:'Aktivität Stunde × Tag',
+      kb_shortcuts_hint:'Leertaste = Wiedergabe, ← → = Navigation',
+      shannon_index:'Shannon-Index', shannon_evenness:'Gleichmäßigkeit', personal_notes:'Persönliche Notizen',
+      bio_taxonomy_orders:'Verteilung nach Ordnung', bio_taxonomy_families:'Erkannte Familien',
+      rare_species:'Seltene Arten', rare_desc:'Arten mit weniger als {n} Erkennungen',
+      first_seen:'Erstmals gesehen', detections_count:'Erkennungen',
+      top_by_count:'Rangliste nach Erkennungen', top_by_confidence:'Rangliste nach Konfidenz',
+      confidence_distrib:'Konfidenzverteilung', activity_calendar:'Aktivitätskalender',
+      monthly_totals:'Monatssummen',
+      freq_range:'Frequenzbereich',
+      weather_activity:'Wetter & Aktivität', temperature:'Temperatur', precipitation:'Niederschlag', wind:'Wind',
+      db_status:'Datenbankstatus', db_size:'DB-Größe', db_total:'Einträge gesamt',
+      db_first:'Erste Erkennung', db_last:'Letzte Erkennung',
+      service_status:'Dienststatus', api_ok:'API aktiv', api_error:'API offline',
+      data_freshness:'Datenaktualität',
+      minutes_ago:'vor {n} Min.', hours_ago:'vor {n} Std.', days_ago:'vor {n} Tagen',
+      months_short:['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'],
+      months_long:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+      days_short:['Mo','Di','Mi','Do','Fr','Sa','So'],
+      analyses_period:'Untersuchungszeitraum {from} → {to}',
+      analyses_what_species:'Welche Art untersuchen?',
+      analyses_loading_ph:'— laden… —', analyses_no_species:'— keine Art —',
+      analyses_topn_label:'Top', analyses_topn_unit:'Arten',
+      analyses_topn_btn:'Auswählen', analyses_clear_btn:'✕ Alles abwählen',
+      analyses_search_ph:'🔍  Arten filtern…',
+      analyses_n_selected:'{n} Art(en) ausgewählt', analyses_n_total:'{n} Arten insgesamt',
+      analyses_kpi_raw:'Rohe Erkennungen', analyses_kpi_resampled:'Nach Resampling',
+      analyses_kpi_conf:'Ø Konfidenz', analyses_kpi_days:'Erkennungstage', analyses_kpi_avg_day:'Ø / Tag',
+      analyses_polar_title:'Stundenaktivität · {species}',
+      analyses_series_title:'Erkennungen im Zeitverlauf · {species}',
+      analyses_heatmap_title:'Tages-Heatmap · {species}',
+      circadian_comparison:'Zirkadianer Vergleich',
+      analyses_multi_polar:'Stundenaktivität · {species} (Hauptart)',
+      analyses_multi_series:'{n} Arten vergleichen',
+      analyses_no_data_period:'Keine Daten für diesen Zeitraum.',
+      analyses_tooltip_det:'{n} Erkennungen · {pct}% des Tages',
+      analyses_resample_raw:'Roh', analyses_resample_15:'15 Min.',
+      analyses_resample_1h:'Stündlich', analyses_resample_1d:'Täglich',
+      analyses_conf_label:'Min. Konfidenz', analyses_date_from:'Von', analyses_date_to:'Bis',
+      analyses_quick_7d:'7T', analyses_quick_30d:'30T', analyses_quick_90d:'90T',
+      analyses_quick_1y:'1J', analyses_quick_all:'Alle',
+      resolution:'Auflösung',
+      analyses_date_range:'Zeitraum',
+      analyses_pct_of_day:'des Tages',
+      analyses_quarter_distrib:'Viertelstunden-Verteilung',
+      analyses_best_dets:'Beste Erkennungen',
+      analyses_no_det:'Keine Erkennungen',
+      analyses_select_prompt:'Wählen Sie eine oder mehrere Arten aus, um deren Daten zu erkunden.',
+      analyses_last_60d:'Anzeige der letzten 60 Tage ({total} Tage insgesamt)',
+      analyses_peak_hour:'Spitzenstunde',
+      narr_no_data:'Keine Daten für diesen Zeitraum.',
+      narr_period:'Im Zeitraum {from} → {to},',
+      narr_habit_morning:'ein Morgenvogel', narr_habit_midday:'am aktivsten um die Mittagszeit',
+      narr_habit_afternoon:'am aktivsten am Nachmittag',
+      narr_habit_night:'nacht- oder dämmerungsaktiv', narr_habit_day:'tagaktiv',
+      narr_is:'ist', narr_peak_at:'Aktivitätshöhepunkt um {time}, {pct}% der Tageserkennungen.',
+      narr_activity_range:'Aktivität beginnt gegen {start} und endet gegen {end}, Dauer: {duration}.',
+      narr_duration:'{n} Std. Aktivität', narr_duration_short:'konzentrierte Aktivität',
+      narr_second_peak:'Ein zweiter Höhepunkt zeigt sich gegen {time}.',
+      narr_night_pct:'{pct}% der Erkennungen erfolgen zwischen 21 und 5 Uhr.',
+      narr_total:'Gesamt: {n} Erkennungen über {h} aktive Stunden.',
+      narr_multi_intro:'{n} Arten ausgewählt. Hauptart: {species}.',
+      narr_multi_hint:'Das Rosendiagramm und die Heatmap zeigen Daten von {species}. Die Zeitreihe vergleicht alle Arten.',
+      grp_mode_species:'Nach Art', grp_mode_taxo:'Nach taxonomischer Gruppe',
+      grp_title_order:'Ordnungsanalyse · {name}', grp_title_family:'Familienanalyse · {name}',
+      grp_kpi_species:'Arten in der Gruppe', grp_kpi_detections:'Erkennungen gesamt',
+      grp_kpi_conf:'Ø Konfidenz', grp_kpi_days:'Aktive Tage', grp_kpi_avg_day:'Ø / Tag',
+      grp_polar_title:'Stundenaktivität · {name}',
+      grp_series_title:'Erkennungen im Zeitverlauf · {name}',
+      grp_series_families:'Erkennungen nach Familie · {name}',
+      grp_heatmap_title:'Tages-Heatmap · {name}',
+      grp_breakdown_title:'Artenverteilung',
+      grp_breakdown_species:'Art', grp_breakdown_count:'Erkennungen', grp_breakdown_pct:'%',
+      grp_breakdown_conf:'Konfidenz',
+      grp_select_prompt:'Wählen Sie eine Ordnung oder Familie, um die Gruppe zu analysieren.',
+      grp_narr_period:'Im Zeitraum {from} → {to} zählt die Gruppe <strong>{name}</strong> {species} Arten mit {total} Erkennungen.',
+      grp_narr_dominant:'Die dominante Art ist <strong>{species}</strong> mit {pct}% der Erkennungen.',
+      grp_narr_peak:'Der Aktivitätshöhepunkt der Gruppe liegt um {time}.',
+      // Ecological guilds
+      guild_filter:'Ökologische Gilde', guild_all:'Alle Gilden',
+      guild_raptors:'Greifvögel', guild_waterbirds:'Wasservögel', guild_woodpeckers:'Spechte',
+      guild_passerines_forest:'Waldsingvögel', guild_passerines_open:'Offenlandsingvögel',
+      guild_thrushes_chats:'Drosseln & Schmätzer', guild_warblers:'Grasmücken & Laubsänger',
+      guild_corvids:'Rabenvögel', guild_swifts_swallows:'Segler & Schwalben',
+      guild_pigeons_doves:'Tauben', guild_other:'Andere',
+      sys_api_label:'API bird-server', sys_latency:'Latenz', sys_port:'Port',
+      sys_species_distinct:'Verschiedene Arten', sys_days_recorded:'Aufnahmetage',
+      sys_conf_range:'Konfidenz Ø / Min. / Max.', sys_last_det:'Letzte Erkennung',
+      sys_date_time:'Datum / Uhrzeit', sys_det_today:'Erkennungen heute',
+      sys_det_yesterday:'Erkennungen gestern', sys_no_gap:'✓ Keine Lücken erkannt',
+      sys_no_gap_full:'✓ Keine Lücken — durchgehende Daten',
+      sys_gaps_found:'{n} Lücke(n) insgesamt erkannt', sys_gap_missing:'{n} fehlende(r) Tag(e)',
+      sys_gaps_title:'⚠️ Tage ohne Daten (> {n} Tag Lücke)',
+      sys_activity_30d:'📈 Tagesaktivität — letzte 30 Tage',
+      sys_hourly_distrib:'🕐 Globale Stundenverteilung',
+      rarity_threshold_label:'Seltenheitsschwelle (max. Erkennungen)',
+      rarity_seen_once:'💎 Nur einmal gesehen', rarity_last_rare:'🕐 Letzte seltene Erkennungen',
+      latin_name:'Lateinischer Name', bio_total:'Gesamt', kpi_days_detected:'Erkennungstage',
+      stats_daily_records:'🏆 Tagesrekorde', stats_annual_evolution:'📅 Jahresentwicklung',
+      stats_record_most_det:'Tag mit meisten Erkennungen',
+      stats_record_most_sp:'Tag mit meisten Arten', stats_record_max_conf:'Maximale Konfidenz',
+      period:'Zeitraum', conf_min:'Min. Konfidenz', sort_by:'Sortieren',
+      quick_1d:'1T', quick_7d:'7T', quick_1m:'1M', quick_3m:'3M', quick_6m:'6M', quick_30d:'30T', quick_90d:'90T', quick_1y:'1J', quick_all:'Alle',
+      per_day_avg:'/ Tag (Ø)', trend:'Trend',
+      best_recordings:'Beste Aufnahmen', sort_conf_desc:'Konfidenz ↓', sort_date_desc:'Datum ↓',
+      sort_species_az:'Art A→Z', filter_species_ph:'Arten filtern…', clear_all:'Alles löschen',
+      select_all:'Alle auswählen', deselect_all:'Alle abwählen', no_recordings:'Keine Aufnahmen gefunden.', load_more:'Mehr laden',
+      remaining:'{n} übrig', clean_audio:'Audio bereinigen', cleaned:'Bereinigt', cleaning:'Bereinigung…',
+      force:'Stärke', spectral_sub:'Hochpassfilter + Spektralsubtraktion',
+      af_gain:'Gain (dB)', af_highpass:'Hochpass (Hz)', af_lowpass:'Tiefpass (Hz)', af_off:'Aus',
+      af_file_info:'Dateiinfo', af_duration:'Dauer', af_type:'Typ', af_size:'Größe',
+      af_sample_rate:'Abtastrate', af_channels:'Kanäle', af_file_path:'Pfad',
+      af_mono:'Mono', af_stereo:'Stereo', af_filters:'Audiofilter',
+      mod_title:'Modell-Monitoring', mod_current:'Aktives Modell', mod_detections:'Erkennungen',
+      mod_species:'Arten', mod_confidence:'Ø Konfidenz', mod_rate:'Rate',
+      mod_per_hour:'/h', mod_conf_dist:'Konfidenzverteilung',
+      mod_top_species:'Top-Arten', mod_trend:'7-Tage-Trend', mod_no_data:'Keine Daten',
+      mod_today:'Heute', mod_7d:'7T', mod_30d:'30T',
+      cmp_title:'Periodenvergleich', cmp_split_date:'Stichtag',
+      cmp_before:'Vorher', cmp_after:'Nachher', cmp_det_day:'Erk./Tag',
+      cmp_species_gained:'Neue Arten', cmp_species_lost:'Verlorene Arten',
+      cmp_nocturnal:'Nächtliche Erkennungen', cmp_nocturnal_sub:'22h – 4h',
+      cmp_none:'Keine', cmp_per_day:'/T', cmp_change:'Änderung',
+      cmp_species_detail:'Vergleich nach Art', cmp_count:'Anz.',
+      del_manage:'Erkennungen verwalten', del_this:'Diese Erkennung löschen',
+      del_all:'Alle löschen', del_confirm_title:'Unwiderrufliche Löschung',
+      del_confirm_body:'Dies löscht {count} Erkennungen und alle Audiodateien für „{name}". Diese Aktion kann nicht rückgängig gemacht werden.',
+      del_type_name:'Geben Sie „{name}" zur Bestätigung ein:',
+      del_permanently:'Endgültig löschen', cancel:'Abbrechen',
+      del_one_confirm:'Erkennung vom {date} um {time} löschen (Konfidenz: {conf})?\n\nDie Audiodatei wird ebenfalls gelöscht.',
+      del_success:'Erkennungen gelöscht', del_file_errors:'Dateien konnten nicht gelöscht werden',
+      del_done_title:'Löschung abgeschlossen', del_records_removed:'Erkennungen entfernt',
+      del_files_removed:'Dateien entfernt', del_close:'Schließen',
+      avg_conf_short:'Ø Konfidenz', days_detected:'Erkennungstage',
+      activity_30d:'Aktivität — 30 Tage', conf_distribution:'Konfidenzverteilung',
+      activity_by_weekday:'Aktivität nach Wochentag', description:'Beschreibung',
+      date_range:'Zeitraum', mode:'Modus', unique_mode:'Einzigartig',
+      unique_desc:'Gruppiert aufeinanderfolgende Sequenzen', all_species_placeholder:'— Alle Arten —',
+      today_label:'Heute', yesterday:'Gestern', hourly_distrib:'Stundenverteilung',
+      click_to_edit:'Zum Bearbeiten klicken', never_seen:'nie gesehen',
+      total_species:'Arten gesamt', rare_count:'Selten (≤{n})', seen_once:'Einmal gesehen',
+      new_this_year:'Neu in {year}',
+      idle:'Inaktiv', connecting:'Verbinden…', live:'Live',
+      start:'Starten', stop:'Stoppen', gain:'Verstärkung', freq_max:'Max. Freq.', clean:'Bereinigen',
+      today_count:'heute',
+      spectro_title:'Live-Spektrogramm', spectro_close:'Spektrogramm schließen', spectro_show:'Spektrogramm anzeigen',
+      spectro_idle_msg:'Klicken Sie auf Starten, um das Spektrogramm zu aktivieren.',
+      spectro_idle_desc:'Audio stammt aus aktuellen BirdNET-MP3s — kein Konflikt mit der laufenden Analyse.',
+      spectro_idle_overlay:'Erkennungen werden automatisch als Overlay angezeigt.',
+      spectro_connecting_msg:'Verbindung zum Audio-Stream des Pi…',
+      colorbar_max:'Max', colorbar_min:'Min',
+      all_rarities:'Alle Seltenheiten', updated_at:'Aktualisiert {time}',
+      no_notable_obs:'Keine bemerkenswerten Beobachtungen in den letzten 7 Tagen.',
+      quick_today:'Heute',
+      sys_tab_health:'Zustand', sys_tab_model:'Modell', sys_tab_data:'Daten', sys_tab_external:'Extern',
+      sys_health_title:'Systemzustand', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Festplatte',
+      sys_temp:'Temperatur', sys_uptime_label:'Betriebszeit', sys_load:'Last',
+      sys_cores:'Kerne',
+      sys_services_title:'Dienste', sys_svc_logs:'Protokolle', sys_svc_no_logs:'Keine Protokolle',
+      sys_confirm_stop:'Stopp bestätigen', sys_confirm_stop_msg:'Dienst „{name}" stoppen? Dies kann die Analyse unterbrechen.',
+      sys_cancel:'Abbrechen', sys_svc_starting:'Startet…', sys_svc_stopping:'Stoppt…',
+      sys_analysis_title:'Analysestatus', sys_backlog:'Rückstand', sys_lag:'Verzögerung',
+      sys_inference:'Inferenz', sys_model_active:'Aktives Modell',
+      sys_files_pending:'Dateien ausstehend', sys_seconds:'Sekunden', sys_minutes:'Min',
+      sys_audio_title:'Audio', sys_rec_card:'Eingabekarte', sys_channels_label:'Kanäle', sys_format:'Format',
+      sys_backup_title:'Sicherung', sys_nfs_mount:'NFS-Mount', sys_last_backup:'Letzte Sicherung',
+      sys_backup_size:'Größe', sys_mounted:'Eingebunden', sys_not_mounted:'Nicht eingebunden', sys_not_configured:'Nicht konfiguriert',
+      set_backup:'Sicherung', set_backup_dest:'Ziel', set_backup_content:'Zu sichernder Inhalt',
+      set_backup_dest_local:'USB-Disk / Lokal', set_backup_dest_smb:'SMB/CIFS-Freigabe', set_backup_dest_nfs:'NFS-Mount',
+      set_backup_dest_sftp:'SFTP', set_backup_dest_s3:'Amazon S3', set_backup_dest_gdrive:'Google Drive',
+      set_backup_dest_webdav:'WebDAV', set_backup_content_db:'Datenbank', set_backup_content_audio:'Audiodateien',
+      set_backup_content_config:'Konfiguration', set_backup_content_all:'Alles sichern',
+      set_backup_path:'Pfad / Mountpunkt', set_backup_host:'Server', set_backup_port:'Port',
+      set_backup_user:'Benutzername', set_backup_pass:'Passwort', set_backup_share:'Freigabe',
+      set_backup_bucket:'Bucket', set_backup_region:'Region', set_backup_access_key:'Zugriffsschlüssel',
+      set_backup_secret_key:'Geheimschlüssel', set_backup_remote_path:'Entfernter Pfad',
+      set_backup_schedule:'Zeitplan', set_backup_schedule_manual:'Nur manuell',
+      set_backup_schedule_daily:'Täglich', set_backup_schedule_weekly:'Wöchentlich',
+      set_backup_schedule_time:'Sicherungszeit', set_backup_retention:'Aufbewahrung (Tage)',
+      set_backup_run_now:'Jetzt ausführen', set_backup_running:'Sicherung läuft…',
+      set_backup_save:'Sicherungskonfiguration speichern',
+      set_backup_saved:'Sicherungskonfiguration gespeichert',
+      set_backup_last_status:'Letzter Status', set_backup_never:'Noch nie ausgeführt',
+      set_backup_success:'Erfolgreich', set_backup_failed:'Fehlgeschlagen',
+      set_backup_gdrive_folder:'Google Drive Ordner-ID',
+      set_backup_state_running:'Läuft', set_backup_state_completed:'Abgeschlossen',
+      set_backup_state_failed:'Fehlgeschlagen', set_backup_state_stopped:'Gestoppt',
+      set_backup_state_paused:'Pausiert',
+      set_backup_step:'Schritt', set_backup_started:'Gestartet vor',
+      set_backup_pause:'Pause', set_backup_resume:'Fortsetzen', set_backup_stop:'Stopp',
+      set_backup_stop_confirm:'Laufendes Backup stoppen? (rsync setzt beim nächsten Lauf fort)',
+      set_backup_transferred:'Übertragen', set_backup_disk_free:'Freier Speicher',
+      sys_network_title:'Netzwerk', sys_hostname:'Hostname', sys_ip:'IP-Adresse',
+      sys_nas_ping:'NAS-Ping', sys_reachable:'Erreichbar', sys_unreachable:'Nicht erreichbar',
+      sys_hardware_title:'Hardware',
+      nav_prev_day:'Vorheriger Tag', nav_next_day:'Nächster Tag',
+      select_species_prompt:'Art auswählen', listen_spectro_hint:'zum Anhören und Spektrogramm anzeigen',
+      next_det_audio:'Nächste Erkennung mit Audio →',
+      download:'Herunterladen', download_audio:'Audio herunterladen',
+      ebird_export:'eBird-Export',
+      click_to_edit_value:'Klicken, um Wert einzugeben',
+      search_filter_ph:'filtern…', search_species_ph:'Suchen… (Taste /)',
+      fft_analysis:'FFT-Analyse…',
+      ebird_api_missing:'API-Schlüssel fehlt',
+      ebird_enable_text:'Um diesen Bereich zu aktivieren, holen Sie sich einen kostenlosen Schlüssel auf',
+      ebird_then_configure:'und konfigurieren Sie ihn auf dem Pi:',
+      ebird_add_env:'Hinzufügen:', ebird_your_key:'ihr_schlüssel',
+      ebird_no_notable:'Keine bemerkenswerten Beobachtungen in den letzten 7 Tagen.',
+      ebird_see_on:'Auf eBird ansehen', bw_see_on:'Auf BirdWeather ansehen',
+      bw_add_in:'Hinzufügen in', bw_id_in_url:'Die ID ist in der URL sichtbar:',
+      top_detected:'Top erkannte Arten',
+      detected_locally:'Auch lokal erkannt', not_detected_locally:'Nicht lokal erkannt',
+      no_rarities_detected:'Keine Seltenheiten kürzlich erkannt',
+      search_placeholder:'Art suchen\u2026',
+      // Lifers
+      lifers_label:'Erstbeobachtungen', no_lifers:'Keine Erstbeobachtungen für dieses Datum',
+      // Morning summary
+      morning_summary:'Was gibt\'s Neues', new_today:'Neu heute', best_detection:'Beste Erkennung',
+      vs_yesterday:'vs gestern', no_new_species:'Keine neuen Arten',
+      // Phenology & quick play
+      phenology:'Phänologie', first_arrival:'Erste Ankunft', last_departure:'Letzter Abflug', quick_play:'Schnellwiedergabe',
+      // Validation
+      validation_confirmed:'Bestätigt', validation_doubtful:'Zweifelhaft', validation_rejected:'Abgelehnt', validation_unreviewed:'Ungeprüft',
+      hide_rejected:'Abgelehnte ausblenden', validation_stats:'Validierungsstatistiken',
+    },
+
+    nl: {
+      _meta: { lang:'nl', label:'Nederlands', flag:'🇳🇱' },
+      nav_overview:'Overzicht', nav_today:'Vandaag', nav_recent:'Recent',
+      nav_detections:'Detecties', nav_species:'Soorten',
+      nav_biodiversity:'Biodiversiteit', nav_rarities:'Zeldzaamheden',
+      nav_stats:'Statistieken', nav_system:'Systeem', nav_analyses:'Analyse', nav_review:'Beoordeling', nav_terminal:'Terminal', nav_spectrogram:'Spectrogram', nav_recordings:'Opnames', nav_gallery:'Geluidsgalerij', nav_settings:'Instellingen',
+      gallery_title:'Geluidsgalerij', top_detections_per_species:'beste detecties',
+      set_location:'Locatie', set_site_name:'Sitenaam', set_latitude:'Breedtegraad', set_longitude:'Lengtegraad',
+      set_model:'Detectiemodel', set_model_choice:'AI-model', set_species_freq_thresh:'Soortfrequentiedrempel',
+      set_analysis:'Analyse', set_confidence:'Betrouwbaarheid', set_sensitivity:'Gevoeligheid',
+      set_language:'Soorttaal', set_notifications:'Meldingen',
+      set_notify_each:'Elke detectie melden', set_notify_new_species:'Nieuwe soort melden',
+      set_notify_new_daily:'Eerste soort van de dag melden', set_weekly_report:'Weekrapport',
+      set_notif_urls:'Notificatie-URLs (Apprise)', set_notif_urls_help:'Eén URL per regel. Voorbeelden:',
+      set_notif_title:'Notificatietitel', set_notif_body:'Berichttekst',
+      set_notif_body_help:'Variabelen: $comname, $sciname, $confidence, $date, $time',
+      set_notif_test:'Testen', set_notif_testing:'Verzenden…', set_notif_test_ok:'Notificatie verzonden!',
+      set_notif_test_fail:'Mislukt: {error}', set_notif_cooldown:'Min. vertraging tussen notificaties (sec.)',
+      set_notif_no_urls:'Geen URLs geconfigureerd — notificaties worden niet verzonden.',
+      set_alerts_title:'Systeemalarmen', set_alerts_desc:'Ontvang een melding bij overschrijding van kritische drempels.',
+      set_notif_events_title:'Notificatie-evenementen', set_notif_events_desc:'Vink de evenementen aan waarvoor u meldingen wilt ontvangen.',
+      set_notif_cat_birds:'Soortdetecties', set_notif_cat_system:'Systeembewaking',
+      set_alert_temp_warn:'Temperatuur waarschuwing', set_alert_temp_crit:'Temperatuur kritiek',
+      set_alert_disk_warn:'Schijfruimte waarschuwing', set_alert_ram_warn:'RAM waarschuwing',
+      set_alert_backlog:'Analyse-achterstand', set_alert_no_det:'Detectiestilte',
+      set_alert_svc_down:'Alarm bij uitval van een kritieke dienst',
+      set_notif_cat_bird_smart:'Slimme vogelalarmen',
+      set_alert_influx:'Ongebruikelijke toestroom (>3x gemiddelde)', set_alert_missing:'Veelvoorkomende soort afwezig (na de middag)', set_alert_rare_visitor:'Zeldzame bezoeker gedetecteerd',
+      set_tab_detection:'Detectie', set_tab_station:'Station', set_tab_system:'Systeem', set_tab_backup:'Back-up',
+      set_save:'Opslaan', set_saved:'Configuratie succesvol opgeslagen', set_reload:'Herladen',
+      set_recording:'Audio-opname', set_overlap:'Overlap (s)', set_rec_length:'Opnameduur (s)',
+      set_extraction_length:'Extractieduur (s)', set_channels:'Microfoonkanalen', set_audio_format:'Audioformaat',
+      set_disk_mgmt:'Schijfbeheer', set_full_disk:'Schijf vol', set_purge_threshold:'Opschoondrempel (%)',
+      set_max_files:'Max bestanden/soort (0=onbeperkt)', set_privacy:'Privacy', set_privacy_threshold:'Menselijke stemfilter',
+      set_services:'BirdNET-services', set_restart:'Herstarten', set_service_active:'Actief', set_service_inactive:'Inactief',
+      set_species_lists:'Soortenlijsten', set_include_list:'Inclusielijst', set_exclude_list:'Exclusielijst',
+      set_whitelist:'Whitelist (drempel omzeilen)', set_birdweather:'BirdWeather', set_image_provider:'Afbeeldingsbron',
+      set_rtsp:'RTSP-stream', set_rtsp_stream:'RTSP-stream-URL',
+      set_model_desc_birdnet:'BirdNET V2.4 — 6.500 soorten, Pi-geoptimaliseerd (aanbevolen)',
+      set_model_desc_mdata:'BirdNET V2.4 + geofilter — filtert soorten op locatie en week',
+      set_model_desc_mdata_v2:'BirdNET V2.4 + geofilter V2 — verbeterd locatie- en weekfilter',
+      set_model_desc_v1:'BirdNET V1 — ouder model, minder nauwkeurig (legacy)',
+      set_model_desc_perch:'Perch v2 (Google) — 15.000 soorten, vogels + amfibieen + zoogdieren, nauwkeuriger',
+      set_model_desc_go:'BirdNET-Go — experimentele variant',
+      set_restart_confirm:'Services herstarten om toe te passen?', set_save_restart:'Opslaan & herstarten',
+      today:'Vandaag', this_week:'Deze week', this_month:'Deze maand', all_time:'Totaal',
+      detections:'Detecties', species:'Soorten', avg_confidence:'Gem. betrouwbaarheid',
+      last_detection:'Laatste detectie', top_species:'Top soorten',
+      activity_7d:'7-daagse activiteit', activity_today:'Activiteit vandaag',
+      last_hour:'Laatste uur', new_species:'Nieuwe soorten', rare_today:'Zeldzame soorten vandaag',
+      recent_detections:'Recente detecties',
+      no_data:'Geen gegevens', loading:'Laden…', error:'Fout',
+      date:'Datum', time:'Tijd', species_name:'Soort', scientific_name:'Wetenschappelijke naam',
+      confidence:'Betrouwbaarheid', audio:'Audio', play:'Afspelen',
+      filter_species:'Filter op soort', filter_order:'Taxonomische orde', filter_family:'Familie',
+      all_orders:'Alle ordes', all_families:'Alle families',
+      filter_date_from:'Van', filter_date_to:'Tot',
+      filter_confidence:'Min. betrouwbaarheid', all_species:'Alle soorten',
+      apply_filter:'Toepassen', reset_filter:'Resetten', default_btn:'Standaard',
+      prev_page:'← Vorige', next_page:'Volgende →', page:'Pagina', of:'van', results:'resultaten',
+      species_detail:'Soortinfo', first_detection:'Eerste detectie', last_seen:'Laatst gezien',
+      total_detections:'Totaal detecties', max_confidence:'Max. betrouwbaarheid',
+      activity_by_hour:'Activiteit per uur', monthly_presence:'Maandelijkse aanwezigheid',
+      external_links:'Externe links', listen_on:'Beluisteren op', observe_on:'Observeren op',
+      species_x_month:'Soorten per maand', richness_per_day:'Dagelijkse rijkdom',
+      heatmap_hour_day:'Activiteit uur × dag',
+      kb_shortcuts_hint:'Spatie = afspelen, ← → = navigatie',
+      shannon_index:'Shannon-index', shannon_evenness:'Gelijkmatigheid', personal_notes:'Persoonlijke notities',
+      bio_taxonomy_orders:'Verdeling per orde', bio_taxonomy_families:'Gedetecteerde families',
+      rare_species:'Zeldzame soorten', rare_desc:'Soorten met minder dan {n} detecties',
+      first_seen:'Eerst gezien', detections_count:'Detecties',
+      top_by_count:'Ranglijst op detecties', top_by_confidence:'Ranglijst op betrouwbaarheid',
+      confidence_distrib:'Betrouwbaarheidsverdeling', activity_calendar:'Activiteitskalender',
+      monthly_totals:'Maandtotalen',
+      freq_range:'Frequentiebereik',
+      weather_activity:'Weer & Activiteit', temperature:'Temperatuur', precipitation:'Neerslag', wind:'Wind',
+      db_status:'Databasestatus', db_size:'DB-grootte', db_total:'Totaal records',
+      db_first:'Eerste detectie', db_last:'Laatste detectie',
+      service_status:'Servicestatus', api_ok:'API actief', api_error:'API offline',
+      data_freshness:'Gegevensversheid',
+      minutes_ago:'{n} min geleden', hours_ago:'{n}u geleden', days_ago:'{n}d geleden',
+      months_short:['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'],
+      months_long:['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'],
+      days_short:['Maa','Din','Woe','Don','Vri','Zat','Zon'],
+      analyses_period:'Verkenning voor periode {from} → {to}',
+      analyses_what_species:'Welke soort verkennen?',
+      analyses_loading_ph:'— laden… —', analyses_no_species:'— geen soort —',
+      analyses_topn_label:'Top', analyses_topn_unit:'soorten',
+      analyses_topn_btn:'Selecteren', analyses_clear_btn:'✕ Alles wissen',
+      analyses_search_ph:'🔍  Soorten filteren…',
+      analyses_n_selected:'{n} soort(en) geselecteerd', analyses_n_total:'{n} soorten totaal',
+      analyses_kpi_raw:'Ruwe detecties', analyses_kpi_resampled:'Na hersampling',
+      analyses_kpi_conf:'Gem. betrouwbaarheid', analyses_kpi_days:'Dagen gedetecteerd', analyses_kpi_avg_day:'Gem. / dag',
+      analyses_polar_title:'Uuractiviteit · {species}',
+      analyses_series_title:'Detecties in de tijd · {species}',
+      analyses_heatmap_title:'Dagelijkse heatmap · {species}',
+      circadian_comparison:'Circadiane vergelijking',
+      analyses_multi_polar:'Uuractiviteit · {species} (hoofdsoort)',
+      analyses_multi_series:'{n} soorten vergelijken',
+      analyses_no_data_period:'Geen gegevens voor deze periode.',
+      analyses_tooltip_det:'{n} detecties · {pct}% van de dag',
+      analyses_resample_raw:'Ruw', analyses_resample_15:'15 min',
+      analyses_resample_1h:'Uurlijks', analyses_resample_1d:'Dagelijks',
+      analyses_conf_label:'Min. betrouwbaarheid', analyses_date_from:'Van', analyses_date_to:'Tot',
+      analyses_quick_7d:'7d', analyses_quick_30d:'30d', analyses_quick_90d:'90d',
+      analyses_quick_1y:'1jr', analyses_quick_all:'Alles',
+      resolution:'Resolutie',
+      analyses_date_range:'Datumbereik',
+      analyses_pct_of_day:'van de dag',
+      analyses_quarter_distrib:'Kwartier-verdeling',
+      analyses_best_dets:'Beste detecties',
+      analyses_no_det:'Geen detecties',
+      analyses_select_prompt:'Selecteer een of meer soorten om hun gegevens te verkennen.',
+      analyses_last_60d:'Weergave van de laatste 60 dagen ({total} dagen totaal)',
+      analyses_peak_hour:'Piekuur',
+      narr_no_data:'Geen gegevens voor deze periode.',
+      narr_period:'Over de periode {from} → {to},',
+      narr_habit_morning:'een ochtendvogel', narr_habit_midday:'meest actief rond het middaguur',
+      narr_habit_afternoon:'meest actief in de namiddag',
+      narr_habit_night:'nachtelijk of schemervogel', narr_habit_day:'actief overdag',
+      narr_is:'is', narr_peak_at:'Piekactiviteit om {time}, goed voor {pct}% van de dagelijkse detecties.',
+      narr_activity_range:'Activiteit begint rond {start} en eindigt rond {end}, gedurende {duration}.',
+      narr_duration:'{n}u activiteit', narr_duration_short:'geconcentreerde activiteit',
+      narr_second_peak:'Een tweede piek verschijnt rond {time}.',
+      narr_night_pct:'{pct}% van de detecties vindt plaats tussen 21u en 5u.',
+      narr_total:'Totaal: {n} detecties over {h} actieve uren.',
+      narr_multi_intro:'{n} soorten geselecteerd. Hoofdsoort: {species}.',
+      narr_multi_hint:'De rozenkaart en heatmap tonen gegevens van {species}. De tijdreeks vergelijkt alle soorten.',
+      grp_mode_species:'Per soort', grp_mode_taxo:'Per taxonomische groep',
+      grp_title_order:'Orde-analyse · {name}', grp_title_family:'Familie-analyse · {name}',
+      grp_kpi_species:'Soorten in de groep', grp_kpi_detections:'Totaal detecties',
+      grp_kpi_conf:'Gem. betrouwbaarheid', grp_kpi_days:'Actieve dagen', grp_kpi_avg_day:'Gem. / dag',
+      grp_polar_title:'Uuractiviteit · {name}',
+      grp_series_title:'Detecties in de tijd · {name}',
+      grp_series_families:'Detecties per familie · {name}',
+      grp_heatmap_title:'Dagelijkse heatmap · {name}',
+      grp_breakdown_title:'Soortverdeling',
+      grp_breakdown_species:'Soort', grp_breakdown_count:'Detecties', grp_breakdown_pct:'%',
+      grp_breakdown_conf:'Betrouwbaarheid',
+      grp_select_prompt:'Selecteer een orde of familie om de groep te analyseren.',
+      grp_narr_period:'In de periode {from} → {to} telt de groep <strong>{name}</strong> {species} soorten met {total} detecties.',
+      grp_narr_dominant:'De dominante soort is <strong>{species}</strong> met {pct}% van de detecties.',
+      grp_narr_peak:'De piekactiviteit van de groep is om {time}.',
+      // Ecological guilds
+      guild_filter:'Ecologische gilde', guild_all:'Alle gilden',
+      guild_raptors:'Roofvogels', guild_waterbirds:'Watervogels', guild_woodpeckers:'Spechten',
+      guild_passerines_forest:'Boszangvogels', guild_passerines_open:'Openlandvogels',
+      guild_thrushes_chats:'Lijsters & vliegenvangers', guild_warblers:'Zangers',
+      guild_corvids:'Kraaiachtigen', guild_swifts_swallows:'Gierzwaluwen & zwaluwen',
+      guild_pigeons_doves:'Duiven', guild_other:'Overig',
+      sys_api_label:'API bird-server', sys_latency:'Latentie', sys_port:'Poort',
+      sys_species_distinct:'Distincte soorten', sys_days_recorded:'Opgenomen dagen',
+      sys_conf_range:'Betrouwbaarheid gem. / min / max', sys_last_det:'Laatste detectie',
+      sys_date_time:'Datum / Tijd', sys_det_today:'Detecties vandaag',
+      sys_det_yesterday:'Detecties gisteren', sys_no_gap:'✓ Geen gaten gedetecteerd',
+      sys_no_gap_full:'✓ Geen gaten — continue gegevens',
+      sys_gaps_found:'{n} gat(en) gedetecteerd in totaal', sys_gap_missing:'{n} ontbrekende dag(en)',
+      sys_gaps_title:'⚠️ Dagen zonder gegevens (> {n} dag)',
+      sys_activity_30d:'📈 Dagelijkse activiteit — laatste 30 dagen',
+      sys_hourly_distrib:'🕐 Globale uurverdeling',
+      rarity_threshold_label:'Zeldzaamheidsdrempel (max detecties)',
+      rarity_seen_once:'💎 Slechts één keer gezien', rarity_last_rare:'🕐 Laatste zeldzame detecties',
+      latin_name:'Latijnse naam', bio_total:'Totaal', kpi_days_detected:'Dagen gedetecteerd',
+      stats_daily_records:'🏆 Dagelijkse records', stats_annual_evolution:'📅 Jaarlijkse evolutie',
+      stats_record_most_det:'Dag met meeste detecties',
+      stats_record_most_sp:'Dag met meeste soorten', stats_record_max_conf:'Maximale betrouwbaarheid',
+      period:'Periode', conf_min:'Min. betrouwbaarheid', sort_by:'Sorteren',
+      quick_1d:'1d', quick_7d:'7d', quick_1m:'1m', quick_3m:'3m', quick_6m:'6m', quick_30d:'30d', quick_90d:'90d', quick_1y:'1jr', quick_all:'Alles',
+      per_day_avg:'/ dag (gem.)', trend:'Trend',
+      best_recordings:'Beste opnames', sort_conf_desc:'Betrouwbaarheid ↓', sort_date_desc:'Datum ↓',
+      sort_species_az:'Soort A→Z', filter_species_ph:'Soorten filteren…', clear_all:'Alles wissen',
+      select_all:'Alles selecteren', deselect_all:'Alles deselecteren', no_recordings:'Geen opnames gevonden.', load_more:'Meer laden',
+      remaining:'{n} resterend', clean_audio:'Audio opschonen', cleaned:'Opgeschoond', cleaning:'Opschonen…',
+      force:'Sterkte', spectral_sub:'hoogdoorlaatfilter + spectrale subtractie',
+      af_gain:'Gain (dB)', af_highpass:'Hoogdoorlaat (Hz)', af_lowpass:'Laagdoorlaat (Hz)', af_off:'Uit',
+      af_file_info:'Bestandsinfo', af_duration:'Duur', af_type:'Type', af_size:'Grootte',
+      af_sample_rate:'Samplefrequentie', af_channels:'Kanalen', af_file_path:'Pad',
+      af_mono:'Mono', af_stereo:'Stereo', af_filters:'Audiofilters',
+      mod_title:'Model monitoring', mod_current:'Actief model', mod_detections:'Detecties',
+      mod_species:'Soorten', mod_confidence:'Gem. betrouwbaarheid', mod_rate:'Tempo',
+      mod_per_hour:'/u', mod_conf_dist:'Betrouwbaarheidsverdeling',
+      mod_top_species:'Topsoorten', mod_trend:'7d trend', mod_no_data:'Geen gegevens',
+      mod_today:'Vandaag', mod_7d:'7d', mod_30d:'30d',
+      cmp_title:'Periodevergelijking', cmp_split_date:'Splitdatum',
+      cmp_before:'Voor', cmp_after:'Na', cmp_det_day:'Det./dag',
+      cmp_species_gained:'Nieuwe soorten', cmp_species_lost:'Verloren soorten',
+      cmp_nocturnal:'Nachtelijke detecties', cmp_nocturnal_sub:'22u – 4u',
+      cmp_none:'Geen', cmp_per_day:'/d', cmp_change:'Wijziging',
+      cmp_species_detail:'Vergelijking per soort', cmp_count:'Aantal',
+      del_manage:'Detecties beheren', del_this:'Deze detectie verwijderen',
+      del_all:'Alles verwijderen', del_confirm_title:'Onomkeerbare verwijdering',
+      del_confirm_body:'Dit verwijdert {count} detecties en alle audiobestanden voor "{name}". Deze actie kan niet ongedaan worden gemaakt.',
+      del_type_name:'Typ "{name}" om te bevestigen:',
+      del_permanently:'Definitief verwijderen', cancel:'Annuleren',
+      del_one_confirm:'Detectie van {date} om {time} verwijderen (betrouwbaarheid: {conf})?\n\nHet audiobestand wordt ook verwijderd.',
+      del_success:'detecties verwijderd', del_file_errors:'bestanden konden niet worden verwijderd',
+      del_done_title:'Verwijdering voltooid', del_records_removed:'Detecties verwijderd',
+      del_files_removed:'Bestanden verwijderd', del_close:'Sluiten',
+      avg_conf_short:'Gem. betrouwbaarheid', days_detected:'Detectiedagen',
+      activity_30d:'Activiteit — 30 dagen', conf_distribution:'Betrouwbaarheidsverdeling',
+      activity_by_weekday:'Activiteit per weekdag', description:'Beschrijving',
+      date_range:'Datumbereik', mode:'Modus', unique_mode:'Uniek',
+      unique_desc:'Groepeert opeenvolgende sequenties', all_species_placeholder:'— Alle soorten —',
+      today_label:'Vandaag', yesterday:'Gisteren', hourly_distrib:'Uurverdeling',
+      click_to_edit:'Klik om te bewerken', never_seen:'nooit gezien',
+      total_species:'Totaal soorten', rare_count:'Zeldzaam (≤{n})', seen_once:'Eenmaal gezien',
+      new_this_year:'Nieuw in {year}',
+      idle:'Inactief', connecting:'Verbinden…', live:'Live',
+      start:'Starten', stop:'Stoppen', gain:'Versterking', freq_max:'Max. freq.', clean:'Opschonen',
+      today_count:'vandaag',
+      spectro_title:'Live spectrogram', spectro_close:'Spectrogram sluiten', spectro_show:'Spectrogram tonen',
+      spectro_idle_msg:'Klik op Starten om het spectrogram te activeren.',
+      spectro_idle_desc:'Audio komt van recente BirdNET MP3\'s — geen conflict met lopende analyse.',
+      spectro_idle_overlay:'Detecties verschijnen automatisch als overlay.',
+      spectro_connecting_msg:'Verbinden met de audiostream van de Pi…',
+      colorbar_max:'max', colorbar_min:'min',
+      all_rarities:'Alle zeldzaamheden', updated_at:'Bijgewerkt {time}',
+      no_notable_obs:'Geen opmerkelijke waarnemingen in de afgelopen 7 dagen.',
+      quick_today:'Vandaag',
+      sys_tab_health:'Status', sys_tab_model:'Model', sys_tab_data:'Gegevens', sys_tab_external:'Extern',
+      sys_health_title:'Systeemstatus', sys_cpu:'CPU', sys_ram:'RAM', sys_disk:'Schijf',
+      sys_temp:'Temperatuur', sys_uptime_label:'Uptime', sys_load:'Belasting',
+      sys_cores:'kernen',
+      sys_services_title:'Services', sys_svc_logs:'Logboek', sys_svc_no_logs:'Geen logboek',
+      sys_confirm_stop:'Stop bevestigen', sys_confirm_stop_msg:'Service "{name}" stoppen? Dit kan de analyse onderbreken.',
+      sys_cancel:'Annuleren', sys_svc_starting:'Starten…', sys_svc_stopping:'Stoppen…',
+      sys_analysis_title:'Analysestatus', sys_backlog:'Achterstand', sys_lag:'Vertraging',
+      sys_inference:'Inferentie', sys_model_active:'Actief model',
+      sys_files_pending:'bestanden in wacht', sys_seconds:'seconden', sys_minutes:'min',
+      sys_audio_title:'Audio', sys_rec_card:'Invoerkaart', sys_channels_label:'Kanalen', sys_format:'Formaat',
+      sys_backup_title:'Back-up', sys_nfs_mount:'NFS-mount', sys_last_backup:'Laatste back-up',
+      sys_backup_size:'Grootte', sys_mounted:'Gemount', sys_not_mounted:'Niet gemount', sys_not_configured:'Niet geconfigureerd',
+      set_backup:'Back-up', set_backup_dest:'Bestemming', set_backup_content:'Te back-uppen inhoud',
+      set_backup_dest_local:'USB-schijf / Lokaal', set_backup_dest_smb:'SMB/CIFS-share', set_backup_dest_nfs:'NFS-mount',
+      set_backup_dest_sftp:'SFTP', set_backup_dest_s3:'Amazon S3', set_backup_dest_gdrive:'Google Drive',
+      set_backup_dest_webdav:'WebDAV', set_backup_content_db:'Database', set_backup_content_audio:'Audiobestanden',
+      set_backup_content_config:'Configuratie', set_backup_content_all:'Alles back-uppen',
+      set_backup_path:'Pad / Mountpunt', set_backup_host:'Server', set_backup_port:'Poort',
+      set_backup_user:'Gebruikersnaam', set_backup_pass:'Wachtwoord', set_backup_share:'Share',
+      set_backup_bucket:'Bucket', set_backup_region:'Regio', set_backup_access_key:'Toegangssleutel',
+      set_backup_secret_key:'Geheime sleutel', set_backup_remote_path:'Extern pad',
+      set_backup_schedule:'Planning', set_backup_schedule_manual:'Alleen handmatig',
+      set_backup_schedule_daily:'Dagelijks', set_backup_schedule_weekly:'Wekelijks',
+      set_backup_schedule_time:'Back-uptijd', set_backup_retention:'Bewaren (dagen)',
+      set_backup_run_now:'Nu uitvoeren', set_backup_running:'Back-up bezig…',
+      set_backup_save:'Back-upconfiguratie opslaan',
+      set_backup_saved:'Back-upconfiguratie opgeslagen',
+      set_backup_last_status:'Laatste status', set_backup_never:'Nooit uitgevoerd',
+      set_backup_success:'Succesvol', set_backup_failed:'Mislukt',
+      set_backup_gdrive_folder:'Google Drive map-ID',
+      set_backup_state_running:'Bezig', set_backup_state_completed:'Voltooid',
+      set_backup_state_failed:'Mislukt', set_backup_state_stopped:'Gestopt',
+      set_backup_state_paused:'Gepauzeerd',
+      set_backup_step:'Stap', set_backup_started:'Gestart',
+      set_backup_pause:'Pauze', set_backup_resume:'Hervatten', set_backup_stop:'Stoppen',
+      set_backup_stop_confirm:'Lopende back-up stoppen? (rsync hervat bij volgende run)',
+      set_backup_transferred:'Overgedragen', set_backup_disk_free:'Vrije ruimte',
+      sys_network_title:'Netwerk', sys_hostname:'Hostnaam', sys_ip:'IP-adres',
+      sys_nas_ping:'NAS-ping', sys_reachable:'Bereikbaar', sys_unreachable:'Onbereikbaar',
+      sys_hardware_title:'Hardware',
+      nav_prev_day:'Vorige dag', nav_next_day:'Volgende dag',
+      select_species_prompt:'Selecteer een soort', listen_spectro_hint:'om te luisteren en het spectrogram te bekijken',
+      next_det_audio:'Volgende detectie met audio →',
+      download:'Downloaden', download_audio:'Audio downloaden',
+      ebird_export:'eBird-export',
+      click_to_edit_value:'Klik om waarde in te voeren',
+      search_filter_ph:'filteren…', search_species_ph:'Zoeken… (druk /)',
+      fft_analysis:'FFT-analyse…',
+      ebird_api_missing:'API-sleutel ontbreekt',
+      ebird_enable_text:'Om deze sectie te activeren, haal een gratis sleutel op bij',
+      ebird_then_configure:'en configureer deze op de Pi:',
+      ebird_add_env:'Toevoegen:', ebird_your_key:'uw_sleutel',
+      ebird_no_notable:'Geen opmerkelijke waarnemingen in de afgelopen 7 dagen.',
+      ebird_see_on:'Bekijk op eBird', bw_see_on:'Bekijk op BirdWeather',
+      bw_add_in:'Toevoegen in', bw_id_in_url:'De ID is zichtbaar in de URL:',
+      top_detected:'Top gedetecteerde soorten',
+      detected_locally:'Ook lokaal gedetecteerd', not_detected_locally:'Niet lokaal gedetecteerd',
+      no_rarities_detected:'Geen zeldzaamheden recent gedetecteerd',
+      search_placeholder:'Soort zoeken\u2026',
+      // Lifers
+      lifers_label:'Lifers', no_lifers:'Geen lifers voor deze datum',
+      // Morning summary
+      morning_summary:'Wat is er nieuw', new_today:'Nieuw vandaag', best_detection:'Beste detectie',
+      vs_yesterday:'vs gisteren', no_new_species:'Geen nieuwe soorten',
+      // Phenology & quick play
+      phenology:'Fenologie', first_arrival:'Eerste aankomst', last_departure:'Laatste vertrek', quick_play:'Snel afspelen',
+      // Validation
+      validation_confirmed:'Bevestigd', validation_doubtful:'Twijfelachtig', validation_rejected:'Afgewezen', validation_unreviewed:'Niet beoordeeld',
+      hide_rejected:'Afgewezen verbergen', validation_stats:'Validatiestatistieken',
+    },
+  };
+
+  // ── Singletons réactifs (partagés dans toute l'app) ───────────────────────
+  // Un seul ref par page — Vue garantit que tous les composables qui y accèdent
+  // voient le même changement et réagissent de façon coordonnée.
+  const _lang  = ref(localStorage.getItem('birdash_lang')  || 'fr');
+  const _theme = ref(localStorage.getItem('birdash-theme') || 'forest');
+
+  // Appliquer le thème immédiatement au chargement
+  document.documentElement.setAttribute('data-theme', _theme.value);
+
+  // ── useI18n ───────────────────────────────────────────────────────────────
+  function useI18n() {
+    /**
+     * t(key, vars) — traduit une clé.
+     * C'est une fonction régulière qui lit `_lang.value` — Vue détecte cette
+     * dépendance dans tout `computed()` ou expression de template qui l'appelle.
+     * Aucun addEventListener('langchange') nécessaire.
+     */
+    function t(key, vars = {}) {
+      const dict = _TRANSLATIONS[_lang.value] || _TRANSLATIONS['fr'];
+      const fb   = _TRANSLATIONS['fr'];
+      let val = dict[key] !== undefined ? dict[key]
+              : fb[key]   !== undefined ? fb[key]
+              : key;
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string' && Object.keys(vars).length) {
+        Object.entries(vars).forEach(([k, v]) => {
+          val = val.replace(new RegExp('\\{' + k + '\\}', 'g'), v);
+        });
+      }
+      return val;
+    }
+
+    function setLang(code) {
+      if (!_TRANSLATIONS[code]) return;
+      _lang.value = code;
+      localStorage.setItem('birdash_lang', code);
+    }
+
+    const langs = Object.keys(_TRANSLATIONS).map(code => ({
+      code,
+      label: _TRANSLATIONS[code]._meta.label,
+      flag:  _TRANSLATIONS[code]._meta.flag,
+    }));
+
+    return { lang: _lang, t, setLang, langs };
+  }
+
+  // ── useTheme ──────────────────────────────────────────────────────────────
+  const THEMES = [
+    { id:'forest', label:'Forest',  colors:['#34d399','#0f1418'] },
+    { id:'night',  label:'Night',   colors:['#a78bfa','#0e1018'] },
+    { id:'paper',  label:'Paper',   colors:['#0d9488','#faf8f4'] },
+    { id:'ocean',  label:'Ocean',   colors:['#22d3ee','#0a1220'] },
+    { id:'dusk',   label:'Dusk',    colors:['#f472b6','#161218'] },
+  ];
+
+  function useTheme() {
+    function setTheme(id) {
+      _theme.value = id;
+      localStorage.setItem('birdash-theme', id);
+      document.documentElement.setAttribute('data-theme', id);
+    }
+    return { theme: _theme, themes: THEMES, setTheme };
+  }
+
+  // ── useNav ────────────────────────────────────────────────────────────────
+  const NAV_KEYS = {
+    index:        'nav_overview',
+    today:        'nav_today',
+    recent:       'nav_recent',
+    detections:   'nav_detections',
+    species:      'nav_species',
+    biodiversity: 'nav_biodiversity',
+    rarities:     'nav_rarities',
+    stats:        'nav_stats',
+    analyses:     'nav_analyses',
+    review:       'nav_review',
+    gallery:      'nav_gallery',
+    spectrogram:  'nav_spectrogram',
+    recordings:   'nav_recordings',
+    system:       'nav_system',
+    settings:     'nav_settings',
+  };
+
+  function useNav(pageId) {
+    const { t } = useI18n();
+    const navItems = computed(() =>
+      BIRD_CONFIG.pages.map(p => ({
+        ...p,
+        label:  t(NAV_KEYS[p.id] || p.id),
+        active: p.id === pageId,
+      }))
+    );
+    // siteName exposé pour le template header-brand (BIRD_CONFIG non accessible directement dans Vue 3)
+    const siteName = BIRD_CONFIG.siteName
+      || (BIRD_CONFIG.location && BIRD_CONFIG.location.name)
+      || '';
+    return { navItems, siteName };
+  }
+
+  // ── useChart ──────────────────────────────────────────────────────────────
+  /**
+   * Wrapper Chart.js avec gestion automatique du destroy.
+   * Usage dans setup() :
+   *   const { mountChart } = useChart();
+   *   watch(data, () => mountChart(canvasRef, config));
+   */
+  function useChart() {
+    let _instance = null;
+
+    function mountChart(canvasRef, configFn) {
+      if (!canvasRef.value) return;
+      if (_instance) { _instance.destroy(); _instance = null; }
+      const ctx = canvasRef.value.getContext('2d');
+      _instance = new Chart(ctx, configFn());
+    }
+
+    // Cleanup auto si le composant est démonté
+    onUnmounted(() => { if (_instance) { _instance.destroy(); _instance = null; } });
+
+    return { mountChart };
+  }
+
+  // ── Utility references from bird-shared.js (BIRDASH_UTILS) ──────────────
+  // Pure utility functions are defined in bird-shared.js and accessed via U.
+  // Wrappers below provide backward compatibility and inject reactive state
+  // (e.g. current language) where needed.
+
+  // buildSpeciesLinks wrapper: auto-injects current reactive language
+  function buildSpeciesLinks(comName, sciName) {
+    return U.buildSpeciesLinks(comName, sciName, _lang.value);
+  }
+
+  // ── useAudio ──────────────────────────────────────────────────────────────
+  function useAudio() {
+    let _current = null;
+    const playingFile = ref(null);
+
+    function toggleAudio(fileName) {
+      const url = U.buildAudioUrl(fileName);
+      if (!url) return;
+
+      if (_current && playingFile.value === fileName) {
+        _current.pause();
+        _current = null;
+        playingFile.value = null;
+        return;
+      }
+
+      if (_current) { _current.pause(); _current = null; }
+
+      const audio = new Audio(url);
+      _current = audio;
+      playingFile.value = fileName;
+
+      audio.play().catch(() => { playingFile.value = null; _current = null; });
+      audio.addEventListener('ended', () => { playingFile.value = null; _current = null; });
+    }
+
+    onUnmounted(() => { if (_current) { _current.pause(); _current = null; } });
+
+    return { playingFile, toggleAudio };
+  }
+
+  // ── Species name translation (BirdNET labels) ───────────────────────────
+  // Shared cache: { 'fr': { 'Pica pica': 'Pie bavarde' }, 'en': { ... } }
+  const _spNamesCache = {};   // lang → { sci → comName }
+  const _spNamesLoading = {}; // lang → Promise
+
+  /**
+   * Load species name mapping for a given language.
+   * Uses BirdNET l18n label files served via /api/species-names?lang=xx
+   * Returns the mapping object { sciName: translatedComName }
+   */
+  async function _loadSpNames(lang) {
+    if (_spNamesCache[lang]) return _spNamesCache[lang];
+    if (_spNamesLoading[lang]) return _spNamesLoading[lang];
+
+    _spNamesLoading[lang] = (async () => {
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/species-names?lang=${lang}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _spNamesCache[lang] = await res.json();
+      } catch(e) {
+        console.warn(`[spNames] Failed to load ${lang}:`, e.message);
+        _spNamesCache[lang] = {};
+      }
+      delete _spNamesLoading[lang];
+      return _spNamesCache[lang];
+    })();
+
+    return _spNamesLoading[lang];
+  }
+
+  /**
+   * useSpeciesNames() — composable for translated species names.
+   *
+   * Returns:
+   *   spName(comName, sciName) — returns the translated common name
+   *   spNamesReady            — ref(bool) true when names are loaded
+   *
+   * Auto-reloads when the language changes.
+   */
+  function useSpeciesNames() {
+    const spNamesReady = ref(false);
+    const _names = ref({});
+
+    async function reload(lang) {
+      spNamesReady.value = false;
+      _names.value = await _loadSpNames(lang);
+      spNamesReady.value = true;
+    }
+
+    // Load immediately + watch lang changes
+    reload(_lang.value);
+    watch(_lang, (newLang) => reload(newLang));
+
+    /**
+     * Translate a species name.
+     * @param {string} comName - Original Com_Name from the database
+     * @param {string} sciName - Sci_Name (used as lookup key)
+     * @returns {string} Translated name, or original comName as fallback
+     */
+    function spName(comName, sciName) {
+      if (!sciName || !_names.value) return comName || '';
+      return _names.value[sciName] || comName || sciName;
+    }
+
+    return { spName, spNamesReady };
+  }
+
+  // ── Filter composables ───────────────────────────────────────────────────
+  // Reusable, standardised filter logic for all pages.
+
+  /**
+   * useFilterPeriod — date range + quick-period buttons.
+   * @param {Object} opts
+   * @param {string}   opts.default       - initial period key ('1d','7d','30d','90d','6m','1y','all')
+   * @param {string[]} opts.buttons       - which quick buttons to show (default all 7)
+   * @param {Function} opts.onChange       - called after any change
+   */
+  function useFilterPeriod(opts = {}) {
+    const { t } = useI18n();
+    const defaultPeriod = opts.default || '7d';
+    const btnKeys = opts.buttons || ['1d','7d','30d','90d','1y','all'];
+
+    const period   = ref(defaultPeriod);
+    const dateFrom = ref('');
+    const dateTo   = ref('');
+
+    const PERIOD_LABELS = { '1d':'quick_1d','7d':'quick_7d','30d':'quick_30d','90d':'quick_90d',
+      '1m':'quick_1m','3m':'quick_3m','6m':'quick_6m','1y':'quick_1y','all':'quick_all' };
+    const PERIOD_DAYS = { '1d':0,'7d':6,'30d':29,'1m':29,'90d':89,'3m':89,'6m':179,'1y':364,'all':null };
+
+    function periodToDates(key) {
+      const today = U.localDateStr();
+      if (key === 'all') return { from: '', to: today };
+      const days = PERIOD_DAYS[key];
+      return { from: days != null ? U.daysAgo(days) : '', to: today };
+    }
+
+    function setPeriod(key) {
+      period.value = key;
+      const d = periodToDates(key);
+      dateFrom.value = d.from;
+      dateTo.value   = d.to;
+      if (opts.onChange) opts.onChange();
+    }
+
+    function setCustomRange(from, to) {
+      period.value   = 'custom';
+      dateFrom.value = from;
+      dateTo.value   = to;
+      if (opts.onChange) opts.onChange();
+    }
+
+    const quickButtons = computed(() =>
+      btnKeys.map(key => ({
+        key,
+        label: t(PERIOD_LABELS[key] || key),
+        active: period.value === key
+      }))
+    );
+
+    // Initialise dates from default period
+    const init = periodToDates(defaultPeriod);
+    dateFrom.value = init.from;
+    dateTo.value   = init.to;
+
+    return { period, dateFrom, dateTo, quickButtons, setPeriod, setCustomRange };
+  }
+
+  /**
+   * useFilterConfidence — slider + editable percentage.
+   * @param {Object} opts
+   * @param {number} opts.default  - initial value 0-1 (default: BIRD_CONFIG.defaultConfidence)
+   * @param {Function} opts.onChange
+   */
+  function useFilterConfidence(opts = {}) {
+    const confidence  = ref(opts.default != null ? opts.default : BIRD_CONFIG.defaultConfidence);
+    const confEditing = ref(false);
+    const confEditVal = ref(Math.round(confidence.value * 100));
+    const confInput   = ref(null); // template ref
+
+    function startEdit() {
+      confEditVal.value = Math.round(confidence.value * 100);
+      confEditing.value = true;
+      nextTick(() => { if (confInput.value) { confInput.value.select(); } });
+    }
+    function commitEdit() {
+      let v = parseInt(confEditVal.value, 10);
+      if (isNaN(v)) v = 0;
+      v = Math.max(0, Math.min(100, v));
+      confidence.value  = v / 100;
+      confEditing.value = false;
+      if (opts.onChange) opts.onChange();
+    }
+
+    return { confidence, confEditing, confEditVal, confInput, startEdit, commitEdit };
+  }
+
+  /**
+   * useFilterSpecies — multi-select or search-only species filter.
+   * @param {Object} opts
+   * @param {import('vue').Ref} opts.source  - ref to [{name, sci, count}]
+   * @param {Function} opts.spName           - translation function (comName, sciName) → string
+   * @param {Function} opts.onChange
+   */
+  function useFilterSpecies(opts = {}) {
+    const selectedSpecies = ref([]);
+    const speciesSearch   = ref('');
+
+    const filteredList = computed(() => {
+      const src = opts.source ? opts.source.value : [];
+      const q = speciesSearch.value.toLowerCase();
+      if (!q) return src;
+      const spN = opts.spName || ((n) => n);
+      return src.filter(s =>
+        spN(s.name, s.sci).toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q)
+      );
+    });
+
+    const allSelected = computed(() =>
+      opts.source && opts.source.value.length > 0 &&
+      selectedSpecies.value.length === opts.source.value.length
+    );
+
+    function toggleAll() {
+      if (allSelected.value) {
+        selectedSpecies.value = [];
+      } else {
+        selectedSpecies.value = (opts.source ? opts.source.value : []).map(s => s.name);
+      }
+      if (opts.onChange) opts.onChange();
+    }
+
+    function toggleSpecies(name) {
+      const idx = selectedSpecies.value.indexOf(name);
+      if (idx >= 0) selectedSpecies.value.splice(idx, 1);
+      else selectedSpecies.value.push(name);
+      if (opts.onChange) opts.onChange();
+    }
+
+    function removeSpecies(name) {
+      const idx = selectedSpecies.value.indexOf(name);
+      if (idx >= 0) selectedSpecies.value.splice(idx, 1);
+      if (opts.onChange) opts.onChange();
+    }
+
+    return { selectedSpecies, speciesSearch, filteredList, allSelected, toggleAll, toggleSpecies, removeSpecies };
+  }
+
+  /**
+   * buildWhereClause — shared SQL WHERE builder.
+   * @param {Object} filters
+   * @param {string[]} filters.species    - Com_Name list (empty = no filter)
+   * @param {string}   filters.dateFrom
+   * @param {string}   filters.dateTo
+   * @param {number}   filters.confidence - 0-1
+   * @param {string[]} filters.extraWhere - additional raw clauses
+   * @param {any[]}    filters.extraParams
+   * @returns {{ where: string, params: any[] }}
+   */
+  function buildWhereClause(filters = {}) {
+    const clauses = ['1=1'];
+    const params  = [];
+    if (filters.species && filters.species.length) {
+      if (filters.species.length === 1) {
+        clauses.push('Com_Name = ?'); params.push(filters.species[0]);
+      } else {
+        clauses.push('Com_Name IN (' + filters.species.map(() => '?').join(',') + ')');
+        params.push(...filters.species);
+      }
+    }
+    if (filters.dateFrom) { clauses.push('Date >= ?'); params.push(filters.dateFrom); }
+    if (filters.dateTo)   { clauses.push('Date <= ?'); params.push(filters.dateTo); }
+    if (filters.confidence > 0) { clauses.push('Confidence >= ?'); params.push(filters.confidence); }
+    if (filters.extraWhere) {
+      for (let i = 0; i < filters.extraWhere.length; i++) {
+        clauses.push(filters.extraWhere[i]);
+      }
+    }
+    if (filters.extraParams) params.push(...filters.extraParams);
+    return { where: clauses.join(' AND '), params };
+  }
+
+  // ── Composant PibirdShell ─────────────────────────────────────────────────
+  // Encapsule le header, la navigation, les switchers thème/langue et le <main>.
+  // Usage : <birdash-shell page="species"> … contenu … </birdash-shell>
+  // ── Model display names ────────────────────────────────────────────────
+  const MODEL_LABELS = {
+    'BirdNET_GLOBAL_6K_V2.4_Model_FP16': 'BirdNET V2.4',
+    'BirdNET_6K_GLOBAL_MODEL':           'BirdNET V1',
+    'Perch_v2':                          'Perch V2',
+    'Perch_v2_int8':                     'Perch V2 INT8',
+    'BirdNET-Go_classifier_20250916':    'BirdNET-Go',
+  };
+
+  const PibirdShell = {
+    props: {
+      page:  { type: String, default: '' },
+      title: { type: String, default: '' },
+    },
+    setup(props) {
+      const { lang, t, setLang, langs } = useI18n();
+      const { theme, themes, setTheme } = useTheme();
+      const { navItems, siteName }      = useNav(props.page);
+      const { spName, spNamesReady }    = useSpeciesNames();
+      const langOpen = ref(false);
+      const themeOpen = ref(false);
+      const currentLang = computed(() => langs.find(l => l.code === lang.value) || langs[0]);
+      const currentTheme = computed(() => themes.find(th => th.id === theme.value) || themes[0]);
+      const modelName = ref('');
+      // Fetch active model from settings (non-blocking)
+      fetch(`${BIRD_CONFIG.apiUrl}/settings`).then(r => r.json()).then(conf => {
+        const raw = conf.MODEL || '';
+        const primary = MODEL_LABELS[raw] || raw.replace(/_/g, ' ');
+        if (conf.DUAL_MODEL_ENABLED === '1' && conf.SECONDARY_MODEL) {
+          const sec = MODEL_LABELS[conf.SECONDARY_MODEL] || conf.SECONDARY_MODEL.replace(/_/g, ' ');
+          modelName.value = primary + ' + ' + sec;
+        } else {
+          modelName.value = primary;
+        }
+      }).catch(() => {});
+
+      // ── Global search bar ──────────────────────────────────────────────
+      const searchQuery = ref('');
+      const searchOpen = ref(false);
+      const searchExpanded = ref(false);
+      const searchHighlight = ref(-1);
+      const searchInputRef = ref(null);
+      const dbSpecies = ref([]);
+
+      // Load species list from DB once
+      U.birdQuery('SELECT DISTINCT Com_Name, Sci_Name FROM detections ORDER BY Com_Name')
+        .then(rows => { dbSpecies.value = rows; })
+        .catch(() => {});
+
+      const searchResults = computed(() => {
+        const q = (searchQuery.value || '').trim().toLowerCase();
+        if (!q) return [];
+        const seen = new Set();
+        const results = [];
+        for (const row of dbSpecies.value) {
+          const com = row.Com_Name || '';
+          const sci = row.Sci_Name || '';
+          const translated = spName(com, sci);
+          if (
+            translated.toLowerCase().includes(q) ||
+            com.toLowerCase().includes(q) ||
+            sci.toLowerCase().includes(q)
+          ) {
+            const key = sci || com;
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push({ comName: com, sciName: sci, displayName: translated });
+              if (results.length >= 8) break;
+            }
+          }
+        }
+        return results;
+      });
+
+      function onSearchInput() {
+        searchOpen.value = searchQuery.value.trim().length > 0;
+        searchHighlight.value = -1;
+      }
+
+      function selectSearchResult(result) {
+        window.location.href = 'species.html?species=' + encodeURIComponent(result.comName);
+      }
+
+      function onSearchKeydown(e) {
+        const results = searchResults.value;
+        if (e.key === 'Escape') {
+          searchOpen.value = false;
+          searchQuery.value = '';
+          searchExpanded.value = false;
+          e.target.blur();
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          searchHighlight.value = Math.min(searchHighlight.value + 1, results.length - 1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          searchHighlight.value = Math.max(searchHighlight.value - 1, -1);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (searchHighlight.value >= 0 && searchHighlight.value < results.length) {
+            selectSearchResult(results[searchHighlight.value]);
+          } else if (results.length === 1) {
+            selectSearchResult(results[0]);
+          }
+        }
+      }
+
+      function closeSearch() {
+        searchOpen.value = false;
+        searchExpanded.value = false;
+        searchQuery.value = '';
+        searchHighlight.value = -1;
+      }
+
+      function toggleMobileSearch() {
+        searchExpanded.value = !searchExpanded.value;
+        if (searchExpanded.value) {
+          nextTick(() => {
+            const inp = document.querySelector('.gSearch-input');
+            if (inp) inp.focus();
+          });
+        } else {
+          closeSearch();
+        }
+      }
+
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch };
+    },
+    directives: {
+      'click-outside': {
+        mounted(el, binding) {
+          el._clickOutside = e => { if (!el.contains(e.target)) binding.value(); };
+          document.addEventListener('click', el._clickOutside);
+        },
+        unmounted(el) { document.removeEventListener('click', el._clickOutside); }
+      }
+    },
+    template: `
+<div class="app-shell">
+  <a href="#birdash-main" class="skip-link">Aller au contenu</a>
+  <header class="app-header" role="banner">
+    <div class="header-brand">
+      <img src="img/robin-logo.svg" class="brand-logo" alt="BIRDASH Robin">
+      <div class="brand-text">
+        <span class="brand-name">BIRDASH</span>
+        <span class="brand-sub">{{siteName}}</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <a v-if="modelName" class="brand-model" href="settings.html#detection" title="Detection settings">{{modelName}}</a>
+      <!-- Global species search -->
+      <div class="gSearch" :class="{ expanded: searchExpanded }" v-click-outside="closeSearch">
+        <button class="gSearch-icon-btn" @click="toggleMobileSearch" aria-label="Search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <div class="gSearch-field">
+          <svg class="gSearch-lens" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="gSearch-input" type="text"
+                 :placeholder="t('search_placeholder')"
+                 v-model="searchQuery"
+                 @input="onSearchInput"
+                 @keydown="onSearchKeydown"
+                 @focus="searchOpen = searchQuery.trim().length > 0"
+                 autocomplete="off" spellcheck="false">
+          <button v-if="searchQuery" class="gSearch-clear" @click="searchQuery='';searchOpen=false;searchHighlight=-1" aria-label="Clear">&times;</button>
+        </div>
+        <div class="gSearch-dropdown" v-show="searchOpen && searchResults.length">
+          <button v-for="(r, i) in searchResults" :key="r.sciName||r.comName"
+                  class="gSearch-result" :class="{ highlighted: i === searchHighlight }"
+                  @mousedown.prevent="selectSearchResult(r)"
+                  @mouseenter="searchHighlight = i">
+            <span class="gSearch-rname">{{ r.displayName }}</span>
+            <span class="gSearch-rsci">{{ r.sciName }}</span>
+          </button>
+        </div>
+      </div>
+      <div class="header-dropdowns">
+        <div class="hdr-dropdown" :class="{open:themeOpen}" v-click-outside="()=>themeOpen=false">
+          <button class="hdr-toggle" @click="themeOpen=!themeOpen" :aria-expanded="themeOpen">
+            <span class="theme-dot" :data-t="theme"></span>
+            <span class="hdr-label">{{currentTheme.label}}</span>
+            <svg class="hdr-chevron" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div class="hdr-menu" v-show="themeOpen">
+            <button v-for="th in themes" :key="th.id" class="hdr-option"
+                    :class="{active:theme===th.id}"
+                    @click="setTheme(th.id);themeOpen=false">
+              <span class="theme-dot" :data-t="th.id"></span>
+              <span class="hdr-option-label">{{th.label}}</span>
+              <span class="hdr-check" v-if="theme===th.id">✓</span>
+            </button>
+          </div>
+        </div>
+        <div class="hdr-dropdown" :class="{open:langOpen}" v-click-outside="()=>langOpen=false">
+          <button class="hdr-toggle" @click="langOpen=!langOpen" :aria-expanded="langOpen">
+            <span class="lang-flag">{{currentLang.flag}}</span>
+            <span class="hdr-label">{{lang.toUpperCase()}}</span>
+            <svg class="hdr-chevron" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div class="hdr-menu" v-show="langOpen">
+            <button v-for="l in langs" :key="l.code" class="hdr-option"
+                    :class="{active:lang===l.code}"
+                    @click="setLang(l.code);langOpen=false">
+              <span class="lang-flag">{{l.flag}}</span>
+              <span class="hdr-option-label">{{l.label}}</span>
+              <span class="hdr-check" v-if="lang===l.code">✓</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="Navigation principale"><div id="main-nav">
+    <a v-for="p in navItems" :key="p.id" :href="p.file"
+       class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
+      <span class="nav-icon" aria-hidden="true">{{p.icon}}</span>
+      <span class="nav-label">{{p.label}}</span>
+    </a>
+  </div></nav>
+  <main id="birdash-main" class="app-main" role="main">
+    <h1 v-if="title" class="sr-only">{{title}}</h1>
+    <slot></slot>
+  </main>
+  <spectro-modal></spectro-modal>
+</div>`
+  };
+
+  // ── Composant BirdImg ────────────────────────────────────────────────────
+  // Image avec animation de chargement (3 dots wave).
+  // Usage : <bird-img :src="url" :alt="text" class="my-class" />
+  const BirdImg = {
+    props: {
+      src:   { type: String, default: '' },
+      alt:   { type: String, default: '' },
+    },
+    setup(props) {
+      const loaded = ref(false);
+      const errored = ref(false);
+      // Reset on src change
+      watch(() => props.src, () => { loaded.value = false; errored.value = false; });
+      function onLoad() { loaded.value = true; }
+      function onError() { loaded.value = true; errored.value = true; }
+      return { loaded, errored, onLoad, onError };
+    },
+    template: `
+      <div class="img-wrap">
+        <div class="img-loader" :class="{ hidden: loaded }">
+          <span></span><span></span><span></span>
+        </div>
+        <img v-if="src && !errored"
+             :src="src" :alt="alt"
+             :class="{ loaded: loaded }"
+             @load="onLoad" @error="onError"
+             loading="lazy">
+        <div v-if="errored" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:2rem;color:var(--text-faint);">🦜</div>
+      </div>
+    `
+  };
+
+  // ── Composant SpectroModal ──────────────────────────────────────────────
+  // Full-screen spectrogram modal with audio playback, filters, and progress.
+  // Opened via BIRDASH.openSpectroModal({ fileName, speciesName, ... })
+  const SpectroModal = {
+    setup() {
+      const { t } = useI18n();
+      const modal = _spectroModal;
+      const loading = ref(false);
+      const isPlaying = ref(false);
+      const progress = ref(0);
+      const currentTime = ref('0:00');
+      const duration = ref('0:00');
+      const filters = Vue.reactive({ gain: 0, highpass: 0, lowpass: 0 });
+      const gainOpts = [0, 5, 10, 15, 20];
+      const hpOpts = [0, 200, 500, 1000, 2000];
+      const lpOpts = [0, 3000, 6000, 9000, 12000];
+
+      const canvas = ref(null);
+      let audioCtx = null;
+      let sourceNode = null;
+      let gainNode = null;
+      let hpNode = null;
+      let lpNode = null;
+      let audioBuf = null;
+      let startedAt = 0;
+      let pausedAt = 0;
+      let rafId = null;
+      let pcmData = null;
+      let sampleRate = 0;
+
+      const audioUrl = computed(() => modal.fileName ? U.buildAudioUrl(modal.fileName) : '');
+      const downloadName = computed(() => modal.fileName || 'audio.wav');
+
+      function fmtSec(s) {
+        if (!s || !isFinite(s)) return '0:00';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return m + ':' + String(sec).padStart(2, '0');
+      }
+
+      async function loadAudio() {
+        if (!modal.fileName) return;
+        const url = audioUrl.value;
+        if (!url) return;
+        loading.value = true;
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const arrBuf = await resp.arrayBuffer();
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          audioBuf = await ctx.decodeAudioData(arrBuf);
+          sampleRate = audioBuf.sampleRate;
+          pcmData = audioBuf.getChannelData(0);
+          duration.value = fmtSec(audioBuf.duration);
+          await ctx.close();
+          // Render spectrogram
+          if (canvas.value) {
+            U.renderSpectrogram(pcmData, sampleRate, canvas.value, { fftSize: 1024, maxHz: 12000 });
+          }
+        } catch (e) {
+          console.warn('SpectroModal: load error', e);
+        }
+        loading.value = false;
+      }
+
+      function buildFilterChain() {
+        if (!audioCtx) return;
+        // Disconnect old nodes
+        if (hpNode) try { hpNode.disconnect(); } catch(e) {}
+        if (lpNode) try { lpNode.disconnect(); } catch(e) {}
+        if (gainNode) try { gainNode.disconnect(); } catch(e) {}
+
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = Math.pow(10, filters.gain / 20);
+
+        hpNode = audioCtx.createBiquadFilter();
+        hpNode.type = 'highpass';
+        hpNode.frequency.value = filters.highpass || 0;
+
+        lpNode = audioCtx.createBiquadFilter();
+        lpNode.type = 'lowpass';
+        lpNode.frequency.value = filters.lowpass || audioCtx.sampleRate / 2;
+
+        // Chain: source -> hp -> lp -> gain -> destination
+        if (sourceNode) {
+          sourceNode.disconnect();
+          sourceNode.connect(hpNode);
+        }
+        hpNode.connect(lpNode);
+        lpNode.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+      }
+
+      function togglePlay() {
+        if (isPlaying.value) {
+          stopPlay();
+        } else {
+          startPlay();
+        }
+      }
+
+      function startPlay() {
+        if (!audioBuf) return;
+        if (!audioCtx || audioCtx.state === 'closed') {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        sourceNode = audioCtx.createBufferSource();
+        sourceNode.buffer = audioBuf;
+        buildFilterChain();
+        sourceNode.connect(hpNode);
+
+        const offset = pausedAt;
+        sourceNode.start(0, offset);
+        startedAt = audioCtx.currentTime - offset;
+        isPlaying.value = true;
+
+        sourceNode.onended = () => {
+          if (isPlaying.value) {
+            isPlaying.value = false;
+            pausedAt = 0;
+            progress.value = 0;
+            currentTime.value = '0:00';
+            cancelAnimationFrame(rafId);
+          }
+        };
+
+        updateProgress();
+      }
+
+      function stopPlay() {
+        if (sourceNode) {
+          try { sourceNode.stop(); } catch(e) {}
+          sourceNode = null;
+        }
+        if (audioCtx) {
+          pausedAt = audioCtx.currentTime - startedAt;
+        }
+        isPlaying.value = false;
+        cancelAnimationFrame(rafId);
+      }
+
+      function updateProgress() {
+        if (!isPlaying.value || !audioCtx || !audioBuf) return;
+        const elapsed = audioCtx.currentTime - startedAt;
+        const dur = audioBuf.duration;
+        progress.value = Math.min(100, (elapsed / dur) * 100);
+        currentTime.value = fmtSec(elapsed);
+        rafId = requestAnimationFrame(updateProgress);
+      }
+
+      function seek(e) {
+        if (!audioBuf) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const seekTime = pct * audioBuf.duration;
+        const wasPlaying = isPlaying.value;
+        if (wasPlaying) {
+          try { sourceNode.stop(); } catch(e2) {}
+          sourceNode = null;
+          isPlaying.value = false;
+          cancelAnimationFrame(rafId);
+        }
+        pausedAt = seekTime;
+        progress.value = pct * 100;
+        currentTime.value = fmtSec(seekTime);
+        if (wasPlaying) startPlay();
+      }
+
+      function setFilter(key, val) {
+        filters[key] = val;
+        if (isPlaying.value && audioCtx) {
+          if (key === 'gain' && gainNode) {
+            gainNode.gain.value = Math.pow(10, val / 20);
+          } else if (key === 'highpass' && hpNode) {
+            hpNode.frequency.value = val || 0;
+          } else if (key === 'lowpass' && lpNode) {
+            lpNode.frequency.value = val || audioCtx.sampleRate / 2;
+          }
+        }
+      }
+
+      function close() {
+        cleanup();
+        closeSpectroModal();
+      }
+
+      function cleanup() {
+        if (sourceNode) { try { sourceNode.stop(); } catch(e) {} sourceNode = null; }
+        if (audioCtx && audioCtx.state !== 'closed') { audioCtx.close().catch(() => {}); }
+        audioCtx = null; audioBuf = null; pcmData = null;
+        isPlaying.value = false;
+        progress.value = 0;
+        currentTime.value = '0:00';
+        duration.value = '0:00';
+        pausedAt = 0;
+        filters.gain = 0; filters.highpass = 0; filters.lowpass = 0;
+        cancelAnimationFrame(rafId);
+      }
+
+      function onKeydown(e) {
+        if (!modal.open) return;
+        if (e.key === 'Escape') { close(); e.preventDefault(); }
+        if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          togglePlay(); e.preventDefault();
+        }
+      }
+
+      // Watch modal open state
+      watch(() => modal.open, (val) => {
+        if (val) {
+          pausedAt = 0;
+          nextTick(() => { loadAudio(); });
+          document.addEventListener('keydown', onKeydown);
+        } else {
+          cleanup();
+          document.removeEventListener('keydown', onKeydown);
+        }
+      });
+
+      onUnmounted(() => {
+        cleanup();
+        document.removeEventListener('keydown', onKeydown);
+      });
+
+      return {
+        modal, loading, isPlaying, progress, currentTime, duration,
+        filters, gainOpts, hpOpts, lpOpts,
+        canvas, audioUrl, downloadName,
+        togglePlay, seek, setFilter, close, t
+      };
+    },
+    template: `
+<div v-if="modal.open" class="spectro-modal-overlay" @click.self="close">
+  <div class="spectro-modal">
+    <div class="spectro-modal-header">
+      <div>
+        <div class="spectro-modal-species">{{modal.speciesName}}</div>
+        <div class="spectro-modal-sci">{{modal.sciName}}</div>
+        <div class="spectro-modal-meta">
+          <span v-if="modal.confidence" class="conf-badge" :class="modal.confidence>=0.8?'conf-high':'conf-mid'">
+            {{Math.round(modal.confidence*100)}}%
+          </span>
+          <span v-if="modal.date">{{modal.date}}</span>
+          <span v-if="modal.time">{{modal.time}}</span>
+        </div>
+      </div>
+      <button class="spectro-modal-close" @click="close">&times;</button>
+    </div>
+    <div class="spectro-modal-canvas-wrap" style="position:relative;">
+      <canvas ref="canvas" :width="800" :height="200"></canvas>
+      <div v-if="loading" class="spectro-modal-loading">Loading...</div>
+      <div v-if="isPlaying" class="spectro-cursor" :style="{left: progress+'%'}"></div>
+      <div class="spectro-freq-labels">
+        <span>12kHz</span><span>9</span><span>6</span><span>3</span><span>0</span>
+      </div>
+    </div>
+    <div class="spectro-modal-controls">
+      <button class="play-big" :class="{playing: isPlaying}" @click="togglePlay">
+        {{isPlaying ? '\u23F9' : '\u25B6'}}
+      </button>
+      <div class="audio-progress-wrap">
+        <div class="audio-progress-bar" @click="seek">
+          <div class="audio-progress-fill" :style="{width: progress+'%'}"></div>
+        </div>
+        <div class="audio-time">{{currentTime}} / {{duration}}</div>
+      </div>
+      <a :href="audioUrl" :download="downloadName" class="spectro-modal-dl" title="Download">\u2B07</a>
+    </div>
+    <div class="spectro-modal-filters">
+      <div class="spectro-modal-filter-group">
+        <span class="rstb-flabel">Gain (dB)</span>
+        <div class="stb-pills">
+          <button v-for="g in gainOpts" :key="g" class="stb-pill stb-pill-sm"
+                  :class="{'stb-pill-active': filters.gain===g}"
+                  @click="setFilter('gain',g)">{{g===0?'Off':'+'+g}}</button>
+        </div>
+      </div>
+      <div class="spectro-modal-filter-group">
+        <span class="rstb-flabel">{{t('af_highpass')}}</span>
+        <div class="stb-pills">
+          <button v-for="h in hpOpts" :key="h" class="stb-pill stb-pill-sm"
+                  :class="{'stb-pill-active': filters.highpass===h}"
+                  @click="setFilter('highpass',h)">{{h===0?'Off':h>=1000?(h/1000)+'k':h}}</button>
+        </div>
+      </div>
+      <div class="spectro-modal-filter-group">
+        <span class="rstb-flabel">{{t('af_lowpass')}}</span>
+        <div class="stb-pills">
+          <button v-for="l in lpOpts" :key="l" class="stb-pill stb-pill-sm"
+                  :class="{'stb-pill-active': filters.lowpass===l}"
+                  @click="setFilter('lowpass',l)">{{l===0?'Off':l>=1000?(l/1000)+'k':l}}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`
+  };
+
+  // ── Filter UI components ──────────────────────────────────────────────────
+
+  const FilterPeriod = {
+    props: {
+      period:       { type: String, default: '' },
+      quickButtons: { type: Array,  default: () => [] },
+      dateFrom:     { type: String, default: '' },
+      dateTo:       { type: String, default: '' },
+    },
+    emits: ['set-period', 'set-custom'],
+    setup(props, { emit }) {
+      const { t } = useI18n();
+      return { t, props, emit };
+    },
+    template: `
+<div class="bf-period">
+  <div class="bf-period-btns">
+    <button v-for="b in quickButtons" :key="b.key"
+            class="bf-period-btn" :class="{active: b.active}"
+            @click="$emit('set-period', b.key)">{{b.label}}</button>
+  </div>
+  <div v-if="period==='custom'" class="bf-period-custom">
+    <input type="date" class="bf-date-input" :value="dateFrom"
+           @change="$emit('set-custom', $event.target.value, dateTo)">
+    <span class="bf-date-sep">→</span>
+    <input type="date" class="bf-date-input" :value="dateTo"
+           @change="$emit('set-custom', dateFrom, $event.target.value)">
+  </div>
+</div>`
+  };
+
+  const FilterConfidence = {
+    props: {
+      confidence:  { type: Number, default: 0.7 },
+      confEditing: { type: Boolean, default: false },
+      confEditVal: { type: Number, default: 70 },
+    },
+    emits: ['update:confidence', 'start-edit', 'commit-edit', 'update:confEditVal'],
+    setup(props, { emit }) {
+      const { t } = useI18n();
+      function onSlider(e) { emit('update:confidence', parseFloat(e.target.value)); }
+      return { t, onSlider };
+    },
+    template: `
+<div class="bf-confidence">
+  <div class="bf-conf-row">
+    <input type="range" class="bf-conf-slider" min="0" max="1" step="0.05"
+           :value="confidence" @input="onSlider($event)"
+           :aria-label="t('avg_confidence')">
+    <span v-if="!confEditing" class="bf-conf-pct" @click="$emit('start-edit')"
+          :title="t('click_to_edit')||'Click to edit'">{{Math.round(confidence*100)}}%</span>
+    <input v-else type="number" class="bf-conf-edit" min="0" max="100"
+           :value="confEditVal"
+           @input="$emit('update:confEditVal', parseInt($event.target.value)||0)"
+           @keydown.enter="$emit('commit-edit')"
+           @blur="$emit('commit-edit')"
+           ref="confInput">
+  </div>
+</div>`
+  };
+
+  const FilterSpecies = {
+    props: {
+      source:         { type: Array,   default: () => [] },
+      selectedSpecies:{ type: Array,   default: () => [] },
+      filteredList:   { type: Array,   default: () => [] },
+      speciesSearch:  { type: String,  default: '' },
+      allSelected:    { type: Boolean, default: false },
+      spName:         { type: Function, default: (n) => n },
+    },
+    emits: ['toggle-species', 'toggle-all', 'update:speciesSearch'],
+    setup(props, { emit }) {
+      const { t } = useI18n();
+      return { t };
+    },
+    template: `
+<div class="bf-species">
+  <input class="bf-sp-search" type="search"
+         :placeholder="'🔍 '+(t('filter_species_ph')||'Filter species…')"
+         :value="speciesSearch"
+         @input="$emit('update:speciesSearch', $event.target.value)">
+  <div class="bf-sp-actions">
+    <button class="bf-sp-toggle-btn" :class="{active: allSelected}"
+            @click="$emit('toggle-all')">
+      {{allSelected ? t('deselect_all') : t('select_all')+' ('+source.length+')'}}
+    </button>
+  </div>
+  <div class="bf-sp-list">
+    <div v-for="sp in filteredList" :key="sp.name"
+         class="bf-sp-item" :class="{selected: selectedSpecies.includes(sp.name)}"
+         @click="$emit('toggle-species', sp.name)">
+      <div class="bf-sp-check">{{selectedSpecies.includes(sp.name)?'✓':''}}</div>
+      <span class="bf-sp-name" :title="sp.name">{{spName(sp.name, sp.sci)}}</span>
+      <span class="bf-sp-count">{{sp.count}}</span>
+    </div>
+  </div>
+</div>`
+  };
+
+  // Enregistre les composants globaux sur une instance d'app Vue
+  function registerComponents(app) {
+    app.component('birdash-shell', PibirdShell);
+    app.component('bird-img', BirdImg);
+    app.component('spectro-modal', SpectroModal);
+    app.component('filter-period', FilterPeriod);
+    app.component('filter-confidence', FilterConfidence);
+    app.component('filter-species', FilterSpecies);
+    return app;
+  }
+
+  // ── Export global ─────────────────────────────────────────────────────────
+  window.BIRDASH = {
+    // Vue composables
+    useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
+    // Filter composables
+    useFilterPeriod, useFilterConfidence, useFilterSpecies, buildWhereClause,
+    // Vue components
+    PibirdShell, registerComponents, MODEL_LABELS,
+    // Wrapper with reactive lang injection (calls BIRDASH_UTILS under the hood)
+    buildSpeciesLinks,
+    // Re-exports from BIRDASH_UTILS for backward compatibility
+    // (pages destructure these from BIRDASH, so they must remain available)
+    birdQuery:        U.birdQuery,
+    escHtml:          U.escHtml,
+    safeHtml:         U.safeHtml,
+    authHeaders:      U.authHeaders,
+    fmtDate:          U.fmtDate,
+    fmtTime:          U.fmtTime,
+    fmtConf:          U.fmtConf,
+    localDateStr:     U.localDateStr,
+    daysAgo:          U.daysAgo,
+    freshnessLabel:   U.freshnessLabel,
+    buildAudioUrl:    U.buildAudioUrl,
+    fetchSpeciesImage:U.fetchSpeciesImage,
+    fetchCachedPhoto: U.fetchCachedPhoto,
+    getUrlParam:      U.getUrlParam,
+    navigateTo:       U.navigateTo,
+    chartDefaults:    U.chartDefaults,
+    spinnerHTML:      U.spinnerHTML,
+    shortModel:       U.shortModel,
+    quickPlaySpecies: U.quickPlaySpecies,
+    // Spectrogram modal
+    openSpectroModal: openSpectroModal,
+    closeSpectroModal: closeSpectroModal,
+    _spectroModal: _spectroModal,
+    // Direct access to translations
+    TRANSLATIONS: _TRANSLATIONS,
+  };
+
+})(Vue, BIRD_CONFIG, window.BIRDASH_UTILS);

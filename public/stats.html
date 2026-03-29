@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Statistiques</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="stats" :title="t('nav_stats')">
+
+    <div class="det-layout">
+
+      <!-- ── Filter panel (sidebar) ─────────────────────────────── -->
+      <div class="filter-panel">
+        <div>
+          <span class="fp-label">{{t('period')}}</span>
+          <filter-period
+            :period="fp.period.value" :quick-buttons="fp.quickButtons.value"
+            :date-from="fp.dateFrom.value" :date-to="fp.dateTo.value"
+            @set-period="fp.setPeriod" @set-custom="fp.setCustomRange">
+          </filter-period>
+        </div>
+        <div>
+          <span class="fp-label">{{t('conf_min')}}</span>
+          <filter-confidence
+            :confidence="fc.confidence.value" :conf-editing="fc.confEditing.value" :conf-edit-val="fc.confEditVal.value"
+            @update:confidence="v => { fc.confidence.value = v; }"
+            @start-edit="fc.startEdit()" @commit-edit="fc.commitEdit()"
+            @update:conf-edit-val="v => fc.confEditVal.value = v">
+          </filter-confidence>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')}}</button>
+        <button class="btn btn-primary" style="width:100%;" @click="loadAll">{{t('apply_filter')}}</button>
+      </div>
+
+      <!-- ── Main content ───────────────────────────────────────── -->
+      <div>
+
+        <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-bottom:.75rem;">⬇ CSV</button>
+
+        <!-- KPIs globaux -->
+        <div class="kpi-grid">
+          <div v-if="kpis.loading" class="spinner" style="grid-column:1/-1;"><div></div><div></div><div></div></div>
+          <template v-else>
+            <div class="kpi-card"><div class="kpi-value">{{kpis.total}}</div><div class="kpi-label">{{t('all_time')}} ({{t('detections')}})</div></div>
+            <div class="kpi-card"><div class="kpi-value amber">{{kpis.sp}}</div><div class="kpi-label">{{t('sys_species_distinct')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value blue">{{kpis.avgConf}}%</div><div class="kpi-label">{{t('avg_confidence')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value">{{kpis.perDay}}</div><div class="kpi-label">{{t('detections')}} {{t('per_day_avg')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value">{{kpis.days}}</div><div class="kpi-label">{{t('sys_days_recorded')}}</div></div>
+            <div class="kpi-card"><div class="kpi-value amber">{{kpis.maxConf}}%</div><div class="kpi-label">{{t('max_confidence')}}</div></div>
+          </template>
+        </div>
+
+        <!-- Totaux mensuels -->
+        <div class="card">
+          <div class="card-title">{{t('monthly_totals')}}</div>
+          <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasMonthly"></canvas></div>
+        </div>
+
+        <!-- Classements -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">{{t('top_by_count')}}</div>
+            <div v-if="topCount.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else>
+              <div v-for="(r,i) in topCount.rows" :key="r.Com_Name"
+                   style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;cursor:pointer;"
+                   @click="navigateTo('species.html',{species:r.Com_Name})">
+                <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
+                <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                  <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                  <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}} <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button></span>
+                    <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.n.toLocaleString()}}</span>
+                  </div>
+                  <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
+                    <div :style="{height:'100%',width:Math.round(r.n/topCount.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px'}"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">{{t('top_by_confidence')}}</div>
+            <div v-if="topConf.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else>
+              <div v-for="(r,i) in topConf.rows" :key="r.Com_Name"
+                   style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;cursor:pointer;"
+                   @click="navigateTo('species.html',{species:r.Com_Name})">
+                <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
+                <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                  <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                  <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}} <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button></span>
+                    <span style="font-size:.78rem;color:var(--accent);margin-left:.5rem;flex-shrink:0;">{{r.avg_conf}}%</span>
+                  </div>
+                  <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
+                    <div :style="{height:'100%',width:Math.round(r.avg_conf/topConf.rows[0].avg_conf*100)+'%',background:chartColor(i),borderRadius:'2px'}"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conf distrib + Records -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">{{t('confidence_distrib')}}</div>
+            <div class="chart-wrap"><canvas ref="canvasConf"></canvas></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">{{t('stats_daily_records')}}</div>
+            <div v-if="records.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else style="display:flex;flex-direction:column;gap:.75rem;padding:.25rem 0;">
+              <div class="det-item">
+                <div style="font-size:1.5rem;">📊</div>
+                <div style="flex:1;">
+                  <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_most_det')}}</div>
+                  <div><strong>{{records.maxDet ? fmtDate(records.maxDet.Date) : '—'}}</strong></div>
+                </div>
+                <div class="kpi-value" style="font-size:1.4rem;">{{records.maxDet ? records.maxDet.n.toLocaleString() : '—'}}</div>
+              </div>
+              <div class="det-item">
+                <div style="font-size:1.5rem;">🦜</div>
+                <div style="flex:1;">
+                  <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_most_sp')}}</div>
+                  <div><strong>{{records.maxSp ? fmtDate(records.maxSp.Date) : '—'}}</strong></div>
+                </div>
+                <div class="kpi-value amber" style="font-size:1.4rem;">{{records.maxSp ? records.maxSp.n : '—'}}</div>
+              </div>
+              <div class="det-item">
+                <div style="font-size:1.5rem;">🎯</div>
+                <div style="flex:1;">
+                  <div style="font-size:.82rem;color:var(--text-muted);">{{t('stats_record_max_conf')}}</div>
+                  <div style="font-size:.85rem;"><strong>{{records.maxConf ? spName(records.maxConf.Com_Name, records.maxConf.Sci_Name) : '—'}}</strong></div>
+                  <div style="font-size:.75rem;color:var(--text-muted);">{{records.maxConf ? fmtDate(records.maxConf.Date) : ''}}</div>
+                </div>
+                <div class="conf-badge conf-high" style="font-size:.9rem;">{{records.maxConf ? records.maxConf.conf+'%' : '—'}}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Annuel -->
+        <div class="card">
+          <div class="card-title">{{t('stats_annual_evolution')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasYearly"></canvas></div>
+        </div>
+
+      </div>
+    </div>
+
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
+        useFilterPeriod, useFilterConfidence, buildWhereClause,
+        birdQuery, fmtDate, chartDefaults, navigateTo, localDateStr, daysAgo, fetchCachedPhoto, quickPlaySpecies } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('stats');
+    const { spName } = useSpeciesNames();
+    const { mountChart: mountMonthly }= useChart();
+    const { mountChart: mountConf }   = useChart();
+    const { mountChart: mountYearly } = useChart();
+
+    const canvasMonthly = ref(null);
+    const canvasConf    = ref(null);
+    const canvasYearly  = ref(null);
+
+    // ── Filtres (composables partagés) ────────────────────────────
+    const fp = useFilterPeriod({
+      default: '1d',
+      buttons: ['1d','7d','30d','90d','6m','1y','all'],
+      onChange: () => loadAll()
+    });
+    const fc = useFilterConfidence({ onChange: () => loadAll() });
+
+    function resetDefaults() {
+      fc.confidence.value = BIRD_CONFIG.defaultConfidence;
+      fp.setPeriod('1d');
+    }
+
+    function buildWhere() {
+      const parts = [`Confidence>=?`];
+      if (fp.dateFrom.value) parts.push(`Date>='${fp.dateFrom.value}'`);
+      if (fp.dateTo.value)   parts.push(`Date<='${fp.dateTo.value}'`);
+      return parts.join(' AND ');
+    }
+
+    const kpis     = ref({ loading:true });
+    const topCount = ref({ loading:true, rows:[] });
+    const topConf  = ref({ loading:true, rows:[] });
+    const records  = ref({ loading:true, maxDet:null, maxSp:null, maxConf:null });
+    const monthlyData = ref(null);
+    const confData    = ref(null);
+    const yearlyData  = ref(null);
+
+    const chartColor = i => BIRD_CONFIG.chartColors[i % BIRD_CONFIG.chartColors.length];
+
+    async function loadAll() {
+      await Promise.all([
+        loadKpis(), loadMonthlyData(), loadTopCount(),
+        loadTopConf(), loadConfData(), loadRecords(), loadYearlyData()
+      ]);
+    }
+
+    async function loadKpis() {
+      kpis.value.loading = true;
+      try {
+        const where = buildWhere();
+        const [g]  = await birdQuery(`SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as sp, ROUND(AVG(Confidence)*100,1) as avg_conf, ROUND(MAX(Confidence)*100,1) as max_conf, MIN(Date) as first, MAX(Date) as last FROM detections WHERE ${where}`,[fc.confidence.value]);
+        const [pd] = await birdQuery(`SELECT ROUND(AVG(n),0) as avg FROM (SELECT COUNT(*) as n FROM detections WHERE ${where} GROUP BY Date)`,[fc.confidence.value]);
+        const days = Math.round((new Date(g.last)-new Date(g.first))/86400000)+1;
+        kpis.value = { loading:false, total:g.total.toLocaleString(), sp:g.sp, avgConf:g.avg_conf, maxConf:g.max_conf, perDay:Math.round(pd.avg||0).toLocaleString(), days:days.toLocaleString() };
+      } catch(e) { kpis.value = { loading:false }; }
+    }
+
+    async function loadMonthlyData() {
+      try {
+        const where = buildWhere();
+        const rows = await birdQuery(`SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp FROM detections WHERE ${where} GROUP BY ym ORDER BY ym ASC`,[fc.confidence.value]);
+        monthlyData.value = rows;
+      } catch(e) {}
+    }
+
+    async function loadPhotosFor(targetRef, rows) {
+      const seen = new Set();
+      const tasks = rows.filter(r => { const s = r.Sci_Name; if (!s || seen.has(s)) return false; seen.add(s); return true; });
+      for (let i = 0; i < tasks.length; i += 4) {
+        await Promise.all(tasks.slice(i, i + 4).map(async r => {
+          const url = await fetchCachedPhoto(r.Sci_Name);
+          rows.forEach(d => { if (d.Sci_Name === r.Sci_Name) d.photoUrl = url; });
+        }));
+        // Force Vue reactivity
+        targetRef.value = { ...targetRef.value, rows: [...rows] };
+      }
+    }
+
+    async function loadTopCount() {
+      topCount.value.loading = true;
+      try {
+        const where = buildWhere();
+        const rows = await birdQuery(`SELECT Com_Name, Sci_Name, COUNT(*) as n FROM detections WHERE ${where} GROUP BY Com_Name, Sci_Name ORDER BY n DESC LIMIT 15`,[fc.confidence.value]);
+        topCount.value = { loading:false, rows };
+        loadPhotosFor(topCount, rows);
+      } catch(e) { topCount.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadTopConf() {
+      topConf.value.loading = true;
+      try {
+        const where = buildWhere();
+        const rows = await birdQuery(`SELECT Com_Name, Sci_Name, ROUND(AVG(Confidence)*100,1) as avg_conf FROM detections WHERE ${where} GROUP BY Com_Name, Sci_Name HAVING COUNT(*)>=10 ORDER BY avg_conf DESC LIMIT 15`,[fc.confidence.value]);
+        topConf.value = { loading:false, rows };
+        loadPhotosFor(topConf, rows);
+      } catch(e) { topConf.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadConfData() {
+      try {
+        const rows = await birdQuery(`SELECT CAST(CAST(Confidence*10 AS INT) AS TEXT)||'0%' as bucket, CAST(CAST(Confidence*10 AS INT)*10 AS INTEGER) as pct, COUNT(*) as n FROM detections GROUP BY CAST(Confidence*10 AS INT) ORDER BY pct ASC`);
+        confData.value = rows;
+      } catch(e) {}
+    }
+
+    async function loadRecords() {
+      records.value.loading = true;
+      try {
+        const where = buildWhere();
+        const [maxDet]  = await birdQuery(`SELECT Date, COUNT(*) as n FROM detections WHERE ${where} GROUP BY Date ORDER BY n DESC LIMIT 1`,[fc.confidence.value]);
+        const [maxSp]   = await birdQuery(`SELECT Date, COUNT(DISTINCT Com_Name) as n FROM detections WHERE ${where} GROUP BY Date ORDER BY n DESC LIMIT 1`,[fc.confidence.value]);
+        const [maxConf] = await birdQuery(`SELECT Date, Com_Name, Sci_Name, ROUND(Confidence*100,1) as conf FROM detections ORDER BY Confidence DESC LIMIT 1`);
+        records.value = { loading:false, maxDet, maxSp, maxConf };
+      } catch(e) { records.value = { loading:false, maxDet:null, maxSp:null, maxConf:null }; }
+    }
+
+    async function loadYearlyData() {
+      try {
+        const where = buildWhere();
+        const rows = await birdQuery(`SELECT SUBSTR(Date,1,4) as year, COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp FROM detections WHERE ${where} GROUP BY year ORDER BY year ASC`,[fc.confidence.value]);
+        yearlyData.value = rows;
+      } catch(e) {}
+    }
+
+    // Charts — reconstruits si données OU langue change
+    watch([monthlyData, lang], async () => {
+      await nextTick();
+      const d = monthlyData.value;
+      if (!d || !canvasMonthly.value) return;
+      const labels = d.map(r => { const [y,m]=r.ym.split('-'); return `${t('months_short')[parseInt(m)-1]} ${y.slice(2)}`; });
+      const base = chartDefaults();
+      mountMonthly(canvasMonthly, ()=>({
+        type:'bar',
+        data:{ labels, datasets:[
+          { label:t('detections'), data:d.map(r=>r.det), backgroundColor:'rgba(90,158,58,.65)', borderColor:'#5a9e3a', borderWidth:1, borderRadius:2 },
+          { label:t('species'), data:d.map(r=>r.sp), type:'line', borderColor:'#c8a84b', backgroundColor:'transparent', pointRadius:2, tension:0.3, yAxisID:'y2' }
+        ]},
+        options:{ ...base, scales:{ ...base.scales, x:{...base.scales.x,ticks:{maxTicksLimit:18,font:{size:9}}}, y:{...base.scales.y,beginAtZero:true}, y2:{position:'right',beginAtZero:true,ticks:{color:'#c8a84b'},grid:{drawOnChartArea:false}} } }
+      }));
+    });
+
+    watch([confData, lang], async () => {
+      await nextTick();
+      const d = confData.value;
+      if (!d || !canvasConf.value) return;
+      const base = chartDefaults();
+      mountConf(canvasConf, ()=>({
+        type:'bar',
+        data:{ labels:d.map(r=>r.bucket), datasets:[{ label:t('detections'), data:d.map(r=>r.n), backgroundColor:d.map(r=>r.pct>=80?'rgba(90,158,58,.75)':r.pct>=60?'rgba(200,168,75,.65)':'rgba(224,108,74,.5)'), borderWidth:1, borderRadius:2 }] },
+        options:{ ...base, plugins:{...base.plugins,legend:{display:false}}, scales:{...base.scales,y:{...base.scales.y,beginAtZero:true}} }
+      }));
+    });
+
+    watch([yearlyData, lang], async () => {
+      await nextTick();
+      const d = yearlyData.value;
+      if (!d || !canvasYearly.value) return;
+      const base = chartDefaults();
+      mountYearly(canvasYearly, ()=>({
+        type:'bar',
+        data:{ labels:d.map(r=>r.year), datasets:[
+          { label:t('detections'), data:d.map(r=>r.det), backgroundColor:'rgba(90,158,58,.65)', borderColor:'#5a9e3a', borderWidth:1, borderRadius:4 },
+          { label:t('species'), data:d.map(r=>r.sp), type:'line', borderColor:'#c8a84b', backgroundColor:'rgba(200,168,75,.1)', pointRadius:5, pointBackgroundColor:'#c8a84b', tension:0.2, yAxisID:'y2' }
+        ]},
+        options:{ ...base, scales:{ ...base.scales, y:{...base.scales.y,beginAtZero:true}, y2:{position:'right',beginAtZero:true,ticks:{color:'#c8a84b'},grid:{drawOnChartArea:false}} } }
+      }));
+    });
+
+    async function exportCsv() {
+      try {
+        const where = buildWhere();
+        const rows = await birdQuery(`SELECT Com_Name, Sci_Name, COUNT(*) as n, ROUND(AVG(Confidence)*100,1) as avg_conf, MIN(Date) as first_date, MAX(Date) as last_date, COUNT(DISTINCT Date) as days FROM detections WHERE ${where} GROUP BY Com_Name, Sci_Name ORDER BY n DESC`,[fc.confidence.value]);
+        if (!rows.length) return;
+        const headers = ['Species','Scientific_Name','Detections','Avg_Confidence','First_Date','Last_Date','Days_Detected'];
+        const csvRows = [headers.join(',')];
+        for (const r of rows) {
+          csvRows.push([
+            '"' + (r.Com_Name || '').replace(/"/g, '""') + '"',
+            '"' + (r.Sci_Name || '').replace(/"/g, '""') + '"',
+            r.n, r.avg_conf + '%', r.first_date, r.last_date, r.days
+          ].join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'birdash-stats-' + localDateStr() + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { console.error('[export]', e); }
+    }
+
+    onMounted(() => loadAll());
+
+    return {
+      lang, t, spName,
+      fp, fc,
+      kpis, topCount, topConf, records,
+      canvasMonthly, canvasConf, canvasYearly,
+      fmtDate, navigateTo, chartColor, loadAll, resetDefaults, exportCsv,
+      quickPlay(comName) { quickPlaySpecies(comName); },
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

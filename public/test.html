@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BIRDASH — Test Filter Bar</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <style>
+/* ── Filter bar — horizontal, full width, below nav ─────────────────────── */
+.filter-bar-wrap {
+  padding: .5rem 0 0;
+}
+
+.filter-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .55rem .9rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: calc(100% - 2.5rem);
+  box-sizing: border-box;
+}
+
+.filter-bar-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: .8rem;
+  flex-wrap: nowrap;
+}
+
+.filter-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: .2rem .6rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+}
+
+.filter-group-label {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: .25rem .4rem;
+  font-size: .76rem;
+  font-family: var(--font-body);
+  min-width: 120px;
+}
+
+.filter-group select:focus,
+.filter-group input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Species picker inline */
+.filter-sp-picker {
+  position: relative;
+  min-width: 280px;
+}
+
+.filter-sp-bar {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: .3rem .5rem;
+  min-height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .25rem;
+  font-size: .78rem;
+  color: var(--text-faint);
+}
+
+.filter-sp-bar:hover { border-color: var(--accent); }
+
+.filter-sp-bar .sp-tag {
+  font-size: .7rem;
+  padding: .05rem .35rem;
+}
+
+/* Date range inline */
+.filter-dates {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.filter-dates input[type="date"] {
+  width: 130px;
+}
+
+.filter-dates-sep {
+  color: var(--text-faint);
+  font-size: .75rem;
+}
+
+/* Quick range pills */
+.filter-quick {
+  display: flex;
+  gap: .25rem;
+  flex-wrap: wrap;
+}
+
+.filter-quick .quick-btn {
+  font-size: .68rem;
+  padding: .15rem .4rem;
+}
+
+/* Resolution inline radio */
+.filter-res {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+.filter-res label {
+  display: flex;
+  align-items: center;
+  gap: .2rem;
+  font-size: .78rem;
+  color: var(--text-main);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-res input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* Confidence inline */
+.filter-conf {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.filter-conf input[type="range"] {
+  width: 100%;
+  flex: 1;
+}
+
+.filter-conf-val {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  min-width: 32px;
+}
+
+/* Action buttons */
+.filter-actions {
+  display: flex;
+  gap: .5rem;
+  align-self: center;
+}
+
+.filter-default {
+  padding: .3rem .8rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .74rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+
+.filter-default:hover {
+  color: var(--text-main);
+  border-color: var(--border-light);
+}
+
+.filter-apply {
+  padding: .3rem .8rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: .74rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s;
+}
+
+.filter-apply:hover { opacity: .85; }
+
+/* Main content now full width, no sidebar */
+.analyses-layout-v2 {
+  display: block;
+  padding: 0;
+}
+
+/* ── Collapsible on mobile ───────────────────────────────────────────────── */
+.filter-toggle {
+  display: none;
+  width: 100%;
+  background: var(--bg-card);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: .78rem;
+  font-family: var(--font-body);
+  padding: .4rem 1.2rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.filter-toggle:hover { color: var(--text-main); }
+
+@media (max-width: 900px) {
+  .filter-toggle { display: block; }
+  .filter-bar-wrap.collapsed .filter-bar { display: none; }
+
+  .filter-bar-inner {
+    flex-wrap: wrap;
+    gap: .6rem;
+  }
+
+  .filter-group { min-width: 45%; flex: 1; }
+  .filter-group select,
+  .filter-group input[type="date"] { width: 100%; }
+  .filter-sp-picker { width: 100%; }
+  .filter-dates { flex-direction: column; align-items: stretch; }
+  .filter-dates input[type="date"] { width: 100%; }
+  .filter-conf input[type="range"] { flex: 1; }
+  .filter-apply { width: 100%; }
+}
+
+/* ── Demo content area ───────────────────────────────────────────────────── */
+.demo-content {
+  padding: 0;
+}
+
+.demo-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.demo-kpis {
+  display: flex;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.demo-kpi {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .7rem 1rem;
+  text-align: center;
+}
+
+.demo-kpi-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.demo-kpi-label {
+  font-size: .72rem;
+  color: var(--text-faint);
+  margin-top: .2rem;
+}
+
+.demo-chart {
+  height: 200px;
+  background: var(--bg-deep);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: .85rem;
+}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── Header (copie simplifiée) ──────────────────────────────────────── -->
+  <header class="app-header" role="banner">
+    <div class="header-brand">
+      <img src="img/robin-logo.svg" class="brand-logo" alt="BIRDASH">
+      <div class="brand-text">
+        <span class="brand-name">BIRDASH</span>
+        <span class="brand-sub">Test Layout</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="brand-model">BirdNET-Analyzer 2.4</span>
+    </div>
+  </header>
+
+  <!-- ── Navigation (copie simplifiée) ──────────────────────────────────── -->
+  <nav class="app-nav" aria-label="Navigation principale" style="display:flex;justify-content:center;">
+    <div id="main-nav">
+      <a href="today.html" class="nav-link"><span class="nav-icon">&#x2600;</span><span class="nav-label">Today</span></a>
+      <a href="recent.html" class="nav-link"><span class="nav-icon">&#x1F552;</span><span class="nav-label">Recent</span></a>
+      <a href="analyses.html" class="nav-link active"><span class="nav-icon">&#x1F4CA;</span><span class="nav-label">Analyses</span></a>
+      <a href="recordings.html" class="nav-link"><span class="nav-icon">&#x1F3B5;</span><span class="nav-label">Recordings</span></a>
+      <a href="settings.html" class="nav-link"><span class="nav-icon">&#x2699;</span><span class="nav-label">Settings</span></a>
+    </div>
+  </nav>
+
+  <!-- ── FILTER BAR — proposition : pleine largeur sous la nav ──────────── -->
+  <button class="filter-toggle" onclick="document.querySelector('.filter-bar').classList.toggle('collapsed')">
+    &#x25BC; Filtres
+  </button>
+
+  <div class="filter-bar-wrap">
+  <div class="filter-bar">
+    <div class="filter-bar-inner">
+
+      <!-- Ordre + Famille (stacked) -->
+      <div class="filter-group" style="min-width:170px;">
+        <span class="filter-group-label">Ordre</span>
+        <select>
+          <option value="">Tous les ordres</option>
+          <option>Passeriformes</option>
+          <option>Piciformes</option>
+          <option>Accipitriformes</option>
+          <option>Strigiformes</option>
+          <option>Columbiformes</option>
+        </select>
+        <span class="filter-group-label" style="margin-top:.3rem;">Famille</span>
+        <select>
+          <option value="">Toutes les familles</option>
+          <option>Paridae</option>
+          <option>Fringillidae</option>
+          <option>Turdidae</option>
+          <option>Corvidae</option>
+        </select>
+      </div>
+
+      <div class="filter-sep"></div>
+
+      <!-- Espèces -->
+      <div class="filter-group" style="flex:1;min-width:200px;">
+        <span class="filter-group-label">Especes</span>
+        <div class="filter-sp-picker">
+          <div class="filter-sp-bar" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+            <span class="sp-tag">Merle noir</span>
+            <span class="sp-tag">Rougegorge</span>
+            <span class="sp-tag" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-muted);">+4</span>
+            <span class="sp-caret" style="margin-left:auto;">&#x25BE;</span>
+          </div>
+          <div class="sp-dropdown" style="display:none;min-width:280px;">
+            <div class="sp-topn-bar">
+              <button class="sp-topn-btn" style="flex:1;">Select All (42)</button>
+              <span>Top</span>
+              <input type="number" class="sp-topn-input" value="10">
+              <button class="sp-topn-btn">OK</button>
+              <button class="sp-clear-btn">Clear</button>
+            </div>
+            <div class="sp-search-wrap">
+              <input type="text" class="sp-search" placeholder="Filtrer... (/)">
+            </div>
+            <div class="sp-list">
+              <label class="sp-item checked"><input type="checkbox" checked> Merle noir <span class="sp-item-count">234</span></label>
+              <label class="sp-item checked"><input type="checkbox" checked> Rougegorge familier <span class="sp-item-count">189</span></label>
+              <label class="sp-item"><input type="checkbox"> Mesange charbonniere <span class="sp-item-count">156</span></label>
+              <label class="sp-item"><input type="checkbox"> Pinson des arbres <span class="sp-item-count">142</span></label>
+              <label class="sp-item"><input type="checkbox"> Pigeon ramier <span class="sp-item-count">98</span></label>
+              <label class="sp-item"><input type="checkbox"> Pic epeiche <span class="sp-item-count">67</span></label>
+            </div>
+            <div class="sp-footer">
+              <span>Selected: 2</span>
+              <span>Total: 42</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-sep"></div>
+
+      <!-- Plage de dates -->
+      <div class="filter-group">
+        <span class="filter-group-label">Periode</span>
+        <div class="filter-dates">
+          <input type="date" value="2026-02-23">
+          <span class="filter-dates-sep">&#x2192;</span>
+          <input type="date" value="2026-03-25">
+        </div>
+        <div class="filter-quick" style="margin-top:.25rem;">
+          <button class="quick-btn">1j</button>
+          <button class="quick-btn">7j</button>
+          <button class="quick-btn active">1m</button>
+          <button class="quick-btn">3m</button>
+          <button class="quick-btn">6m</button>
+          <button class="quick-btn">1a</button>
+          <button class="quick-btn">Tout</button>
+        </div>
+      </div>
+
+      <div class="filter-sep"></div>
+
+      <!-- Resolution + Confiance min (stacked) -->
+      <div class="filter-group">
+        <span class="filter-group-label">Resolution</span>
+        <div class="filter-res">
+          <label><input type="radio" name="res" value="raw"> Brut</label>
+          <label><input type="radio" name="res" value="15min" checked> 15min</label>
+          <label><input type="radio" name="res" value="hourly"> 1h</label>
+          <label><input type="radio" name="res" value="daily"> Jour</label>
+        </div>
+        <span class="filter-group-label" style="margin-top:.3rem;">Confiance min</span>
+        <div class="filter-conf">
+          <input type="range" min="50" max="95" step="5" value="65"
+                 oninput="this.nextElementSibling.textContent=this.value+'%'">
+          <span class="filter-conf-val">65%</span>
+        </div>
+      </div>
+
+      <div class="filter-sep"></div>
+
+      <!-- Défaut + Appliquer -->
+      <div class="filter-actions">
+        <button class="filter-default">Defaut</button>
+        <button class="filter-apply">Appliquer</button>
+      </div>
+
+    </div>
+  </div>
+  </div>
+
+  <!-- ── Contenu principal (demo) ───────────────────────────────────────── -->
+  <main class="app-main" role="main">
+    <div class="demo-content">
+
+      <div class="demo-kpis">
+        <div class="demo-kpi">
+          <div class="demo-kpi-val">1,247</div>
+          <div class="demo-kpi-label">Detections</div>
+        </div>
+        <div class="demo-kpi">
+          <div class="demo-kpi-val">42</div>
+          <div class="demo-kpi-label">Especes</div>
+        </div>
+        <div class="demo-kpi">
+          <div class="demo-kpi-val" style="color:var(--amber);">78%</div>
+          <div class="demo-kpi-label">Confiance moy.</div>
+        </div>
+        <div class="demo-kpi">
+          <div class="demo-kpi-val" style="color:var(--blue);">06:15</div>
+          <div class="demo-kpi-label">Heure pic</div>
+        </div>
+      </div>
+
+      <div class="demo-card">
+        <div style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.7rem;">
+          Distribution horaire des detections
+        </div>
+        <div class="demo-chart">
+          &#x1F4CA; Polar chart area — now uses full width
+        </div>
+      </div>
+
+      <div class="demo-card">
+        <div style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.7rem;">
+          Serie temporelle
+        </div>
+        <div class="demo-chart">
+          &#x1F4C8; Time series chart — full width
+        </div>
+      </div>
+
+      <div class="demo-card">
+        <div style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.7rem;">
+          Heatmap journaliere
+        </div>
+        <div class="demo-chart" style="height:150px;">
+          &#x1F5D3; Daily heatmap — full width
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<script>
+// Close species dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.filter-sp-picker')) {
+    const dd = document.querySelector('.filter-sp-picker .sp-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>

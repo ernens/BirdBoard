@@ -1,0 +1,62 @@
+{
+  "jardin": {
+    "profile_name": "jardin",
+    "highpass_enabled": true,
+    "highpass_cutoff_hz": 80,
+    "hop_size_s": 2.5,
+    "channel_strategy": "max",
+    "rms_normalize": true,
+    "rms_target": 0.05,
+    "builtin": true
+  },
+  "foret": {
+    "profile_name": "foret",
+    "highpass_enabled": true,
+    "highpass_cutoff_hz": 80,
+    "hop_size_s": 2.5,
+    "channel_strategy": "max",
+    "rms_normalize": true,
+    "rms_target": 0.05,
+    "builtin": true
+  },
+  "bord_de_route": {
+    "profile_name": "bord_de_route",
+    "highpass_enabled": true,
+    "highpass_cutoff_hz": 150,
+    "hop_size_s": 2.5,
+    "channel_strategy": "vote",
+    "rms_normalize": true,
+    "rms_target": 0.05,
+    "builtin": true
+  },
+  "ville": {
+    "profile_name": "ville",
+    "highpass_enabled": true,
+    "highpass_cutoff_hz": 150,
+    "hop_size_s": 2.5,
+    "channel_strategy": "vote",
+    "rms_normalize": true,
+    "rms_target": 0.05,
+    "builtin": true
+  },
+  "nuit": {
+    "profile_name": "nuit",
+    "highpass_enabled": true,
+    "highpass_cutoff_hz": 80,
+    "hop_size_s": 1.0,
+    "channel_strategy": "max",
+    "rms_normalize": true,
+    "rms_target": 0.05,
+    "builtin": true
+  },
+  "test": {
+    "profile_name": "test",
+    "highpass_enabled": false,
+    "highpass_cutoff_hz": 80,
+    "hop_size_s": 5.0,
+    "channel_strategy": "sum",
+    "rms_normalize": false,
+    "rms_target": 0.05,
+    "builtin": true
+  }
+}

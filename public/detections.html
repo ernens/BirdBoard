@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Détections</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="detections" :title="t('nav_detections')">
+    <div class="det-layout">
+
+      <!-- Panneau filtres -->
+      <div class="filter-panel">
+        <!-- Ecological guild filter -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('guild_filter')}}</span>
+          <select class="fp-select" v-model="fGuild" @change="onGuildChange" :aria-label="t('guild_filter')">
+            <option value="">{{t('guild_all')}}</option>
+            <option v-for="g in guildOptions" :key="g.key" :value="g.key">{{g.icon}} {{g.label}}</option>
+          </select>
+        </div>
+        <!-- Taxonomy cascade -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_order')}}</span>
+          <select class="fp-select" v-model="fOrder" @change="onOrderChange" :aria-label="t('filter_order')">
+            <option value="">{{t('all_orders')}}</option>
+            <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
+          </select>
+        </div>
+        <div v-if="taxonomyAllFamilies.length">
+          <span class="fp-label">{{t('filter_family')}}</span>
+          <select class="fp-select" v-model="fFamily" @change="onFamilyChange" :aria-label="t('filter_family')">
+            <option value="">{{t('all_families')}}</option>
+            <option v-for="f in taxonomyAllFamilies" :key="f.sci" :value="f.sci">{{f.com}}</option>
+          </select>
+        </div>
+        <!-- Species picker filtered by taxonomy -->
+        <div>
+          <span class="fp-label">{{t('filter_species')}}</span>
+          <div class="ms-wrap" v-click-outside="closeSpDropdown">
+            <div class="ms-trigger" :class="{open:spDropdownOpen}"
+                 @click="spDropdownOpen=!spDropdownOpen">
+              <span v-if="!fSpecies.length" class="ms-placeholder">{{t('all_species_placeholder')}}</span>
+              <span v-for="s in fSpecies" :key="s" class="ms-tag">
+                {{s}}
+                <button class="ms-tag-x" @click.stop="removeSpecies(s)">×</button>
+              </span>
+              <span class="ms-caret">{{spDropdownOpen?'▲':'▼'}}</span>
+            </div>
+            <div v-if="spDropdownOpen" class="ms-dropdown">
+              <div class="ms-search-wrap">
+                <input ref="spSearchInput" class="ms-search" type="search"
+                       :placeholder="'🔍 '+t('search_species_ph')"
+                       v-model="spSearch" @click.stop>
+              </div>
+              <div class="ms-actions">
+                <button class="ms-action-btn"
+                        :style="allSpeciesSelected ? 'background:var(--accent);color:#fff;' : ''"
+                        @click.stop="allSpeciesSelected ? (fSpecies=[]) : (fSpecies=filteredSpeciesList.map(s=>s))">
+                  {{allSpeciesSelected ? t('deselect_all') : t('select_all')+' ('+filteredSpeciesList.length+')'}}
+                </button>
+              </div>
+              <div class="ms-list">
+                <label v-for="s in filteredSpeciesList" :key="s"
+                       class="ms-item" :class="{checked:fSpecies.includes(s)}"
+                       @click.stop>
+                  <input type="checkbox" :value="s" v-model="fSpecies">
+                  {{s}}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <span class="fp-label">{{t('date_range')}}</span>
+          <filter-period
+            :period="fp.period.value" :quick-buttons="fp.quickButtons.value"
+            :date-from="fp.dateFrom.value" :date-to="fp.dateTo.value"
+            @set-period="fp.setPeriod" @set-custom="fp.setCustomRange">
+          </filter-period>
+        </div>
+        <div>
+          <span class="fp-label">{{t('filter_confidence')}}</span>
+          <filter-confidence
+            :confidence="fc.confidence.value" :conf-editing="fc.confEditing.value" :conf-edit-val="fc.confEditVal.value"
+            @update:confidence="v => { fc.confidence.value = v; }"
+            @start-edit="fc.startEdit()" @commit-edit="fc.commitEdit()"
+            @update:conf-edit-val="v => fc.confEditVal.value = v">
+          </filter-confidence>
+        </div>
+        <div>
+          <span class="fp-label">{{t('mode')}}</span>
+          <div class="fp-toggle-row" @click="uniqueMode=!uniqueMode">
+            <div>
+              <div class="fp-toggle-label">{{t('unique_mode')}}</div>
+              <div class="fp-toggle-sub">{{t('unique_desc')}}</div>
+            </div>
+            <div class="fp-toggle" :class="{on:uniqueMode}"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" @click="applyFilters">{{t('apply_filter')}}</button>
+        <button class="btn btn-secondary" style="width:100%;margin-top:-.4rem;" @click="resetFilters">{{t('reset_filter')}}</button>
+      </div>
+
+      <!-- Contenu -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;font-size:.82rem;color:var(--text-muted);">
+          <span>
+            {{displayTotal.toLocaleString()}} {{t('results')}}
+            <span v-if="uniqueMode" style="font-size:.72rem;color:var(--accent);margin-left:.4rem;">✦ Unique</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:.6rem;">
+            <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;">⬇ CSV</button>
+            <button @click="exportEbird" class="dl-btn" :title="t('ebird_export')" style="font-size:.72rem;">⬇ eBird</button>
+            <span v-if="!uniqueMode">{{t('page')}} {{page}} {{t('of')}} {{totalPages}}</span>
+          </span>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div v-if="loading" class="spinner" style="padding:3rem;"><div></div><div></div><div></div></div>
+          <div v-else-if="!displayRows.length" class="error-msg" style="padding:2rem;">{{t('no_data')}}</div>
+          <div v-else class="det-table-wrap">
+          <table class="bird-table">
+            <thead><tr>
+              <th style="width:44px;"></th>
+              <th style="width:36px;"></th>
+              <th style="width:28px;"></th>
+              <th style="width:100px;">{{t('date')}}</th>
+              <th style="width:70px;">{{t('time')}}</th>
+              <th>{{t('species_name')}}</th>
+              <th class="hide-sm">{{t('scientific_name')}}</th>
+              <th style="width:90px;">{{t('confidence')}}</th>
+              <th class="hide-sm" style="width:70px;">{{t('set_model_choice')}}</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="d in displayRows" :key="d._key">
+                <td style="padding:.3rem .4rem;">
+                  <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name" ></bird-img>
+                  <div v-else class="det-thumb-ph">🐦</div>
+                </td>
+                <td>
+                  <button v-if="d.File_Name" class="play-btn" :class="{playing:playingFile===d.File_Name}"
+                          @click="toggleAudio(d.File_Name)" :title="t('play')">▶</button>
+                  <span v-else style="width:28px;display:inline-block;"></span>
+                </td>
+                <!-- Download -->
+                <td>
+                  <a v-if="d.File_Name"
+                     :href="buildAudioUrl(d.File_Name)"
+                     :download="d.Com_Name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+d.Date+'_'+d.Time.substring(0,5).replace(':','')+'.mp3'"
+                     class="dl-btn" :title="t('download')" @click.stop>⬇</a>
+                </td>
+                <td style="font-size:.8rem;color:var(--text-muted);">{{fmtDate(d.Date)}}</td>
+                <td style="font-family:monospace;font-size:.8rem;">{{fmtTime(d.Time)}}</td>
+                <td>
+                  <a class="species-link" @click="navigateTo('species.html',{species:d.Com_Name})">{{spName(d.Com_Name, d.Sci_Name)}}</a>
+                  <span v-if="uniqueMode && d._count>1" class="det-count-badge">×{{d._count}}</span>
+                </td>
+                <td class="hide-sm" style="font-style:italic;font-size:.8rem;color:var(--text-muted);">{{d.Sci_Name}}</td>
+                <td>
+                  <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')">
+                    {{fmtConf(d.Confidence)}}
+                  </span>
+                </td>
+                <td class="hide-sm">
+                  <span v-if="d.Model" class="model-tag">{{shortModel(d.Model)}}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="pagination" v-if="!uniqueMode && totalPages>1">
+          <button class="btn btn-secondary" :disabled="page<=1" @click="goPage(page-1)">{{t('prev_page')}}</button>
+          <template v-for="p in paginationPages" :key="p">
+            <span v-if="p==='…'" style="color:var(--text-faint)">…</span>
+            <button v-else class="btn" :class="p===page?'btn-primary':'btn-secondary'" @click="goPage(p)">{{p}}</button>
+          </template>
+          <button class="btn btn-secondary" :disabled="page>=totalPages" @click="goPage(page+1)">{{t('next_page')}}</button>
+        </div>
+      </div>
+    </div>
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
+        useFilterPeriod, useFilterConfidence,
+        birdQuery, fmtDate, fmtTime, fmtConf,
+        localDateStr, daysAgo, getUrlParam, navigateTo,
+        fetchCachedPhoto, buildAudioUrl, shortModel } = BIRDASH;
+
+// Directive v-click-outside pour fermer le dropdown
+const vClickOutside = {
+  mounted(el, binding) {
+    el._clickOutsideHandler = e => { if (!el.contains(e.target)) binding.value(e); };
+    document.addEventListener('click', el._clickOutsideHandler);
+  },
+  unmounted(el) { document.removeEventListener('click', el._clickOutsideHandler); },
+};
+
+const app = createApp({
+  directives: { 'click-outside': vClickOutside },
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('detections');
+    const { playingFile, toggleAudio }= useAudio();
+    const { spName } = useSpeciesNames();
+
+    const PS = BIRD_CONFIG.pageSize;
+
+    // ── Filtres (composables partagés) ────────────────────────────
+    const fp = useFilterPeriod({
+      default: '7d',
+      buttons: ['1d','7d','30d','90d','1y','all'],
+      onChange: () => applyFilters()
+    });
+    const fc = useFilterConfidence({ onChange: () => {} }); // apply on button click
+
+    const fSpecies    = ref([]);
+    const uniqueMode  = ref(false);
+    const speciesList = ref([]);
+
+    // Taxonomy filters
+    const fOrder  = ref('');
+    const fFamily = ref('');
+    const fGuild  = ref('');
+    const taxonomyData = ref([]);  // [{sciName, comName, order, familySci, familyCom}]
+    const taxonomyOrders = computed(() => {
+      const set = new Set(taxonomyData.value.map(s => s.order).filter(Boolean));
+      return [...set].sort();
+    });
+    const taxonomyAllFamilies = computed(() => {
+      const map = {};
+      for (const s of taxonomyData.value) {
+        if (s.familySci && !map[s.familySci] && (!fOrder.value || s.order === fOrder.value)) {
+          map[s.familySci] = { sci: s.familySci, com: s.familyCom };
+        }
+      }
+      return Object.values(map).sort((a, b) => a.com.localeCompare(b.com));
+    });
+
+    // Guild options for dropdown
+    const GUILDS = BIRDASH_UTILS.ECOLOGICAL_GUILDS;
+    const guildOptions = computed(() => {
+      return Object.keys(GUILDS).filter(k => k !== 'other').concat(['other']).map(key => ({
+        key, icon: GUILDS[key].icon, label: t('guild_' + key)
+      }));
+    });
+
+    function onOrderChange() { fFamily.value = ''; }
+    function onFamilyChange() {}
+    function onGuildChange() { fOrder.value = ''; fFamily.value = ''; }
+
+    // Set of species allowed by taxonomy + guild filters
+    const taxonomyAllowed = computed(() => {
+      if (!fOrder.value && !fFamily.value && !fGuild.value) return null;
+      const set = new Set();
+      for (const s of taxonomyData.value) {
+        if (fOrder.value && s.order !== fOrder.value) continue;
+        if (fFamily.value && s.familySci !== fFamily.value) continue;
+        if (fGuild.value) {
+          const guild = BIRDASH_UTILS.getSpeciesGuild(s.order, s.familySci);
+          if (guild !== fGuild.value) continue;
+        }
+        set.add(s.comName);
+      }
+      return set;
+    });
+
+    // Get species names matching current order/family filter (for SQL query)
+    function taxonomyFilteredSpecies() {
+      if (!taxonomyAllowed.value) return null;
+      return [...taxonomyAllowed.value];
+    }
+
+    // Multi-select state
+    const spSearch       = ref('');
+    const spDropdownOpen = ref(false);
+    function closeSpDropdown() { spDropdownOpen.value = false; }
+    function removeSpecies(s) { fSpecies.value = fSpecies.value.filter(x => x !== s); }
+
+    const filteredSpeciesList = computed(() => {
+      let list = speciesList.value;
+      // Apply taxonomy filter
+      const allowed = taxonomyAllowed.value;
+      if (allowed) list = list.filter(s => allowed.has(s));
+      // Apply text search
+      const q = spSearch.value.toLowerCase();
+      if (q) list = list.filter(s => s.toLowerCase().includes(q));
+      return list;
+    });
+
+    const allSpeciesSelected = computed(() => filteredSpeciesList.value.length > 0 && fSpecies.value.length === filteredSpeciesList.value.length);
+
+    const page    = ref(1);
+    const total   = ref(0);
+    const rows    = ref([]);
+    const loading = ref(true);
+    const allUniqueRows = ref([]);
+
+    const totalPages = computed(() => Math.ceil(total.value / PS));
+
+    const paginationPages = computed(() => {
+      const tp=totalPages.value, p=page.value;
+      const set=new Set([1,tp,p]);
+      for(let i=Math.max(1,p-2);i<=Math.min(tp,p+2);i++) set.add(i);
+      const sorted=[...set].sort((a,b)=>a-b);
+      const result=[]; let prev=0;
+      sorted.forEach(n=>{if(n-prev>1)result.push('…');result.push(n);prev=n;});
+      return result;
+    });
+
+    const uniqueRows = computed(() => {
+      const src = allUniqueRows.value;
+      if (!src.length) return [];
+      const out = [];
+      let cur = { ...src[0], _count:1, _key:src[0].Date+src[0].Time+src[0].Com_Name+'0' };
+      for (let i=1; i<src.length; i++) {
+        if (src[i].Com_Name === cur.Com_Name) {
+          cur._count++;
+          if (parseFloat(src[i].Confidence) > parseFloat(cur.Confidence)) {
+            cur.Confidence = src[i].Confidence;
+            cur.File_Name  = src[i].File_Name;
+          }
+        } else {
+          out.push(cur);
+          cur = { ...src[i], _count:1, _key:src[i].Date+src[i].Time+src[i].Com_Name+out.length };
+        }
+      }
+      out.push(cur);
+      return out;
+    });
+
+    const displayRows  = computed(() => uniqueMode.value ? uniqueRows.value : rows.value);
+    const displayTotal = computed(() => uniqueMode.value ? uniqueRows.value.length : total.value);
+
+    async function loadSpecies() {
+      try {
+        const r = await birdQuery(`SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC`);
+        speciesList.value = r.map(x => x.Com_Name);
+      } catch(e) {}
+    }
+
+    function buildWhere() {
+      const wheres=['1=1'], params=[];
+      // Taxonomy filter: inject matching species from order/family
+      const taxSpecies = taxonomyFilteredSpecies();
+      // Combine with manual species selection
+      let effectiveSpecies = fSpecies.value.length ? [...fSpecies.value] : [];
+      if (taxSpecies) {
+        if (effectiveSpecies.length) {
+          // Intersection: keep only species that match both filters
+          effectiveSpecies = effectiveSpecies.filter(s => taxSpecies.includes(s));
+        } else {
+          effectiveSpecies = taxSpecies;
+        }
+        if (!effectiveSpecies.length) effectiveSpecies = ['__NO_MATCH__']; // force empty result
+      }
+      if (effectiveSpecies.length === 1) {
+        wheres.push('Com_Name=?'); params.push(effectiveSpecies[0]);
+      } else if (effectiveSpecies.length > 1) {
+        wheres.push(`Com_Name IN (${effectiveSpecies.map(()=>'?').join(',')})`);
+        params.push(...effectiveSpecies);
+      }
+      if (fp.dateFrom.value) { wheres.push('Date>=?');       params.push(fp.dateFrom.value); }
+      if (fp.dateTo.value)   { wheres.push('Date<=?');       params.push(fp.dateTo.value); }
+      if (fc.confidence.value > 0) { wheres.push('Confidence>=?'); params.push(fc.confidence.value); }
+      return { where:wheres.join(' AND '), params };
+    }
+
+    async function loadDetections() {
+      loading.value = true;
+      spDropdownOpen.value = false; // fermer dropdown à chaque chargement
+      try {
+        const { where, params } = buildWhere();
+        if (uniqueMode.value) {
+          const data = await birdQuery(
+            `SELECT Date,Time,Com_Name,Sci_Name,Confidence,File_Name,Model
+             FROM detections WHERE ${where} ORDER BY Date DESC,Time DESC LIMIT 5000`,
+            params
+          );
+          data.forEach((r,i) => { r._key=r.Date+r.Time+r.Com_Name+i; r._count=1; });
+          allUniqueRows.value = data;
+          total.value = data.length;
+          loadPhotos(data);
+        } else {
+          const [cnt] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE ${where}`, params);
+          total.value = cnt ? cnt.n : 0;
+          const data = await birdQuery(
+            `SELECT Date,Time,Com_Name,Sci_Name,Confidence,File_Name,Model
+             FROM detections WHERE ${where} ORDER BY Date DESC,Time DESC LIMIT ? OFFSET ?`,
+            [...params, PS, (page.value-1)*PS]
+          );
+          data.forEach(r => { r._key = r.Date+r.Time+(r.File_Name||r.Com_Name); });
+          rows.value = data;
+          loadPhotos(data);
+        }
+      } catch(e) { rows.value=[]; allUniqueRows.value=[]; }
+      loading.value = false;
+    }
+
+    async function loadPhotos(data) {
+      const seen=new Set();
+      const tasks=data.filter(r => {
+        if (!r.Sci_Name || seen.has(r.Sci_Name)) return false;
+        seen.add(r.Sci_Name); return true;
+      });
+      for (let i=0; i<tasks.length; i+=5) {
+        await Promise.all(tasks.slice(i,i+5).map(async r => {
+          const url = await fetchCachedPhoto(r.Sci_Name);
+          data.forEach(d => { if (d.Sci_Name===r.Sci_Name) d.photoUrl=url; });
+        }));
+        // Forcer Vue à recalculer uniqueRows (les spreads {...src[i]} ne voient pas
+        // les mutations postérieures sur les objets originaux)
+        if (uniqueMode.value) {
+          allUniqueRows.value = [...allUniqueRows.value];
+        }
+      }
+    }
+
+    async function exportCsv() {
+      try {
+        const { where, params } = buildWhere();
+        const data = await birdQuery(
+          `SELECT Date, Time, Com_Name, Sci_Name, ROUND(Confidence*100,1) as Confidence FROM detections WHERE ${where} ORDER BY Date DESC, Time DESC LIMIT 10000`,
+          params
+        );
+        if (!data.length) return;
+        const headers = ['Date','Time','Species','Scientific_Name','Confidence'];
+        const csvRows = [headers.join(',')];
+        for (const r of data) {
+          csvRows.push([
+            r.Date,
+            r.Time,
+            '"' + (r.Com_Name || '').replace(/"/g, '""') + '"',
+            '"' + (r.Sci_Name || '').replace(/"/g, '""') + '"',
+            r.Confidence + '%'
+          ].join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'birdash-detections-' + localDateStr() + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { console.error('[export]', e); }
+    }
+
+    function exportEbird() {
+      const url = BIRD_CONFIG.apiUrl + '/export/ebird?from=' + encodeURIComponent(fp.dateFrom.value) + '&to=' + encodeURIComponent(fp.dateTo.value) + '&conf=' + encodeURIComponent(fc.confidence.value);
+      window.open(url, '_blank');
+    }
+
+    function applyFilters() { page.value=1; loadDetections(); }
+    function resetFilters() {
+      fSpecies.value=[]; fp.setPeriod('7d');
+      fc.confidence.value=BIRD_CONFIG.defaultConfidence;
+      fOrder.value=''; fFamily.value=''; fGuild.value='';
+      uniqueMode.value=false; spSearch.value='';
+      page.value=1; loadDetections();
+    }
+    function goPage(p) { page.value=p; window.scrollTo(0,0); loadDetections(); }
+
+    watch(uniqueMode, () => { page.value=1; loadDetections(); });
+    watch(lang, async () => {
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      taxonomyData.value = tax.species || [];
+      loadDetections();
+    });
+
+    const spSearchInput = ref(null);
+    function onKeydown(e) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        spDropdownOpen.value = true;
+        nextTick(() => { if (spSearchInput.value) spSearchInput.value.focus(); });
+      }
+    }
+
+    onMounted(async () => {
+      document.addEventListener('keydown', onKeydown);
+      const sp=getUrlParam('species'), dt=getUrlParam('date');
+      const orderParam=getUrlParam('order'), familyParam=getUrlParam('family');
+      // Navigation depuis une autre page → pré-sélectionner l'espèce
+      if (sp) fSpecies.value=[decodeURIComponent(sp)];
+      if (dt) { fp.dateFrom.value=dt; fp.dateTo.value=dt; fp.period.value='custom'; }
+      if (orderParam) fOrder.value=decodeURIComponent(orderParam);
+      if (familyParam) fFamily.value=decodeURIComponent(familyParam);
+      await loadSpecies();
+      // Load taxonomy data (cached in sessionStorage)
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      taxonomyData.value = tax.species || [];
+      await loadDetections();
+    });
+
+    onUnmounted(() => { document.removeEventListener('keydown', onKeydown); });
+
+    return {
+      lang,t,
+      fp,fc,
+      fSpecies,uniqueMode,
+      fOrder,fFamily,fGuild,guildOptions,onGuildChange,taxonomyOrders,taxonomyAllFamilies,onOrderChange,onFamilyChange,spSearchInput,
+      speciesList,
+      spSearch,spDropdownOpen,filteredSpeciesList,allSpeciesSelected,
+      closeSpDropdown,removeSpecies,
+      page,total,rows,loading,totalPages,paginationPages,
+      displayRows,displayTotal,
+      playingFile,toggleAudio, buildAudioUrl,
+      fmtDate,fmtTime,fmtConf,navigateTo,spName,shortModel,
+      applyFilters,resetFilters,goPage,exportCsv,exportEbird,
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

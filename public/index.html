@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Vue d'ensemble</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="index" :title="t('nav_overview')">
+
+    <!-- KPIs -->
+    <div class="kpi-grid kpi-grid-6">
+      <div class="kpi-card">
+        <div class="kpi-value">{{kpis.det || '—'}}</div>
+        <div class="kpi-label">{{t('detections')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value amber">{{kpis.sp || '—'}}</div>
+        <div class="kpi-label">{{t('species')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value blue">{{kpis.conf || '—'}}</div>
+        <div class="kpi-label">{{t('avg_confidence')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value muted">{{kpis.total || '—'}}</div>
+        <div class="kpi-label">{{t('all_time')}}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--accent);">{{kpis.lastHour || '—'}}</div>
+        <div class="kpi-label">{{t('last_hour')}}</div>
+      </div>
+      <div class="kpi-card" style="position:relative;cursor:pointer;" @click="toggleRarePanel">
+        <div class="kpi-value" style="color:var(--danger);">{{kpis.rareToday || '0'}}</div>
+        <div class="kpi-label">{{t('rare_today')}}</div>
+        <div v-if="rarePanelOpen && rareSpeciesToday.length" class="new-sp-panel" @click.stop>
+          <div class="new-sp-title">{{t('rare_today')}} ({{rareSpeciesToday.length}})</div>
+          <div v-for="r in rareSpeciesToday" :key="r.Com_Name" class="new-sp-item"
+               @click.stop="navigateTo('species.html',{species:r.Com_Name})">
+            <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name"
+                 style="width:32px;height:32px;border-radius:6px;object-fit:cover;flex-shrink:0;"></bird-img>
+            <div v-else style="width:32px;height:32px;border-radius:6px;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">💎</div>
+            <div style="flex:1;min-width:0;text-align:left;">
+              <div style="font-size:.82rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}}</div>
+              <div style="font-size:.68rem;color:var(--text-muted);font-style:italic;">{{r.Sci_Name}}</div>
+            </div>
+            <span class="rare-badge" style="flex-shrink:0;">💎 {{r.n}}×</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Morning summary — What's new -->
+    <div v-if="morning.loaded" class="card" style="margin-bottom:1rem;">
+      <div class="card-title">{{t('morning_summary')}}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+        <!-- New today -->
+        <div style="padding:.6rem .8rem;background:var(--bg-deep);border-radius:var(--radius);">
+          <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem;">
+            {{t('new_today')}}
+          </div>
+          <div v-if="morning.newSpecies.length">
+            <div v-for="sp in morning.newSpecies.slice(0,5)" :key="sp"
+                 style="font-size:.82rem;margin-bottom:.15rem;">
+              <a class="species-link" @click="navigateTo('species.html',{species:sp})"
+                 style="cursor:pointer;">{{spName(sp)}}</a>
+            </div>
+            <div v-if="morning.newSpecies.length > 5"
+                 style="font-size:.72rem;color:var(--text-faint);margin-top:.2rem;">
+              +{{morning.newSpecies.length - 5}} {{t('species').toLowerCase()}}
+            </div>
+          </div>
+          <div v-else style="font-size:.8rem;color:var(--text-faint);font-style:italic;">
+            {{t('no_new_species')}}
+          </div>
+        </div>
+        <!-- Best detection -->
+        <div style="padding:.6rem .8rem;background:var(--bg-deep);border-radius:var(--radius);">
+          <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem;">
+            {{t('best_detection')}}
+          </div>
+          <div v-if="morning.bestDet">
+            <a class="species-link" @click="navigateTo('species.html',{species:morning.bestDet.Com_Name})"
+               style="cursor:pointer;font-size:.88rem;font-weight:600;">
+              {{spName(morning.bestDet.Com_Name, morning.bestDet.Sci_Name)}}
+            </a>
+            <div style="display:flex;align-items:center;gap:.4rem;margin-top:.2rem;">
+              <span :class="'conf-badge '+(parseFloat(morning.bestDet.Confidence)>=0.8?'conf-high':'conf-mid')">
+                {{fmtConf(morning.bestDet.Confidence)}}
+              </span>
+              <span style="font-size:.72rem;color:var(--text-faint);font-family:monospace;">
+                {{fmtTime(morning.bestDet.Time)}}
+              </span>
+            </div>
+          </div>
+          <div v-else style="font-size:.8rem;color:var(--text-faint);font-style:italic;">—</div>
+        </div>
+        <!-- Activity vs yesterday -->
+        <div style="padding:.6rem .8rem;background:var(--bg-deep);border-radius:var(--radius);">
+          <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem;">
+            {{t('detections')}} {{t('vs_yesterday')}}
+          </div>
+          <div style="display:flex;align-items:baseline;gap:.5rem;">
+            <span style="font-size:1.3rem;font-weight:700;color:var(--accent);">{{morning.todayCount}}</span>
+            <span style="font-size:.78rem;color:var(--text-muted);">
+              {{t('vs_yesterday')}} {{morning.yesterdayCount}}
+            </span>
+          </div>
+          <div v-if="morning.yesterdayCount > 0"
+               style="font-size:.78rem;margin-top:.2rem;"
+               :style="'color:' + (morning.todayCount >= morning.yesterdayCount ? 'var(--accent)' : 'var(--danger)')">
+            {{morning.todayCount >= morning.yesterdayCount ? '▲' : '▼'}}
+            {{Math.abs(Math.round((morning.todayCount - morning.yesterdayCount) / morning.yesterdayCount * 100))}}%
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Dernière détection -->
+      <div class="card">
+        <div class="card-title">{{t('last_detection')}}</div>
+        <div v-if="lastDet.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!lastDet.row" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <!-- Photo espèce -->
+          <div class="last-det-photo-wrap">
+            <bird-img v-if="lastDet.photoUrl" :src="lastDet.photoUrl"
+                 :alt="lastDet.row.Com_Name"></bird-img>
+          </div>
+          <!-- Nom + confiance -->
+          <div style="display:flex;align-items:flex-start;gap:.75rem;">
+            <div style="flex:1;">
+              <div style="font-size:1.05rem;font-family:var(--font-display);font-weight:600;">
+                <a class="species-link" @click="navigateTo('species.html',{species:lastDet.row.Com_Name})">
+                  {{spName(lastDet.row.Com_Name, lastDet.row.Sci_Name)}}
+                </a>
+              </div>
+              <div style="font-size:.8rem;color:var(--text-muted);font-style:italic;">{{lastDet.row.Sci_Name}}</div>
+              <div style="font-size:.72rem;color:var(--text-faint);margin-top:.2rem;">
+                {{fmtDate(lastDet.row.Date)}} · {{fmtTime(lastDet.row.Time)}}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.3rem;">
+              <span v-if="lastDet.row.Model" class="model-tag">{{shortModel(lastDet.row.Model)}}</span>
+              <span :class="'conf-badge '+(parseFloat(lastDet.row.Confidence)>=0.8?'conf-high':parseFloat(lastDet.row.Confidence)>=0.6?'conf-mid':'conf-low')">
+                {{fmtConf(lastDet.row.Confidence)}}
+              </span>
+            </div>
+          </div>
+          <!-- Player -->
+          <div v-if="lastDet.row.File_Name" class="idx-player">
+            <button class="idx-play-btn" :class="{playing: richPlaying}"
+                    @click="toggleRichPlay(lastDet.row.File_Name)">
+              {{richPlaying ? '⏹' : '▶'}}
+            </button>
+            <div class="idx-progress" @click="seekRich">
+              <div class="idx-progress-fill" :style="{width: richProgress+'%'}"></div>
+            </div>
+            <span class="idx-duration">{{richDuration}}</span>
+          </div>
+          <!-- Spectrogramme -->
+          <div v-if="lastDet.row.File_Name" class="idx-spectro-wrap">
+            <div class="idx-spectro-freqs">
+              <span class="idx-spectro-freq">12k</span>
+              <span class="idx-spectro-freq">6k</span>
+              <span class="idx-spectro-freq">0</span>
+            </div>
+            <canvas ref="spectroCanvas" :width="600" :height="90"
+                    style="padding-left:24px;box-sizing:border-box;"></canvas>
+            <div v-if="spectroState==='loading'" class="idx-spectro-overlay">
+              ⏳ Analyse…
+            </div>
+            <button v-if="spectroState==='ready'" class="spectro-expand-btn"
+                    @click.stop="openSpectroModal(lastDet.row)"
+                    :title="t('spectro_expand')||'Agrandir le spectrogramme'">⛶</button>
+          </div>
+          <!-- Clean -->
+          <div v-if="spectroState==='ready' || cleanProcessing"
+               class="idx-clean-bar">
+            <button class="idx-clean-btn"
+                    :disabled="cleanProcessing"
+                    :style="cleanMode
+                      ? 'background:var(--accent);color:#fff;border-color:var(--accent);'
+                      : 'background:transparent;color:var(--text-muted);border-color:var(--border);'"
+                    @click="toggleClean">
+              <span v-if="cleanProcessing">⏳ Nettoyage…</span>
+              <span v-else-if="cleanMode">✨ Nettoyé</span>
+              <span v-else>🎛 Nettoyer le son</span>
+            </button>
+            <template v-if="cleanMode && !cleanProcessing">
+              <span style="font-size:.72rem;color:var(--text-muted);">Force</span>
+              <input type="range" min="0.2" max="1.0" step="0.05"
+                     v-model.number="cleanStrength" @change="reapplyClean" aria-label="Clean strength"
+                     style="flex:1;max-width:100px;accent-color:var(--accent);">
+              <span style="font-size:.7rem;font-family:monospace;color:var(--accent);">
+                {{Math.round(cleanStrength*100)}}%
+              </span>
+            </template>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-faint);margin-top:.5rem;font-style:italic;">
+            {{freshnessLabel(lastDet.row.Date, lastDet.row.Time, t)}}
+          </div>
+        </div>
+      </div>
+
+      <!-- Graphiques activité (stacked) -->
+      <div class="idx-right-stack">
+        <div class="card">
+          <div class="card-title">{{t('activity_today')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">{{t('activity_7d')}}</div>
+          <div class="chart-wrap"><canvas ref="canvas7d"></canvas></div>
+        </div>
+        <!-- Espèces rares aujourd'hui -->
+        <div class="card" v-if="rareSpeciesToday.length">
+          <div class="card-title">{{t('rare_today')}}</div>
+          <div v-for="r in rareSpeciesToday" :key="r.Com_Name" class="det-item">
+            <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" ></bird-img>
+            <div v-else class="det-thumb-ph">💎</div>
+            <div class="det-species">
+              <a class="species-link" @click="navigateTo('species.html',{species:r.Com_Name})">{{spName(r.Com_Name, r.Sci_Name)}}</a>
+              <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button>
+              <div class="det-sci">{{r.Sci_Name}} — {{r.totalDet}}× {{t('all_time').toLowerCase()}}</div>
+            </div>
+            <span class="rare-badge">💎 {{r.n}}×</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Top espèces -->
+      <div class="card">
+        <div class="card-title">{{t('top_species')}}</div>
+        <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasTop"></canvas></div>
+      </div>
+
+      <!-- Feed récent -->
+      <div class="card">
+        <div class="card-title">{{t('recent_detections')}}</div>
+        <div v-if="feed.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!feed.rows.length" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <div v-for="d in feed.rows" :key="d.Date+d.Time+d.File_Name"
+               class="det-item"
+               :style="d.isRare ? 'border-left:2px solid var(--danger);padding-left:.4rem;' : ''">
+            <!-- Miniature espèce -->
+            <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb"
+                 :alt="d.Com_Name"></bird-img>
+            <div v-else class="det-thumb-ph">🐦</div>
+            <!-- Bouton play -->
+            <button v-if="d.File_Name" class="play-btn"
+                    style="width:22px;height:22px;font-size:.6rem;"
+                    :class="{playing:playingFile===d.File_Name}"
+                    @click="toggleAudio(d.File_Name)">▶</button>
+            <span v-else style="width:22px;display:inline-block;"></span>
+            <div class="det-time">{{fmtTime(d.Time)}}</div>
+            <div class="det-species">
+              <a class="species-link" @click="navigateTo('species.html',{species:d.Com_Name})">
+                {{spName(d.Com_Name, d.Sci_Name)}}
+              </a>
+              <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(d.Com_Name)">&#x1F50A;</button>
+              <div class="det-sci">{{d.Sci_Name}}</div>
+            </div>
+            <!-- Badge rareté -->
+            <span v-if="d.isRare" class="rare-badge" :title="'Vu seulement '+d.totalDet+' fois'">
+              💎 {{d.totalDet}}×
+            </span>
+            <span v-else style="display:flex;align-items:center;gap:.25rem;">
+              <span v-if="d.Model" class="model-tag">{{shortModel(d.Model)}}</span>
+              <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')">
+                {{fmtConf(d.Confidence)}}
+              </span>
+            </span>
+          </div>
+        </div>
+        <div style="text-align:right;margin-top:.75rem;">
+          <a href="detections.html" class="btn btn-secondary">{{t('nav_detections')}} →</a>
+        </div>
+      </div>
+
+    </div>
+
+
+  </birdash-shell>
+</div>
+
+<script>
+// ── FFT + DSP (copié de today.html) ──────────────────────────────────────────
+function _fftIdx(re, im) {
+  const n = re.length;
+  for (let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}
+  for (let len=2;len<=n;len<<=1){const half=len>>1,wc=Math.cos(-Math.PI/half),ws=Math.sin(-Math.PI/half);for(let i=0;i<n;i+=len){let wR=1,wI=0;for(let k=0;k<half;k++){const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;re[i+k]=uR+vR;im[i+k]=uI+vI;re[i+k+half]=uR-vR;im[i+k+half]=uI-vI;const nwR=wR*wc-wI*ws;wI=wR*ws+wI*wc;wR=nwR;}}}
+}
+function buildColorLUT() {
+  const lut=new Uint8Array(256*3);
+  const stops=[[0,[0,0,0]],[0.1,[20,0,50]],[0.25,[80,0,100]],[0.42,[180,20,80]],[0.58,[230,70,20]],[0.75,[255,155,0]],[0.90,[255,230,70]],[1.0,[255,255,255]]];
+  for(let i=0;i<256;i++){const v=i/255;let s=0;while(s<stops.length-2&&stops[s+1][0]<=v)s++;const[v0,c0]=stops[s],[v1,c1]=stops[s+1];const t=Math.min(1,(v-v0)/(v1-v0+1e-9));lut[i*3]=Math.round(c0[0]+t*(c1[0]-c0[0]));lut[i*3+1]=Math.round(c0[1]+t*(c1[1]-c0[1]));lut[i*3+2]=Math.round(c0[2]+t*(c1[2]-c0[2]));}
+  return lut;
+}
+const COLOR_LUT = buildColorLUT();
+
+async function fetchAndDecodeAudio(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const arrBuf = await resp.arrayBuffer();
+  const ctx    = new (window.AudioContext||window.webkitAudioContext)();
+  const buf    = await ctx.decodeAudioData(arrBuf);
+  await ctx.close();
+  return { pcm: buf.getChannelData(0).slice(), sr: buf.sampleRate, duration: buf.duration };
+}
+
+function drawSpectrogramFromPcm(pcm, sr, canvas) {
+  const FFT=512, HOP=128, HALF=FFT/2, maxHz=12000;
+  const maxBin=Math.min(HALF,Math.floor(maxHz/sr*FFT));
+  const hann=new Float32Array(FFT);
+  for(let i=0;i<FFT;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
+  const frames=[];
+  for(let off=0;off+FFT<=pcm.length;off+=HOP){const re=new Float32Array(FFT),im=new Float32Array(FFT);for(let i=0;i<FFT;i++)re[i]=pcm[off+i]*hann[i];_fftIdx(re,im);const mag=new Float32Array(maxBin);for(let i=1;i<maxBin;i++)mag[i]=20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);frames.push(mag);}
+  const all=[];frames.forEach(f=>f.forEach(v=>all.push(v)));all.sort((a,b)=>a-b);
+  const lo=all[Math.floor(all.length*.05)]??-80,hi=all[Math.floor(all.length*.995)]??-10,rng=hi-lo||1;
+  const W=canvas.width,H=canvas.height;canvas.width=W;
+  const ctx=canvas.getContext('2d'),img=ctx.createImageData(W,H),d=img.data;
+  for(let px=0;px<W;px++){const frame=frames[Math.min(Math.floor(px/W*frames.length),frames.length-1)];for(let py=0;py<H;py++){const bin=Math.floor((H-1-py)/H*maxBin);const v=Math.max(0,Math.min(1,(frame[bin]-lo)/rng));const ci=Math.min(255,Math.floor(v*255))*3;const pi=(py*W+px)*4;d[pi]=COLOR_LUT[ci];d[pi+1]=COLOR_LUT[ci+1];d[pi+2]=COLOR_LUT[ci+2];d[pi+3]=255;}}
+  ctx.putImageData(img,0,0);
+}
+
+function _hpIIR(pcm,sr,cutHz=850){const alpha=1/(1+2*Math.PI*cutHz/sr),out=new Float32Array(pcm.length);out[0]=pcm[0];for(let i=1;i<pcm.length;i++)out[i]=alpha*(out[i-1]+pcm[i]-pcm[i-1]);return out;}
+function _specSub(pcm,strength=0.8){const FFT=512,HOP=128,HALF=FFT/2;const hann=new Float32Array(FFT);for(let i=0;i<FFT;i++)hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));const frames=[];for(let off=0;off+FFT<=pcm.length;off+=HOP){const re=new Float32Array(FFT),im=new Float32Array(FFT);let energy=0;for(let i=0;i<FFT;i++){re[i]=pcm[off+i]*hann[i];energy+=re[i]*re[i];}_fftIdx(re,im);frames.push({re,im,energy,off});}const byE=[...frames].sort((a,b)=>a.energy-b.energy);const nC=Math.max(2,Math.floor(frames.length*.15));const nM=new Float32Array(HALF);for(let fi=0;fi<nC;fi++){const{re,im}=byE[fi];for(let k=0;k<HALF;k++)nM[k]+=Math.sqrt(re[k]*re[k]+im[k]*im[k]);}for(let k=0;k<HALF;k++)nM[k]/=nC;const out=new Float32Array(pcm.length),norm=new Float32Array(pcm.length);for(const{re,im,off}of frames){for(let k=0;k<HALF;k++){const mag=Math.sqrt(re[k]*re[k]+im[k]*im[k]);const sc=mag>1e-12?Math.max(mag-strength*nM[k],0.05*mag)/mag:0;re[k]*=sc;im[k]*=sc;}for(let k=1;k<HALF;k++){re[FFT-k]=re[k];im[FFT-k]=-im[k];}re[HALF]=0;im[HALF]=0;for(let k=0;k<FFT;k++)im[k]=-im[k];_fftIdx(re,im);for(let i=0;i<FFT;i++){const n=off+i;if(n<out.length){const w=hann[i];out[n]+=(re[i]/FFT)*w;norm[n]+=w*w;}}}for(let i=0;i<out.length;i++)if(norm[i]>1e-10)out[i]/=norm[i];return out;}
+function cleanAudioPipeline(pcm,sr,strength){return _specSub(_hpIIR(pcm,sr,850),strength);}
+function encodeWav(pcm,sr){const ds=pcm.length*2,buf=new ArrayBuffer(44+ds),v=new DataView(buf);const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};w(0,'RIFF');v.setUint32(4,36+ds,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,ds,true);for(let i=0;i<pcm.length;i++)v.setInt16(44+i*2,Math.max(-32768,Math.min(32767,Math.round(pcm[i]*32767))),true);return new Blob([buf],{type:'audio/wav'});}
+
+// ── Vue app ───────────────────────────────────────────────────────────────────
+const { createApp, ref, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
+        birdQuery, fmtDate, fmtTime, fmtConf, freshnessLabel,
+        localDateStr, daysAgo, chartDefaults, navigateTo,
+        buildAudioUrl, fetchCachedPhoto, shortModel, quickPlaySpecies } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('index');
+    const { playingFile, toggleAudio } = useAudio();
+    const { spName } = useSpeciesNames();
+    const { mountChart: mount7d }     = useChart();
+    const { mountChart: mountTop }    = useChart();
+    const { mountChart: mountHourly } = useChart();
+
+    const today = localDateStr();
+    const CONF  = BIRD_CONFIG.defaultConfidence;
+
+    const canvas7d      = ref(null);
+    const canvasTop     = ref(null);
+    const canvasHourly  = ref(null);
+    const spectroCanvas = ref(null);
+
+    const kpis    = ref({ det:'', sp:'', conf:'', total:'', lastHour:'', rareToday:'0' });
+    const rarePanelOpen = ref(false);
+    function toggleRarePanel(e) {
+      if (!rareSpeciesToday.value.length) return;
+      rarePanelOpen.value = !rarePanelOpen.value;
+      e.stopPropagation();
+    }
+    onMounted(() => document.addEventListener('click', () => { rarePanelOpen.value = false; }));
+    const lastDet = ref({ loading:true, row:null, photoUrl:null });
+    const feed    = ref({ loading:true, rows:[] });
+    const rareSpeciesToday = ref([]);
+    const morning = ref({ newSpecies: [], bestDet: null, todayCount: 0, yesterdayCount: 0, loaded: false });
+    const data7d     = ref(null);
+    const dataTop    = ref(null);
+    const dataHourly = ref(null);
+
+    // ── Rich player ────────────────────────────────────────────────
+    const richPlaying  = ref(false);
+    const richProgress = ref(0);
+    const richDuration = ref('');
+    let _richAudio = null, _richRaf = null, _richBlobUrl = null;
+
+    // ── Spectrogramme + Clean ──────────────────────────────────────
+    const spectroState   = ref('idle');  // idle | loading | ready
+    const cleanMode      = ref(false);
+    const cleanStrength  = ref(0.75);
+    const cleanProcessing= ref(false);
+    let _rawPcm = null, _rawSr = 22050;
+
+    // ── Data loading ───────────────────────────────────────────────
+    async function loadMorningSummary() {
+      try {
+        const yesterday = daysAgo(1);
+        // Species seen today but not yesterday
+        const newRows = await birdQuery(
+          `SELECT DISTINCT Com_Name FROM detections WHERE Date=?
+           AND Com_Name NOT IN (SELECT DISTINCT Com_Name FROM detections WHERE Date=?)`,
+          [today, yesterday]);
+        // Best confidence detection today
+        const [best] = await birdQuery(
+          `SELECT Com_Name, Sci_Name, Confidence, Time FROM detections
+           WHERE Date=? ORDER BY Confidence DESC LIMIT 1`, [today]);
+        // Counts
+        const [tc] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [today]);
+        const [yc] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [yesterday]);
+        morning.value = {
+          newSpecies: (newRows || []).map(r => r.Com_Name),
+          bestDet: best || null,
+          todayCount: tc ? tc.n : 0,
+          yesterdayCount: yc ? yc.n : 0,
+          loaded: true,
+        };
+      } catch(e) { console.error('morning:', e); }
+    }
+
+    async function loadAll() {
+      await Promise.all([loadKpis(), loadLastDet(), loadFeed(),
+                         load7dData(), loadTopData(), loadHourlyData(),
+                         loadRareSpeciesToday(), loadMorningSummary()]);
+    }
+
+    async function loadKpis() {
+      try {
+        const [td]  = await birdQuery(`SELECT COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp, ROUND(AVG(Confidence)*100,1) as conf FROM detections WHERE Date=?`,[today]);
+        const [tot] = await birdQuery(`SELECT COUNT(*) as n FROM detections`);
+        // Détections dernière heure
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2,'0');
+        const mm = String(now.getMinutes()).padStart(2,'0');
+        const oneHourAgo = new Date(now - 3600000);
+        const hh0 = String(oneHourAgo.getHours()).padStart(2,'0');
+        const mm0 = String(oneHourAgo.getMinutes()).padStart(2,'0');
+        const [lh] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=? AND Time>=? AND Time<=?`,[today, `${hh0}:${mm0}:00`, `${hh}:${mm}:59`]);
+        // Espèces rares aujourd'hui (≤5 détections all-time)
+        const rares = await birdQuery(`WITH today_sp AS (SELECT DISTINCT Com_Name FROM detections WHERE Date=?), rare_sp AS (SELECT Com_Name FROM detections GROUP BY Com_Name HAVING COUNT(*)<=5) SELECT COUNT(*) as n FROM today_sp INNER JOIN rare_sp USING(Com_Name)`,[today]);
+        kpis.value = {
+          det: td?td.det.toLocaleString():'0', sp: td?td.sp:'0',
+          conf: td&&td.conf?td.conf+'%':'—', total: tot?tot.n.toLocaleString():'0',
+          lastHour: lh?lh.n.toLocaleString():'0',
+          rareToday: rares&&rares[0]?String(rares[0].n):'0'
+        };
+      } catch(e) {}
+    }
+
+    async function loadLastDet() {
+      lastDet.value.loading = true;
+      try {
+        const [row] = await birdQuery(`SELECT Date,Time,Com_Name,Sci_Name,Confidence,File_Name,Model FROM detections ORDER BY Date DESC,Time DESC LIMIT 1`);
+        const photoUrl = row?.Sci_Name ? await fetchCachedPhoto(row.Sci_Name) : null;
+        lastDet.value = { loading:false, row:row||null, photoUrl };
+        // Charger le spectrogramme automatiquement
+        if (row?.File_Name) await nextTick().then(loadSpectro);
+      } catch(e) { lastDet.value = { loading:false, row:null, photoUrl:null }; }
+    }
+
+    async function loadFeed() {
+      feed.value.loading = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT Date,Time,Com_Name,Sci_Name,Confidence,File_Name,Model
+           FROM detections ORDER BY Date DESC,Time DESC LIMIT 15`
+        );
+
+        // Charger le compteur total par espèce pour détecter les raretés (≤5)
+        const speciesInFeed = [...new Set(rows.map(r => r.Com_Name))];
+        let rarityMap = {};
+        if (speciesInFeed.length) {
+          const counts = await birdQuery(
+            `SELECT Com_Name, COUNT(*) as n FROM detections
+             WHERE Com_Name IN (${speciesInFeed.map(()=>'?').join(',')})
+             GROUP BY Com_Name`,
+            speciesInFeed
+          );
+          counts.forEach(c => { rarityMap[c.Com_Name] = c.n; });
+        }
+
+        // Photos + marquage rareté
+        await Promise.all(rows.map(async r => {
+          r.photoUrl  = r.Sci_Name ? await fetchCachedPhoto(r.Sci_Name) : null;
+          r.totalDet  = rarityMap[r.Com_Name] || 0;
+          r.isRare    = r.totalDet > 0 && r.totalDet <= 5;
+        }));
+
+        feed.value = { loading:false, rows };
+      } catch(e) { feed.value = { loading:false, rows:[] }; }
+    }
+
+    // ── Player avec progression ────────────────────────────────────
+    function _playUrl(url) {
+      if (_richAudio) { _richAudio.pause(); _richAudio = null; }
+      if (_richRaf) { cancelAnimationFrame(_richRaf); _richRaf = null; }
+      const a = new Audio(url);
+      _richAudio = a;
+      richPlaying.value = true;
+      richProgress.value = 0;
+      a.play().catch(() => { richPlaying.value = false; });
+      a.addEventListener('loadedmetadata', () => {
+        const m=Math.floor(a.duration/60), s=Math.floor(a.duration%60);
+        richDuration.value = `${m}:${s.toString().padStart(2,'0')}`;
+      });
+      a.addEventListener('ended', () => {
+        richPlaying.value = false; richProgress.value = 0;
+        cancelAnimationFrame(_richRaf); _richRaf = null;
+      });
+      function tick() {
+        if (!_richAudio || _richAudio.paused) return;
+        richProgress.value = _richAudio.duration
+          ? (_richAudio.currentTime / _richAudio.duration * 100) : 0;
+        _richRaf = requestAnimationFrame(tick);
+      }
+      _richRaf = requestAnimationFrame(tick);
+    }
+
+    function toggleRichPlay(fileName) {
+      const origUrl = buildAudioUrl(fileName);
+      if (!origUrl) return;
+      if (richPlaying.value && _richAudio) {
+        _richAudio.pause(); _richAudio = null;
+        cancelAnimationFrame(_richRaf); _richRaf = null;
+        richPlaying.value = false; richProgress.value = 0;
+        return;
+      }
+      const url = (cleanMode.value && _richBlobUrl) ? _richBlobUrl : origUrl;
+      _playUrl(url);
+    }
+
+    function seekRich(e) {
+      if (!_richAudio || !_richAudio.duration) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      _richAudio.currentTime = ((e.clientX - rect.left) / rect.width) * _richAudio.duration;
+    }
+
+    // ── Spectrogramme ─────────────────────────────────────────────
+    async function loadSpectro() {
+      const fileName = lastDet.value.row?.File_Name;
+      if (!fileName) return;
+      const url = buildAudioUrl(fileName);
+      if (!url) return;
+      spectroState.value = 'loading';
+      await nextTick();
+      try {
+        const { pcm, sr, duration } = await fetchAndDecodeAudio(url);
+        _rawPcm = pcm; _rawSr = sr;
+        const m=Math.floor(duration/60), s=Math.floor(duration%60);
+        richDuration.value = `${m}:${s.toString().padStart(2,'0')}`;
+        if (spectroCanvas.value) drawSpectrogramFromPcm(pcm, sr, spectroCanvas.value);
+        spectroState.value = 'ready';
+      } catch(e) {
+        console.error('[spectro idx]', e);
+        spectroState.value = 'idle';
+      }
+    }
+
+    // ── Clean ──────────────────────────────────────────────────────
+    async function toggleClean() {
+      if (!_rawPcm) return;
+      const newMode = !cleanMode.value;
+      cleanMode.value = newMode;
+      if (newMode) {
+        await applyClean();
+      } else {
+        if (_richAudio) { _richAudio.pause(); _richAudio = null; richPlaying.value = false; }
+        if (_richBlobUrl) { URL.revokeObjectURL(_richBlobUrl); _richBlobUrl = null; }
+        if (spectroCanvas.value) drawSpectrogramFromPcm(_rawPcm, _rawSr, spectroCanvas.value);
+      }
+    }
+
+    async function applyClean() {
+      if (!_rawPcm) return;
+      cleanProcessing.value = true;
+      if (_richAudio) { _richAudio.pause(); _richAudio = null; richPlaying.value = false; }
+      await new Promise(r => setTimeout(r, 30));
+      try {
+        const cleaned = cleanAudioPipeline(_rawPcm, _rawSr, cleanStrength.value);
+        if (spectroCanvas.value) drawSpectrogramFromPcm(cleaned, _rawSr, spectroCanvas.value);
+        if (_richBlobUrl) URL.revokeObjectURL(_richBlobUrl);
+        _richBlobUrl = URL.createObjectURL(encodeWav(cleaned, _rawSr));
+      } catch(e) { console.error('[clean idx]', e); cleanMode.value = false; }
+      cleanProcessing.value = false;
+    }
+
+    async function reapplyClean() { if (cleanMode.value) await applyClean(); }
+
+    async function loadRareSpeciesToday() {
+      try {
+        const rows = await birdQuery(
+          `SELECT d.Com_Name, d.Sci_Name, COUNT(*) as n, t.total as totalDet
+           FROM detections d
+           INNER JOIN (SELECT Com_Name, COUNT(*) as total FROM detections GROUP BY Com_Name HAVING total<=5) t
+             ON d.Com_Name=t.Com_Name
+           WHERE d.Date=? GROUP BY d.Com_Name ORDER BY t.total ASC, n DESC`,[today]);
+        await Promise.all(rows.map(async r => {
+          r.photoUrl = r.Sci_Name ? await fetchCachedPhoto(r.Sci_Name) : null;
+        }));
+        rareSpeciesToday.value = rows;
+      } catch(e) {}
+    }
+
+    async function load7dData() {
+      try {
+        const rows = await birdQuery(`SELECT Date, COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp FROM detections WHERE Date>=? AND Date<=? GROUP BY Date ORDER BY Date ASC`,[daysAgo(6),today]);
+        data7d.value = rows;
+      } catch(e) {}
+    }
+    async function loadTopData() {
+      try {
+        const rows = await birdQuery(`SELECT Com_Name, Sci_Name, COUNT(*) as n FROM detections WHERE Date>=? AND Confidence>=? GROUP BY Com_Name, Sci_Name ORDER BY n DESC LIMIT ?`,[daysAgo(6),CONF,BIRD_CONFIG.topSpeciesCount]);
+        dataTop.value = rows;
+      } catch(e) {}
+    }
+    async function loadHourlyData() {
+      try {
+        const rows = await birdQuery(`SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Date=? GROUP BY h ORDER BY h ASC`,[today]);
+        const vals=Array(24).fill(0);
+        rows.forEach(r=>{vals[r.h]=r.n;});
+        dataHourly.value = vals;
+      } catch(e) {}
+    }
+
+    watch([data7d, lang], async () => {
+      await nextTick();
+      const d = data7d.value;
+      if (!d || !canvas7d.value) return;
+      const map={};d.forEach(r=>{map[r.Date]=r;});
+      const labels=[],dets=[],sps=[];
+      for(let i=6;i>=0;i--){const date=daysAgo(i);const mo=t('months_short')[new Date(date).getMonth()];labels.push(`${new Date(date).getDate()} ${mo}`);dets.push(map[date]?map[date].n:0);sps.push(map[date]?map[date].sp:0);}
+      // Trendline: linear regression on detections
+      const n=dets.length, sumX=n*(n-1)/2, sumY=dets.reduce((a,b)=>a+b,0);
+      const sumXY=dets.reduce((a,y,i)=>a+i*y,0), sumX2=n*(n-1)*(2*n-1)/6;
+      const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX||1);
+      const intercept=(sumY-slope*sumX)/n;
+      const trend=dets.map((_,i)=>Math.max(0,Math.round(intercept+slope*i)));
+      const cs=getComputedStyle(document.documentElement);
+      const accent=cs.getPropertyValue('--accent').trim();
+      const gridC=cs.getPropertyValue('--border').trim()+'40';
+      const txtC=cs.getPropertyValue('--text-muted').trim();
+      mount7d(canvas7d, ()=>({type:'bar',data:{labels,datasets:[
+        {label:t('detections'),data:dets,backgroundColor:accent+'99',borderColor:accent,borderWidth:0,borderRadius:4},
+        {label:t('species'),data:sps,type:'line',borderColor:'#eab308',backgroundColor:'rgba(234,179,8,.08)',pointBackgroundColor:'#eab308',pointRadius:3,tension:0.3,yAxisID:'y2'},
+        {label:'Tendance',data:trend,type:'line',borderColor:accent+'60',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0,yAxisID:'y',fill:false}
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:txtC,usePointStyle:true,pointStyle:'circle',boxWidth:6}},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:accent+'40',borderWidth:1,titleColor:'#fff',bodyColor:txtC}},scales:{x:{ticks:{color:txtC,font:{size:11}},grid:{display:false}},y:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true},y2:{position:'right',ticks:{color:'#eab308',font:{size:10}},grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true}}}}));
+    });
+
+    watch([dataTop, lang], async () => {
+      await nextTick();
+      const d = dataTop.value;
+      if (!d || !canvasTop.value) return;
+      const cs=getComputedStyle(document.documentElement);
+      const gridC=cs.getPropertyValue('--border').trim()+'40';
+      const txtC=cs.getPropertyValue('--text-muted').trim();
+      mountTop(canvasTop, ()=>({type:'bar',data:{labels:d.map(r=>spName(r.Com_Name,r.Sci_Name)),datasets:[{label:t('detections'),data:d.map(r=>r.n),backgroundColor:BIRD_CONFIG.chartColors.map(c=>c+'cc'),borderColor:BIRD_CONFIG.chartColors,borderWidth:0,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,els)=>{if(els.length)navigateTo('species.html',{species:d[els[0].index].Com_Name});},plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:gridC,borderWidth:1,titleColor:'#fff',bodyColor:txtC,callbacks:{title:i=>i[0].label,label:i=>` ${i.raw} ${t('detections')}`}}},scales:{x:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true},y:{ticks:{color:txtC,font:{size:11}},grid:{display:false}}}}}));
+    });
+
+    watch([dataHourly, lang], async () => {
+      await nextTick();
+      const d = dataHourly.value;
+      if (!d || !canvasHourly.value) return;
+      const cs=getComputedStyle(document.documentElement);
+      const accent=cs.getPropertyValue('--accent').trim();
+      const gridC=cs.getPropertyValue('--border').trim()+'40';
+      const txtC=cs.getPropertyValue('--text-muted').trim();
+      const curH=new Date().getHours();
+      mountHourly(canvasHourly, ()=>({type:'bar',data:{labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),datasets:[{label:t('detections'),data:d,backgroundColor:d.map((v,i)=>i===curH?accent:(v>0?accent+'80':accent+'15')),borderWidth:0,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:accent+'40',borderWidth:1,titleColor:'#fff',bodyColor:txtC}},scales:{x:{ticks:{color:txtC,font:{size:9}},grid:{display:false}},y:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true}}}}));
+    });
+
+    onMounted(() => loadAll());
+    onUnmounted(() => {
+      if (_richAudio) { _richAudio.pause(); _richAudio = null; }
+      if (_richBlobUrl) URL.revokeObjectURL(_richBlobUrl);
+    });
+
+    function openSpectroModal(row) {
+      BIRDASH.openSpectroModal({
+        fileName: row.File_Name,
+        speciesName: row.Com_Name,
+        sciName: row.Sci_Name,
+        confidence: parseFloat(row.Confidence),
+        date: row.Date,
+        time: row.Time
+      });
+    }
+
+    return {
+      lang, t, spName,
+      today, kpis, lastDet, feed, rareSpeciesToday, rarePanelOpen, toggleRarePanel, morning,
+      playingFile, toggleAudio,
+      richPlaying, richProgress, richDuration, toggleRichPlay, seekRich,
+      spectroCanvas, spectroState, loadSpectro,
+      cleanMode, cleanStrength, cleanProcessing, toggleClean, reapplyClean,
+      fmtDate, fmtTime, fmtConf, freshnessLabel, navigateTo, shortModel,
+      canvas7d, canvasTop, canvasHourly,
+      openSpectroModal,
+      quickPlay(comName) { quickPlaySpecies(comName); },
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

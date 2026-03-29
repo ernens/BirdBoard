@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Espèces</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="species" :title="t('nav_species')">
+
+    <!-- Spinner initial -->
+    <div v-if="mode==='loading'" class="spinner" style="padding:4rem;"><div></div><div></div><div></div></div>
+
+    <!-- Fiche espèce -->
+    <div v-if="mode==='detail' || mode==='picker'">
+
+      <!-- Back button -->
+      <div style="margin-bottom:.6rem;">
+        <a href="javascript:history.back()" style="font-size:.8rem;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;"
+           onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">
+          <span style="font-size:1rem;">←</span> {{t('nav_detections')}}
+        </a>
+      </div>
+
+      <!-- ── Hero : Photo carousel + infos ──────────────────────── -->
+      <div class="sp-hero">
+
+        <!-- Carousel photos -->
+        <div class="sp-carousel">
+          <div class="sp-carousel-main">
+            <bird-img v-if="photos.length" :src="photos[photoIdx].url" :alt="sp.name"
+                 class="sp-carousel-img"></bird-img>
+            <div v-else-if="photosLoading" class="sp-carousel-placeholder">
+              <div class="spinner"><div></div><div></div><div></div></div>
+            </div>
+            <div v-else class="sp-carousel-placeholder">🦜</div>
+            <!-- Navigation arrows -->
+            <button v-if="photos.length>1" class="sp-arrow sp-arrow-l" @click="prevPhoto">‹</button>
+            <button v-if="photos.length>1" class="sp-arrow sp-arrow-r" @click="nextPhoto">›</button>
+            <!-- Counter -->
+            <div v-if="photos.length>1" class="sp-photo-counter">
+              {{photoIdx+1}} / {{photos.length}}
+            </div>
+            <!-- Attribution -->
+            <div v-if="photos[photoIdx]?.attr" class="sp-photo-attr">
+              {{photos[photoIdx].attr}}
+            </div>
+          </div>
+          <!-- Thumbnails -->
+          <div v-if="photos.length>1" class="sp-thumbs">
+            <div v-for="(p,i) in photos" :key="i" class="sp-thumb" :class="{active:i===photoIdx}"
+                 @click="photoIdx=i">
+              <img :src="p.url" :alt="'photo '+(i+1)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Info panel -->
+        <div class="sp-info-panel">
+          <!-- Title + inline species picker -->
+          <div class="sp-title-row">
+            <h1 class="sp-title">{{spName(sp.name, sp.sci)}}</h1>
+            <div class="sp-picker-inline" v-if="speciesList.length" style="display:flex;align-items:center;gap:.3rem;">
+              <button class="date-nav-btn" @click="prevSpecies" :disabled="!hasPrevSpecies" title="←" style="width:26px;height:26px;font-size:.8rem;">←</button>
+              <select class="bird-select sp-picker-select" v-model="pickerVal" @change="onPickerChange">
+                <option v-for="s in speciesList" :key="s.com" :value="s.com">{{spName(s.com, s.sci)}}</option>
+              </select>
+              <button class="date-nav-btn" @click="nextSpecies" :disabled="!hasNextSpecies" title="→" style="width:26px;height:26px;font-size:.8rem;">→</button>
+            </div>
+          </div>
+          <div class="sp-sci">{{sp.sci}}</div>
+
+          <!-- Taxonomy + Conservation -->
+          <div class="sp-meta-badges">
+            <span v-if="speciesInfo.order" class="sp-taxo-badge" style="cursor:pointer;"
+                  @click="navigateTo('detections.html',{order:speciesInfo.order})">{{speciesInfo.order}}</span>
+            <span v-if="speciesInfo.family" class="sp-taxo-badge" style="cursor:pointer;"
+                  @click="navigateTo('detections.html',{family:speciesInfo.family})">
+              {{speciesInfo.familyCom || speciesInfo.family}}
+              <span v-if="speciesInfo.familyCom" style="font-size:.68rem;opacity:.7;"> ({{speciesInfo.family}})</span>
+            </span>
+            <span v-if="speciesInfo.size" class="sp-taxo-badge">📏 {{speciesInfo.size}}</span>
+            <span v-if="speciesInfo.wingspan" class="sp-taxo-badge">🦅 {{speciesInfo.wingspan}}</span>
+            <span v-if="conservation" class="sp-conservation" :class="'cons-'+conservationClass">
+              {{conservation}}
+            </span>
+          </div>
+
+          <!-- KPIs grid -->
+          <div class="sp-kpis">
+            <div class="kpi-card sp-kpi">
+              <div class="kpi-value">{{sp.total ? sp.total.toLocaleString() : '—'}}</div>
+              <div class="kpi-label">{{t('total_detections')}}</div>
+            </div>
+            <div class="kpi-card sp-kpi">
+              <div class="kpi-value amber">{{sp.maxConf ? sp.maxConf+'%' : '—'}}</div>
+              <div class="kpi-label">{{t('max_confidence')}}</div>
+            </div>
+            <div class="kpi-card sp-kpi">
+              <div class="kpi-value" style="color:var(--accent);">{{sp.avgConf ? sp.avgConf+'%' : '—'}}</div>
+              <div class="kpi-label">{{t('avg_conf_short')}}</div>
+            </div>
+            <div class="kpi-card sp-kpi">
+              <div class="kpi-value muted">{{fmtDate(sp.first)}}</div>
+              <div class="kpi-label">{{t('first_detection')}}</div>
+            </div>
+            <div class="kpi-card sp-kpi">
+              <div class="kpi-value muted">{{fmtDate(sp.last)}}</div>
+              <div class="kpi-label">{{t('last_seen')}}</div>
+            </div>
+            <div class="kpi-card sp-kpi">
+              <div class="kpi-value muted">{{sp.daysDetected || '—'}}</div>
+              <div class="kpi-label">{{t('days_detected')}}</div>
+            </div>
+          </div>
+
+          <!-- External links -->
+          <div class="ext-links" style="margin-top:.75rem;">
+            <a v-for="l in extLinks" :key="l.label" class="ext-link" :href="l.url" target="_blank" rel="noopener noreferrer">
+              {{l.icon}} {{l.label}}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Wikipedia description ──────────────────────────────── -->
+      <div v-if="wikiSummary" class="card">
+        <div class="card-title">📖 {{t('description')}}</div>
+        <p style="line-height:1.7;color:var(--text-main);margin:0;">{{wikiSummary}}</p>
+        <p v-if="wikiSummaryAlt" style="line-height:1.7;color:var(--text-muted);margin:.75rem 0 0 0;font-size:.9rem;">
+          {{wikiSummaryAlt}}
+        </p>
+      </div>
+
+      <!-- ── Personal notes ─────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-title">📝 {{t('personal_notes')}}</div>
+        <textarea v-model="personalNote" @blur="savePersonalNote"
+                  :placeholder="t('personal_notes')+'...'"
+                  style="width:100%;min-height:80px;box-sizing:border-box;padding:.5rem;font-size:.85rem;
+                         font-family:var(--font-body);line-height:1.6;resize:vertical;
+                         background:var(--bg-deep);color:var(--text-main);border:1px solid var(--border);
+                         border-radius:var(--radius);outline:none;"
+                  @focus="$event.target.style.borderColor='var(--accent)'"
+                  @focusout="$event.target.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <!-- ── Graphiques ─────────────────────────────────────────── -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">{{t('activity_by_hour')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">{{t('monthly_presence')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasMonthly"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">{{t('activity_30d')}}</div>
+          <div class="chart-wrap"><canvas ref="canvas30d"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">{{t('conf_distribution')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasConf"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ── Heatmap jour/heure ─────────────────────────────────── -->
+      <div class="card">
+        <div class="card-title">{{t('activity_by_weekday')}}</div>
+        <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
+      </div>
+
+      <!-- ── Feed détections récentes ───────────────────────────── -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <div class="card-title" style="margin:0;">{{t('recent_detections')}}</div>
+          <button class="sp-edit-btn" :class="{active:deleteMode}" @click="deleteMode=!deleteMode"
+                  :title="t('del_manage')">
+            {{deleteMode ? '✕' : '🗑'}}
+          </button>
+        </div>
+        <div v-if="!feed.length" class="error-msg">{{t('no_data')}}</div>
+        <div v-else>
+          <div v-for="d in feed" :key="d.Date+d.Time" class="det-item" :class="{'det-item-del':deleteMode}">
+            <button v-if="d.File_Name && !deleteMode" class="play-btn"
+                    style="width:22px;height:22px;font-size:.6rem;"
+                    :class="{playing:playingFile===d.File_Name}"
+                    @click="toggleAudio(d.File_Name)">▶</button>
+            <button v-else-if="deleteMode" class="sp-del-btn"
+                    @click="confirmDeleteOne(d)" :title="t('del_this')">🗑</button>
+            <span v-else style="width:22px;display:inline-block;"></span>
+            <div class="det-time">{{fmtDate(d.Date)}}</div>
+            <div class="det-time" style="min-width:44px;">{{fmtTime(d.Time)}}</div>
+            <div style="flex:1;"></div>
+            <span v-if="d.Model" class="model-tag" style="margin-right:.3rem;">{{shortModel(d.Model)}}</span>
+            <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')">
+              {{fmtConf(d.Confidence)}}
+            </span>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <a :href="'detections.html?species='+encodeURIComponent(sp.name)" class="btn btn-secondary">
+            {{t('nav_detections')}} →
+          </a>
+          <button v-if="deleteMode" class="sp-danger-btn" @click="openBulkModal()">
+            🗑 {{t('del_all')}} ({{sp.total}})
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Delete modal (confirmation + result) ─────────────────── -->
+      <div v-if="showBulkModal || deleteResult" class="sp-modal-overlay"
+           @click.self="deleteResult ? closeBulkModal() : null">
+        <div class="sp-modal">
+          <!-- ── Phase 1: Confirmation ── -->
+          <template v-if="!deleteResult">
+            <div style="font-size:1.1rem;font-weight:700;color:var(--danger,#ef4444);margin-bottom:.75rem;">
+              ⚠️ {{t('del_confirm_title')}}
+            </div>
+            <p style="font-size:.88rem;line-height:1.6;margin-bottom:1rem;">
+              {{t('del_confirm_body', {name: bulkTargetName, count: bulkTargetCount})}}
+            </p>
+            <label style="font-size:.82rem;color:var(--text-muted);display:block;margin-bottom:.3rem;">
+              {{t('del_type_name', {name: bulkTargetName})}}
+            </label>
+            <input v-model="bulkConfirmName" class="set-input" style="width:100%;box-sizing:border-box;margin-bottom:1rem;"
+                   :placeholder="bulkTargetName" autocomplete="off"
+                   @keyup.enter="bulkConfirmName===bulkTargetName && !bulkDeleting ? executeBulkDelete() : null">
+            <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+              <button class="btn btn-secondary" @click="closeBulkModal()">
+                {{t('cancel')}}
+              </button>
+              <button class="sp-danger-btn" :disabled="bulkConfirmName!==bulkTargetName || bulkDeleting"
+                      @click="executeBulkDelete">
+                {{bulkDeleting ? '...' : t('del_permanently')}}
+              </button>
+            </div>
+            <div v-if="deleteError" class="error-msg" style="margin-top:.5rem;">{{deleteError}}</div>
+          </template>
+
+          <!-- ── Phase 2: Success result ── -->
+          <template v-else>
+            <div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:.75rem;">
+              ✅ {{t('del_done_title')}}
+            </div>
+            <div class="del-result-card">
+              <div class="del-result-row">
+                <span class="del-result-icon">🐦</span>
+                <span class="del-result-label">{{t('species_name')}}</span>
+                <span class="del-result-val">{{deleteResult.name}}</span>
+              </div>
+              <div class="del-result-row">
+                <span class="del-result-icon">🗃️</span>
+                <span class="del-result-label">{{t('del_records_removed')}}</span>
+                <span class="del-result-val del-result-accent">{{deleteResult.deleted}}</span>
+              </div>
+              <div class="del-result-row">
+                <span class="del-result-icon">🎵</span>
+                <span class="del-result-label">{{t('del_files_removed')}}</span>
+                <span class="del-result-val del-result-accent">{{deleteResult.filesDeleted}}</span>
+              </div>
+              <div v-if="deleteResult.fileErrors > 0" class="del-result-row" style="color:var(--danger,#ef4444);">
+                <span class="del-result-icon">⚠️</span>
+                <span class="del-result-label">{{t('del_file_errors')}}</span>
+                <span class="del-result-val">{{deleteResult.fileErrors}}</span>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:1rem;">
+              <button class="btn btn-secondary" @click="closeBulkModal()" style="font-weight:600;">
+                {{t('del_close')}}
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ── Single delete toast ──────────────────────────────────── -->
+      <div v-if="deleteToast" class="sp-toast" @click="deleteToast=null">
+        <span style="font-size:1rem;">✅</span>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:.85rem;">{{t('del_done_title')}}</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">
+            {{deleteToast.species}} — {{deleteToast.date}} {{deleteToast.time}}
+          </div>
+        </div>
+        <span style="font-size:.7rem;color:var(--text-faint);cursor:pointer;">✕</span>
+      </div>
+
+    </div>
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, watch, onMounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
+        birdQuery, fmtDate, fmtTime, fmtConf,
+        daysAgo, getUrlParam, navigateTo,
+        buildSpeciesLinks, fetchSpeciesImage, chartDefaults, shortModel, authHeaders } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('species');
+    const { spName } = useSpeciesNames();
+    const { playingFile, toggleAudio }= useAudio();
+    const { mountChart: mountHourly } = useChart();
+    const { mountChart: mountMonthly }= useChart();
+    const { mountChart: mount30d }    = useChart();
+    const { mountChart: mountConf }   = useChart();
+    const { mountChart: mountDayHour }= useChart();
+
+    const canvasHourly  = ref(null);
+    const canvasMonthly = ref(null);
+    const canvas30d     = ref(null);
+    const canvasConf    = ref(null);
+    const canvasDayHour = ref(null);
+
+    const mode        = ref('loading');
+    const speciesList = ref([]);
+    const pickerVal   = ref('');
+
+    const sp      = ref({ name:'', sci:'', total:0, maxConf:0, avgConf:0, first:null, last:null, daysDetected:0 });
+    const feed    = ref([]);
+    const extLinks = computed(() => sp.value.name ? Object.values(buildSpeciesLinks(sp.value.name, sp.value.sci)) : []);
+
+    // Photos carousel
+    const photos   = ref([]);
+    const photoIdx = ref(0);
+    const photosLoading = ref(false);
+    const wikiSummary    = ref('');
+    const wikiSummaryAlt = ref('');  // second language summary
+    const conservationRaw = ref('');
+    const speciesInfo    = reactive({ order: '', family: '', familyCom: '', size: '', wingspan: '', diet: '' });
+
+    const _consTranslations = {
+      'Least Concern':         { fr:'Préoccupation mineure', en:'Least Concern', de:'Nicht gefährdet', nl:'Niet bedreigd' },
+      'Near Threatened':       { fr:'Quasi menacé', en:'Near Threatened', de:'Potenziell gefährdet', nl:'Kwetsbaar' },
+      'Vulnerable':            { fr:'Vulnérable', en:'Vulnerable', de:'Gefährdet', nl:'Kwetsbaar' },
+      'Endangered':            { fr:'En danger', en:'Endangered', de:'Stark gefährdet', nl:'Bedreigd' },
+      'Critically Endangered': { fr:'En danger critique', en:'Critically Endangered', de:'Vom Aussterben bedroht', nl:'Ernstig bedreigd' },
+      'Data Deficient':        { fr:'Données insuffisantes', en:'Data Deficient', de:'Unzureichende Datenlage', nl:'Onvoldoende data' },
+    };
+    const conservation = computed(() => {
+      const raw = conservationRaw.value;
+      if (!raw) return '';
+      const tr = _consTranslations[raw];
+      return tr ? (tr[lang.value] || tr.en || raw) : raw;
+    });
+
+    const conservationClass = computed(() => {
+      const s = conservationRaw.value.toLowerCase();
+      if (s.includes('least concern')) return 'lc';
+      if (s.includes('near threatened')) return 'nt';
+      if (s.includes('vulnerable')) return 'vu';
+      if (s.includes('endangered') && !s.includes('critical')) return 'en';
+      if (s.includes('critical')) return 'cr';
+      return 'dd';
+    });
+
+    // Personal notes
+    const personalNote = ref('');
+    function loadPersonalNote(sciName) {
+      if (!sciName) { personalNote.value = ''; return; }
+      personalNote.value = localStorage.getItem('birdash_note_' + sciName) || '';
+    }
+    function savePersonalNote() {
+      const sci = sp.value.sci;
+      if (!sci) return;
+      const val = personalNote.value.trim();
+      if (val) {
+        localStorage.setItem('birdash_note_' + sci, val);
+      } else {
+        localStorage.removeItem('birdash_note_' + sci);
+      }
+    }
+
+    // Chart data refs
+    const hourlyData  = ref(null);
+    const monthlyData = ref(null);
+    const data30d     = ref(null);
+    const confData    = ref(null);
+    const dayHourData = ref(null);
+
+    function prevPhoto() { photoIdx.value = (photoIdx.value - 1 + photos.value.length) % photos.value.length; }
+    function nextPhoto() { photoIdx.value = (photoIdx.value + 1) % photos.value.length; }
+    function photoErr()  {
+      if (photos.value.length > 1) {
+        photos.value.splice(photoIdx.value, 1);
+        if (photoIdx.value >= photos.value.length) photoIdx.value = 0;
+      } else {
+        photos.value = [];
+      }
+    }
+
+    // Species prev/next navigation
+    const currentSpeciesIdx = computed(() => speciesList.value.findIndex(s => s.com === pickerVal.value));
+    const hasPrevSpecies = computed(() => currentSpeciesIdx.value > 0);
+    const hasNextSpecies = computed(() => currentSpeciesIdx.value >= 0 && currentSpeciesIdx.value < speciesList.value.length - 1);
+    function prevSpecies() {
+      const idx = currentSpeciesIdx.value;
+      if (idx > 0) {
+        pickerVal.value = speciesList.value[idx - 1].com;
+        onPickerChange();
+      }
+    }
+    function nextSpecies() {
+      const idx = currentSpeciesIdx.value;
+      if (idx >= 0 && idx < speciesList.value.length - 1) {
+        pickerVal.value = speciesList.value[idx + 1].com;
+        onPickerChange();
+      }
+    }
+
+    // Inline picker change handler
+    function onPickerChange() {
+      if (pickerVal.value) {
+        // Update URL without reload
+        const url = new URL(window.location);
+        url.searchParams.set('species', pickerVal.value);
+        window.history.replaceState({}, '', url);
+        loadDetail(pickerVal.value);
+      }
+    }
+
+    async function loadDetail(speciesName) {
+      if (!speciesName) return;
+      mode.value = 'loading';
+      photos.value = [];
+      photoIdx.value = 0;
+      photosLoading.value = true;
+      wikiSummary.value = '';
+      wikiSummaryAlt.value = '';
+      conservationRaw.value = '';
+      Object.assign(speciesInfo, { order: '', family: '', familyCom: '', size: '', wingspan: '', diet: '' });
+
+      try {
+        // Load species list in background if not loaded
+        if (!speciesList.value.length) {
+          birdQuery(`SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC`)
+            .then(rows => {
+              speciesList.value = rows.map(r => ({ com: r.Com_Name, sci: r.Sci_Name }));
+              pickerVal.value = speciesName;
+            }).catch(() => {});
+        } else {
+          pickerVal.value = speciesName;
+        }
+
+        const [stats] = await birdQuery(
+          `SELECT COUNT(*) as total,
+                  ROUND(MAX(Confidence)*100,1) as max_conf,
+                  ROUND(AVG(Confidence)*100,1) as avg_conf,
+                  MIN(Date) as first_date,
+                  MAX(Date) as last_date,
+                  MAX(Sci_Name) as sci,
+                  COUNT(DISTINCT Date) as days_detected
+           FROM detections WHERE Com_Name=?`,
+          [speciesName]);
+        if (!stats?.total) { mode.value='picker'; return; }
+
+        sp.value = {
+          name: speciesName, sci: stats.sci||'',
+          total: stats.total, maxConf: stats.max_conf, avgConf: stats.avg_conf,
+          first: stats.first_date, last: stats.last_date,
+          daysDetected: stats.days_detected,
+        };
+        document.title = `BIRDASH — ${speciesName}`;
+        mode.value = 'detail';
+        loadPersonalNote(stats.sci || speciesName);
+
+        // Pre-populate taxonomy from cached eBird data (instant)
+        const tax = BIRDASH_UTILS.getTaxonomy(stats.sci || speciesName);
+        if (tax) {
+          if (tax.order) speciesInfo.order = tax.order;
+          if (tax.familySci) speciesInfo.family = tax.familySci;
+          if (tax.familyCom) speciesInfo.familyCom = tax.familyCom;
+        }
+
+        // Load all data in parallel
+        await Promise.all([
+          loadSpeciesInfo(stats.sci || speciesName),
+          loadHourlyData(speciesName),
+          loadMonthlyData(speciesName),
+          load30dData(speciesName),
+          loadConfData(speciesName),
+          loadDayHourData(speciesName),
+          loadFeed(speciesName),
+        ]);
+      } catch(e) { console.error('[species]', e); mode.value='picker'; }
+    }
+
+    async function loadSpeciesInfo(sciName) {
+      try {
+        const cachedUrl = BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sciName);
+        const res = await fetch(BIRD_CONFIG.apiUrl + '/species-info?sci=' + encodeURIComponent(sciName) + '&lang=' + lang.value);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.photos?.length) {
+            photos.value = data.photos;
+          } else {
+            photos.value = [{ url: cachedUrl, attr: '', src: 'cache' }];
+          }
+          // Show both FR and EN summaries
+          if (data.summaryFr && data.summary) {
+            wikiSummary.value = data.summaryFr;
+            wikiSummaryAlt.value = data.summary;
+          } else {
+            wikiSummary.value = data.summaryFr || data.summary || '';
+            wikiSummaryAlt.value = '';
+          }
+          conservationRaw.value = data.conservation || '';
+          // Structured info
+          // Only override taxonomy if the API provides more specific data
+          // (avoid replacing 'Charadriiformes' with 'Aves' from iconic_taxon_name)
+          if (data.order && data.order !== 'Aves' && data.order !== 'Animalia')
+            speciesInfo.order = data.order;
+          if (data.family && !speciesInfo.family)
+            speciesInfo.family = data.family;
+          if (data.familyCom)
+            speciesInfo.familyCom = data.familyCom;
+          if (data.size)    speciesInfo.size = data.size;
+          if (data.wingspan) speciesInfo.wingspan = data.wingspan;
+        } else {
+          photos.value = [{ url: cachedUrl, attr: '', src: 'cache' }];
+        }
+      } catch(e) {
+        console.warn('[species-info]', e);
+        const cachedUrl = BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sciName);
+        photos.value = [{ url: cachedUrl, attr: '', src: 'cache' }];
+      } finally {
+        photosLoading.value = false;
+      }
+    }
+
+    async function loadHourlyData(name) {
+      try {
+        const rows = await birdQuery(`SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Com_Name=? GROUP BY h ORDER BY h ASC`,[name]);
+        const vals = Array(24).fill(0);
+        rows.forEach(r=>{vals[r.h]=r.n;});
+        hourlyData.value = vals;
+      } catch(e) {}
+    }
+
+    async function loadMonthlyData(name) {
+      try {
+        const rows = await birdQuery(`SELECT CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM detections WHERE Com_Name=? GROUP BY m ORDER BY m ASC`,[name]);
+        const vals = Array(12).fill(0);
+        rows.forEach(r=>{vals[r.m-1]=r.n;});
+        monthlyData.value = vals;
+      } catch(e) {}
+    }
+
+    async function load30dData(name) {
+      try {
+        const from = daysAgo(29);
+        const rows = await birdQuery(`SELECT Date, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? GROUP BY Date ORDER BY Date ASC`,[name,from]);
+        const map={};
+        rows.forEach(r=>{map[r.Date]=r.n;});
+        const vals=[];
+        for(let i=29;i>=0;i--) vals.push({ date:daysAgo(i), n:map[daysAgo(i)]||0 });
+        data30d.value = vals;
+      } catch(e) {}
+    }
+
+    async function loadConfData(name) {
+      try {
+        const rows = await birdQuery(
+          `SELECT
+            CASE
+              WHEN Confidence < 0.5 THEN '< 50%'
+              WHEN Confidence < 0.6 THEN '50-60%'
+              WHEN Confidence < 0.7 THEN '60-70%'
+              WHEN Confidence < 0.8 THEN '70-80%'
+              WHEN Confidence < 0.9 THEN '80-90%'
+              ELSE '90-100%'
+            END as bucket,
+            COUNT(*) as n
+           FROM detections WHERE Com_Name=?
+           GROUP BY bucket ORDER BY bucket ASC`, [name]);
+        confData.value = rows;
+      } catch(e) {}
+    }
+
+    async function loadDayHourData(name) {
+      try {
+        const rows = await birdQuery(
+          `SELECT CAST(strftime('%w', Date) AS INTEGER) as dow,
+                  CAST(SUBSTR(Time,1,2) AS INTEGER) as h,
+                  COUNT(*) as n
+           FROM detections WHERE Com_Name=?
+           GROUP BY dow, h`, [name]);
+        dayHourData.value = rows;
+      } catch(e) {}
+    }
+
+    async function loadFeed(name) {
+      try {
+        const rows = await birdQuery(`SELECT Date,Time,Confidence,File_Name,Model FROM detections WHERE Com_Name=? ORDER BY Date DESC,Time DESC LIMIT 15`,[name]);
+        feed.value = rows;
+      } catch(e) { feed.value=[]; }
+    }
+
+    // ── Chart watchers ──────────────────────────────────────────────
+    watch([hourlyData, lang], async () => {
+      await nextTick();
+      if (!hourlyData.value || !canvasHourly.value) return;
+      const base = chartDefaults();
+      mountHourly(canvasHourly, () => ({
+        type: 'bar',
+        data: {
+          labels: Array.from({length:24}, (_,i) => `${String(i).padStart(2,'0')}h`),
+          datasets: [{
+            label: t('detections'), data: hourlyData.value,
+            backgroundColor: 'rgba(52,211,153,.55)', borderColor: '#34d399',
+            borderWidth: 1, borderRadius: 3
+          }]
+        },
+        options: {...base, plugins:{...base.plugins, legend:{display:false}},
+          scales:{x:{...base.scales.x, ticks:{font:{size:9}}}, y:{...base.scales.y, beginAtZero:true}}}
+      }));
+    });
+
+    watch([monthlyData, lang], async () => {
+      await nextTick();
+      if (!monthlyData.value || !canvasMonthly.value) return;
+      const base = chartDefaults();
+      mountMonthly(canvasMonthly, () => ({
+        type: 'bar',
+        data: {
+          labels: t('months_short'),
+          datasets: [{
+            label: t('detections'), data: monthlyData.value,
+            backgroundColor: monthlyData.value.map(v => v > 0 ? 'rgba(251,191,36,.55)' : 'rgba(251,191,36,.1)'),
+            borderColor: '#fbbf24', borderWidth: 1, borderRadius: 3
+          }]
+        },
+        options: {...base, plugins:{...base.plugins, legend:{display:false}},
+          scales:{x:{...base.scales.x, ticks:{font:{size:10}}}, y:{...base.scales.y, beginAtZero:true}}}
+      }));
+    });
+
+    watch([data30d, lang], async () => {
+      await nextTick();
+      if (!data30d.value || !canvas30d.value) return;
+      const base = chartDefaults();
+      const labels = data30d.value.map(d => {
+        const mo = t('months_short')[new Date(d.date).getMonth()];
+        return `${new Date(d.date).getDate()} ${mo}`;
+      });
+      mount30d(canvas30d, () => ({
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: t('detections'), data: data30d.value.map(d => d.n),
+            backgroundColor: 'rgba(34,211,238,.55)', borderColor: '#22d3ee',
+            borderWidth: 1, borderRadius: 3
+          }]
+        },
+        options: {...base, plugins:{...base.plugins, legend:{display:false}},
+          scales:{x:{...base.scales.x, ticks:{maxTicksLimit:10, font:{size:9}}}, y:{...base.scales.y, beginAtZero:true}}}
+      }));
+    });
+
+    watch([confData, lang], async () => {
+      await nextTick();
+      if (!confData.value || !canvasConf.value) return;
+      const base = chartDefaults();
+      const colors = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#06b6d4'];
+      mountConf(canvasConf, () => ({
+        type: 'doughnut',
+        data: {
+          labels: confData.value.map(r => r.bucket),
+          datasets: [{
+            data: confData.value.map(r => r.n),
+            backgroundColor: colors.slice(0, confData.value.length),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { font: { size: 11 }, color: base.scales.x.ticks.color, padding: 12 } }
+          }
+        }
+      }));
+    });
+
+    watch([dayHourData, lang], async () => {
+      await nextTick();
+      if (!dayHourData.value || !canvasDayHour.value) return;
+      const base = chartDefaults();
+      const ds = t('days_short') || ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+      // days_short starts Mon(0)..Sun(6), but strftime %w gives Sun=0..Sat=6
+      const dayLabels = [ds[6], ds[0], ds[1], ds[2], ds[3], ds[4], ds[5]];
+      const hourLabels = Array.from({length:24}, (_,i) => `${String(i).padStart(2,'0')}h`);
+
+      const matrix = Array.from({length:7}, () => Array(24).fill(0));
+      let maxVal = 0;
+      for (const r of dayHourData.value) {
+        matrix[r.dow][r.h] = r.n;
+        if (r.n > maxVal) maxVal = r.n;
+      }
+
+      const bubbleData = [];
+      for (let d = 0; d < 7; d++) {
+        for (let h = 0; h < 24; h++) {
+          if (matrix[d][h] > 0) {
+            bubbleData.push({ x: h, y: d, r: Math.max(2, Math.sqrt(matrix[d][h] / (maxVal||1)) * 14), v: matrix[d][h] });
+          }
+        }
+      }
+
+      mountDayHour(canvasDayHour, () => ({
+        type: 'bubble',
+        data: {
+          datasets: [{
+            data: bubbleData,
+            backgroundColor: 'rgba(52,211,153,.45)',
+            borderColor: '#34d399', borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${dayLabels[ctx.raw.y]} ${hourLabels[ctx.raw.x]} : ${ctx.raw.v} ${t('detections').toLowerCase()}`
+              }
+            }
+          },
+          scales: {
+            x: { ...base.scales.x, min: -0.5, max: 23.5, ticks: { callback: v => `${String(v).padStart(2,'0')}h`, stepSize: 1, font: { size: 9 } } },
+            y: { ...base.scales.y, min: -0.5, max: 6.5, reverse: true, ticks: { callback: v => dayLabels[v] || '', stepSize: 1, font: { size: 10 } } }
+          }
+        }
+      }));
+    });
+
+    watch(lang, async () => {
+      await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      if (sp.value.name) loadDetail(sp.value.name);
+    });
+
+    onMounted(async () => {
+      // Pre-load taxonomy data (cached in sessionStorage)
+      BIRDASH_UTILS.loadTaxonomy(lang.value);
+      // Always load species list for the inline picker
+      try {
+        const rows = await birdQuery(`SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC`);
+        speciesList.value = rows.map(r => ({ com: r.Com_Name, sci: r.Sci_Name }));
+      } catch(e) {}
+
+      const spParam = getUrlParam('species') || getUrlParam('name');
+      if (spParam) {
+        pickerVal.value = decodeURIComponent(spParam);
+        await loadDetail(decodeURIComponent(spParam));
+      } else {
+        // No param → load the LAST detected species automatically
+        try {
+          const [last] = await birdQuery(
+            `SELECT Com_Name FROM detections ORDER BY Date DESC, Time DESC LIMIT 1`
+          );
+          if (last?.Com_Name) {
+            pickerVal.value = last.Com_Name;
+            await loadDetail(last.Com_Name);
+          } else {
+            pickerVal.value = (speciesList.value[0] && speciesList.value[0].com) || '';
+            mode.value = 'picker';
+          }
+        } catch(e) {
+          pickerVal.value = speciesList.value[0] || '';
+          mode.value = 'picker';
+        }
+      }
+    });
+
+    // ── Delete management ─────────────────────────────────────────────────
+    const deleteMode      = ref(false);
+    const showBulkModal   = ref(false);
+    const bulkConfirmName = ref('');
+    const bulkDeleting    = ref(false);
+    const deleteError     = ref('');
+    const deleteResult    = ref(null);   // { name, deleted, filesDeleted, fileErrors }
+    const deleteToast     = ref(null);   // { species, date, time }
+    const bulkTargetName  = ref('');
+    const bulkTargetCount = ref(0);
+
+    function openBulkModal() {
+      bulkTargetName.value  = sp.value.name;
+      bulkTargetCount.value = sp.value.total;
+      bulkConfirmName.value = '';
+      deleteError.value     = '';
+      deleteResult.value    = null;
+      showBulkModal.value   = true;
+    }
+
+    function closeBulkModal() {
+      showBulkModal.value   = false;
+      bulkConfirmName.value = '';
+      deleteError.value     = '';
+      deleteResult.value    = null;
+    }
+
+    async function confirmDeleteOne(d) {
+      const msg = t('del_one_confirm', {
+        date: fmtDate(d.Date), time: fmtTime(d.Time), conf: fmtConf(d.Confidence)
+      });
+      if (!confirm(msg)) return;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/detections`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+          body: JSON.stringify({ date: d.Date, time: d.Time, comName: sp.value.name }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        // Show toast
+        deleteToast.value = {
+          species: sp.value.name,
+          date: fmtDate(d.Date),
+          time: fmtTime(d.Time),
+        };
+        setTimeout(() => { deleteToast.value = null; }, 4000);
+
+        // Refresh
+        await loadDetail(sp.value.name);
+      } catch(e) { alert(t('error') + ': ' + e.message); }
+    }
+
+    async function executeBulkDelete() {
+      bulkDeleting.value = true;
+      deleteError.value  = '';
+      try {
+        const targetName = bulkTargetName.value;
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/detections/species`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+          body: JSON.stringify({ comName: targetName, confirmName: bulkConfirmName.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+
+        // Show result in the same modal
+        deleteResult.value = {
+          name: targetName,
+          deleted: data.deleted || 0,
+          filesDeleted: data.filesDeleted || 0,
+          fileErrors: data.fileErrors?.length || 0,
+        };
+        showBulkModal.value   = false;  // hide confirmation, result stays via deleteResult
+        bulkConfirmName.value = '';
+        deleteMode.value      = false;
+
+        // Reload species list in background
+        const rows = await birdQuery(
+          'SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC');
+        speciesList.value = rows.map(r => ({ com: r.Com_Name }));
+        if (rows.length) {
+          pickerVal.value = rows[0].Com_Name;
+          await loadDetail(rows[0].Com_Name);
+        } else {
+          mode.value = 'picker';
+        }
+      } catch(e) {
+        deleteError.value = e.message;
+      }
+      bulkDeleting.value = false;
+    }
+
+    return {
+      lang, t, spName,
+      mode, speciesList, pickerVal, onPickerChange,
+      hasPrevSpecies, hasNextSpecies, prevSpecies, nextSpecies,
+      sp, feed, extLinks, speciesInfo, personalNote, savePersonalNote,
+      photos, photoIdx, photosLoading, wikiSummary, wikiSummaryAlt, conservation, conservationClass,
+      prevPhoto, nextPhoto, photoErr,
+      playingFile, toggleAudio,
+      fmtDate, fmtTime, fmtConf, navigateTo, shortModel,
+      canvasHourly, canvasMonthly, canvas30d, canvasConf, canvasDayHour,
+      loadDetail,
+      deleteMode, showBulkModal, bulkConfirmName, bulkDeleting, deleteError,
+      deleteResult, deleteToast, bulkTargetName, bulkTargetCount,
+      openBulkModal, closeBulkModal, confirmDeleteOne, executeBulkDelete,
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

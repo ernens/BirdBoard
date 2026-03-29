@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <title>BIRDASH — Revue des détections</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+  <style>
+    .review-card { background:var(--bg-card); border:1px solid var(--border); border-radius:.6rem; padding:.8rem; margin-bottom:.5rem; transition: opacity .3s; }
+    .review-card.rejected { opacity:.4; }
+    .review-card.confirmed { border-left:3px solid var(--accent); }
+    .review-actions { display:flex; gap:.3rem; flex-wrap:wrap; }
+    .btn-confirm { background:#38a169; color:#fff; border:none; padding:.3rem .6rem; border-radius:.3rem; cursor:pointer; font-size:.78rem; }
+    .btn-reject { background:#e53e3e; color:#fff; border:none; padding:.3rem .6rem; border-radius:.3rem; cursor:pointer; font-size:.78rem; }
+    .btn-doubt { background:#dd6b20; color:#fff; border:none; padding:.3rem .6rem; border-radius:.3rem; cursor:pointer; font-size:.78rem; }
+    .reason-badge { display:inline-block; background:rgba(221,107,32,.15); color:#dd6b20; font-size:.72rem; padding:.15rem .4rem; border-radius:.25rem; margin-right:.3rem; }
+    .bulk-bar { position:sticky; top:0; z-index:10; background:var(--bg-deep); border-bottom:1px solid var(--border); padding:.6rem 1rem; display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
+    .stat-pill { display:inline-block; background:var(--bg-card2); padding:.2rem .5rem; border-radius:1rem; font-size:.78rem; }
+    .audio-mini { cursor:pointer; padding:.2rem .4rem; border-radius:.3rem; border:1px solid var(--border); background:var(--bg-card2); font-size:.75rem; }
+    .audio-mini:hover { background:var(--accent); color:#fff; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="review" :title="t('nav_review')">
+
+    <!-- Period filter + Bulk action bar -->
+    <div class="bulk-bar" style="flex-direction:column;align-items:stretch;gap:.5rem;">
+      <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;">
+        <filter-period
+          :period="fp.period.value"
+          :quick-buttons="fp.quickButtons.value"
+          :date-from="fp.dateFrom.value"
+          :date-to="fp.dateTo.value"
+          @set-period="fp.setPeriod"
+          @set-custom-range="fp.setCustomRange"
+        ></filter-period>
+        <span class="stat-pill">{{ flagged.length }} suspectes / {{ totalDets }} total</span>
+        <span v-if="selected.size > 0" class="stat-pill" style="background:var(--accent);color:#fff;">{{ selected.size }} sélectionnées</span>
+      </div>
+      <div style="display:flex;gap:.3rem;flex-wrap:wrap;">
+        <button class="btn-outline" @click="selectAll" style="font-size:.75rem;">
+          {{ selected.size === flagged.length ? 'Tout désélectionner' : 'Tout sélectionner' }}
+        </button>
+        <button class="btn-confirm" @click="bulkAction('confirmed')" :disabled="selected.size === 0">Confirmer ({{ selected.size }})</button>
+        <button class="btn-reject" @click="bulkAction('rejected')" :disabled="selected.size === 0">Rejeter ({{ selected.size }})</button>
+      </div>
+    </div>
+
+    <!-- Bulk by rule -->
+    <div v-if="reasonGroups.length > 0" style="padding:.5rem 1rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+      <span style="font-size:.8rem;opacity:.6;align-self:center;">Rejeter par règle :</span>
+      <button v-for="rg in reasonGroups" :key="rg.reason"
+              class="btn-reject" style="font-size:.72rem;padding:.2rem .5rem;"
+              @click="bulkRejectByReason(rg.reason)">
+        {{ rg.reason }} ({{ rg.count }})
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="loading" style="text-align:center;padding:2rem;">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- No flagged -->
+    <div v-else-if="flagged.length === 0" style="text-align:center;padding:3rem;opacity:.6;">
+      Aucune détection suspecte pour cette date.
+    </div>
+
+    <!-- Detection list -->
+    <div v-else style="padding:.5rem 1rem;">
+      <div v-for="det in flagged" :key="det.date + det.time + det.sci_name"
+           class="review-card" :class="{ rejected: det.validation === 'rejected', confirmed: det.validation === 'confirmed' }">
+        <div style="display:flex;align-items:center;gap:.6rem;">
+
+          <!-- Checkbox -->
+          <input type="checkbox" :checked="selected.has(detKey(det))" @change="toggleSelect(det)">
+
+          <!-- Species photo -->
+          <bird-img :src="API + '/photo?sci=' + encodeURIComponent(det.sci_name)" style="width:44px;height:44px;border-radius:50%;object-fit:cover;"></bird-img>
+
+          <!-- Info -->
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;">
+              <strong>{{ det.com_name }}</strong>
+              <span style="font-size:.78rem;opacity:.6;">{{ det.sci_name }}</span>
+              <span style="font-size:.78rem;font-weight:600;" :style="{color: det.confidence >= 0.8 ? 'var(--accent)' : det.confidence >= 0.7 ? '#dd6b20' : '#e53e3e'}">
+                {{ (det.confidence * 100).toFixed(0) }}%
+              </span>
+            </div>
+            <div style="font-size:.78rem;opacity:.6;">
+              {{ det.date }} {{ det.time }} — {{ det.model }}
+            </div>
+            <div style="margin-top:.25rem;">
+              <span v-for="r in det.reasons" :key="r" class="reason-badge">{{ r }}</span>
+            </div>
+          </div>
+
+          <!-- Audio play -->
+          <button v-if="det.file_name" class="audio-mini" @click="playAudio(det)" :title="det.file_name">
+            {{ playingDet === detKey(det) ? '⏹' : '▶' }}
+          </button>
+
+          <!-- Validation actions -->
+          <div class="review-actions">
+            <button class="btn-confirm" @click="validate(det, 'confirmed')" :disabled="det.validation === 'confirmed'">✓</button>
+            <button class="btn-doubt" @click="validate(det, 'doubtful')" :disabled="det.validation === 'doubtful'">?</button>
+            <button class="btn-reject" @click="validate(det, 'rejected')" :disabled="det.validation === 'rejected'">✗</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const { useI18n, useTheme, useNav, useFilterPeriod, registerComponents } = BIRDASH;
+const { birdQuery, buildAudioUrl } = BIRDASH_UTILS;
+const API = BIRD_CONFIG.apiBase;
+
+const app = createApp({
+  setup() {
+    const { t, lang } = useI18n();
+    useTheme();
+    useNav();
+
+    const flagged = ref([]);
+    const totalDets = ref(0);
+    const loading = ref(false);
+    const selected = reactive(new Set());
+    let _audio = null;
+    const playingDet = ref(null);
+
+    const fp = useFilterPeriod({
+      default: '1d',
+      buttons: ['1d', '7d', '30d', '90d', 'all'],
+      onChange: loadFlagged,
+    });
+
+    function detKey(d) { return `${d.date}|${d.time}|${d.sci_name}`; }
+
+    const reasonGroups = computed(() => {
+      const groups = {};
+      for (const d of flagged.value) {
+        if (d.validation === 'rejected' || d.validation === 'confirmed') continue;
+        for (const r of d.reasons) {
+          groups[r] = (groups[r] || 0) + 1;
+        }
+      }
+      return Object.entries(groups).map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count);
+    });
+
+    async function loadFlagged() {
+      loading.value = true;
+      selected.clear();
+      try {
+        const from = fp.dateFrom.value || new Date().toISOString().split('T')[0];
+        const to = fp.dateTo.value || from;
+        const resp = await fetch(`${API}/flagged-detections?dateFrom=${from}&dateTo=${to}&limit=500`);
+        const data = await resp.json();
+        flagged.value = data.flagged || [];
+        totalDets.value = data.total || 0;
+      } catch (e) {
+        console.error('Load flagged:', e);
+      }
+      loading.value = false;
+    }
+
+    async function validate(det, status) {
+      try {
+        await fetch(`${API}/bulk-validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            detections: [{ date: det.date, time: det.time, sci_name: det.sci_name }],
+            status,
+          }),
+        });
+        det.validation = status;
+      } catch (e) {
+        console.error('Validate:', e);
+      }
+    }
+
+    async function bulkAction(status) {
+      const dets = flagged.value
+        .filter(d => selected.has(detKey(d)))
+        .map(d => ({ date: d.date, time: d.time, sci_name: d.sci_name }));
+      if (dets.length === 0) return;
+      if (!confirm(`${status === 'rejected' ? 'Rejeter' : 'Confirmer'} ${dets.length} détections ?`)) return;
+      try {
+        await fetch(`${API}/bulk-validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ detections: dets, status }),
+        });
+        for (const d of flagged.value) {
+          if (selected.has(detKey(d))) d.validation = status;
+        }
+        selected.clear();
+      } catch (e) {
+        console.error('Bulk action:', e);
+      }
+    }
+
+    function bulkRejectByReason(reason) {
+      const matching = flagged.value.filter(d =>
+        d.reasons.includes(reason) && d.validation !== 'rejected' && d.validation !== 'confirmed'
+      );
+      if (matching.length === 0) return;
+      if (!confirm(`Rejeter ${matching.length} détections "${reason}" ?`)) return;
+      const dets = matching.map(d => ({ date: d.date, time: d.time, sci_name: d.sci_name }));
+      fetch(`${API}/bulk-validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detections: dets, status: 'rejected' }),
+      }).then(() => {
+        for (const d of matching) d.validation = 'rejected';
+      });
+    }
+
+    function toggleSelect(det) {
+      const key = detKey(det);
+      if (selected.has(key)) selected.delete(key);
+      else selected.add(key);
+    }
+
+    function selectAll() {
+      if (selected.size === flagged.value.length) {
+        selected.clear();
+      } else {
+        for (const d of flagged.value) selected.add(detKey(d));
+      }
+    }
+
+    function playAudio(det) {
+      const key = detKey(det);
+      if (_audio && playingDet.value === key) {
+        _audio.pause(); _audio = null; playingDet.value = null;
+        return;
+      }
+      if (_audio) { _audio.pause(); _audio = null; }
+      const url = buildAudioUrl(det.file_name);
+      if (!url) return;
+      _audio = new Audio(url);
+      _audio.play();
+      playingDet.value = key;
+      _audio.onended = () => { playingDet.value = null; _audio = null; };
+    }
+
+    onMounted(loadFlagged);
+
+    return {
+      t, fp, flagged, totalDets, loading,
+      selected, playingDet, reasonGroups,
+      detKey, loadFlagged, validate, bulkAction,
+      bulkRejectByReason, toggleSelect, selectAll, playAudio,
+      API,
+    };
+  }
+});
+registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

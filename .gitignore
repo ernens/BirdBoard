@@ -1,0 +1,14 @@
+node_modules/
+*.zip
+*.bak
+*BAK
+BAK/
+.DS_Store
+public/js/birdash-local.js
+config/birdash-local.js
+config/backup-config.json
+config/backup-history.json
+deploy.sh
+photo-cache/
+birdash.db
+.claude/

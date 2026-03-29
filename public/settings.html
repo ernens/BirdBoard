@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Settings</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+  <style>
+    .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    @media(max-width:768px) { .settings-grid { grid-template-columns:1fr; } }
+    .set-row { display:flex; justify-content:space-between; align-items:center; padding:.6rem 0; border-bottom:1px solid var(--border); }
+    .set-row:last-child { border-bottom:none; }
+    .set-label { font-weight:500; font-size:.9rem; color:var(--text-secondary); flex:1; }
+    .set-input { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.45rem .7rem; color:var(--text); font-size:.9rem; width:180px; }
+    .set-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(90,158,58,.2); }
+    .set-select { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.45rem .7rem; color:var(--text); font-size:.9rem; width:180px; cursor:pointer; }
+    .set-range { width:180px; accent-color:var(--accent); }
+    .set-range-val { font-size:.85rem; font-weight:600; color:var(--accent); min-width:3rem; text-align:right; }
+    .set-check { display:flex; align-items:center; gap:.5rem; cursor:pointer; }
+    .set-check input { accent-color:var(--accent); width:18px; height:18px; }
+    .model-card { padding:.8rem; border-radius:8px; border:2px solid var(--border); cursor:pointer; transition:all .2s; }
+    .model-card:hover { border-color:var(--accent); }
+    .model-card.active { border-color:var(--accent); background:rgba(90,158,58,.08); }
+    .model-name { font-weight:700; font-size:1rem; }
+    .model-desc { font-size:.82rem; color:var(--text-secondary); margin-top:.3rem; }
+    .model-badge { display:inline-block; padding:.15rem .5rem; border-radius:4px; font-size:.75rem; font-weight:600; margin-left:.5rem; }
+    .badge-recommended { background:rgba(90,158,58,.15); color:var(--accent); }
+    .badge-advanced { background:rgba(200,168,75,.15); color:#c8a84b; }
+    .badge-experimental { background:rgba(168,92,58,.15); color:#a85c3a; }
+    .save-bar { position:sticky; bottom:0; background:var(--bg-body); padding:1rem 0; border-top:1px solid var(--border); display:flex; gap:1rem; align-items:center; flex-wrap:wrap; z-index:10; }
+    .btn-save { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:.7rem 2rem; font-size:1rem; font-weight:600; cursor:pointer; transition:opacity .2s; }
+    .btn-save:hover { opacity:.9; }
+    .btn-save:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-outline { background:transparent; color:var(--text-secondary); border:1px solid var(--border); border-radius:8px; padding:.7rem 1.5rem; font-size:.9rem; cursor:pointer; }
+    .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+    .save-msg { font-size:.9rem; padding:.4rem .8rem; border-radius:6px; }
+    .save-ok { background:rgba(90,158,58,.12); color:var(--accent); }
+    .save-err { background:rgba(200,60,60,.12); color:#c84b4b; }
+    .svc-row { display:flex; align-items:center; justify-content:space-between; padding:.5rem 0; border-bottom:1px solid var(--border); }
+    .svc-row:last-child { border-bottom:none; }
+    .svc-name { font-family:monospace; font-size:.88rem; }
+    .svc-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:.5rem; }
+    .svc-active { background:#5a9e3a; }
+    .svc-inactive { background:#c84b4b; }
+    .svc-btn { background:transparent; border:1px solid var(--border); border-radius:5px; padding:.3rem .7rem; font-size:.8rem; cursor:pointer; color:var(--text-secondary); }
+    .svc-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .section-title { font-size:1.1rem; font-weight:700; margin-bottom:.8rem; display:flex; align-items:center; gap:.5rem; }
+    textarea.set-textarea { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.5rem; color:var(--text); font-size:.85rem; font-family:monospace; width:100%; min-height:120px; resize:vertical; }
+    textarea.set-textarea:focus { outline:none; border-color:var(--accent); }
+    /* Info badge & modal */
+    .info-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:18px; height:18px; border-radius:50%; border:1.5px solid var(--accent);
+      color:var(--accent); font-size:.7rem; font-weight:700; font-style:italic;
+      cursor:pointer; flex-shrink:0; margin-left:.4rem;
+      font-family:Georgia,serif; line-height:1; transition:all .15s;
+      background:transparent; padding:0;
+    }
+    .info-btn:hover { background:var(--accent); color:#fff; }
+    .info-overlay {
+      position:fixed; inset:0; z-index:1000;
+      background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center;
+      padding:1rem; animation:fadeIn .15s;
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .info-modal {
+      background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+      max-width:480px; width:100%; padding:1.5rem; box-shadow:0 8px 32px rgba(0,0,0,.25);
+      position:relative; max-height:80vh; overflow-y:auto;
+    }
+    .info-modal-title {
+      font-size:1rem; font-weight:700; color:var(--accent); margin-bottom:.75rem;
+      display:flex; align-items:center; gap:.5rem;
+    }
+    .info-modal-body { font-size:.88rem; line-height:1.6; color:var(--text-main); }
+    .info-modal-body strong { color:var(--accent); }
+    .info-modal-body code {
+      background:var(--bg-deep); padding:.1rem .35rem; border-radius:3px;
+      font-size:.82rem; font-family:monospace;
+    }
+    .info-modal-close {
+      position:absolute; top:.75rem; right:.75rem; background:none; border:none;
+      font-size:1.2rem; cursor:pointer; color:var(--text-muted); padding:.25rem;
+      line-height:1;
+    }
+    .info-modal-close:hover { color:var(--text-main); }
+    .info-rec { margin-top:.6rem; padding:.5rem .7rem; border-radius:6px;
+      background:color-mix(in srgb,var(--accent) 8%,transparent);
+      border-left:3px solid var(--accent); font-size:.82rem; }
+    /* Backup state badges */
+    .bkp-state-badge { font-size:.72rem; padding:.15rem .45rem; border-radius:10px;
+      font-weight:600; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+    .bkp-running { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent);
+      animation:bkp-pulse 1.5s ease-in-out infinite; }
+    .bkp-completed { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
+    .bkp-failed { background:color-mix(in srgb,var(--danger) 15%,transparent); color:var(--danger); }
+    .bkp-stopped { background:color-mix(in srgb,var(--warning,#c8a84b) 15%,transparent); color:var(--warning,#c8a84b); }
+    .bkp-paused { background:color-mix(in srgb,var(--warning,#c8a84b) 15%,transparent); color:var(--warning,#c8a84b); }
+    @keyframes bkp-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+    /* Tab navigation (same as system.html) */
+    .set-tabs{display:flex;gap:.25rem;padding:.25rem;background:var(--bg-card2);border-radius:.5rem;margin-bottom:1.25rem;overflow-x:auto;}
+    .set-tab-btn{display:flex;align-items:center;gap:.35rem;padding:.5rem .9rem;border:none;background:transparent;color:var(--text-muted);font-size:.82rem;font-family:inherit;cursor:pointer;border-radius:.4rem;transition:all .2s;white-space:nowrap;}
+    .set-tab-btn:hover{background:var(--bg-card);color:var(--text-main);}
+    .set-tab-btn.active{background:var(--bg-card);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+    .set-tab-icon{font-size:1rem;}
+    .set-tab-label{font-size:.78rem;}
+  </style>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="settings" :title="t('nav_settings')">
+
+    <!-- Info modal -->
+    <div v-if="helpKey" class="info-overlay" @click.self="helpKey=null">
+      <div class="info-modal">
+        <button class="info-modal-close" @click="helpKey=null">&times;</button>
+        <div class="info-modal-title">ⓘ {{helpTitle}}</div>
+        <div class="info-modal-body" v-html="safeHtml(helpBody)"></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="loading" style="display:flex;justify-content:center;padding:3rem;">
+      <div class="spinner"><div></div><div></div><div></div></div>
+    </div>
+
+    <template v-else>
+
+      <!-- ── Tab Navigation ──────────────────────────────────────── -->
+      <div class="set-tabs">
+        <button v-for="tab in tabs" :key="tab.id"
+                class="set-tab-btn" :class="{active: activeTab === tab.id}"
+                @click="switchTab(tab.id)">
+          <span class="set-tab-icon">{{tab.icon}}</span>
+          <span class="set-tab-label">{{tab.label || t(tab.labelKey)}}</span>
+        </button>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB 1: DETECTION
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='detection'">
+
+      <!-- ═══ Model Selection ═══ -->
+      <div class="card">
+        <div class="section-title">🤖 {{t('set_model')}} <button class="info-btn" @click="helpKey='model'">i</button></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.8rem;">
+          <div v-for="m in models" :key="m"
+               class="model-card" :class="{ active: conf.MODEL === m }"
+               @click="conf.MODEL = m">
+            <div style="display:flex;align-items:center;">
+              <span class="model-name">{{ modelLabel(m) }}</span>
+              <span v-if="m === 'BirdNET_GLOBAL_6K_V2.4_Model_FP16'" class="model-badge badge-recommended">6.5K</span>
+              <span v-else-if="m.includes('MData_Model_V2')" class="model-badge badge-recommended">6.5K + range V2</span>
+              <span v-else-if="m.includes('MData_Model')" class="model-badge badge-recommended">6.5K + range</span>
+              <span v-else-if="m === 'BirdNET_6K_GLOBAL_MODEL'" class="model-badge badge-experimental">legacy</span>
+              <span v-else-if="m === 'Perch_v2_int8'" class="model-badge badge-advanced">15K INT8</span>
+              <span v-else-if="m.includes('Perch')" class="model-badge badge-advanced">15K</span>
+              <span v-else-if="m.includes('Go')" class="model-badge badge-experimental">exp.</span>
+            </div>
+            <div class="model-desc">{{ modelDescription(m) }}</div>
+          </div>
+        </div>
+        <!-- Dual-model config -->
+        <div style="margin-top:.8rem;padding:.8rem 1rem;border-radius:8px;background:var(--bg-card2);border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.5rem;">
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-weight:600;">
+              <input type="checkbox"
+                     :checked="conf.DUAL_MODEL_ENABLED == 1"
+                     @change="conf.DUAL_MODEL_ENABLED = $event.target.checked ? 1 : 0">
+              Dual-model
+            </label>
+            <span style="font-size:1.1em;">⚡</span>
+            <span style="font-size:.82em;opacity:.6;">Analyse chaque fichier avec deux modèles en parallèle</span>
+          </div>
+
+          <div v-if="conf.DUAL_MODEL_ENABLED == 1">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+              <span style="font-size:.85em;">Modèle secondaire :</span>
+              <select v-model="conf.SECONDARY_MODEL"
+                      style="padding:.3rem .5rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.85em;">
+                <option v-for="m in secondaryModelOptions" :key="m" :value="m">{{ modelLabel(m) }}</option>
+              </select>
+            </div>
+
+            <!-- Live status -->
+            <div v-if="analysisStatus && analysisStatus.secondaryModel"
+                 style="margin-top:.5rem;font-size:.82em;color:var(--accent);display:flex;align-items:center;gap:.4rem;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;"></span>
+              {{ modelLabel(analysisStatus.secondaryModel) }} actif
+              — Primaire : ~{{ analysisStatus.inferenceTime?.toFixed(1) || '?' }}s
+              | Secondaire : ~{{ analysisStatus.secondaryInferenceTime?.toFixed(1) || '?' }}s
+            </div>
+            <div v-else-if="conf.DUAL_MODEL_ENABLED == 1"
+                 style="margin-top:.5rem;font-size:.82em;color:var(--text-muted);">
+              Le modèle secondaire sera chargé au prochain cycle (~5 min).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+
+        <!-- ═══ Analysis ═══ -->
+        <div class="card">
+          <div class="section-title">🔬 {{t('set_analysis')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_confidence')}} <button class="info-btn" @click="helpKey='confidence'">i</button></span>
+            <span class="set-range-val">{{conf.CONFIDENCE}}</span>
+            <input v-model="conf.CONFIDENCE" type="range" min="0.01" max="0.99" step="0.01" class="set-range" :aria-label="t('set_confidence')">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_sensitivity')}} <button class="info-btn" @click="helpKey='sensitivity'">i</button></span>
+            <span class="set-range-val">{{conf.SENSITIVITY}}</span>
+            <input v-model="conf.SENSITIVITY" type="range" min="0.5" max="1.5" step="0.05" class="set-range" :aria-label="t('set_sensitivity')">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_species_freq_thresh')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
+            <span class="set-range-val">{{conf.SF_THRESH}}</span>
+            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range" :aria-label="t('set_species_freq_thresh')">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_overlap')}} <button class="info-btn" @click="helpKey='overlap'">i</button></span>
+            <span class="set-range-val">{{conf.OVERLAP}}</span>
+            <input v-model="conf.OVERLAP" type="range" min="0" max="2.9" step="0.1" class="set-range" :aria-label="t('set_overlap')">
+          </div>
+        </div>
+
+        <!-- ═══ Recording ═══ -->
+        <div class="card">
+          <div class="section-title">🎙️ {{t('set_recording')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_rec_length')}} <button class="info-btn" @click="helpKey='rec_length'">i</button></span>
+            <input v-model="conf.RECORDING_LENGTH" type="number" min="6" max="120" class="set-input" style="width:80px;">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_extraction_length')}} <button class="info-btn" @click="helpKey='extraction_length'">i</button></span>
+            <input v-model="conf.EXTRACTION_LENGTH" type="number" min="3" max="30" class="set-input" style="width:80px;" placeholder="6">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_audio_format')}} <button class="info-btn" @click="helpKey='audio_format'">i</button></span>
+            <select v-model="conf.AUDIOFMT" class="set-select" style="width:100px;">
+              <option value="mp3">MP3</option>
+              <option value="wav">WAV</option>
+              <option value="flac">FLAC</option>
+              <option value="ogg">OGG</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_channels')}} <button class="info-btn" @click="helpKey='channels'">i</button></span>
+            <select v-model="conf.CHANNELS" class="set-select" style="width:80px;">
+              <option value="1">Mono</option>
+              <option value="2">Stereo</option>
+            </select>
+          </div>
+        </div>
+
+      </div><!-- /settings-grid -->
+      </div><!-- /tab detection -->
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB 2: STATION
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='station'">
+      <div class="settings-grid">
+
+        <!-- ═══ Location ═══ -->
+        <div class="card">
+          <div class="section-title">📍 {{t('set_location')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_site_name')}} <button class="info-btn" @click="helpKey='site_name'">i</button></span>
+            <input v-model="conf.SITE_NAME" class="set-input">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_latitude')}} <button class="info-btn" @click="helpKey='latitude'">i</button></span>
+            <input v-model="conf.LATITUDE" type="number" step="0.0001" class="set-input" style="width:120px;">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_longitude')}} <button class="info-btn" @click="helpKey='longitude'">i</button></span>
+            <input v-model="conf.LONGITUDE" type="number" step="0.0001" class="set-input" style="width:120px;">
+          </div>
+        </div>
+
+        <!-- ═══ Language & Images ═══ -->
+        <div class="card">
+          <div class="section-title">🌍 {{t('set_language')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_language')}} <button class="info-btn" @click="helpKey='database_lang'">i</button></span>
+            <select v-model="conf.DATABASE_LANG" class="set-select">
+              <option v-for="l in languages" :key="l" :value="l">{{l}}</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_image_provider')}} <button class="info-btn" @click="helpKey='image_provider'">i</button></span>
+            <select v-model="conf.IMAGE_PROVIDER" class="set-select" style="width:140px;">
+              <option value="WIKIPEDIA">Wikipedia</option>
+              <option value="FLICKR">Flickr</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ═══ BirdWeather ═══ -->
+        <div class="card">
+          <div class="section-title">🌤️ {{t('set_birdweather')}}</div>
+          <div class="set-row">
+            <span class="set-label">Station ID <button class="info-btn" @click="helpKey='birdweather'">i</button></span>
+            <input v-model="conf.BIRDWEATHER_ID" class="set-input" placeholder="empty = disabled">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_rtsp_stream')}} <button class="info-btn" @click="helpKey='rtsp'">i</button></span>
+            <input v-model="conf.RTSP_STREAM" class="set-input" style="width:240px;" placeholder="rtsp://...">
+          </div>
+        </div>
+
+      </div><!-- /settings-grid -->
+      </div><!-- /tab station -->
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB: AUDIO
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='audio'">
+
+        <!-- Status banner -->
+        <div class="card" style="display:flex;align-items:center;gap:1rem;padding:.8rem 1.2rem;">
+          <span style="font-size:1.4em;">{{ audioConf.device_name ? '🟢' : '🔴' }}</span>
+          <div style="flex:1;">
+            <strong>{{ audioConf.device_name || 'Aucun périphérique sélectionné' }}</strong>
+            <div style="font-size:.82em;opacity:.7;">
+              Profil : <strong>{{ audioConf.profile_name }}</strong>
+              &nbsp;|&nbsp; Canaux : {{ audioConf.input_channels }}
+              &nbsp;|&nbsp; Capture : {{ audioConf.capture_sample_rate }} Hz → 32000 Hz
+              <span v-if="audioConf.cal_date"> &nbsp;|&nbsp; Calibré le {{ audioConf.cal_date?.split('T')[0] }}</span>
+              <span v-else style="color:var(--warning);"> &nbsp;|&nbsp; Non calibré</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div style="display:flex;gap:.25rem;margin-bottom:1rem;">
+          <button v-for="st in audioSubTabs" :key="st.id"
+                  class="set-tab-btn" :class="{active: audioSubTab === st.id}"
+                  @click="audioSubTab = st.id"
+                  style="font-size:.78em;padding:.4rem .7rem;">
+            <span>{{st.icon}}</span> <span>{{st.label}}</span>
+          </button>
+        </div>
+
+        <!-- ── Sub-tab: Périphérique ── -->
+        <div v-if="audioSubTab==='device'">
+          <div class="card">
+            <div class="section-title">Périphériques audio détectés
+              <button class="btn-outline" @click="loadAudioDevices" style="margin-left:.5rem;font-size:.75em;">Rafraîchir</button>
+            </div>
+            <div v-if="audioDevices.length === 0" style="padding:1rem;color:var(--text-muted);">
+              Aucun périphérique audio détecté. Vérifiez la connexion USB.<br>
+              <code style="font-size:.8em;">arecord -l</code> pour diagnostiquer.
+            </div>
+            <div v-for="d in audioDevices" :key="d.id"
+                 class="model-card" :class="{ active: audioConf.device_id === d.id }"
+                 @click="selectAudioDevice(d)"
+                 style="cursor:pointer;margin-bottom:.5rem;">
+              <div style="display:flex;align-items:center;gap:.5rem;">
+                <span class="model-name">{{ d.name }}</span>
+                <span v-if="d.recommended" class="model-badge badge-recommended">recommandé</span>
+              </div>
+              <div style="font-size:.82em;opacity:.7;">
+                ID: {{ d.id }} &nbsp;|&nbsp; Canaux: {{ d.channels }} &nbsp;|&nbsp; {{ d.sample_rates.join(', ') }} Hz
+              </div>
+            </div>
+          </div>
+
+          <div class="card" v-if="audioConf.device_id">
+            <div class="section-title">Câblage microphones</div>
+            <div style="display:flex;flex-direction:column;gap:.5rem;">
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+                <input type="radio" v-model.number="audioConf.input_channels" :value="1"> 1 microphone (canal 0)
+              </label>
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+                <input type="radio" v-model.number="audioConf.input_channels" :value="2"> 2 microphones (canaux 0+1)
+              </label>
+            </div>
+            <div style="margin-top:.8rem;font-size:.82em;opacity:.6;">
+              Sample rate de sortie : <strong>32 000 Hz</strong> (imposé par Perch V2, non modifiable)
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sub-tab: Profil & Paramètres ── -->
+        <div v-if="audioSubTab==='profile'">
+          <div class="card">
+            <div class="section-title">Profil actif</div>
+            <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+              <select v-model="audioConf.profile_name" @change="activateAudioProfile(audioConf.profile_name)"
+                      style="padding:.4rem .6rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.9em;">
+                <option v-for="(p, name) in audioProfiles" :key="name" :value="name">{{ name }}</option>
+              </select>
+              <button class="btn-outline" @click="duplicateAudioProfile" style="font-size:.78em;">Dupliquer</button>
+              <button class="btn-outline" @click="deleteAudioProfile" style="font-size:.78em;"
+                      :disabled="audioProfiles[audioConf.profile_name]?.builtin">Supprimer</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Stratégie multi-canaux</div>
+            <div v-if="audioConf.input_channels < 2" style="opacity:.6;font-size:.85em;">
+              Disponible uniquement avec 2 microphones.
+            </div>
+            <div v-else style="display:flex;flex-direction:column;gap:.5rem;">
+              <label v-for="s in channelStrategies" :key="s.id"
+                     style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;">
+                <input type="radio" v-model="audioConf.channel_strategy" :value="s.id" style="margin-top:3px;">
+                <div>
+                  <strong>{{ s.label }}</strong>
+                  <div style="font-size:.82em;opacity:.7;">{{ s.desc }}</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Filtre passe-haut</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.highpass_enabled"> Activé
+              </label>
+              <div v-if="audioConf.highpass_enabled" style="flex:1;">
+                <input type="range" v-model.number="audioConf.highpass_cutoff_hz" min="50" max="300" step="10"
+                       style="width:100%;">
+                <div style="display:flex;justify-content:space-between;font-size:.78em;opacity:.6;">
+                  <span>50 Hz</span>
+                  <strong>{{ audioConf.highpass_cutoff_hz }} Hz</strong>
+                  <span>300 Hz</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="audioConf.highpass_enabled" style="display:flex;gap:.4rem;margin-top:.5rem;">
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=80">Calme (80)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=150">Route (150)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=200">Urbain (200)</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Chevauchement des fenêtres</div>
+            <input type="range" v-model.number="audioConf.hop_size_s" min="1.0" max="5.0" step="0.5"
+                   style="width:100%;">
+            <div style="display:flex;justify-content:space-between;font-size:.82em;">
+              <span>80% (1s)</span>
+              <strong>{{ Math.round((1 - audioConf.hop_size_s / 5) * 100) }}% ({{ audioConf.hop_size_s }}s)</strong>
+              <span>0% (5s)</span>
+            </div>
+            <div v-if="audioConf.hop_size_s < 2" style="color:var(--warning);font-size:.8em;margin-top:.3rem;">
+              Charge CPU élevée sur RPi5
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Normalisation RMS</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.rms_normalize"> Activé
+              </label>
+              <div v-if="audioConf.rms_normalize" style="flex:1;">
+                <input type="range" v-model.number="audioConf.rms_target" min="0.01" max="0.20" step="0.01"
+                       style="width:100%;">
+                <div style="text-align:center;font-size:.82em;">
+                  Cible : <strong>{{ audioConf.rms_target }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+            <button class="btn-accent" @click="saveAudioConfig">Sauvegarder</button>
+            <span v-if="audioSaveMsg" style="color:var(--accent);font-size:.85em;align-self:center;">{{ audioSaveMsg }}</span>
+          </div>
+        </div>
+
+        <!-- ── Sub-tab: Calibration ── -->
+        <div v-if="audioSubTab==='calibration'">
+          <div class="card">
+            <div class="section-title">Calibration inter-canaux</div>
+            <div v-if="audioConf.input_channels < 2" style="opacity:.6;padding:1rem;">
+              La calibration nécessite 2 microphones.
+            </div>
+            <div v-else>
+              <div v-if="audioConf.cal_date" style="margin-bottom:1rem;">
+                <div>Dernière calibration : <strong>{{ audioConf.cal_date?.split('T')[0] }}</strong></div>
+                <div style="font-size:.85em;opacity:.7;">
+                  CH0: gain ×{{ audioConf.cal_gain_ch0 }} &nbsp;|&nbsp; CH1: gain ×{{ audioConf.cal_gain_ch1 }}
+                </div>
+                <div v-if="calExpired" style="color:var(--warning);font-size:.85em;margin-top:.3rem;">
+                  Calibration expirée (> 7 jours). Recalibration recommandée.
+                </div>
+              </div>
+              <div v-else style="color:var(--warning);margin-bottom:1rem;">
+                Les deux canaux ne sont pas calibrés. Les détections peuvent être biaisées.
+              </div>
+
+              <div v-if="!calRunning && !calResult">
+                <p style="font-size:.85em;opacity:.8;margin-bottom:.8rem;">
+                  Placez les deux microphones côte à côte (< 5 cm d'écart), orientés dans la même direction.
+                  Assurez-vous qu'aucun bruit fort n'est présent. La capture dure 10 secondes.
+                </p>
+                <button class="btn-accent" @click="startCalibration">Démarrer la calibration</button>
+              </div>
+
+              <div v-if="calRunning" style="text-align:center;padding:1rem;">
+                <div class="spinner" style="margin:0 auto .5rem;"></div>
+                <div>Capture en cours... (10 secondes)</div>
+              </div>
+
+              <div v-if="calResult" class="card" style="background:var(--bg-card2);">
+                <table style="width:100%;font-size:.85em;margin-bottom:.8rem;">
+                  <tr><th>Canal</th><th>RMS mesuré</th><th>Gain compensatoire</th></tr>
+                  <tr>
+                    <td>Canal 0 (CH0)</td>
+                    <td>{{ calResult.rms_ch0_db }} dBFS</td>
+                    <td>×{{ calResult.gain_ch0 }}</td>
+                  </tr>
+                  <tr>
+                    <td>Canal 1 (CH1)</td>
+                    <td>{{ calResult.rms_ch1_db }} dBFS</td>
+                    <td>×{{ calResult.gain_ch1 }}</td>
+                  </tr>
+                </table>
+                <div :style="{ color: calResult.status === 'warning' ? 'var(--warning)' : 'var(--accent)' }">
+                  {{ calResult.message }}
+                </div>
+                <div style="display:flex;gap:.5rem;margin-top:.8rem;">
+                  <button class="btn-accent" @click="applyCalibration">Appliquer et sauvegarder</button>
+                  <button class="btn-outline" @click="calResult=null">Recommencer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sub-tab: Monitoring ── -->
+        <div v-if="audioSubTab==='monitoring'">
+          <div class="card">
+            <div class="section-title">Niveaux d'entrée en temps réel
+              <button class="btn-outline" style="margin-left:.5rem;font-size:.75em;"
+                      @click="audioMonitoring ? stopMonitor() : startMonitor()">
+                {{ audioMonitoring ? 'Arrêter' : 'Démarrer' }}
+              </button>
+            </div>
+            <div v-if="!audioMonitoring" style="opacity:.6;padding:1rem;text-align:center;">
+              Cliquez sur Démarrer pour afficher les niveaux audio en temps réel.
+            </div>
+            <div v-else style="display:flex;gap:2rem;justify-content:center;padding:1rem;">
+              <div v-for="ch in (audioConf.input_channels === 2 ? [0,1] : [0])" :key="ch"
+                   style="text-align:center;">
+                <div style="font-size:.8em;opacity:.7;margin-bottom:.3rem;">CH{{ ch }}</div>
+                <div style="width:40px;height:200px;background:var(--bg-card2);border-radius:4px;position:relative;overflow:hidden;margin:0 auto;">
+                  <div :style="{
+                    position:'absolute', bottom:0, left:0, right:0,
+                    height: Math.max(0, Math.min(100, (60 + monitorLevels['ch'+ch+'_rms_db']) / 60 * 100)) + '%',
+                    background: monitorLevels['clipping_ch'+ch] ? '#e53e3e' :
+                                monitorLevels['ch'+ch+'_rms_db'] > -12 ? '#dd6b20' :
+                                monitorLevels['ch'+ch+'_rms_db'] > -18 ? '#38a169' : '#4299e1',
+                    transition: 'height .3s, background .3s',
+                    borderRadius: '0 0 4px 4px'
+                  }"></div>
+                  <!-- comfort zone markers -->
+                  <div style="position:absolute;left:0;right:0;bottom:70%;border-top:1px dashed rgba(56,161,105,.5);"></div>
+                  <div style="position:absolute;left:0;right:0;bottom:80%;border-top:1px dashed rgba(56,161,105,.5);"></div>
+                </div>
+                <div style="font-size:.78em;margin-top:.3rem;">
+                  {{ monitorLevels['ch'+ch+'_rms_db']?.toFixed(1) || '-60' }} dB
+                </div>
+                <div v-if="monitorLevels['clipping_ch'+ch]"
+                     style="color:#e53e3e;font-size:.7em;font-weight:bold;">CLIP</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Test audio (5 secondes)</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <button class="btn-accent" @click="testAudio" :disabled="audioTesting">
+                {{ audioTesting ? 'Capture...' : 'Tester l\'audio' }}
+              </button>
+            </div>
+            <div v-if="audioTestImg" style="margin-top:.8rem;">
+              <img :src="audioTestImg" style="width:100%;border-radius:6px;border:1px solid var(--border);"
+                   alt="Spectrogram test">
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab audio -->
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB: NOTIFICATIONS
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='notif'">
+
+        <!-- ═══ Global toggle + Apprise URL ═══ -->
+        <div class="card">
+          <div class="section-title" style="display:flex;align-items:center;gap:.8rem;">
+            <span>Canal de notification</span>
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.82rem;font-weight:normal;margin-left:auto;">
+              <input type="checkbox"
+                     :checked="notifGlobalEnabled"
+                     @change="toggleNotifGlobal($event.target.checked)">
+              <span :style="{color: notifGlobalEnabled ? 'var(--accent)' : 'var(--text-muted)'}">
+                {{ notifGlobalEnabled ? 'Notifications actives' : 'Notifications désactivées' }}
+              </span>
+            </label>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;">
+            <span style="font-size:.82em;white-space:nowrap;">Apprise URL :</span>
+            <input type="text" v-model="appriseUrls" style="flex:1;padding:.3rem .5rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.82em;font-family:monospace;">
+            <button class="btn-outline" @click="saveApprise" :disabled="savingApprise" style="font-size:.75em;">
+              {{ savingApprise ? '...' : 'Sauvegarder' }}
+            </button>
+            <button class="btn-outline" @click="testApprise" :disabled="testingApprise" style="font-size:.75em;">
+              {{ testingApprise ? '...' : 'Tester' }}
+            </button>
+          </div>
+          <div v-if="appriseMsg" style="font-size:.78em;margin-top:.3rem;" :style="{color: appriseErr ? 'var(--danger)' : 'var(--accent)'}">{{ appriseMsg }}</div>
+          <p style="font-size:.72rem;color:var(--text-muted);margin:.3rem 0 0 0;">
+            Ex: <code>ntfy://ntfy.sh/mon-topic</code>, <code>tgram://bottoken/chatid</code>, <code>discord://webhook</code>
+          </p>
+        </div>
+
+        <!-- ═══ Notifications oiseaux ═══ -->
+        <div class="card">
+          <div class="section-title">Alertes oiseaux</div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.NOTIFY_RARE_SPECIES" true-value="1" false-value="0">
+            <span>🦅 <strong>Espèce rare</strong> — Jamais vue ou moins de N détections au total</span>
+          </label></div>
+          <div v-if="conf.NOTIFY_RARE_SPECIES == 1" style="margin-left:1.5rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;">
+            <span style="font-size:.82em;">Seuil :</span>
+            <input type="number" v-model.number="conf.NOTIFY_RARE_THRESHOLD" min="1" max="100" step="1"
+                   style="width:60px;font-size:.82em;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.78em;color:var(--text-muted);">détections max au total</span>
+          </div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.NOTIFY_FIRST_SEASON" true-value="1" false-value="0">
+            <span>🌱 <strong>Première de saison</strong> — Pas vue depuis N jours</span>
+          </label></div>
+          <div v-if="conf.NOTIFY_FIRST_SEASON == 1" style="margin-left:1.5rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;">
+            <span style="font-size:.82em;">Absence depuis :</span>
+            <input type="number" v-model.number="conf.NOTIFY_SEASON_DAYS" min="7" max="365" step="1"
+                   style="width:60px;font-size:.82em;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.78em;color:var(--text-muted);">jours</span>
+          </div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES" true-value="1" false-value="0">
+            <span>🆕 <strong>Nouvelle espèce</strong> — Jamais détectée sur cette station</span>
+          </label></div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY" true-value="1" false-value="0">
+            <span>📅 Première du jour — Chaque espèce une fois par jour <span style="color:var(--warning);font-size:.78em;">(bruyant : ~50 notifs/jour)</span></span>
+          </label></div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_NOTIFY_EACH_DETECTION" true-value="1" false-value="0">
+            <span>📢 Chaque détection <span style="color:var(--danger);font-size:.78em;">(très bruyant : ~1000+ notifs/jour)</span></span>
+          </label></div>
+
+          <div style="margin-top:.6rem;border-top:1px solid var(--border);padding-top:.6rem;">
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.alert_influx" true-value="1" false-value="0">
+              <span>📈 Afflux inhabituel (>3x la moyenne)</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.alert_missing" true-value="1" false-value="0">
+              <span>🔍 Espèce commune absente après midi</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.alert_rare_visitor" true-value="1" false-value="0">
+              <span>🦅 Visiteur rare (birdash legacy)</span>
+            </label></div>
+          </div>
+        </div>
+
+        <!-- ═══ Alertes système ═══ -->
+        <div class="card">
+          <div class="section-title">Alertes système</div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_temp" true-value="1" false-value="0">
+              <span>🌡️ {{t('set_alert_temp_warn')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.temp_warn" min="40" max="90" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">°C</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_temp_crit" true-value="1" false-value="0">
+              <span>🔥 {{t('set_alert_temp_crit')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.temp_crit" min="50" max="100" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">°C</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_disk" true-value="1" false-value="0">
+              <span>💾 {{t('set_alert_disk_warn')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.disk_warn" min="50" max="99" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">%</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_ram" true-value="1" false-value="0">
+              <span>🧠 {{t('set_alert_ram_warn')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.ram_warn" min="50" max="99" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">%</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_no_det" true-value="1" false-value="0">
+              <span>🔇 {{t('set_alert_no_det')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.no_detection_hours" min="1" max="48" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">h</span>
+          </div>
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="alertThresholds.service_down" true-value="1" false-value="0">
+            <span>⚠️ {{t('set_alert_svc_down')}}</span>
+          </label></div>
+        </div>
+
+        <!-- ═══ Rapport hebdomadaire ═══ -->
+        <div class="card">
+          <div class="section-title">Rapport</div>
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_WEEKLY_REPORT" true-value="1" false-value="0">
+            <span>📊 Rapport hebdomadaire</span>
+          </label></div>
+        </div>
+
+        <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+          <button class="btn-accent" @click="saveNotifSettings">Sauvegarder</button>
+          <span v-if="notifSaveMsg" style="font-size:.82em;align-self:center;" :style="{color: notifSaveErr ? 'var(--danger)' : 'var(--accent)'}">{{ notifSaveMsg }}</span>
+        </div>
+
+      </div><!-- /tab notif -->
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB 3: SYSTEM
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='system'">
+      <div class="settings-grid">
+
+        <!-- ═══ Disk Management ═══ -->
+        <div class="card">
+          <div class="section-title">💾 {{t('set_disk_mgmt')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_full_disk')}} <button class="info-btn" @click="helpKey='full_disk'">i</button></span>
+            <select v-model="conf.FULL_DISK" class="set-select" style="width:120px;">
+              <option value="purge">Purge</option>
+              <option value="keep">Keep</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_purge_threshold')}} <button class="info-btn" @click="helpKey='purge_threshold'">i</button></span>
+            <span class="set-range-val">{{conf.PURGE_THRESHOLD}}%</span>
+            <input v-model="conf.PURGE_THRESHOLD" type="range" min="50" max="99" step="1" class="set-range" :aria-label="t('set_purge_threshold')">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_max_files')}} <button class="info-btn" @click="helpKey='max_files'">i</button></span>
+            <input v-model="conf.MAX_FILES_SPECIES" type="number" min="0" class="set-input" style="width:80px;">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_privacy_threshold')}} <button class="info-btn" @click="helpKey='privacy'">i</button></span>
+            <select v-model="conf.PRIVACY_THRESHOLD" class="set-select" style="width:80px;">
+              <option value="0">0 (off)</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ═══ Notifications — configuration du canal ═══ -->
+        <div class="card">
+          <div class="section-title">🔔 {{t('set_notifications')}}</div>
+
+          <!-- Apprise URLs -->
+          <div class="set-row" style="flex-direction:column;align-items:stretch;">
+            <label class="set-label" style="margin-bottom:.3rem;">{{t('set_notif_urls')}}</label>
+            <textarea v-model="appriseUrls" rows="3"
+                      style="width:100%;box-sizing:border-box;font-family:monospace;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.4rem .5rem;resize:vertical;"
+                      placeholder="ntfy://ntfy.sh/my-birds&#10;tgram://bottoken/chatid&#10;mailto://user:pass@gmail.com"></textarea>
+            <div style="font-size:.68rem;color:var(--text-faint);margin-top:.25rem;line-height:1.5;">
+              {{t('set_notif_urls_help')}}<br>
+              <code style="color:var(--accent);">ntfy://ntfy.sh/my-topic</code> ·
+              <code style="color:var(--accent);">tgram://bottoken/chatid</code> ·
+              <code style="color:var(--accent);">discord://webhook_id/webhook_token</code><br>
+              <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:.68rem;">Apprise Wiki — 80+ services</a>
+            </div>
+            <div v-if="!appriseUrls.trim()" style="margin-top:.4rem;padding:.3rem .5rem;background:rgba(251,191,36,.1);border-left:3px solid var(--amber);border-radius:3px;font-size:.72rem;color:var(--amber);">
+              {{t('set_notif_no_urls')}}
+            </div>
+            <div style="display:flex;gap:.5rem;margin-top:.4rem;">
+              <button class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;" @click="saveApprise" :disabled="savingApprise">
+                {{savingApprise ? '…' : t('set_save')}}
+              </button>
+              <button class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;" @click="testApprise" :disabled="testingApprise || !appriseUrls.trim()">
+                {{testingApprise ? t('set_notif_testing') : '🔔 ' + t('set_notif_test')}}
+              </button>
+              <span v-if="appriseMsg" style="font-size:.72rem;align-self:center;" :style="{color:appriseErr?'var(--danger)':'var(--accent)'}">{{appriseMsg}}</span>
+            </div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:.8rem 0;">
+
+          <!-- Title & Body templates -->
+          <div class="set-row" style="flex-direction:column;align-items:stretch;">
+            <label class="set-label" style="margin-bottom:.2rem;">{{t('set_notif_title')}}</label>
+            <input type="text" v-model="conf.APPRISE_NOTIFICATION_TITLE"
+                   style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;">
+          </div>
+          <div class="set-row" style="flex-direction:column;align-items:stretch;margin-top:.4rem;">
+            <label class="set-label" style="margin-bottom:.2rem;">{{t('set_notif_body')}}</label>
+            <input type="text" v-model="conf.APPRISE_NOTIFICATION_BODY"
+                   placeholder="A $comname ($sciname) was detected with confidence $confidence"
+                   style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;">
+            <div style="font-size:.68rem;color:var(--text-faint);margin-top:.2rem;">
+              {{t('set_notif_body_help')}}
+            </div>
+          </div>
+          <div class="set-row" style="margin-top:.5rem;">
+            <label class="set-label" style="flex:1;">{{t('set_notif_cooldown')}}</label>
+            <input type="number" v-model="conf.APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES" min="0" max="86400" step="1"
+                   style="width:80px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+          </div>
+        </div>
+
+      </div><!-- /settings-grid (system) -->
+
+        <!-- Notifications moved to dedicated tab -->
+
+      <!-- ═══ Species Lists ═══ -->
+      <div class="card" style="margin-top:1.2rem;">
+        <div class="section-title">📋 {{t('set_species_lists')}} <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
+        <div class="settings-grid">
+          <div>
+            <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_include_list')}}</div>
+            <textarea v-model="includeList" class="set-textarea" :placeholder="'Pica pica\nTurdus merula\n...'"></textarea>
+          </div>
+          <div>
+            <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_exclude_list')}}</div>
+            <textarea v-model="excludeList" class="set-textarea" :placeholder="'Homo sapiens\n...'"></textarea>
+          </div>
+        </div>
+        <button class="btn-outline" style="margin-top:.8rem;" @click="saveSpeciesLists" :disabled="savingLists">
+          {{savingLists ? '...' : t('set_save') + ' lists'}}
+        </button>
+      </div>
+
+      </div><!-- /tab system -->
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB 4: BACKUP
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='backup'">
+
+      <!-- ═══ Backup Configuration ═══ -->
+      <div class="card" style="margin-top:1.2rem;">
+        <div class="section-title">💾 {{t('set_backup')}} <button class="info-btn" @click="helpKey='backup'">i</button></div>
+
+        <div class="settings-grid">
+
+          <!-- Destination -->
+          <div>
+            <div style="font-weight:600;margin-bottom:.6rem;">{{t('set_backup_dest')}}</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;">
+              <div v-for="d in backupDests" :key="d.value"
+                   class="model-card" style="padding:.55rem .7rem;"
+                   :class="{ active: bkp.destination === d.value }"
+                   @click="bkp.destination = d.value">
+                <div style="display:flex;align-items:center;gap:.4rem;">
+                  <span style="font-size:1.1rem;">{{d.icon}}</span>
+                  <span style="font-weight:600;font-size:.85rem;">{{t(d.labelKey)}}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic fields per destination -->
+            <div style="margin-top:.8rem;">
+
+              <!-- Local / USB -->
+              <template v-if="bkp.destination === 'local'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_path')}}</span>
+                  <input v-model="bkp.local.path" class="set-input" style="width:220px;" placeholder="/mnt/backup">
+                </div>
+              </template>
+
+              <!-- SMB/CIFS -->
+              <template v-if="bkp.destination === 'smb'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_host')}}</span>
+                  <input v-model="bkp.smb.host" class="set-input" placeholder="192.168.1.100">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_share')}}</span>
+                  <input v-model="bkp.smb.share" class="set-input" placeholder="backups">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_user')}}</span>
+                  <input v-model="bkp.smb.user" class="set-input" placeholder="user">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_pass')}}</span>
+                  <input v-model="bkp.smb.pass" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.smb.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+              <!-- NFS -->
+              <template v-if="bkp.destination === 'nfs'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_host')}}</span>
+                  <input v-model="bkp.nfs.host" class="set-input" placeholder="192.168.1.100">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">Export</span>
+                  <input v-model="bkp.nfs.exportPath" class="set-input" style="width:220px;" placeholder="/volume1/backups">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.nfs.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+              <!-- SFTP -->
+              <template v-if="bkp.destination === 'sftp'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_host')}}</span>
+                  <input v-model="bkp.sftp.host" class="set-input" placeholder="backup.example.com">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_port')}}</span>
+                  <input v-model="bkp.sftp.port" type="number" class="set-input" style="width:80px;" placeholder="22">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_user')}}</span>
+                  <input v-model="bkp.sftp.user" class="set-input" placeholder="user">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_pass')}}</span>
+                  <input v-model="bkp.sftp.pass" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.sftp.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+              <!-- S3 -->
+              <template v-if="bkp.destination === 's3'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_bucket')}}</span>
+                  <input v-model="bkp.s3.bucket" class="set-input" placeholder="my-birdash-backups">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_region')}}</span>
+                  <input v-model="bkp.s3.region" class="set-input" placeholder="eu-west-1">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_access_key')}}</span>
+                  <input v-model="bkp.s3.accessKey" class="set-input" placeholder="AKIA...">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_secret_key')}}</span>
+                  <input v-model="bkp.s3.secretKey" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.s3.remotePath" class="set-input" style="width:220px;" placeholder="birdash-backup">
+                </div>
+              </template>
+
+              <!-- Google Drive -->
+              <template v-if="bkp.destination === 'gdrive'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_gdrive_folder')}}</span>
+                  <input v-model="bkp.gdrive.folderId" class="set-input" style="width:260px;" placeholder="1A2B3C...">
+                </div>
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:.3rem;">
+                  Requires <code>rclone</code> configured with Google Drive.
+                </div>
+              </template>
+
+              <!-- WebDAV -->
+              <template v-if="bkp.destination === 'webdav'">
+                <div class="set-row">
+                  <span class="set-label">URL</span>
+                  <input v-model="bkp.webdav.url" class="set-input" style="width:260px;" placeholder="https://cloud.example.com/remote.php/dav">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_user')}}</span>
+                  <input v-model="bkp.webdav.user" class="set-input" placeholder="user">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_pass')}}</span>
+                  <input v-model="bkp.webdav.pass" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.webdav.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+            </div>
+          </div>
+
+          <!-- Content + Schedule -->
+          <div>
+            <div style="font-weight:600;margin-bottom:.6rem;">{{t('set_backup_content')}}</div>
+
+            <div style="display:flex;flex-direction:column;gap:.3rem;">
+              <label class="set-check" @change="toggleBackupContent('all')">
+                <input type="checkbox" :checked="bkp.content.includes('all')">
+                <span>{{t('set_backup_content_all')}}</span>
+              </label>
+              <label class="set-check" @change="toggleBackupContent('db')">
+                <input type="checkbox" :checked="bkp.content.includes('all') || bkp.content.includes('db')" :disabled="bkp.content.includes('all')">
+                <span>🗄️ {{t('set_backup_content_db')}} <span style="font-size:.75rem;color:var(--text-faint);">birds.db</span></span>
+              </label>
+              <label class="set-check" @change="toggleBackupContent('audio')">
+                <input type="checkbox" :checked="bkp.content.includes('all') || bkp.content.includes('audio')" :disabled="bkp.content.includes('all')">
+                <span>🎵 {{t('set_backup_content_audio')}} <span style="font-size:.75rem;color:var(--text-faint);">BirdSongs/</span></span>
+              </label>
+              <label class="set-check" @change="toggleBackupContent('config')">
+                <input type="checkbox" :checked="bkp.content.includes('all') || bkp.content.includes('config')" :disabled="bkp.content.includes('all')">
+                <span>⚙️ {{t('set_backup_content_config')}} <span style="font-size:.75rem;color:var(--text-faint);">birdnet.conf, lists…</span></span>
+              </label>
+            </div>
+
+            <!-- Schedule -->
+            <div style="font-weight:600;margin-top:1.2rem;margin-bottom:.6rem;">{{t('set_backup_schedule')}}</div>
+            <div class="set-row">
+              <span class="set-label">{{t('set_backup_schedule')}}</span>
+              <select v-model="bkp.schedule" class="set-select" style="width:140px;">
+                <option value="manual">{{t('set_backup_schedule_manual')}}</option>
+                <option value="daily">{{t('set_backup_schedule_daily')}}</option>
+                <option value="weekly">{{t('set_backup_schedule_weekly')}}</option>
+              </select>
+            </div>
+            <div v-if="bkp.schedule !== 'manual'" class="set-row">
+              <span class="set-label">{{t('set_backup_schedule_time')}}</span>
+              <input v-model="bkp.scheduleTime" type="time" class="set-input" style="width:110px;">
+            </div>
+            <div class="set-row">
+              <span class="set-label">{{t('set_backup_retention')}}</span>
+              <input v-model="bkp.retention" type="number" min="1" max="365" class="set-input" style="width:80px;">
+            </div>
+
+            <!-- Status & Actions -->
+            <div style="margin-top:1rem;padding:.7rem;background:var(--bg-deep);border-radius:8px;">
+
+              <!-- Live progress (visible when running or paused) -->
+              <div v-if="bkpProgress.state === 'running' || bkpProgress.state === 'paused'" style="margin-bottom:.7rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                  <span class="bkp-state-badge" :class="bkpProgress.state === 'paused' ? 'bkp-paused' : 'bkp-running'">
+                    {{bkpProgress.state === 'paused' ? t('set_backup_state_paused') : t('set_backup_state_running')}}
+                  </span>
+                  <span style="font-size:.78rem;color:var(--text-muted);flex:1;">{{bkpProgress.detail}}</span>
+                  <!-- Pause / Resume -->
+                  <button class="svc-btn" @click="pauseBackup" :title="bkpProgress.state === 'paused' ? t('set_backup_resume') : t('set_backup_pause')"
+                          style="font-size:.9rem;padding:.2rem .5rem;min-width:32px;">
+                    {{bkpProgress.state === 'paused' ? '▶' : '⏸'}}
+                  </button>
+                  <!-- Stop -->
+                  <button class="svc-btn" @click="stopBackup" :title="t('set_backup_stop')"
+                          style="font-size:.9rem;padding:.2rem .5rem;min-width:32px;color:var(--danger);">
+                    ⏹
+                  </button>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <div class="health-bar" style="height:10px;flex:1;">
+                    <div class="health-fill" :class="bkpProgress.state === 'paused' ? '' : 'bar-ok'"
+                         :style="{width: bkpProgress.percent + '%', transition:'width .8s ease',
+                                  background: bkpProgress.state === 'paused' ? 'var(--warning,#c8a84b)' : undefined}"></div>
+                  </div>
+                  <span style="font-size:.78rem;font-family:monospace;min-width:32px;text-align:right;">{{bkpProgress.percent}}%</span>
+                </div>
+                <div style="font-size:.72rem;color:var(--text-faint);margin-top:.25rem;">
+                  {{t('set_backup_step')}}: {{bkpStepLabel(bkpProgress.step)}}
+                  <span v-if="bkpProgress.startedAt"> — {{t('set_backup_started')}} {{bkpElapsed}}</span>
+                </div>
+                <!-- Disk info -->
+                <div v-if="bkpProgress.backupSize || bkpProgress.diskFree" style="display:flex;flex-wrap:wrap;gap:.8rem;margin-top:.5rem;font-size:.75rem;color:var(--text-muted);">
+                  <span v-if="bkpProgress.backupSize">{{t('set_backup_transferred')}}: <strong style="color:var(--text-main);">{{fmtSize(bkpProgress.backupSize)}}</strong></span>
+                  <span v-if="bkpProgress.diskFree">{{t('set_backup_disk_free')}}: <strong style="color:var(--text-main);">{{fmtSize(bkpProgress.diskFree)}}</strong></span>
+                  <span v-if="bkpProgress.diskTotal">/ {{fmtSize(bkpProgress.diskTotal)}}</span>
+                </div>
+              </div>
+
+              <!-- State badges for non-running states -->
+              <div v-else-if="bkpProgress.state === 'completed'" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+                <span class="bkp-state-badge bkp-completed">{{t('set_backup_state_completed')}}</span>
+                <span style="font-size:.78rem;color:var(--text-muted);">{{bkpProgress.detail || t('set_backup_success')}}</span>
+              </div>
+              <div v-else-if="bkpProgress.state === 'failed'" style="margin-bottom:.5rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <span class="bkp-state-badge bkp-failed">{{t('set_backup_state_failed')}}</span>
+                  <span style="font-size:.78rem;color:var(--text-muted);">{{bkpProgress.detail}}</span>
+                </div>
+                <div v-if="bkpProgress.percent > 0" style="display:flex;align-items:center;gap:.5rem;margin-top:.3rem;">
+                  <div class="health-bar" style="height:8px;flex:1;">
+                    <div class="health-fill bar-danger" :style="{width: bkpProgress.percent + '%'}"></div>
+                  </div>
+                  <span style="font-size:.72rem;font-family:monospace;color:var(--danger);">{{bkpProgress.percent}}%</span>
+                </div>
+              </div>
+              <div v-else-if="bkpProgress.state === 'stopped'" style="margin-bottom:.5rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <span class="bkp-state-badge bkp-stopped">{{t('set_backup_state_stopped')}}</span>
+                  <span style="font-size:.78rem;color:var(--text-muted);">{{bkpProgress.detail}}</span>
+                </div>
+                <div v-if="bkpProgress.percent > 0" style="display:flex;align-items:center;gap:.5rem;margin-top:.3rem;">
+                  <div class="health-bar" style="height:8px;flex:1;">
+                    <div class="health-fill" style="background:var(--warning);" :style="{width: bkpProgress.percent + '%'}"></div>
+                  </div>
+                  <span style="font-size:.72rem;font-family:monospace;color:var(--warning);">{{bkpProgress.percent}}%</span>
+                </div>
+              </div>
+
+              <!-- Schedule info -->
+              <div v-if="bkpSchedule" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.45rem .65rem;background:var(--bg-card2);border-radius:6px;">
+                <span style="font-size:1rem;">⏰</span>
+                <div style="flex:1;font-size:.8rem;">
+                  <div style="color:var(--text-main);">
+                    {{bkpSchedule.type === 'daily' ? t('set_backup_schedule_daily') : t('set_backup_schedule_weekly')}}
+                    — {{bkpSchedule.time}}
+                  </div>
+                  <div style="font-size:.72rem;color:var(--text-faint);">
+                    {{t('set_backup_next_run')||'Prochain'}}: {{fmtDateTimeFull(bkpSchedule.nextRun)}}
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="bkp.schedule === 'manual'" style="font-size:.78rem;color:var(--text-faint);margin-bottom:.5rem;">
+                {{t('set_backup_no_schedule')||'Aucune planification — mode manuel'}}
+              </div>
+
+              <!-- Last run info (when not active) -->
+              <div v-if="bkpProgress.state !== 'running' && bkpProgress.state !== 'paused'" style="font-size:.82rem;color:var(--text-muted);margin-bottom:.5rem;">
+                {{t('set_backup_last_status')}}:
+                <span v-if="!bkp.lastRun" style="color:var(--text-faint);">{{t('set_backup_never')}}</span>
+                <span v-else>
+                  <span :style="{color: bkp.lastStatus === 'success' ? 'var(--accent)' : 'var(--danger)'}">
+                    {{bkp.lastStatus === 'success' ? t('set_backup_success') : t('set_backup_failed')}}
+                  </span>
+                  — {{bkp.lastRun}}
+                </span>
+              </div>
+
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                <button class="btn-outline" @click="saveBackupConfig" :disabled="savingBkp" style="font-size:.85rem;">
+                  {{savingBkp ? '...' : t('set_backup_save')}}
+                </button>
+                <button class="btn-save" @click="runBackup"
+                        :disabled="bkpProgress.state === 'running' || bkpProgress.state === 'paused'"
+                        style="font-size:.85rem;padding:.5rem 1.2rem;">
+                  {{(bkpProgress.state === 'running' || bkpProgress.state === 'paused') ? t('set_backup_running') : t('set_backup_run_now')}}
+                </button>
+              </div>
+
+              <!-- Backup history -->
+              <div v-if="bkpHistory.length" style="margin-top:.8rem;border-top:1px solid var(--border);padding-top:.6rem;">
+                <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:.4rem;">
+                  {{t('set_backup_history')||'Historique'}}
+                </div>
+                <div v-for="h in bkpHistory" :key="h.startedAt"
+                     style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--bg-card2);font-size:.78rem;">
+                  <span :style="{color: h.status==='success' ? 'var(--accent)' : 'var(--danger)', fontSize:'.9rem'}">
+                    {{h.status === 'success' ? '✓' : '✗'}}
+                  </span>
+                  <span style="color:var(--text-main);min-width:120px;">{{fmtDateTimeFull(h.startedAt)}}</span>
+                  <span style="color:var(--text-faint);font-size:.72rem;">{{h.steps}}</span>
+                  <span style="margin-left:auto;font-family:monospace;color:var(--text-muted);">{{h.size}}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div><!-- /settings-grid -->
+      </div>
+
+      </div><!-- /tab backup -->
+
+      <!-- ═══ Save bar ═══ -->
+      <div class="save-bar">
+        <button class="btn-save" @click="save(false)" :disabled="saving">
+          {{saving ? '...' : t('set_save')}}
+        </button>
+        <button class="btn-save" style="background:#c8a84b;" @click="save(true)" :disabled="saving">
+          {{saving ? '...' : t('set_save_restart')}}
+        </button>
+        <button class="btn-outline" @click="reload">{{t('set_reload')}}</button>
+        <span v-if="saveMsg" class="save-msg" :class="saveErr ? 'save-err' : 'save-ok'">{{saveMsg}}</span>
+      </div>
+
+    </template>
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, reactive, onMounted, computed } = Vue;
+const { useI18n, useTheme, useNav, registerComponents, safeHtml, authHeaders } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t } = useI18n();
+    const API = BIRD_CONFIG.apiUrl;
+
+    const conf = reactive({});
+    const models = ref([]);
+    const analysisStatus = ref(null);
+    const languages = ref([]);
+    const services = ref([]);
+    const loading = ref(true);
+
+    // ── Tab navigation ──────────────────────────────────────────
+    const tabs = [
+      { id: 'detection', icon: '🤖', labelKey: 'set_tab_detection' },
+      { id: 'station',   icon: '📍', labelKey: 'set_tab_station' },
+      { id: 'audio',     icon: '🎙️', label: 'Audio' },
+      { id: 'notif',     icon: '🔔', label: 'Notifications' },
+      { id: 'system',    icon: '🔧', labelKey: 'set_tab_system' },
+      { id: 'backup',    icon: '💾', labelKey: 'set_tab_backup' },
+    ];
+    const activeTab = ref(localStorage.getItem('birdash-settings-tab') || 'detection');
+
+    function switchTab(id) {
+      activeTab.value = id;
+      localStorage.setItem('birdash-settings-tab', id);
+    }
+    const saving = ref(false);
+    const svcLoading = ref(true);
+    const saveMsg = ref('');
+    const saveErr = ref(false);
+    const includeList = ref('');
+    const excludeList = ref('');
+    const savingLists = ref(false);
+
+    // ── Apprise notification URLs ──────────────────────────────
+    const appriseUrls    = ref('');
+    const savingApprise  = ref(false);
+    const testingApprise = ref(false);
+    const appriseMsg     = ref('');
+    const appriseErr     = ref(false);
+
+    async function loadApprise() {
+      try {
+        const res = await fetch(API + '/apprise');
+        const data = await res.json();
+        appriseUrls.value = data.urls || '';
+      } catch(e) {}
+    }
+
+    async function saveApprise() {
+      savingApprise.value = true;
+      appriseMsg.value = '';
+      try {
+        const res = await fetch(API + '/apprise', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ urls: appriseUrls.value }),
+        });
+        const data = await res.json();
+        if (data.ok) { appriseMsg.value = '✓'; appriseErr.value = false; }
+        else { appriseMsg.value = data.error; appriseErr.value = true; }
+      } catch(e) { appriseMsg.value = e.message; appriseErr.value = true; }
+      savingApprise.value = false;
+    }
+
+    // ── Alert thresholds ─────────────────────────────────────
+    const alertThresholds = reactive({
+      temp_warn:70, temp_crit:80, disk_warn:85, disk_crit:95, ram_warn:90, backlog_warn:50, no_detection_hours:4, service_down:1,
+      alert_temp:1, alert_temp_crit:1, alert_disk:1, alert_ram:1, alert_backlog:1, alert_no_det:1,
+      alert_influx:0, alert_missing:0, alert_rare_visitor:0,
+    });
+    const savingAlerts = ref(false);
+    const alertSaveMsg = ref('');
+    const alertSaveErr = ref(false);
+
+    async function loadAlertThresholds() {
+      try {
+        const res = await fetch(API + '/alert-thresholds');
+        const data = await res.json();
+        Object.assign(alertThresholds, data);
+      } catch(e) {}
+    }
+
+    async function saveAlertThresholds() {
+      savingAlerts.value = true;
+      alertSaveMsg.value = '';
+      try {
+        // Save bird notification event toggles + system alert thresholds
+        const updates = {
+          APPRISE_NOTIFY_EACH_DETECTION: String(conf.APPRISE_NOTIFY_EACH_DETECTION || 0),
+          APPRISE_NOTIFY_NEW_SPECIES: String(conf.APPRISE_NOTIFY_NEW_SPECIES || 0),
+          APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: String(conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY || 0),
+          APPRISE_WEEKLY_REPORT: String(conf.APPRISE_WEEKLY_REPORT || 0),
+          APPRISE_NOTIFICATION_TITLE: conf.APPRISE_NOTIFICATION_TITLE || '',
+          APPRISE_NOTIFICATION_BODY: conf.APPRISE_NOTIFICATION_BODY || '',
+          APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES: String(conf.APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES || 0),
+          BIRDASH_ALERT_TEMP_WARN: String(alertThresholds.temp_warn),
+          BIRDASH_ALERT_TEMP_CRIT: String(alertThresholds.temp_crit),
+          BIRDASH_ALERT_DISK_WARN: String(alertThresholds.disk_warn),
+          BIRDASH_ALERT_DISK_CRIT: String(alertThresholds.disk_crit),
+          BIRDASH_ALERT_RAM_WARN: String(alertThresholds.ram_warn),
+          BIRDASH_ALERT_BACKLOG: String(alertThresholds.backlog_warn),
+          BIRDASH_ALERT_NO_DET_H: String(alertThresholds.no_detection_hours),
+          BIRDASH_ALERT_ON_TEMP: String(alertThresholds.alert_temp || 0),
+          BIRDASH_ALERT_ON_TEMP_CRIT: String(alertThresholds.alert_temp_crit || 0),
+          BIRDASH_ALERT_ON_DISK: String(alertThresholds.alert_disk || 0),
+          BIRDASH_ALERT_ON_RAM: String(alertThresholds.alert_ram || 0),
+          BIRDASH_ALERT_ON_BACKLOG: String(alertThresholds.alert_backlog || 0),
+          BIRDASH_ALERT_ON_NO_DET: String(alertThresholds.alert_no_det || 0),
+          BIRDASH_ALERT_ON_INFLUX: String(alertThresholds.alert_influx || 0),
+          BIRDASH_ALERT_ON_MISSING: String(alertThresholds.alert_missing || 0),
+          BIRDASH_ALERT_ON_RARE_VISITOR: String(alertThresholds.alert_rare_visitor || 0),
+        };
+        const res = await fetch(API + '/settings', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ updates }),
+        });
+        const data = await res.json();
+        if (data.ok) { alertSaveMsg.value = '✓'; alertSaveErr.value = false; }
+        else { alertSaveMsg.value = data.error || 'Error'; alertSaveErr.value = true; }
+      } catch(e) { alertSaveMsg.value = e.message; alertSaveErr.value = true; }
+      savingAlerts.value = false;
+    }
+
+    async function testApprise() {
+      testingApprise.value = true;
+      appriseMsg.value = '';
+      // Save first to ensure apprise.txt is up to date
+      await saveApprise();
+      try {
+        const res = await fetch(API + '/apprise/test', { method: 'POST', headers: authHeaders() });
+        const data = await res.json();
+        if (data.ok) { appriseMsg.value = t('set_notif_test_ok'); appriseErr.value = false; }
+        else { appriseMsg.value = t('set_notif_test_fail', { error: data.error || 'unknown' }); appriseErr.value = true; }
+      } catch(e) { appriseMsg.value = t('set_notif_test_fail', { error: e.message }); appriseErr.value = true; }
+      testingApprise.value = false;
+    }
+
+    // ── Backup configuration ──────────────────────────────────────
+    const bkp = reactive({
+      destination: 'local', content: ['all'], schedule: 'manual', scheduleTime: '02:00', retention: 30,
+      local: { path: '/mnt/backup' },
+      smb: { host: '', share: '', user: '', pass: '', remotePath: '/birdash-backup' },
+      nfs: { host: '', exportPath: '', mountPoint: '/mnt/nfs-backup', remotePath: '/birdash-backup' },
+      sftp: { host: '', port: 22, user: '', pass: '', remotePath: '/birdash-backup' },
+      s3: { bucket: '', region: 'eu-west-1', accessKey: '', secretKey: '', remotePath: 'birdash-backup' },
+      gdrive: { folderId: '' },
+      webdav: { url: '', user: '', pass: '', remotePath: '/birdash-backup' },
+      lastRun: null, lastStatus: null,
+    });
+    const savingBkp = ref(false);
+    const runningBkp = ref(false);
+    const bkpProgress = reactive({ state: 'idle', percent: 0, step: '', detail: '', startedAt: null, updatedAt: null });
+    let _bkpPollTimer = null;
+
+    const backupDests = [
+      { value: 'local', icon: '💿', labelKey: 'set_backup_dest_local' },
+      { value: 'smb', icon: '🖥️', labelKey: 'set_backup_dest_smb' },
+      { value: 'nfs', icon: '📁', labelKey: 'set_backup_dest_nfs' },
+      { value: 'sftp', icon: '🔐', labelKey: 'set_backup_dest_sftp' },
+      { value: 's3', icon: '☁️', labelKey: 'set_backup_dest_s3' },
+      { value: 'gdrive', icon: '📎', labelKey: 'set_backup_dest_gdrive' },
+      { value: 'webdav', icon: '🌐', labelKey: 'set_backup_dest_webdav' },
+    ];
+
+    function toggleBackupContent(type) {
+      if (type === 'all') {
+        bkp.content = bkp.content.includes('all') ? ['db', 'config'] : ['all'];
+      } else {
+        if (bkp.content.includes('all')) return;
+        const idx = bkp.content.indexOf(type);
+        if (idx >= 0) { bkp.content.splice(idx, 1); if (bkp.content.length === 0) bkp.content.push('db'); }
+        else bkp.content.push(type);
+      }
+    }
+
+    async function loadBackupConfig() {
+      try {
+        const data = await fetch(API + '/backup-config').then(r => r.json());
+        if (data.error) return;
+        Object.keys(data).forEach(k => { if (k in bkp) { if (typeof bkp[k] === 'object' && !Array.isArray(bkp[k]) && bkp[k] !== null) Object.assign(bkp[k], data[k]); else bkp[k] = data[k]; } });
+      } catch(e) { console.warn('Could not load backup config:', e); }
+      // Check if a backup is already running
+      try {
+        const prog = await fetch(API + '/backup-progress').then(r => r.json());
+        if (prog.state === 'running') {
+          Object.assign(bkpProgress, prog);
+          runningBkp.value = true;
+          startBackupPoll();
+        } else if (prog.state && prog.state !== 'idle') {
+          Object.assign(bkpProgress, prog);
+        }
+      } catch(e) { /* silent */ }
+    }
+
+    function bkpStepLabel(step) {
+      const labels = { init: 'Initialisation', db: 'Base de données', config: 'Configuration',
+        projects: 'Projets', audio: 'BirdSongs', upload: 'Upload', mount: 'Montage', done: 'Terminé' };
+      return labels[step] || step || '';
+    }
+
+    const bkpElapsed = computed(() => {
+      if (!bkpProgress.startedAt) return '';
+      const ms = new Date(bkpProgress.updatedAt || new Date()) - new Date(bkpProgress.startedAt);
+      const sec = Math.floor(ms / 1000);
+      if (sec < 60) return sec + 's';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return min + 'min ' + (sec % 60) + 's';
+      const hr = Math.floor(min / 60);
+      return hr + 'h ' + (min % 60) + 'min';
+    });
+
+    async function pollBackupProgress() {
+      try {
+        const data = await fetch(API + '/backup-progress').then(r => r.json());
+        if (data.error) return;
+        Object.assign(bkpProgress, data);
+        // If backup finished, refresh config to get lastRun/lastStatus
+        if (data.state === 'completed' || data.state === 'failed' || data.state === 'stopped') {
+          stopBackupPoll();
+          runningBkp.value = false;
+          await loadBackupConfig();
+          loadBackupHistory();
+        }
+      } catch(e) { /* silent */ }
+    }
+
+    function startBackupPoll() {
+      stopBackupPoll();
+      _bkpPollTimer = setInterval(pollBackupProgress, 2000);
+    }
+
+    function stopBackupPoll() {
+      if (_bkpPollTimer) { clearInterval(_bkpPollTimer); _bkpPollTimer = null; }
+    }
+
+    // ── Schedule & History ──────────────────────────────────────────────────
+    const bkpSchedule = ref(null);
+    const bkpHistory = ref([]);
+
+    async function loadBackupSchedule() {
+      try {
+        const data = await fetch(API + '/backup-schedule').then(r => r.json());
+        bkpSchedule.value = data.schedule || null;
+      } catch(e) {}
+    }
+
+    async function loadBackupHistory() {
+      try {
+        const data = await fetch(API + '/backup-history').then(r => r.json());
+        bkpHistory.value = (data || []).reverse(); // most recent first
+      } catch(e) {}
+    }
+
+    function fmtDateTimeFull(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      const pad = n => (n < 10 ? '0' : '') + n;
+      return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() +
+             ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    function fmtSize(bytes) {
+      if (!bytes || bytes <= 0) return '0 B';
+      const units = ['B', 'Ko', 'Mo', 'Go', 'To'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+    }
+
+    async function pauseBackup() {
+      try {
+        const res = await fetch(API + '/backup-pause', { method: 'POST', headers: authHeaders() });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.action === 'pause') bkpProgress.state = 'paused';
+          else bkpProgress.state = 'running';
+        }
+      } catch(e) { console.error('Pause failed:', e); }
+    }
+
+    async function stopBackup() {
+      if (!confirm(t('set_backup_stop_confirm'))) return;
+      try {
+        const res = await fetch(API + '/backup-stop', { method: 'POST', headers: authHeaders() });
+        const data = await res.json();
+        if (data.ok) {
+          bkpProgress.state = 'stopped';
+          bkpProgress.detail = 'Arrêté par l\'utilisateur';
+          stopBackupPoll();
+          runningBkp.value = false;
+          await loadBackupConfig();
+        }
+      } catch(e) { console.error('Stop failed:', e); }
+    }
+
+    async function saveBackupConfig() {
+      savingBkp.value = true;
+      try {
+        const res = await fetch(API + '/backup-config', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ ...bkp }),
+        });
+        const data = await res.json();
+        if (data.ok) { saveMsg.value = t('set_backup_saved'); saveErr.value = false; loadBackupSchedule(); }
+        else { saveMsg.value = data.error || 'Error'; saveErr.value = true; }
+      } catch(e) { saveMsg.value = e.message; saveErr.value = true; }
+      savingBkp.value = false;
+    }
+
+    async function runBackup() {
+      runningBkp.value = true;
+      Object.assign(bkpProgress, { state: 'running', percent: 0, step: 'init', detail: 'Démarrage...', startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      try {
+        // Save config first
+        await fetch(API + '/backup-config', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ ...bkp }),
+        });
+        const res = await fetch(API + '/backup-run', { method: 'POST', headers: authHeaders() });
+        const data = await res.json();
+        if (data.ok) {
+          saveMsg.value = '';
+          saveErr.value = false;
+          // Start polling for live progress
+          startBackupPoll();
+          return;
+        } else {
+          saveMsg.value = data.error || 'Error'; saveErr.value = true;
+          Object.assign(bkpProgress, { state: 'idle', percent: 0 });
+        }
+      } catch(e) {
+        saveMsg.value = e.message; saveErr.value = true;
+        Object.assign(bkpProgress, { state: 'idle', percent: 0 });
+      }
+      runningBkp.value = false;
+    }
+
+    function modelLabel(m) {
+      if (m === 'BirdNET_GLOBAL_6K_V2.4_Model_FP16') return 'BirdNET V2.4';
+      if (m === 'BirdNET_GLOBAL_6K_V2.4_MData_Model_FP16') return 'BirdNET V2.4 MData';
+      if (m === 'BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16') return 'BirdNET V2.4 MData V2';
+      if (m === 'BirdNET_6K_GLOBAL_MODEL') return 'BirdNET V1';
+      if (m === 'Perch_v2_int8') return 'Perch V2 INT8';
+      if (m.includes('Perch')) return 'Perch V2';
+      if (m.includes('Go')) return 'BirdNET-Go';
+      return m;
+    }
+
+    function modelDescription(m) {
+      if (m === 'BirdNET_GLOBAL_6K_V2.4_Model_FP16') return t('set_model_desc_birdnet');
+      if (m === 'BirdNET_GLOBAL_6K_V2.4_MData_Model_FP16') return t('set_model_desc_mdata');
+      if (m === 'BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16') return t('set_model_desc_mdata_v2');
+      if (m === 'BirdNET_6K_GLOBAL_MODEL') return t('set_model_desc_v1');
+      if (m === 'Perch_v2_int8') return 'Google Perch V2 (poids d\u00e9quantifi\u00e9s float32\u2009\u2192\u2009int8\u2009\u2192\u2009float32) \u2014 ~30% plus rapide, 15K esp\u00e8ces, pr\u00e9cision quasi identique. Pas une vraie INT8 : m\u00eame taille de fichier, mais meilleure utilisation du cache CPU.';
+      if (m.includes('Perch')) return t('set_model_desc_perch');
+      if (m.includes('Go')) return t('set_model_desc_go');
+      return m;
+    }
+
+    async function reload() {
+      loading.value = true;
+      saveMsg.value = '';
+      try {
+        const [confData, modelData, langData, listsData] = await Promise.all([
+          fetch(API + '/settings').then(r => r.json()),
+          fetch(API + '/models').then(r => r.json()),
+          fetch(API + '/languages').then(r => r.json()),
+          fetch(API + '/species-lists').then(r => r.json()),
+        ]);
+        // Populate reactive config
+        Object.keys(conf).forEach(k => delete conf[k]);
+        Object.assign(conf, confData);
+        models.value = modelData.models || [];
+        languages.value = langData.languages || [];
+        includeList.value = (listsData.include || []).join('\n');
+        excludeList.value = (listsData.exclude || []).join('\n');
+      } catch(e) {
+        saveMsg.value = e.message;
+        saveErr.value = true;
+      }
+      // Load analysis status (dual-model info)
+      try {
+        analysisStatus.value = await fetch(API + '/analysis-status').then(r => r.json());
+      } catch(e) {}
+      loading.value = false;
+      loadServices();
+      loadBackupConfig();
+      loadBackupSchedule();
+      loadBackupHistory();
+    }
+
+    async function loadServices() {
+      svcLoading.value = true;
+      try {
+        const data = await fetch(API + '/services').then(r => r.json());
+        services.value = (data.services || []).map(s => ({ ...s, restarting: false }));
+      } catch(e) { console.error(e); }
+      svcLoading.value = false;
+    }
+
+    async function save(andRestart) {
+      saving.value = true;
+      saveMsg.value = '';
+      saveErr.value = false;
+      try {
+        const res = await fetch(API + '/settings', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ updates: { ...conf } }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          saveMsg.value = t('set_saved');
+          if (data.warnings) saveMsg.value += ' (' + data.warnings.join(', ') + ')';
+          if (andRestart) {
+            // Restart core services
+            for (const svc of ['birdnet_analysis', 'birdnet_recording']) {
+              await fetch(API + '/services/restart', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ service: svc }),
+              });
+            }
+            saveMsg.value += ' + services restarted';
+            loadServices();
+          }
+        } else {
+          saveMsg.value = data.error || 'Error';
+          saveErr.value = true;
+        }
+      } catch(e) {
+        saveMsg.value = e.message;
+        saveErr.value = true;
+      }
+      saving.value = false;
+    }
+
+    async function restartService(name) {
+      const svc = services.value.find(s => s.name === name);
+      if (svc) svc.restarting = true;
+      try {
+        await fetch(API + '/services/restart', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ service: name }),
+        });
+      } catch(e) { console.error(e); }
+      setTimeout(loadServices, 1500);
+    }
+
+    async function saveSpeciesLists() {
+      savingLists.value = true;
+      try {
+        const inc = includeList.value.split('\n').map(l => l.trim()).filter(Boolean);
+        const exc = excludeList.value.split('\n').map(l => l.trim()).filter(Boolean);
+        await Promise.all([
+          fetch(API + '/species-lists', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ list: 'include', species: inc }),
+          }),
+          fetch(API + '/species-lists', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ list: 'exclude', species: exc }),
+          }),
+        ]);
+      } catch(e) { console.error(e); }
+      savingLists.value = false;
+    }
+
+    // ── Help system ──────────────────────────────────────────────────────
+    const helpKey = ref(null);
+
+    const HELP = {
+      fr: {
+        model: {
+          title: 'Modèle de détection',
+          body: `Le modèle IA utilisé pour identifier les espèces d'oiseaux à partir de l'audio.<br><br>
+            <strong>BirdNET V2.4</strong> — Modèle de référence par Cornell Lab. 6 500 espèces, optimisé pour Raspberry Pi. Chunks de 3s à 48 kHz. Rapide et fiable.<br>
+            <strong>BirdNET V2.4 + MData</strong> — Même modèle + filtre géographique qui élimine les espèces improbables selon votre localisation et la semaine.<br>
+            <strong>Perch V2</strong> — Modèle Google Research. 10 340 espèces d'oiseaux (filtré). Chunks de 5s à 32 kHz. Plus précis mais plus lent (~1.6× temps réel sur Pi 4).<br>
+            <strong>BirdNET-Go</strong> — Variante expérimentale.`,
+          rec: 'Recommandé : <strong>BirdNET V2.4</strong> sur Pi 4, <strong>Perch V2</strong> si vous acceptez un léger retard d\'analyse.'
+        },
+        confidence: {
+          title: 'Seuil de confiance',
+          body: `Confiance minimale (0.01–0.99) requise pour qu'une détection soit enregistrée dans la base de données.<br><br>
+            Une valeur <strong>basse</strong> (0.50) capture plus de détections mais inclut plus de faux positifs.<br>
+            Une valeur <strong>haute</strong> (0.85) ne garde que les détections très sûres mais peut rater des espèces discrètes.`,
+          rec: 'Recommandé : <strong>0.65–0.75</strong>. Commencez à 0.70 et ajustez selon le bruit de votre environnement.'
+        },
+        sensitivity: {
+          title: 'Sensibilité',
+          body: `Contrôle la sensibilité du modèle aux sons faibles (0.5–1.5).<br><br>
+            <strong>BirdNET</strong> : applique un facteur sigmoid — une sensibilité plus haute amplifie les scores faibles.<br>
+            <strong>Perch V2</strong> : contrôle la température du softmax — une sensibilité plus haute rend la distribution plus piquée, augmentant les scores des espèces dominantes.<br><br>
+            <strong>Valeur basse</strong> (0.5) : moins sensible, ignore les sons faibles ou lointains.<br>
+            <strong>Valeur haute</strong> (1.5) : très sensible, détecte les oiseaux lointains mais risque plus de faux positifs.`,
+          rec: 'Recommandé : <strong>1.0–1.3</strong>. Valeur par défaut 1.25.'
+        },
+        sf_thresh: {
+          title: 'Seuil fréquence espèces',
+          body: `Seuil du filtre géographique MData (0.0–0.5). Ne s'applique qu'avec les modèles <strong>BirdNET + MData</strong>.<br><br>
+            Le modèle MData prédit la probabilité de présence de chaque espèce selon votre latitude, longitude et la semaine de l'année. Les espèces en dessous de ce seuil sont exclues de l'analyse.<br><br>
+            <strong>0.0</strong> : aucun filtrage (toutes les espèces).<br>
+            <strong>0.03</strong> : filtrage léger (par défaut).<br>
+            <strong>0.10+</strong> : filtrage strict (peut exclure des migrateurs rares).<br><br>
+            <em>Ignoré par Perch V2 et BirdNET V1.</em>`,
+          rec: 'Recommandé : <strong>0.03</strong>. Monter à 0.05 en zone urbaine avec beaucoup de bruit.'
+        },
+        overlap: {
+          title: 'Chevauchement (secondes)',
+          body: `Chevauchement entre les fenêtres d'analyse successives (0.0–2.9 secondes).<br><br>
+            Un chevauchement plus grand signifie que chaque segment audio est analysé avec plus de décalages, ce qui augmente les chances de capturer un chant qui tombe entre deux fenêtres.<br><br>
+            <strong>BirdNET</strong> : chunks de 3s. Overlap 0.5 → fenêtres à 0s, 2.5s, 5s, 7.5s…<br>
+            <strong>Perch V2</strong> : chunks de 5s. Overlap 0.5 → fenêtres à 0s, 4.5s, 9s, 13.5s…<br><br>
+            ⚠️ Plus d'overlap = plus de chunks = analyse plus longue. Sur Pi 4 avec Perch, gardez une valeur basse.`,
+          rec: 'Recommandé : <strong>0.0–0.5</strong> pour Perch sur Pi 4, <strong>0.5–1.5</strong> pour BirdNET.'
+        },
+        rec_length: {
+          title: 'Durée d\'enregistrement (secondes)',
+          body: `Durée de chaque fichier audio capturé pour l'analyse (6–120 secondes).<br><br>
+            Un fichier plus long contient plus de chants potentiels, mais prend plus de temps à analyser.<br><br>
+            <strong>BirdNET</strong> (3s chunks) : 15s = 5 chunks, 45s = 15 chunks.<br>
+            <strong>Perch V2</strong> (5s chunks, overlap 0.5) : 45s ≈ 10 chunks × 7.3s = ~73s d'analyse sur Pi 4.<br><br>
+            ⚠️ Si la durée d'analyse dépasse la durée d'enregistrement, un backlog s'accumule.`,
+          rec: 'Recommandé : <strong>15–18s</strong> pour BirdNET, <strong>45s max</strong> pour Perch sur Pi 4.'
+        },
+        extraction_length: {
+          title: 'Durée d\'extraction (secondes)',
+          body: `Durée des clips audio extraits pour chaque détection (3–30 secondes).<br><br>
+            Quand un oiseau est détecté, un extrait audio est sauvegardé dans le dossier <code>Extracted/</code> pour réécoute ultérieure.<br><br>
+            <strong>Courte</strong> (3s) : juste le chant, fichiers légers.<br>
+            <strong>Longue</strong> (10-15s) : plus de contexte, utile pour vérifier les détections.`,
+          rec: 'Recommandé : <strong>6s</strong> (par défaut). Monter à 10s si vous vérifiez souvent les détections manuellement.'
+        },
+        audio_format: {
+          title: 'Format audio',
+          body: `Format des fichiers audio extraits pour les détections.<br><br>
+            <strong>MP3</strong> : bonne compression (~1/10 de la taille WAV), compatible partout. Recommandé.<br>
+            <strong>WAV</strong> : qualité maximale, aucune perte, mais fichiers 10× plus gros.<br>
+            <strong>FLAC</strong> : sans perte comme WAV mais compressé (~60% de la taille WAV).<br>
+            <strong>OGG</strong> : similaire à MP3, format libre.`,
+          rec: 'Recommandé : <strong>MP3</strong> pour économiser l\'espace disque.'
+        },
+        channels: {
+          title: 'Canaux microphone',
+          body: `Nombre de canaux d'enregistrement audio.<br><br>
+            <strong>Mono</strong> (1) : un seul canal. Suffisant pour la détection d'oiseaux.<br>
+            <strong>Stéréo</strong> (2) : deux canaux. Fichiers 2× plus gros mais peut améliorer la détection dans certains cas.<br><br>
+            Le modèle d'analyse convertit toujours en mono internement — le stéréo n'améliore pas la précision de l'IA.`,
+          rec: 'Recommandé : <strong>Mono</strong> pour économiser l\'espace disque et le CPU.'
+        },
+        database_lang: {
+          title: 'Langue des espèces',
+          body: `Langue utilisée pour les noms communs des espèces dans la base de données BirdNET.<br><br>
+            Affecte le nom affiché dans les détections (ex : "Merle noir" en français vs "Common Blackbird" en anglais).<br><br>
+            <em>Cette langue est indépendante de la langue de l'interface Birdash.</em>`,
+          rec: 'Choisissez la langue que vous préférez pour identifier les espèces.'
+        },
+        image_provider: {
+          title: 'Source des images',
+          body: `Source utilisée pour afficher les photos d'oiseaux sur les pages espèces et détections.<br><br>
+            <strong>Wikipedia</strong> : images libres de droits, pas de clé API nécessaire.<br>
+            <strong>Flickr</strong> : plus grande variété de photos, nécessite une clé API Flickr (gratuite).`,
+          rec: 'Recommandé : <strong>Flickr</strong> avec une clé API pour la meilleure qualité d\'images.'
+        },
+        birdweather: {
+          title: 'BirdWeather Station ID',
+          body: `Identifiant de votre station BirdWeather pour partager vos détections en temps réel sur <a href="https://app.birdweather.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">birdweather.com</a>.<br><br>
+            Créez un compte gratuit sur BirdWeather et obtenez votre Station ID. Vos détections seront automatiquement téléversées et visibles sur la carte mondiale.<br><br>
+            <strong>Vide</strong> = désactivé.`,
+          rec: 'Optionnel mais recommandé pour contribuer à la communauté scientifique.'
+        },
+        rtsp: {
+          title: 'Flux RTSP',
+          body: `URL d'un flux audio RTSP externe à utiliser comme source au lieu du microphone USB.<br><br>
+            Utile pour utiliser une caméra IP avec microphone intégré ou un microphone déporté via le réseau.<br><br>
+            Format : <code>rtsp://user:pass@ip:port/stream</code><br>
+            <strong>Vide</strong> = utilise le microphone local (par défaut).`,
+          rec: 'Laissez vide sauf si vous utilisez un microphone réseau.'
+        },
+        full_disk: {
+          title: 'Disque plein',
+          body: `Action à effectuer quand le disque est plein.<br><br>
+            <strong>Purge</strong> : supprime automatiquement les enregistrements les plus anciens pour libérer de l'espace.<br>
+            <strong>Keep</strong> : conserve tout et arrête l'enregistrement. Vous devrez nettoyer manuellement.`,
+          rec: 'Recommandé : <strong>Purge</strong> pour un fonctionnement continu sans intervention.'
+        },
+        purge_threshold: {
+          title: 'Seuil de purge (%)',
+          body: `Pourcentage d'utilisation du disque au-delà duquel la purge automatique se déclenche (50–99%).<br><br>
+            Quand le disque dépasse ce seuil, les enregistrements les plus anciens sont supprimés jusqu'à repasser en dessous.`,
+          rec: 'Recommandé : <strong>90–95%</strong>. Plus bas si votre carte SD est petite.'
+        },
+        max_files: {
+          title: 'Max fichiers par espèce',
+          body: `Nombre maximum de fichiers audio conservés par espèce (0 = illimité).<br><br>
+            Limite l'espace disque utilisé par les espèces très communes (ex : Moineau domestique) qui peuvent générer des milliers de détections.<br><br>
+            Les fichiers les plus anciens sont supprimés en premier.`,
+          rec: 'Recommandé : <strong>0</strong> (illimité) si vous avez assez d\'espace, ou <strong>100–500</strong> sur carte SD limitée.'
+        },
+        privacy: {
+          title: 'Filtre voix humaine',
+          body: `Niveau de sensibilité au filtrage des voix humaines (0–3).<br><br>
+            <strong>0</strong> : désactivé — aucun filtrage.<br>
+            <strong>1</strong> : léger — supprime les segments où une voix humaine est fortement détectée.<br>
+            <strong>2-3</strong> : agressif — supprime même les détections faibles de voix humaine.<br><br>
+            Quand une voix est détectée, tout le segment audio est ignoré (pas d'extraction, pas d'enregistrement en base).`,
+          rec: 'Recommandé : <strong>0</strong> en zone rurale, <strong>1</strong> en zone urbaine/résidentielle.'
+        },
+        site_name: {
+          title: 'Nom du site',
+          body: 'Nom affiché dans le header de l\'interface et sur BirdWeather.',
+          rec: 'Votre localité ou le nom de votre jardin.'
+        },
+        latitude: {
+          title: 'Latitude',
+          body: 'Latitude GPS de votre installation (4 décimales max). Utilisée par le filtre géographique MData pour déterminer quelles espèces sont probables dans votre zone.',
+          rec: 'Utilisez Google Maps pour trouver vos coordonnées exactes.'
+        },
+        longitude: {
+          title: 'Longitude',
+          body: 'Longitude GPS de votre installation (4 décimales max). Utilisée par le filtre géographique MData.',
+          rec: 'Utilisez Google Maps pour trouver vos coordonnées exactes.'
+        },
+        species_lists: {
+          title: 'Listes d\'espèces',
+          body: `<strong>Liste d'inclusion</strong> : si elle n'est pas vide, SEULES les espèces listées seront détectées. Toutes les autres sont ignorées.<br><br>
+            <strong>Liste d'exclusion</strong> : les espèces listées ne seront JAMAIS détectées, même avec une haute confiance.<br><br>
+            Format : un nom scientifique par ligne (<code>Pica pica</code>, <code>Turdus merula</code>…).`,
+          rec: 'Utilisez l\'exclusion pour éliminer les faux positifs récurrents (ex : <code>Homo sapiens</code>).'
+        },
+        backup: {
+          title: 'Sauvegarde',
+          body: `Configurez la sauvegarde automatique de votre station BirdNET, inspirée des meilleures pratiques de Duplicati.<br><br>
+            <strong>Destinations supportées :</strong><br>
+            <strong>Disque USB / Local</strong> — Sauvegarde vers un disque externe ou un répertoire local.<br>
+            <strong>SMB/CIFS</strong> — Partage réseau Windows/Samba (NAS Synology, QNAP…).<br>
+            <strong>NFS</strong> — Montage réseau Unix/Linux.<br>
+            <strong>SFTP</strong> — Transfert sécurisé via SSH vers un serveur distant.<br>
+            <strong>Amazon S3</strong> — Stockage cloud AWS (nécessite <code>aws-cli</code>).<br>
+            <strong>Google Drive</strong> — Stockage cloud Google (nécessite <code>rclone</code>).<br>
+            <strong>WebDAV</strong> — Nextcloud, ownCloud, ou tout serveur WebDAV.<br><br>
+            <strong>Contenu :</strong> Choisissez de sauvegarder la base de données (détections), les fichiers audio, la configuration, ou tout.<br><br>
+            <strong>Planification :</strong> Manuel, quotidien ou hebdomadaire. La rétention supprime automatiquement les anciennes sauvegardes.`,
+          rec: 'Recommandé : sauvegarde quotidienne de la <strong>base de données + configuration</strong>. Les fichiers audio sont volumineux, ne les inclure que si l\'espace le permet.'
+        },
+      },
+      en: {
+        model: {
+          title: 'Detection model',
+          body: `The AI model used to identify bird species from audio.<br><br>
+            <strong>BirdNET V2.4</strong> — Reference model by Cornell Lab. 6,500 species, optimized for Raspberry Pi. 3s chunks at 48 kHz. Fast and reliable.<br>
+            <strong>BirdNET V2.4 + MData</strong> — Same model + geographic filter that eliminates unlikely species based on your location and week.<br>
+            <strong>Perch V2</strong> — Google Research model. 10,340 bird species (filtered). 5s chunks at 32 kHz. More accurate but slower (~1.6× realtime on Pi 4).<br>
+            <strong>BirdNET-Go</strong> — Experimental variant.`,
+          rec: 'Recommended: <strong>BirdNET V2.4</strong> on Pi 4, <strong>Perch V2</strong> if you accept slight analysis delay.'
+        },
+        confidence: {
+          title: 'Confidence threshold',
+          body: `Minimum confidence (0.01–0.99) required for a detection to be saved to the database.<br><br>
+            A <strong>low</strong> value (0.50) captures more detections but includes more false positives.<br>
+            A <strong>high</strong> value (0.85) only keeps very certain detections but may miss subtle species.`,
+          rec: 'Recommended: <strong>0.65–0.75</strong>. Start at 0.70 and adjust based on your environment noise.'
+        },
+        sensitivity: {
+          title: 'Sensitivity',
+          body: `Controls model sensitivity to faint sounds (0.5–1.5).<br><br>
+            <strong>BirdNET</strong>: applies a sigmoid factor — higher sensitivity boosts weak scores.<br>
+            <strong>Perch V2</strong>: controls softmax temperature — higher sensitivity makes the distribution sharper, boosting dominant species scores.<br><br>
+            <strong>Low</strong> (0.5): less sensitive, ignores faint or distant sounds.<br>
+            <strong>High</strong> (1.5): very sensitive, detects distant birds but more false positives.`,
+          rec: 'Recommended: <strong>1.0–1.3</strong>. Default 1.25.'
+        },
+        sf_thresh: {
+          title: 'Species frequency threshold',
+          body: `Geographic filter threshold (0.0–0.5). Only applies with <strong>BirdNET + MData</strong> models.<br><br>
+            The MData model predicts presence probability for each species based on latitude, longitude and week. Species below this threshold are excluded.<br><br>
+            <em>Ignored by Perch V2 and BirdNET V1.</em>`,
+          rec: 'Recommended: <strong>0.03</strong>.'
+        },
+        overlap: {
+          title: 'Overlap (seconds)',
+          body: `Overlap between successive analysis windows (0.0–2.9 seconds).<br><br>
+            More overlap means each audio segment is analyzed with more offsets, increasing chances of capturing a song between windows.<br><br>
+            ⚠️ More overlap = more chunks = longer analysis. On Pi 4 with Perch, keep low.`,
+          rec: 'Recommended: <strong>0.0–0.5</strong> for Perch on Pi 4, <strong>0.5–1.5</strong> for BirdNET.'
+        },
+        rec_length: {
+          title: 'Recording length (seconds)',
+          body: `Duration of each audio file captured for analysis (6–120 seconds).<br><br>
+            Longer files contain more potential songs but take longer to analyze.<br><br>
+            ⚠️ If analysis time exceeds recording duration, a backlog accumulates.`,
+          rec: 'Recommended: <strong>15–18s</strong> for BirdNET, <strong>45s max</strong> for Perch on Pi 4.'
+        },
+        extraction_length: {
+          title: 'Extraction length (seconds)',
+          body: 'Duration of audio clips saved for each detection (3–30s). Saved in <code>Extracted/</code> for later review.',
+          rec: 'Recommended: <strong>6s</strong> (default).'
+        },
+        audio_format: {
+          title: 'Audio format',
+          body: '<strong>MP3</strong>: good compression. <strong>WAV</strong>: lossless, 10× bigger. <strong>FLAC</strong>: lossless compressed. <strong>OGG</strong>: similar to MP3, open format.',
+          rec: 'Recommended: <strong>MP3</strong>.'
+        },
+        channels: {
+          title: 'Microphone channels',
+          body: 'Mono (1) or Stereo (2). The AI model always converts to mono internally — stereo does not improve detection accuracy.',
+          rec: 'Recommended: <strong>Mono</strong>.'
+        },
+        database_lang: {
+          title: 'Species language',
+          body: 'Language for common species names in the BirdNET database. Independent of the Birdash interface language.',
+          rec: 'Choose your preferred language for species identification.'
+        },
+        image_provider: {
+          title: 'Image source',
+          body: '<strong>Wikipedia</strong>: free images, no API key. <strong>Flickr</strong>: more variety, requires free API key.',
+          rec: 'Recommended: <strong>Flickr</strong> with an API key.'
+        },
+        birdweather: {
+          title: 'BirdWeather Station ID',
+          body: 'Your BirdWeather station ID to share detections on <a href="https://app.birdweather.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">birdweather.com</a>. Empty = disabled.',
+          rec: 'Optional but recommended to contribute to citizen science.'
+        },
+        rtsp: {
+          title: 'RTSP Stream',
+          body: 'External RTSP audio stream URL. Format: <code>rtsp://user:pass@ip:port/stream</code>. Empty = use local microphone.',
+          rec: 'Leave empty unless using a network microphone.'
+        },
+        full_disk: {
+          title: 'Full disk policy',
+          body: '<strong>Purge</strong>: auto-delete oldest recordings. <strong>Keep</strong>: stop recording, manual cleanup needed.',
+          rec: 'Recommended: <strong>Purge</strong>.'
+        },
+        purge_threshold: {
+          title: 'Purge threshold (%)',
+          body: 'Disk usage percentage that triggers automatic purge (50–99%).',
+          rec: 'Recommended: <strong>90–95%</strong>.'
+        },
+        max_files: {
+          title: 'Max files per species',
+          body: 'Maximum audio files kept per species (0 = unlimited). Oldest files deleted first.',
+          rec: 'Recommended: <strong>0</strong> (unlimited) or <strong>100–500</strong> on small SD cards.'
+        },
+        privacy: {
+          title: 'Human voice filter',
+          body: '<strong>0</strong>: disabled. <strong>1</strong>: light filtering. <strong>2-3</strong>: aggressive. When a voice is detected, the entire segment is discarded.',
+          rec: 'Recommended: <strong>0</strong> rural, <strong>1</strong> urban.'
+        },
+        site_name: { title:'Site name', body:'Name shown in the header and on BirdWeather.', rec:'Your locality or garden name.' },
+        latitude: { title:'Latitude', body:'GPS latitude (4 decimals). Used by the MData geographic filter.', rec:'Use Google Maps.' },
+        longitude: { title:'Longitude', body:'GPS longitude (4 decimals). Used by the MData geographic filter.', rec:'Use Google Maps.' },
+        species_lists: {
+          title: 'Species lists',
+          body: '<strong>Include list</strong>: only listed species detected. <strong>Exclude list</strong>: listed species never detected. One scientific name per line.',
+          rec: 'Use exclude to eliminate recurring false positives.'
+        },
+        backup: {
+          title: 'Backup',
+          body: `Configure automatic backup of your BirdNET station, inspired by Duplicati best practices.<br><br>
+            <strong>Supported destinations:</strong><br>
+            <strong>USB Disk / Local</strong> — Backup to an external drive or local directory.<br>
+            <strong>SMB/CIFS</strong> — Windows/Samba network share (Synology, QNAP NAS…).<br>
+            <strong>NFS</strong> — Unix/Linux network mount.<br>
+            <strong>SFTP</strong> — Secure transfer via SSH to a remote server.<br>
+            <strong>Amazon S3</strong> — AWS cloud storage (requires <code>aws-cli</code>).<br>
+            <strong>Google Drive</strong> — Google cloud storage (requires <code>rclone</code>).<br>
+            <strong>WebDAV</strong> — Nextcloud, ownCloud, or any WebDAV server.<br><br>
+            <strong>Content:</strong> Choose to back up the database (detections), audio files, configuration, or everything.<br><br>
+            <strong>Schedule:</strong> Manual, daily or weekly. Retention automatically removes old backups.`,
+          rec: 'Recommended: daily backup of <strong>database + configuration</strong>. Audio files are large — only include if space allows.'
+        },
+      },
+      de: {
+        model: { title:'Erkennungsmodell', body:'Das KI-Modell zur Vogelartenerkennung.<br><br><strong>BirdNET V2.4</strong> — Referenzmodell, 6.500 Arten, optimiert für Pi. Schnell.<br><strong>Perch V2</strong> — Google-Modell, 10.340 Vogelarten. Genauer aber langsamer (~1,6× Echtzeit auf Pi 4).', rec:'Empfohlen: <strong>BirdNET V2.4</strong> auf Pi 4.' },
+        confidence: { title:'Konfidenzschwelle', body:'Mindestkonfidenz (0,01–0,99) für eine Erkennung. Niedrig = mehr Erkennungen + mehr Fehlalarme. Hoch = nur sichere Erkennungen.', rec:'Empfohlen: <strong>0,65–0,75</strong>.' },
+        sensitivity: { title:'Empfindlichkeit', body:'Steuert die Empfindlichkeit für leise Töne (0,5–1,5).<br><br><strong>BirdNET</strong>: Sigmoid-Skalierung.<br><strong>Perch V2</strong>: Softmax-Temperatur.<br><br>Höher = empfindlicher, mehr Erkennungen, mehr Fehlalarme.', rec:'Empfohlen: <strong>1,0–1,3</strong>.' },
+        sf_thresh: { title:'Artenhäufigkeitsschwelle', body:'Geographischer Filter (0,0–0,5). Nur für BirdNET + MData. Arten unter diesem Schwellwert werden ausgeschlossen. Von Perch V2 ignoriert.', rec:'Empfohlen: <strong>0,03</strong>.' },
+        overlap: { title:'Überlappung (Sekunden)', body:'Überlappung zwischen Analysefenstern (0,0–2,9s). Mehr Überlappung = mehr Chunks = längere Analyse. Auf Pi 4 mit Perch niedrig halten.', rec:'Empfohlen: <strong>0,0–0,5</strong> für Perch, <strong>0,5–1,5</strong> für BirdNET.' },
+        rec_length: { title:'Aufnahmedauer (Sekunden)', body:'Dauer jeder Audiodatei (6–120s). Längere Dateien = mehr potenzielle Gesänge, aber längere Analyse. ⚠️ Wenn die Analyse länger dauert als die Aufnahme, entsteht ein Rückstand.', rec:'Empfohlen: <strong>15–18s</strong> BirdNET, <strong>45s</strong> Perch auf Pi 4.' },
+        extraction_length: { title:'Extraktionsdauer (Sekunden)', body:'Dauer der gespeicherten Audioclips pro Erkennung (3–30s).', rec:'Empfohlen: <strong>6s</strong>.' },
+        audio_format: { title:'Audioformat', body:'<strong>MP3</strong>: gute Kompression. <strong>WAV</strong>: verlustfrei, 10× größer. <strong>FLAC</strong>: verlustfrei komprimiert.', rec:'Empfohlen: <strong>MP3</strong>.' },
+        channels: { title:'Mikrofonkanäle', body:'Mono (1) oder Stereo (2). Das KI-Modell konvertiert immer zu Mono.', rec:'Empfohlen: <strong>Mono</strong>.' },
+        database_lang: { title:'Artensprache', body:'Sprache für die Artnamen in der Datenbank. Unabhängig von der Oberflächensprache.', rec:'Wählen Sie Ihre bevorzugte Sprache.' },
+        image_provider: { title:'Bildquelle', body:'<strong>Wikipedia</strong>: kostenlos. <strong>Flickr</strong>: mehr Vielfalt, API-Schlüssel nötig.', rec:'Empfohlen: <strong>Flickr</strong>.' },
+        birdweather: { title:'BirdWeather Station ID', body:'Ihre BirdWeather-Stations-ID. Leer = deaktiviert.', rec:'Optional aber empfohlen.' },
+        rtsp: { title:'RTSP-Stream', body:'Externe RTSP-Audio-URL. Leer = lokales Mikrofon.', rec:'Leer lassen, außer bei Netzwerkmikrofon.' },
+        full_disk: { title:'Festplatte voll', body:'<strong>Purge</strong>: älteste Aufnahmen automatisch löschen. <strong>Keep</strong>: Aufnahme stoppen.', rec:'Empfohlen: <strong>Purge</strong>.' },
+        purge_threshold: { title:'Bereinigungsschwelle (%)', body:'Festplattennutzung, ab der automatisch bereinigt wird (50–99%).', rec:'Empfohlen: <strong>90–95%</strong>.' },
+        max_files: { title:'Max. Dateien pro Art', body:'Maximale Audiodateien pro Art (0 = unbegrenzt).', rec:'Empfohlen: <strong>0</strong> oder <strong>100–500</strong>.' },
+        privacy: { title:'Sprachfilter', body:'<strong>0</strong>: aus. <strong>1</strong>: leicht. <strong>2-3</strong>: aggressiv. Bei Spracherkennung wird das Segment verworfen.', rec:'Empfohlen: <strong>0</strong> ländlich, <strong>1</strong> städtisch.' },
+        site_name: { title:'Standortname', body:'Name im Header und auf BirdWeather.', rec:'Ihr Ort oder Gartenname.' },
+        latitude: { title:'Breitengrad', body:'GPS-Breitengrad (4 Dezimalstellen). Für den MData-Geofilter.', rec:'Google Maps verwenden.' },
+        longitude: { title:'Längengrad', body:'GPS-Längengrad (4 Dezimalstellen). Für den MData-Geofilter.', rec:'Google Maps verwenden.' },
+        species_lists: { title:'Artenlisten', body:'<strong>Einschlussliste</strong>: nur gelistete Arten. <strong>Ausschlussliste</strong>: gelistete Arten ignoriert. Ein wissenschaftlicher Name pro Zeile.', rec:'Ausschluss für wiederkehrende Fehlalarme nutzen.' },
+        backup: { title:'Sicherung', body:'Automatische Sicherung Ihrer BirdNET-Station.<br><br><strong>Ziele:</strong> USB/Lokal, SMB/CIFS, NFS, SFTP, Amazon S3, Google Drive, WebDAV.<br><strong>Inhalt:</strong> Datenbank, Audiodateien, Konfiguration oder alles.<br><strong>Zeitplan:</strong> Manuell, täglich oder wöchentlich.', rec:'Empfohlen: tägliche Sicherung von <strong>Datenbank + Konfiguration</strong>.' },
+      },
+      nl: {
+        model: { title:'Detectiemodel', body:'Het AI-model voor vogelsoortherkenning.<br><br><strong>BirdNET V2.4</strong> — Referentiemodel, 6.500 soorten, geoptimaliseerd voor Pi. Snel.<br><strong>Perch V2</strong> — Google-model, 10.340 vogelsoorten. Nauwkeuriger maar trager (~1,6× realtime op Pi 4).', rec:'Aanbevolen: <strong>BirdNET V2.4</strong> op Pi 4.' },
+        confidence: { title:'Betrouwbaarheidsdrempel', body:'Minimale betrouwbaarheid (0,01–0,99) voor een detectie. Laag = meer detecties + meer valse positieven. Hoog = alleen zekere detecties.', rec:'Aanbevolen: <strong>0,65–0,75</strong>.' },
+        sensitivity: { title:'Gevoeligheid', body:'Regelt de gevoeligheid voor zachte geluiden (0,5–1,5).<br><br><strong>BirdNET</strong>: sigmoid-schaling.<br><strong>Perch V2</strong>: softmax-temperatuur.<br><br>Hoger = gevoeliger, meer detecties, meer valse positieven.', rec:'Aanbevolen: <strong>1,0–1,3</strong>.' },
+        sf_thresh: { title:'Soortfrequentiedrempel', body:'Geografisch filter (0,0–0,5). Alleen voor BirdNET + MData. Soorten onder de drempel worden uitgesloten. Genegeerd door Perch V2.', rec:'Aanbevolen: <strong>0,03</strong>.' },
+        overlap: { title:'Overlap (seconden)', body:'Overlap tussen analysevensters (0,0–2,9s). Meer overlap = meer chunks = langere analyse.', rec:'Aanbevolen: <strong>0,0–0,5</strong> voor Perch, <strong>0,5–1,5</strong> voor BirdNET.' },
+        rec_length: { title:'Opnameduur (seconden)', body:'Duur van elk audiobestand (6–120s). Langer = meer potentiële zang maar langere analyse.', rec:'Aanbevolen: <strong>15–18s</strong> BirdNET, <strong>45s</strong> Perch op Pi 4.' },
+        extraction_length: { title:'Extractieduur (seconden)', body:'Duur van opgeslagen audioclips per detectie (3–30s).', rec:'Aanbevolen: <strong>6s</strong>.' },
+        audio_format: { title:'Audioformaat', body:'<strong>MP3</strong>: goede compressie. <strong>WAV</strong>: lossless, 10× groter. <strong>FLAC</strong>: lossless gecomprimeerd.', rec:'Aanbevolen: <strong>MP3</strong>.' },
+        channels: { title:'Microfoonkanalen', body:'Mono (1) of Stereo (2). Het AI-model converteert altijd naar mono.', rec:'Aanbevolen: <strong>Mono</strong>.' },
+        database_lang: { title:'Soortnaamtaal', body:'Taal voor soortnamen in de database. Onafhankelijk van de interfacetaal.', rec:'Kies uw voorkeurstaal.' },
+        image_provider: { title:'Afbeeldingsbron', body:'<strong>Wikipedia</strong>: gratis. <strong>Flickr</strong>: meer variatie, API-sleutel nodig.', rec:'Aanbevolen: <strong>Flickr</strong>.' },
+        birdweather: { title:'BirdWeather Station ID', body:'Uw BirdWeather station-ID. Leeg = uitgeschakeld.', rec:'Optioneel maar aanbevolen.' },
+        rtsp: { title:'RTSP-stream', body:'Externe RTSP-audio-URL. Leeg = lokale microfoon.', rec:'Leeg laten tenzij netwerkmicrofoon.' },
+        full_disk: { title:'Schijf vol', body:'<strong>Purge</strong>: oudste opnames verwijderen. <strong>Keep</strong>: opname stoppen.', rec:'Aanbevolen: <strong>Purge</strong>.' },
+        purge_threshold: { title:'Opruimdrempel (%)', body:'Schijfgebruik waarbij automatisch opgeruimd wordt (50–99%).', rec:'Aanbevolen: <strong>90–95%</strong>.' },
+        max_files: { title:'Max bestanden per soort', body:'Maximum audiobestanden per soort (0 = onbeperkt).', rec:'Aanbevolen: <strong>0</strong> of <strong>100–500</strong>.' },
+        privacy: { title:'Stemfilter', body:'<strong>0</strong>: uit. <strong>1</strong>: licht. <strong>2-3</strong>: agressief.', rec:'Aanbevolen: <strong>0</strong> landelijk, <strong>1</strong> stedelijk.' },
+        site_name: { title:'Locatienaam', body:'Naam in de header en op BirdWeather.', rec:'Uw locatie of tuinnaam.' },
+        latitude: { title:'Breedtegraad', body:'GPS-breedtegraad (4 decimalen). Voor het MData-geofilter.', rec:'Gebruik Google Maps.' },
+        longitude: { title:'Lengtegraad', body:'GPS-lengtegraad (4 decimalen). Voor het MData-geofilter.', rec:'Gebruik Google Maps.' },
+        species_lists: { title:'Soortenlijsten', body:'<strong>Inclusielijst</strong>: alleen vermelde soorten. <strong>Exclusielijst</strong>: vermelde soorten genegeerd.', rec:'Exclusie gebruiken voor terugkerende valse positieven.' },
+        backup: { title:'Back-up', body:'Automatische back-up van uw BirdNET-station.<br><br><strong>Bestemmingen:</strong> USB/Lokaal, SMB/CIFS, NFS, SFTP, Amazon S3, Google Drive, WebDAV.<br><strong>Inhoud:</strong> Database, audiobestanden, configuratie of alles.<br><strong>Planning:</strong> Handmatig, dagelijks of wekelijks.', rec:'Aanbevolen: dagelijkse back-up van <strong>database + configuratie</strong>.' },
+      },
+    };
+
+    const helpTitle = computed(() => {
+      if (!helpKey.value) return '';
+      const h = (HELP[lang.value] || HELP.en)[helpKey.value] || HELP.en[helpKey.value];
+      return h ? h.title : helpKey.value;
+    });
+
+    const helpBody = computed(() => {
+      if (!helpKey.value) return '';
+      const h = (HELP[lang.value] || HELP.en)[helpKey.value] || HELP.en[helpKey.value];
+      if (!h) return '';
+      let html = h.body;
+      if (h.rec) html += `<div class="info-rec">💡 ${h.rec}</div>`;
+      return html;
+    });
+
+    // ── Audio config ──────────────────────────────────────────────────────────
+    const audioConf = reactive({
+      device_id: '', device_name: '', input_channels: 2,
+      capture_sample_rate: 48000, bit_depth: 16, output_sample_rate: 32000,
+      channel_strategy: 'max', hop_size_s: 2.5,
+      highpass_enabled: true, highpass_cutoff_hz: 80,
+      rms_normalize: true, rms_target: 0.05,
+      cal_gain_ch0: 1.0, cal_gain_ch1: 1.0, cal_date: null,
+      profile_name: 'jardin',
+    });
+    const audioDevices = ref([]);
+    const audioProfiles = ref({});
+    const audioSubTab = ref('device');
+    const audioSubTabs = [
+      { id: 'device', icon: '🔌', label: 'Périphérique' },
+      { id: 'profile', icon: '🎛️', label: 'Profil & Paramètres' },
+      { id: 'calibration', icon: '⚖️', label: 'Calibration' },
+      { id: 'monitoring', icon: '📊', label: 'Monitoring' },
+    ];
+    const channelStrategies = [
+      { id: 'sum', label: 'Sommation', desc: 'Combine les deux signaux (gain SNR +3dB)' },
+      { id: 'max', label: 'Maximum', desc: 'Retient le score le plus élevé des deux canaux (maximise le rappel)' },
+      { id: 'vote', label: 'Vote', desc: 'Exige la détection sur les deux canaux (réduit les faux positifs)' },
+    ];
+    const audioSaveMsg = ref('');
+    const calRunning = ref(false);
+    const calResult = ref(null);
+    const audioMonitoring = ref(false);
+    const monitorLevels = reactive({ ch0_rms_db: -60, ch1_rms_db: -60, clipping_ch0: false, clipping_ch1: false });
+    let monitorSource = null;
+    const audioTesting = ref(false);
+    const audioTestImg = ref(null);
+
+    const appriseEnabled = computed(() => {
+      return conf.APPRISE_NOTIFY_EACH_DETECTION == 1 ||
+             conf.APPRISE_NOTIFY_NEW_SPECIES == 1 ||
+             conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY == 1 ||
+             conf.APPRISE_WEEKLY_REPORT == 1;
+    });
+    function toggleAllApprise(on) {
+      const v = on ? '1' : '0';
+      conf.APPRISE_NOTIFY_EACH_DETECTION = '0';
+      conf.APPRISE_NOTIFY_NEW_SPECIES = v;
+      conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY = v;
+      conf.APPRISE_WEEKLY_REPORT = v;
+    }
+
+    const notifGlobalEnabled = computed(() => conf.NOTIFY_ENABLED == 1);
+    const notifSaveMsg = ref('');
+    const notifSaveErr = ref(false);
+    function toggleNotifGlobal(on) {
+      conf.NOTIFY_ENABLED = on ? '1' : '0';
+      if (!on) {
+        conf.NOTIFY_RARE_SPECIES = '0';
+        conf.NOTIFY_FIRST_SEASON = '0';
+        conf.APPRISE_NOTIFY_EACH_DETECTION = '0';
+        conf.APPRISE_NOTIFY_NEW_SPECIES = '0';
+        conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY = '0';
+        conf.APPRISE_WEEKLY_REPORT = '0';
+      }
+    }
+    async function saveNotifSettings() {
+      notifSaveMsg.value = ''; notifSaveErr.value = false;
+      try {
+        // Save birdnet.conf settings
+        await fetch(API + '/settings', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates: {
+            NOTIFY_ENABLED: String(conf.NOTIFY_ENABLED || 0),
+            NOTIFY_RARE_SPECIES: String(conf.NOTIFY_RARE_SPECIES || 0),
+            NOTIFY_RARE_THRESHOLD: String(conf.NOTIFY_RARE_THRESHOLD || 10),
+            NOTIFY_FIRST_SEASON: String(conf.NOTIFY_FIRST_SEASON || 0),
+            NOTIFY_SEASON_DAYS: String(conf.NOTIFY_SEASON_DAYS || 30),
+            APPRISE_NOTIFY_EACH_DETECTION: String(conf.APPRISE_NOTIFY_EACH_DETECTION || 0),
+            APPRISE_NOTIFY_NEW_SPECIES: String(conf.APPRISE_NOTIFY_NEW_SPECIES || 0),
+            APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: String(conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY || 0),
+            APPRISE_WEEKLY_REPORT: String(conf.APPRISE_WEEKLY_REPORT || 0),
+          }})
+        });
+        // Save alert thresholds
+        await saveAlertThresholds();
+        notifSaveMsg.value = 'Sauvegardé';
+        setTimeout(() => notifSaveMsg.value = '', 3000);
+      } catch(e) {
+        notifSaveMsg.value = e.message; notifSaveErr.value = true;
+      }
+    }
+
+    const secondaryModelOptions = computed(() => {
+      return (models.value || []).filter(m =>
+        !m.includes('MData') && m !== conf.MODEL
+      );
+    });
+
+    const calExpired = computed(() => {
+      if (!audioConf.cal_date) return false;
+      return (Date.now() - new Date(audioConf.cal_date).getTime()) > 7 * 86400000;
+    });
+
+    async function loadAudioConfig() {
+      try {
+        const data = await fetch(API + '/audio/config').then(r => r.json());
+        Object.assign(audioConf, data);
+      } catch {}
+    }
+    async function loadAudioDevices() {
+      try {
+        const data = await fetch(API + '/audio/devices').then(r => r.json());
+        audioDevices.value = data.devices || [];
+      } catch {}
+    }
+    async function loadAudioProfiles() {
+      try {
+        const data = await fetch(API + '/audio/profiles').then(r => r.json());
+        audioProfiles.value = data.profiles || {};
+      } catch {}
+    }
+    function selectAudioDevice(d) {
+      audioConf.device_id = d.id;
+      audioConf.device_name = d.name;
+      audioConf.capture_sample_rate = d.sample_rates[0] || 48000;
+      if (d.channels < 2) audioConf.input_channels = 1;
+    }
+    async function activateAudioProfile(name) {
+      try {
+        const data = await fetch(API + '/audio/profiles/' + encodeURIComponent(name) + '/activate', { method: 'POST' }).then(r => r.json());
+        if (data.config) Object.assign(audioConf, data.config);
+      } catch {}
+    }
+    async function saveAudioConfig() {
+      try {
+        const data = await fetch(API + '/audio/config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(audioConf),
+        }).then(r => r.json());
+        audioSaveMsg.value = 'Sauvegardé';
+        setTimeout(() => audioSaveMsg.value = '', 2000);
+      } catch (e) { audioSaveMsg.value = 'Erreur: ' + e.message; }
+    }
+    async function duplicateAudioProfile() {
+      const name = prompt('Nom du nouveau profil:', audioConf.profile_name + '_copie');
+      if (!name) return;
+      const profile = { ...audioConf, profile_name: name };
+      delete profile.device_id; delete profile.device_name;
+      delete profile.cal_gain_ch0; delete profile.cal_gain_ch1; delete profile.cal_date;
+      await fetch(API + '/audio/profiles', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      await loadAudioProfiles();
+      audioConf.profile_name = name;
+    }
+    async function deleteAudioProfile() {
+      if (!confirm('Supprimer le profil "' + audioConf.profile_name + '" ?')) return;
+      await fetch(API + '/audio/profiles/' + encodeURIComponent(audioConf.profile_name), { method: 'DELETE' });
+      await loadAudioProfiles();
+      audioConf.profile_name = 'jardin';
+      await activateAudioProfile('jardin');
+    }
+    async function startCalibration() {
+      calRunning.value = true; calResult.value = null;
+      try {
+        const data = await fetch(API + '/audio/calibration/start', { method: 'POST' }).then(r => r.json());
+        calResult.value = data;
+      } catch (e) { calResult.value = { status: 'error', message: e.message }; }
+      calRunning.value = false;
+    }
+    async function applyCalibration() {
+      await fetch(API + '/audio/calibration/apply', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gain_ch0: calResult.value.gain_ch0, gain_ch1: calResult.value.gain_ch1 }),
+      });
+      await loadAudioConfig();
+      calResult.value = null;
+    }
+    function startMonitor() {
+      audioMonitoring.value = true;
+      monitorSource = new EventSource(API + '/audio/monitor');
+      monitorSource.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        Object.assign(monitorLevels, d);
+      };
+      monitorSource.onerror = () => { stopMonitor(); };
+    }
+    function stopMonitor() {
+      audioMonitoring.value = false;
+      if (monitorSource) { monitorSource.close(); monitorSource = null; }
+    }
+    async function testAudio() {
+      audioTesting.value = true;
+      try {
+        const resp = await fetch(API + '/audio/test');
+        const blob = await resp.blob();
+        audioTestImg.value = URL.createObjectURL(blob);
+      } catch (e) { alert('Erreur: ' + e.message); }
+      audioTesting.value = false;
+    }
+
+    onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); loadAudioConfig(); loadAudioDevices(); loadAudioProfiles(); });
+
+    return {
+      t, lang, safeHtml, conf, models, analysisStatus, languages, services,
+      tabs, activeTab, switchTab,
+      // Audio
+      audioConf, audioDevices, audioProfiles, audioSubTab, audioSubTabs,
+      channelStrategies, audioSaveMsg,
+      calRunning, calResult, calExpired,
+      audioMonitoring, monitorLevels, audioTesting, audioTestImg,
+      loadAudioDevices, selectAudioDevice, activateAudioProfile,
+      saveAudioConfig, duplicateAudioProfile, deleteAudioProfile,
+      startCalibration, applyCalibration,
+      startMonitor, stopMonitor, testAudio,
+      loading, saving, svcLoading, saveMsg, saveErr,
+      includeList, excludeList, savingLists,
+      appriseUrls, savingApprise, testingApprise, appriseMsg, appriseErr, saveApprise, testApprise,
+      alertThresholds, savingAlerts, alertSaveMsg, alertSaveErr, saveAlertThresholds,
+      modelLabel, modelDescription, secondaryModelOptions,
+      appriseEnabled, toggleAllApprise,
+      notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr,
+      reload, save, restartService, saveSpeciesLists,
+      helpKey, helpTitle, helpBody,
+      bkp, backupDests, savingBkp, runningBkp, bkpProgress,
+      toggleBackupContent, saveBackupConfig, runBackup,
+      bkpStepLabel, bkpElapsed, pollBackupProgress,
+      pauseBackup, stopBackup, fmtSize, fmtDateTimeFull,
+      bkpSchedule, bkpHistory,
+    };
+  }
+});
+registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

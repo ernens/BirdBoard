@@ -1,0 +1,19 @@
+[Unit]
+Description=BIRDASH API Server (SQLite bridge for birds.db)
+After=network.target
+
+[Service]
+Type=simple
+User=bjorn
+WorkingDirectory=/home/bjorn/birdash
+ExecStart=/usr/bin/node /home/bjorn/birdash/server/server.js
+Restart=on-failure
+RestartSec=5
+Environment=BIRDASH_PORT=7474
+Environment=BIRDASH_DB=/home/bjorn/BirdNET-Pi/scripts/birds.db
+# Clés API — remplir avec tes valeurs (ne pas committer !)
+# Environment=EBIRD_API_KEY=your_key_here
+# Environment=BW_STATION_ID=your_station_id
+
+[Install]
+WantedBy=multi-user.target

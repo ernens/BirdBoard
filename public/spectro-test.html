@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Spectrogram Test</title>
+<style>
+  body { background: #111; color: #eee; font-family: monospace; margin: 20px; }
+  canvas { display: block; border: 1px solid #333; margin-top: 10px; }
+  button { padding: 8px 16px; font-size: 16px; margin: 5px; cursor: pointer; }
+  #log { white-space: pre-wrap; font-size: 12px; color: #888; max-height: 200px; overflow-y: auto; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h2>Live Spectrogram Test</h2>
+<button id="startBtn">Démarrer</button>
+<button id="stopBtn" disabled>Arrêter</button>
+<div id="status">Prêt</div>
+<canvas id="canvas" width="800" height="300"></canvas>
+<div id="log"></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+let running = false;
+let reader = null;
+
+function log(msg) {
+  const line = new Date().toLocaleTimeString() + ' ' + msg;
+  logEl.textContent = line + '\n' + logEl.textContent;
+  console.log(msg);
+}
+
+// Viridis-like color map
+function valToColor(v) {
+  v = Math.max(0, Math.min(1, v));
+  const r = Math.floor(Math.min(255, v * 3 * 255));
+  const g = Math.floor(Math.min(255, v * 1.5 * 255));
+  const b = Math.floor(Math.min(255, (1-v) * 200 + 55));
+  return `rgb(${r},${g},${b})`;
+}
+
+// Simple FFT magnitude (power of 2 only)
+function fftMagnitude(signal) {
+  const N = signal.length;
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let i = 0; i < N; i++) re[i] = signal[i];
+
+  for (let i = 1, j = 0; i < N; i++) {
+    let bit = N >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; }
+  }
+  for (let len = 2; len <= N; len *= 2) {
+    const ang = -2 * Math.PI / len;
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    for (let i = 0; i < N; i += len) {
+      let cRe = 1, cIm = 0;
+      for (let j = 0; j < len/2; j++) {
+        const uR = re[i+j], uI = im[i+j];
+        const vR = re[i+j+len/2]*cRe - im[i+j+len/2]*cIm;
+        const vI = re[i+j+len/2]*cIm + im[i+j+len/2]*cRe;
+        re[i+j]=uR+vR; im[i+j]=uI+vI;
+        re[i+j+len/2]=uR-vR; im[i+j+len/2]=uI-vI;
+        const t=cRe*wRe-cIm*wIm; cIm=cRe*wIm+cIm*wRe; cRe=t;
+      }
+    }
+  }
+  const mag = new Float32Array(N/2);
+  for (let i = 0; i < N/2; i++) {
+    mag[i] = Math.log10(Math.max(1e-10, re[i]*re[i] + im[i]*im[i]));
+  }
+  return mag;
+}
+
+async function start() {
+  running = true;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = false;
+  statusEl.textContent = 'Connexion...';
+
+  ctx.fillStyle = '#03070a';
+  ctx.fillRect(0, 0, W, H);
+
+  const FFT_N = 1024;
+  const HOP = 256;
+  const bytesPerHop = HOP * 2; // 16-bit
+  let pcmBuf = new Float32Array(0);
+  let rawBuf = new Uint8Array(0);
+  let frames = 0;
+  let totalBytes = 0;
+
+  try {
+    log('Fetching /api/live-pcm...');
+    const apiBase = window.location.pathname.replace(/\/[^/]*$/, '') + '/api';
+    const resp = await fetch(apiBase + '/live-pcm');
+    log('Response status: ' + resp.status + ' type: ' + resp.headers.get('content-type'));
+
+    if (!resp.ok) {
+      log('ERROR: ' + resp.status);
+      statusEl.textContent = 'Erreur ' + resp.status;
+      return;
+    }
+
+    reader = resp.body.getReader();
+    statusEl.textContent = 'Streaming...';
+    log('Stream started, reading chunks...');
+
+    while (running) {
+      const { done, value } = await reader.read();
+      if (done) { log('Stream ended'); break; }
+
+      totalBytes += value.length;
+
+      // Append raw
+      const tmp = new Uint8Array(rawBuf.length + value.length);
+      tmp.set(rawBuf); tmp.set(value, rawBuf.length);
+      rawBuf = tmp;
+
+      // Convert to float in hop-sized chunks
+      while (rawBuf.length >= bytesPerHop) {
+        const chunk = rawBuf.slice(0, bytesPerHop);
+        rawBuf = rawBuf.slice(bytesPerHop);
+
+        const view = new DataView(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+        const floats = new Float32Array(HOP);
+        for (let i = 0; i < HOP; i++) {
+          floats[i] = view.getInt16(i * 2, true) / 32768.0;
+        }
+
+        const newBuf = new Float32Array(pcmBuf.length + HOP);
+        newBuf.set(pcmBuf); newBuf.set(floats, pcmBuf.length);
+        pcmBuf = newBuf;
+
+        while (pcmBuf.length >= FFT_N) {
+          // Apply Hann window
+          const frame = new Float32Array(FFT_N);
+          for (let i = 0; i < FFT_N; i++) {
+            frame[i] = pcmBuf[i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT_N-1)));
+          }
+          pcmBuf = pcmBuf.slice(HOP);
+
+          const mag = fftMagnitude(frame);
+          const maxBin = Math.floor(mag.length * 12000 / 12000); // up to Nyquist
+
+          // Scroll left
+          const img = ctx.getImageData(2, 0, W - 2, H);
+          ctx.putImageData(img, 0, 0);
+
+          // Draw column
+          for (let py = 0; py < H; py++) {
+            const bin = Math.floor((1 - py / H) * maxBin);
+            const v = mag[Math.min(bin, mag.length-1)];
+            const norm = Math.max(0, Math.min(1, (v + 5) / 4)); // map ~[-5, -1] to [0, 1]
+            ctx.fillStyle = valToColor(norm);
+            ctx.fillRect(W - 2, py, 2, 1);
+          }
+
+          frames++;
+          if (frames % 50 === 0) {
+            statusEl.textContent = `Live — ${frames} frames, ${(totalBytes/1024).toFixed(0)} KB reçus`;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    log('ERROR: ' + e.message);
+    statusEl.textContent = 'Erreur: ' + e.message;
+  }
+
+  stop();
+}
+
+function stop() {
+  running = false;
+  if (reader) { try { reader.cancel(); } catch(e) {} reader = null; }
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  statusEl.textContent = 'Arrêté';
+  log('Stopped');
+}
+
+document.getElementById('startBtn').onclick = start;
+document.getElementById('stopBtn').onclick = stop;
+</script>
+</body>
+</html>

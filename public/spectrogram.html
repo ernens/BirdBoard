@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Spectrogram</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="spectrogram" :title="t('nav_spectrogram')">
+  <div class="spectro-page" style="padding:0;flex:1;display:flex;flex-direction:column;">
+
+    <!-- ── Barre de contrôles ──────────────────────────────────── -->
+    <div class="spectro-toolbar">
+
+      <!-- Ligne 1 : Transport + affichage -->
+      <div class="stbar-row">
+        <!-- Indicateur live -->
+        <div class="live-indicator">
+          <div class="live-dot" :class="{active:status==='live', error:status==='error'}"></div>
+          <span v-if="status==='idle'">{{t('idle')}}</span>
+          <span v-else-if="status==='connecting'">{{t('connecting')}}</span>
+          <span v-else-if="status==='live'" style="color:#4caf50;">{{t('live')}}</span>
+          <span v-else-if="status==='error'" style="color:var(--danger);">{{t('error')}}</span>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Mode selector + Start/Stop -->
+        <select v-model="liveMode" style="padding:.2rem .4rem;font-size:.75rem;border-radius:.3rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);">
+          <option value="mic">Live Micro</option>
+          <option value="clips">Clips détections</option>
+        </select>
+        <button v-if="status!=='live'" class="btn btn-primary"
+                style="padding:.25rem .7rem;font-size:.78rem;"
+                @click="liveMode === 'mic' ? startLiveMic() : startLive()" :disabled="status==='connecting'">
+          ▶ {{t('start')}}
+        </button>
+        <button v-else class="btn btn-secondary"
+                style="padding:.25rem .7rem;font-size:.78rem;"
+                @click="liveMode === 'mic' ? stopLiveMic() : stopLive()">
+          ⏹ {{t('stop')}}
+        </button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Espèce en cours -->
+        <div v-if="nowPlaying" class="toolbar-group" style="gap:.35rem;">
+          <div class="live-dot active" style="width:6px;height:6px;"></div>
+          <span :style="{color:nowPlaying.color, fontWeight:600, fontSize:'.78rem'}">
+            {{nowPlaying.name}}
+          </span>
+          <span style="font-size:.7rem;font-family:monospace;color:var(--text-faint);">
+            {{nowPlaying.conf}} · {{nowPlaying.time}}
+          </span>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Détections -->
+        <div class="toolbar-group">
+          <label>{{t('detections')}}</label>
+          <span style="font-size:.75rem;color:var(--text-muted);">
+            {{recentDets.length > 0 ? recentDets.length+' '+t('today_count') : '—'}}
+          </span>
+          <span v-if="lastPollAge" style="font-size:.66rem;color:var(--text-faint);">
+            ({{lastPollAge}})
+          </span>
+        </div>
+
+        <!-- Spacer -->
+        <div style="flex:1;"></div>
+
+        <!-- Heure -->
+        <div style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">
+          {{clockStr}}
+        </div>
+      </div>
+
+      <!-- Ligne 2 : Contrôles audio et filtres -->
+      <div class="stbar-row">
+
+        <!-- Gain dB (pilules) -->
+        <div class="toolbar-group">
+          <label>{{t('af_gain')}}</label>
+          <div class="stb-pills">
+            <button v-for="g in gainOptions" :key="g"
+                    class="stb-pill" :class="{'stb-pill-active': gainDb===g}"
+                    @click="setGainDb(g)">
+              {{g===0 ? t('af_off') : '+'+g}}
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- HighPass Hz (pilules) -->
+        <div class="toolbar-group">
+          <label>{{t('af_highpass')}}</label>
+          <div class="stb-pills">
+            <button v-for="h in hpOptions" :key="h"
+                    class="stb-pill" :class="{'stb-pill-active': highpassHz===h}"
+                    @click="setHighpass(h)">
+              {{h===0 ? t('af_off') : (h>=1000 ? (h/1000)+'k' : h)}}
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- LowPass Hz (pilules) -->
+        <div class="toolbar-group">
+          <label>{{t('af_lowpass')}}</label>
+          <div class="stb-pills">
+            <button v-for="l in lpOptions" :key="l"
+                    class="stb-pill" :class="{'stb-pill-active': lowpassHz===l}"
+                    @click="setLowpass(l)">
+              {{l===0 ? t('af_off') : (l>=1000 ? (l/1000)+'k' : l)}}
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Fréq max spectro -->
+        <div class="toolbar-group">
+          <label>{{t('freq_max')}}</label>
+          <select class="bird-select" v-model.number="maxHz"
+                  style="padding:.18rem .35rem;font-size:.73rem;">
+            <option :value="8000">8 kHz</option>
+            <option :value="12000">12 kHz</option>
+            <option :value="16000">16 kHz</option>
+            <option :value="22000">22 kHz</option>
+          </select>
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Volume -->
+        <div class="toolbar-group">
+          <label>🔊</label>
+          <input type="range" min="0" max="1" step="0.05" v-model.number="volume"
+                 aria-label="Volume"
+                 style="width:60px;accent-color:var(--accent);"
+                 @input="setVolume">
+        </div>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Nettoyage audio -->
+        <div class="toolbar-group" style="gap:.35rem;">
+          <button @click="cleanMode=!cleanMode" :disabled="processingClean"
+                  class="stb-pill" :class="{'stb-pill-active': cleanMode}"
+                  style="font-weight:600;padding:.15rem .5rem;">
+            <span v-if="processingClean">⏳</span>
+            <span v-else-if="cleanMode">✨ {{t('clean')}}</span>
+            <span v-else>🎛 {{t('clean')}}</span>
+          </button>
+          <template v-if="cleanMode">
+            <input type="range" min="0.2" max="1.0" step="0.05"
+                   v-model.number="cleanStrength" aria-label="Clean strength"
+                   style="width:55px;accent-color:var(--accent);">
+            <span style="font-size:.68rem;font-family:monospace;color:var(--accent);min-width:28px;">
+              {{Math.round(cleanStrength*100)}}%
+            </span>
+          </template>
+        </div>
+
+        <!-- Vitesse de lecture -->
+        <div v-if="liveMode !== 'mic'" class="toolbar-sep"></div>
+        <div v-if="liveMode !== 'mic'" class="toolbar-group">
+          <label>⏩</label>
+          <div class="stb-pills">
+            <button v-for="s in speedOptions" :key="s"
+                    class="stb-pill" :class="{'stb-pill-active': playbackSpeed===s}"
+                    @click="setSpeed(s)">
+              {{s}}x
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Canvas spectrogramme ────────────────────────────────── -->
+    <div class="canvas-wrap" ref="canvasWrap">
+      <canvas id="spectroCanvas" ref="mainCanvas"></canvas>
+
+      <!-- Axes -->
+      <div class="freq-axis">
+        <span v-for="fl in freqLabels" :key="fl" class="freq-label">{{fl}}</span>
+      </div>
+      <div class="colorbar-wrap">
+        <canvas ref="colorbarCanvas" class="colorbar-canvas" width="12"></canvas>
+        <div class="colorbar-labels">
+          <span class="colorbar-label">{{t('colorbar_max')}}</span>
+          <span class="colorbar-label">{{t('colorbar_min')}}</span>
+        </div>
+      </div>
+      <div class="time-axis">
+        <span v-for="tl in timeLabels" :key="tl" class="time-label">{{tl}}</span>
+      </div>
+      <div class="now-line"></div>
+
+      <!-- Labels détections sur le spectrogramme — ligne pleine hauteur -->
+      <div v-for="dl in visibleDetLabels" :key="dl.id"
+           class="det-label"
+           :style="{ left: dl.x + 'px' }">
+        <div class="det-label-line" :style="{ background: dl.color }"></div>
+        <div class="det-label-text">
+          <span class="det-label-name"
+                :style="{ color: dl.color, borderColor: dl.color }">
+            {{dl.name}}
+          </span>
+          <span class="det-label-conf" :style="{ color: dl.color }">
+            {{dl.conf}}
+          </span>
+        </div>
+      </div>
+
+      <!-- Feed détections (coin haut droit) -->
+      <div class="det-feed">
+        <transition-group name="feed">
+          <div v-for="d in feedDets" :key="d.id"
+               class="det-feed-item"
+               :style="{ borderColor: d.color }">
+            <span class="det-feed-name" :style="{ color: d.color }">{{d.displayName}}</span>
+            <span class="det-feed-conf" :style="{ color: d.color }">{{d.confStr}}</span>
+            <span class="det-feed-time">{{d.Time.substring(0,5)}}</span>
+          </div>
+        </transition-group>
+      </div>
+
+      <!-- Overlay démarrage / erreur -->
+      <div v-if="status !== 'live'" class="spectro-overlay">
+        <div class="overlay-icon">
+          <span v-if="status==='idle'">📡</span>
+          <span v-else-if="status==='connecting'">⏳</span>
+          <span v-else>🚫</span>
+        </div>
+        <p v-if="status==='idle'">
+          {{t('spectro_idle_msg')}}<br>
+          {{t('spectro_idle_desc')}}<br>
+          {{t('spectro_idle_overlay')}}
+        </p>
+        <p v-else-if="status==='connecting'">
+          {{t('spectro_connecting_msg')}}
+        </p>
+        <p v-else style="color:var(--danger);">
+          {{errorMsg}}
+        </p>
+      </div>
+    </div>
+
+  </div>
+  </birdash-shell>
+</div>
+
+
+<script>
+// ── Colormap plasma ───────────────────────────────────────────────────────────
+function buildColorLUT() {
+  const lut   = new Uint8Array(256 * 3);
+  const stops = [
+    [0,   [  3,   5,  10]],[0.08,[15,   0,  40]],[0.18,[55,   0,  90]],
+    [0.30,[130,  10,  80]],[0.45,[200,  40,  30]],[0.60,[240,  90,   5]],
+    [0.78,[255, 170,   0]],[0.92,[255, 230,  80]],[1.0, [255, 255, 255]],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const v = i / 255;
+    let s = 0;
+    while (s < stops.length - 2 && stops[s+1][0] <= v) s++;
+    const [v0,c0]=stops[s],[v1,c1]=stops[s+1];
+    const tt = Math.min(1,(v-v0)/(v1-v0+1e-9));
+    lut[i*3]  =Math.round(c0[0]+tt*(c1[0]-c0[0]));
+    lut[i*3+1]=Math.round(c0[1]+tt*(c1[1]-c0[1]));
+    lut[i*3+2]=Math.round(c0[2]+tt*(c1[2]-c0[2]));
+  }
+  return lut;
+}
+const COLOR_LUT = buildColorLUT();
+
+const LABEL_COLORS = [
+  '#5ac85a','#c8d44c','#4ab5e8','#e87a4a','#c84adc',
+  '#4adcc8','#e8c84a','#7ad45a','#e84a7a','#4a7ae8',
+];
+let _labelIdx = 0;
+const _speciesColors = {};
+function colorFor(name) {
+  if (!_speciesColors[name]) _speciesColors[name] = LABEL_COLORS[_labelIdx++ % LABEL_COLORS.length];
+  return _speciesColors[name];
+}
+
+// ── Constantes DSP ────────────────────────────────────────────────────────────
+const FFT_SIZE = 2048;
+const COL_W    = 2;   // pixels par frame FFT
+
+// ── DSP Pipeline nettoyage ────────────────────────────────────────────────────
+function _fftForDsp(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1;
+    const wc = Math.cos(-Math.PI/half), ws = Math.sin(-Math.PI/half);
+    for (let i = 0; i < n; i += len) {
+      let wR = 1, wI = 0;
+      for (let k = 0; k < half; k++) {
+        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
+        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
+        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
+      }
+    }
+  }
+}
+function _highpassIIR(pcm, sr, cutHz = 850) {
+  const alpha = 1 / (1 + 2 * Math.PI * cutHz / sr);
+  const out = new Float32Array(pcm.length);
+  out[0] = pcm[0];
+  for (let i = 1; i < pcm.length; i++) out[i] = alpha * (out[i-1] + pcm[i] - pcm[i-1]);
+  return out;
+}
+function _spectralSubtract(pcm, strength = 0.8) {
+  const FFT = 512, HOP = 128, HALF = FFT / 2;
+  const hann = new Float32Array(FFT);
+  for (let i = 0; i < FFT; i++) hann[i] = 0.5 - 0.5 * Math.cos(2*Math.PI*i/(FFT-1));
+  const frames = [];
+  for (let off = 0; off + FFT <= pcm.length; off += HOP) {
+    const re = new Float32Array(FFT), im = new Float32Array(FFT);
+    let energy = 0;
+    for (let i = 0; i < FFT; i++) { re[i] = pcm[off+i] * hann[i]; energy += re[i]*re[i]; }
+    _fftForDsp(re, im);
+    frames.push({ re, im, energy, off });
+  }
+  const byEnergy = [...frames].sort((a,b) => a.energy - b.energy);
+  const nCount   = Math.max(2, Math.floor(frames.length * 0.15));
+  const noiseMag = new Float32Array(HALF);
+  for (let fi = 0; fi < nCount; fi++) {
+    const { re, im } = byEnergy[fi];
+    for (let k = 0; k < HALF; k++) noiseMag[k] += Math.sqrt(re[k]*re[k]+im[k]*im[k]);
+  }
+  for (let k = 0; k < HALF; k++) noiseMag[k] /= nCount;
+  const out = new Float32Array(pcm.length), norm = new Float32Array(pcm.length);
+  for (const { re, im, off } of frames) {
+    for (let k = 0; k < HALF; k++) {
+      const mag = Math.sqrt(re[k]*re[k]+im[k]*im[k]);
+      const scale = mag > 1e-12 ? Math.max(mag - strength * noiseMag[k], 0.05 * mag) / mag : 0;
+      re[k] *= scale; im[k] *= scale;
+    }
+    for (let k = 1; k < HALF; k++) { re[FFT-k] = re[k]; im[FFT-k] = -im[k]; }
+    re[HALF] = 0; im[HALF] = 0;
+    for (let k = 0; k < FFT; k++) im[k] = -im[k];
+    _fftForDsp(re, im);
+    for (let i = 0; i < FFT; i++) {
+      const n = off + i;
+      if (n < out.length) { const w=hann[i]; out[n]+=(re[i]/FFT)*w; norm[n]+=w*w; }
+    }
+  }
+  for (let i = 0; i < out.length; i++) if (norm[i] > 1e-10) out[i] /= norm[i];
+  return out;
+}
+function cleanAudioPipeline(pcm, sr, strength) {
+  return _spectralSubtract(_highpassIIR(pcm, sr, 850), strength);
+}
+
+// ── Vue 3 App ─────────────────────────────────────────────────────────────────
+const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useSpeciesNames, birdQuery, fmtConf, localDateStr, buildAudioUrl } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('spectrogram');
+    const { spName } = useSpeciesNames();
+
+    const status    = ref('idle');
+    const liveMode  = ref('mic');
+    const errorMsg  = ref('');
+    const gain      = ref(1.5);
+    const maxHz     = ref(12000);
+    const volume    = ref(0.8);
+    const clockStr  = ref('');
+    const nowPlaying= ref(null);   // { name, conf, time, color }
+
+    const mainCanvas     = ref(null);
+    const canvasWrap     = ref(null);
+    const colorbarCanvas = ref(null);
+
+    const recentDets  = ref([]);
+    const feedDets    = ref([]);
+    const lastPollAge = ref('');
+    const detLabels   = ref([]);   // { id, name, conf, color, insertedAtCol }
+
+    // Web Audio (non réactif)
+    let _audioCtx   = null;
+    let _analyser   = null;
+    let _gainNode   = null;
+    let _hpFilter   = null;    // BiquadFilterNode highpass
+    let _lpFilter   = null;    // BiquadFilterNode lowpass
+    let _source     = null;   // BufferSourceNode en cours
+
+    // Clean audio (non réactif — PCM courant)
+    let _currentPcm     = null;
+    let _currentSr      = 22050;
+    let _currentAudioBuf= null;   // buffer original (avant clean)
+
+    // Clean audio (réactif)
+    const cleanMode      = ref(false);
+    const cleanStrength  = ref(0.75);
+    const processingClean= ref(false);
+
+    // Audio filters (réactif)
+    const gainDb      = ref(0);
+    const highpassHz  = ref(0);
+    const lowpassHz   = ref(0);
+    const playbackSpeed = ref(1);
+    const gainOptions   = [0, 6, 12, 18, 24, 30];
+    const hpOptions     = [0, 250, 500, 1000, 1500];
+    const lpOptions     = [0, 2000, 4000, 8000];
+    const speedOptions  = [0.5, 1, 1.5, 2];
+
+    // Rendu canvas (non réactif)
+    let _W = 800, _H = 400;
+    let _imgData = null, _imgBuf = null;
+    let _rafId   = null;
+    let _colsDrawn  = 0;           // compteur absolu de colonnes — base du positionnement labels
+    let _dynFloor = -80, _dynCeil = -20;
+
+    // Boucle lecture (non réactif)
+    let _playbackStopped = false;
+    let _playedFiles     = new Set();
+
+    // Timers
+    let _clockTimer = null;
+    let _pollTimer  = null;
+    let _lastPoll   = null;
+
+    // ── Computed ──────────────────────────────────────────────────
+    const freqLabels = computed(() => {
+      const hz = maxHz.value;
+      return [hz, hz*.75, hz*.5, hz*.25, 0]
+        .map(v => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v));
+    });
+
+    const timeLabels = computed(() => {
+      const now = new Date();
+      return ['-60s','-45s','-30s','-15s', now.toTimeString().substring(0,8)];
+    });
+
+    // Position des labels : basée sur le nb de colonnes écoulées depuis l'insertion
+    const visibleDetLabels = computed(() => {
+      return detLabels.value
+        .map(dl => {
+          const colsAgo = _colsDrawn - dl.insertedAtCol;
+          const x       = _W - 40 - colsAgo * COL_W;
+          return { ...dl, x };
+        })
+        .filter(dl => dl.x > 40 && dl.x < _W - 40);
+    });
+
+    // ── Horloge ───────────────────────────────────────────────────
+    function tickClock() {
+      clockStr.value = new Date().toTimeString().substring(0,8);
+      if (_lastPoll) {
+        const s = Math.round((Date.now() - _lastPoll) / 1000);
+        lastPollAge.value = s < 60 ? `${s}s` : `${Math.floor(s/60)}m`;
+      }
+    }
+
+    // ── Volume ────────────────────────────────────────────────────
+    function setVolume() {
+      if (_gainNode) _gainNode.gain.value = volume.value * gain.value;
+    }
+
+    // ── Filtres audio temps réel ─────────────────────────────────
+    function setGainDb(db) {
+      gainDb.value = db;
+      gain.value = db > 0 ? Math.pow(10, db / 20) : 1;
+      // Also boost audio gain for live mic mode
+      if (_gainNode) _gainNode.gain.value = volume.value * gain.value;
+    }
+
+    function setHighpass(hz) {
+      highpassHz.value = hz;
+      if (_hpFilter) {
+        if (hz > 0) {
+          _hpFilter.frequency.value = hz;
+          _hpFilter.Q.value = 0.707;
+        } else {
+          _hpFilter.frequency.value = 1;
+          _hpFilter.Q.value = 0.001;
+        }
+      }
+    }
+
+    function setLowpass(hz) {
+      lowpassHz.value = hz;
+      if (_lpFilter) {
+        if (hz > 0) {
+          _lpFilter.frequency.value = hz;
+          _lpFilter.Q.value = 0.707;
+        } else {
+          _lpFilter.frequency.value = 24000;
+          _lpFilter.Q.value = 0.001;
+        }
+      }
+    }
+
+    function setSpeed(s) {
+      playbackSpeed.value = s;
+      if (_source) {
+        try { _source.playbackRate.value = s; } catch(e) {}
+      }
+    }
+
+    // ── Init canvas ───────────────────────────────────────────────
+    function initCanvas() {
+      if (!mainCanvas.value || !canvasWrap.value) return;
+      const rect = canvasWrap.value.getBoundingClientRect();
+      _W = Math.max(400, Math.floor(rect.width));
+      _H = Math.max(200, Math.floor(rect.height));
+      mainCanvas.value.width  = _W;
+      mainCanvas.value.height = _H;
+      const ctx = mainCanvas.value.getContext('2d');
+      ctx.fillStyle = '#03070a';
+      ctx.fillRect(0, 0, _W, _H);
+      _imgData  = ctx.getImageData(0, 0, _W, _H);
+      _imgBuf   = _imgData.data;
+      _dynFloor = -90; _dynCeil = -20;   // valeurs dBFS typiques pour de l'audio naturel
+      drawColorbar();
+    }
+
+    function drawColorbar() {
+      if (!colorbarCanvas.value) return;
+      const cb  = colorbarCanvas.value;
+      cb.height = cb.offsetHeight || 300;
+      const ctx = cb.getContext('2d');
+      const H   = cb.height;
+      const img = ctx.createImageData(1, H);
+      for (let py = 0; py < H; py++) {
+        const ci = Math.min(255, Math.floor((1 - py/H) * 255)) * 3;
+        img.data[py*4]=COLOR_LUT[ci]; img.data[py*4+1]=COLOR_LUT[ci+1];
+        img.data[py*4+2]=COLOR_LUT[ci+2]; img.data[py*4+3]=255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    // ── Démarrage ─────────────────────────────────────────────────
+    async function startLive() {
+      status.value        = 'connecting';
+      errorMsg.value      = '';
+      _playbackStopped    = false;
+      _colsDrawn          = 0;
+      detLabels.value     = [];
+      nowPlaying.value    = null;
+
+      await nextTick();
+      initCanvas();
+
+      // Créer le contexte audio
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await _audioCtx.resume();
+
+      _analyser = _audioCtx.createAnalyser();
+      _analyser.fftSize             = FFT_SIZE;
+      _analyser.smoothingTimeConstant = 0.0;
+
+      // Filtres BiquadFilter
+      _hpFilter = _audioCtx.createBiquadFilter();
+      _hpFilter.type = 'highpass';
+      _hpFilter.frequency.value = highpassHz.value > 0 ? highpassHz.value : 1;
+      _hpFilter.Q.value = highpassHz.value > 0 ? 0.707 : 0.001;
+
+      _lpFilter = _audioCtx.createBiquadFilter();
+      _lpFilter.type = 'lowpass';
+      _lpFilter.frequency.value = lowpassHz.value > 0 ? lowpassHz.value : 24000;
+      _lpFilter.Q.value = lowpassHz.value > 0 ? 0.707 : 0.001;
+
+      _gainNode = _audioCtx.createGain();
+      _gainNode.gain.value = volume.value;
+
+      // Chaîne : source → analyser → highpass → lowpass → gain → sortie
+      _analyser.connect(_hpFilter);
+      _hpFilter.connect(_lpFilter);
+      _lpFilter.connect(_gainNode);
+      _gainNode.connect(_audioCtx.destination);
+
+      status.value = 'live';
+      startRenderLoop();
+      startPlaybackLoop();
+    }
+
+    function stopLive() {
+      _playbackStopped = true;
+      stopRenderLoop();
+      if (_source) { try { _source.stop(); } catch(e) {} _source = null; }
+      if (_audioCtx) { _audioCtx.close(); _audioCtx = null; }
+      _analyser = null; _gainNode = null; _hpFilter = null; _lpFilter = null;
+      nowPlaying.value = null;
+      status.value = 'idle';
+    }
+
+    // ── Boucle de rendu FFT → canvas ──────────────────────────────
+    function startRenderLoop() {
+      const freqBuf = new Float32Array(FFT_SIZE >> 1);
+      const stride  = _W * 4;
+      const shift   = COL_W * 4;
+
+      function render() {
+        _rafId = requestAnimationFrame(render);
+        if (!_analyser || !_imgBuf) return;
+
+        _analyser.getFloatFrequencyData(freqBuf);
+
+        const sr  = _audioCtx ? _audioCtx.sampleRate : 48000;
+        const bMax = Math.min(
+          freqBuf.length,
+          Math.ceil(maxHz.value / (sr / 2) * freqBuf.length)
+        );
+
+        // Normalisation glissante — valeurs dBFS (toutes négatives, 0 = plein signal)
+        // lo/hi initialisés à des valeurs dBFS sensées
+        let lo = -120, hi = -120;
+        for (let k = 1; k < bMax; k++) {
+          const v = freqBuf[k];
+          if (!isFinite(v)) continue;
+          if (v > hi) hi = v;
+          if (v < lo) lo = v;
+        }
+        if (hi > lo) {
+          _dynFloor = _dynFloor * 0.990 + lo * 0.010;
+          _dynCeil  = _dynCeil  * 0.990 + hi * 0.010;
+        }
+        // Gain = offset additif en dB (ex: gain 2.5 → +20 dB de luminosité)
+        // La dynamique visible est réduite proportionnellement (plus de contraste)
+        const gainDB = (gain.value - 1) * 20;
+        const floor  = _dynFloor - gainDB;
+        const rng    = Math.max(1, _dynCeil - floor);
+
+        // Décaler l'image vers la gauche
+        for (let py = 0; py < _H; py++) {
+          const row = py * stride;
+          _imgBuf.copyWithin(row, row + shift, row + stride);
+        }
+
+        // Nouvelle colonne à droite
+        for (let py = 0; py < _H; py++) {
+          const bin = Math.min(Math.floor((1 - py / _H) * bMax), freqBuf.length - 1);
+          const v   = Math.max(0, Math.min(1, (freqBuf[bin] - floor) / rng));
+          const ci  = Math.floor(v * 255) * 3;
+          for (let cx = 0; cx < COL_W; cx++) {
+            const pi = (py * _W + (_W - COL_W + cx)) * 4;
+            _imgBuf[pi]   = COLOR_LUT[ci];
+            _imgBuf[pi+1] = COLOR_LUT[ci+1];
+            _imgBuf[pi+2] = COLOR_LUT[ci+2];
+            _imgBuf[pi+3] = 255;
+          }
+        }
+        _colsDrawn++;
+
+        mainCanvas.value.getContext('2d').putImageData(_imgData, 0, 0);
+      }
+      _rafId = requestAnimationFrame(render);
+    }
+
+    function stopRenderLoop() {
+      if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+    }
+
+    // ── Boucle de lecture MP3 ─────────────────────────────────────
+    // Charge les détections triées par heure, joue chaque MP3 en temps réel.
+    // Le spectrogramme provient de l'AnalyserNode branché sur la source audio —
+    // vitesse naturellement correcte, son inclus.
+    async function startPlaybackLoop() {
+      // Initialiser le set des fichiers déjà joués :
+      // ignorer les détections > 10 min avant maintenant pour démarrer "récent"
+      const initCutoff = new Date(Date.now() - 10 * 60 * 1000)
+        .toTimeString().substring(0,8);
+
+      try {
+        const today   = localDateStr();
+        const allRows = await birdQuery(
+          `SELECT File_Name, Com_Name, Sci_Name, Time FROM detections
+           WHERE Date = ? AND Confidence >= ? AND File_Name != ''
+           ORDER BY Time ASC`,
+          [today, BIRD_CONFIG.defaultConfidence]
+        );
+        // Marquer les anciens comme joués (inclut toutes les détections nocturnes)
+        for (const r of allRows) {
+          if (r.Time && r.Time < initCutoff) _playedFiles.add(r.File_Name);
+        }
+        console.log(`[playback] init: ${_playedFiles.size} fichiers anciens ignorés`);
+      } catch(e) {
+        console.error('[playback] init query error', e);
+      }
+
+      // Boucle principale
+      while (!_playbackStopped) {
+        let pending = [];
+        try {
+          const today = localDateStr();
+          const rows  = await birdQuery(
+            `SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name
+             FROM detections
+             WHERE Date = ? AND Confidence >= ? AND File_Name != ''
+             ORDER BY Time ASC`,
+            [today, BIRD_CONFIG.defaultConfidence]
+          );
+          _lastPoll = Date.now();
+          recentDets.value = rows;
+
+          pending = rows.filter(r => r.File_Name && !_playedFiles.has(r.File_Name));
+        } catch(e) {
+          console.error('[playback] query error', e);
+          await sleep(3000);
+          continue;
+        }
+
+        if (pending.length === 0) {
+          // Rien de nouveau — attendre en rebondissant
+          await sleep(5000);
+          continue;
+        }
+
+        // ── Pipeline prefetch : fetch + decode + clean de N+1
+        //    pendant que N joue → zéro silence même avec clean actif
+        async function fetchAndPrepare(det) {
+          const url = buildAudioUrl(det.File_Name);
+          if (!url) return null;
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) { console.warn('[playback] 404:', url); return null; }
+            const arrayBuf = await resp.arrayBuffer();
+            const audioBuf = await _audioCtx.decodeAudioData(arrayBuf);
+
+            // Stocker le PCM brut (pour ré-application clean si slider change)
+            _currentPcm      = audioBuf.getChannelData(0).slice();
+            _currentSr       = audioBuf.sampleRate;
+            _currentAudioBuf = audioBuf;
+
+            // Appliquer le clean ICI — pendant que le fichier précédent joue
+            if (cleanMode.value) {
+              const cleaned = cleanAudioPipeline(_currentPcm, _currentSr, cleanStrength.value);
+              const cleanBuf = _audioCtx.createBuffer(1, cleaned.length, _currentSr);
+              cleanBuf.copyToChannel(cleaned, 0);
+              return cleanBuf;
+            }
+            return audioBuf;
+          } catch(e) {
+            if (!_playbackStopped) console.error('[playback] décodage:', det.File_Name, e.message);
+            return null;
+          }
+        }
+
+        // Pré-charger le premier fichier
+        if (cleanMode.value) processingClean.value = true;
+        let prefetchedBuf   = await fetchAndPrepare(pending[0]);
+        processingClean.value = false;
+        let prefetchedDet   = pending[0];
+        let prefetchPromise = null;
+
+        for (let i = 0; i < pending.length; i++) {
+          if (_playbackStopped) break;
+
+          const det      = pending[i];
+          let   audioBuf = (det === prefetchedDet) ? prefetchedBuf : await fetchAndPrepare(det);
+
+          // Lancer le prefetch du fichier suivant EN PARALLÈLE dès maintenant
+          if (i + 1 < pending.length) {
+            prefetchedDet = pending[i + 1];
+            prefetchPromise = fetchAndPrepare(prefetchedDet).then(b => { prefetchedBuf = b; });
+          }
+
+          if (!audioBuf) continue;
+          if (_playbackStopped) break;
+          _playedFiles.add(det.File_Name);
+
+          // bufToPlay est déjà clean si cleanMode était actif dans fetchAndPrepare
+          const bufToPlay = audioBuf;
+
+          // ── Lecture imminente — insérer label maintenant ──────────
+          const color   = colorFor(det.Com_Name);
+          const labelId = det.Date + det.Time + det.Com_Name + Math.random();
+
+          _source = _audioCtx.createBufferSource();
+          _source.buffer = bufToPlay;
+          _source.playbackRate.value = playbackSpeed.value;
+          _source.connect(_analyser);
+
+          nowPlaying.value = {
+            name:  spName(det.Com_Name, det.Sci_Name),
+            conf:  fmtConf(det.Confidence),
+            time:  det.Time.substring(0, 5),
+            color,
+          };
+
+          detLabels.value = [{
+            id:            labelId,
+            name:          spName(det.Com_Name, det.Sci_Name),
+            conf:          fmtConf(det.Confidence),
+            color,
+            insertedAtCol: _colsDrawn,
+          }, ...detLabels.value].slice(0, 30);
+
+          feedDets.value = [{
+            ...det, id: labelId, color, confStr: fmtConf(det.Confidence),
+            displayName: spName(det.Com_Name, det.Sci_Name),
+          }, ...feedDets.value].slice(0, 6);
+
+          _source.start();
+
+          // Attendre la fin de la lecture ET que le prefetch soit terminé
+          await Promise.all([
+            new Promise(resolve => { _source.onended = resolve; }),
+            prefetchPromise || Promise.resolve(),
+          ]);
+          _source = null;
+        }   // fin for
+      }     // fin while
+
+      nowPlaying.value = null;
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // ── Resize ────────────────────────────────────────────────────
+    function onResize() {
+      if (status.value === 'live') initCanvas();
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────
+    onMounted(() => {
+      tickClock();
+      _clockTimer = setInterval(tickClock, 1000);
+      window.addEventListener('resize', onResize);
+    });
+
+    onUnmounted(() => {
+      stopLive();
+      if (_clockTimer) clearInterval(_clockTimer);
+      window.removeEventListener('resize', onResize);
+    });
+
+    // ── Live Mic mode ───────────────────────────────────────────────
+    let _liveMicAudio = null;
+    let _liveMicReader = null;
+    let _liveMicDetInterval = null;
+
+    async function startLiveMic() {
+      status.value = 'connecting';
+      errorMsg.value = '';
+      _colsDrawn = 0;
+      detLabels.value = [];
+
+      await nextTick();
+      initCanvas();
+
+      // Same approach as BirdNET-Pi: <audio> element + MediaElementSource + AnalyserNode
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await _audioCtx.resume();
+
+      _analyser = _audioCtx.createAnalyser();
+      _analyser.fftSize = 2048;
+      _analyser.smoothingTimeConstant = 0;
+
+      _gainNode = _audioCtx.createGain();
+      _gainNode.gain.value = volume.value;
+
+      // Create audio element pointing to our MP3 live stream
+      _liveMicAudio = document.createElement('audio');
+      _liveMicAudio.src = 'api/live-stream';
+      _liveMicAudio.crossOrigin = 'anonymous';
+      _liveMicAudio.preload = 'none';
+
+      _hpFilter = _audioCtx.createBiquadFilter();
+      _hpFilter.type = 'highpass';
+      _hpFilter.frequency.value = highpassHz.value > 0 ? highpassHz.value : 1;
+      _hpFilter.Q.value = highpassHz.value > 0 ? 0.707 : 0.001;
+
+      _lpFilter = _audioCtx.createBiquadFilter();
+      _lpFilter.type = 'lowpass';
+      _lpFilter.frequency.value = lowpassHz.value > 0 ? lowpassHz.value : 24000;
+      _lpFilter.Q.value = lowpassHz.value > 0 ? 0.707 : 0.001;
+
+      _liveMicSource = _audioCtx.createMediaElementSource(_liveMicAudio);
+      // Chain: source → highpass → lowpass → gain → analyser + speakers
+      _liveMicSource.connect(_hpFilter);
+      _hpFilter.connect(_lpFilter);
+      _lpFilter.connect(_gainNode);
+      _gainNode.connect(_analyser);
+      _gainNode.connect(_audioCtx.destination);
+
+      // Wait for audio to start playing
+      _liveMicAudio.addEventListener('error', (e) => {
+        console.error('[live-mic] Audio error:', e);
+        errorMsg.value = 'Erreur audio stream';
+      });
+
+      try {
+        await _liveMicAudio.play();
+      } catch(e) {
+        console.error('[live-mic] Play failed:', e);
+        errorMsg.value = 'Lecture impossible: ' + e.message;
+        status.value = 'idle';
+        return;
+      }
+
+      status.value = 'live';
+      nowPlaying.value = { Com_Name: 'Live Micro', Sci_Name: '' };
+
+      // Render loop using AnalyserNode (same as BirdNET-Pi)
+      const CVS = mainCanvas.value;
+      const CTX = CVS.getContext('2d');
+      CTX.fillStyle = 'hsl(280, 100%, 10%)';
+      CTX.fillRect(0, 0, _W, _H);
+
+      const DATA = new Uint8Array(_analyser.frequencyBinCount);
+      const LEN = DATA.length;
+      const h = _H / LEN + 0.9;
+
+      function liveLoop() {
+        if (status.value !== 'live') return;
+        _liveRafId = requestAnimationFrame(liveLoop);
+
+        // Scroll canvas left
+        const imgData = CTX.getImageData(1, 0, _W - 1, _H);
+        CTX.fillStyle = 'hsl(280, 100%, 10%)';
+        CTX.fillRect(0, 0, _W, _H);
+        CTX.putImageData(imgData, 0, 0);
+
+        // Get frequency data and draw column
+        _analyser.getByteFrequencyData(DATA);
+        for (let i = 0; i < LEN; i++) {
+          const rat = DATA[i] / 255;
+          const hue = Math.round((rat * 120) + 280) % 360;
+          const lit = 10 + (70 * rat) + '%';
+          CTX.beginPath();
+          CTX.strokeStyle = `hsl(${hue}, 100%, ${lit})`;
+          CTX.moveTo(_W - 1, _H - (i * h));
+          CTX.lineTo(_W - 1, _H - (i * h + h));
+          CTX.stroke();
+        }
+        _colsDrawn++;
+
+        // Draw detection labels overlay
+        CTX.textAlign = 'center';
+        CTX.font = '300 13px system-ui, sans-serif';
+        for (const dl of detLabels.value) {
+          const age = _colsDrawn - dl.col;
+          if (age < 0 || age > _W) continue;
+          const x = _W - age;
+          const opacity = Math.max(0.3, 1 - age / _W);
+          CTX.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+          CTX.fillText(dl.text, x, dl.row);
+        }
+        // Remove old labels
+        detLabels.value = detLabels.value.filter(dl => (_colsDrawn - dl.col) < _W);
+      }
+      _liveRafId = requestAnimationFrame(liveLoop);
+
+      // Poll detections every 5s for overlay labels
+      _liveMicDetInterval = setInterval(async () => {
+        try {
+          const today = localDateStr();
+          const tenSecAgo = new Date(Date.now() - 30000).toTimeString().substring(0, 8);
+          const rows = await birdQuery(
+            'SELECT Com_Name, Confidence, Time FROM detections WHERE Date = ? AND Time >= ? ORDER BY Time DESC LIMIT 5',
+            [today, tenSecAgo]
+          );
+          for (const r of rows) {
+            const label = r.Com_Name + ' ' + Math.round(r.Confidence * 100) + '%';
+            const exists = detLabels.value.some(d => d.text === label && d.col > _colsDrawn - 100);
+            if (!exists) {
+              detLabels.value.push({
+                text: label,
+                col: _colsDrawn,
+                row: Math.floor(Math.random() * _H * 0.5) + 20,
+              });
+            }
+          }
+        } catch {}
+      }, 5000);
+
+      // Poll detections every 5s for overlay labels
+      _liveMicDetInterval = setInterval(async () => {
+        try {
+          const today = localDateStr();
+          const nowTime = new Date().toTimeString().substring(0, 8);
+          const tenSecAgo = new Date(Date.now() - 30000).toTimeString().substring(0, 8);
+          const rows = await birdQuery(
+            'SELECT Com_Name, Confidence, Time FROM detections WHERE Date = ? AND Time >= ? ORDER BY Time DESC LIMIT 5',
+            [today, tenSecAgo]
+          );
+          for (const r of rows) {
+            const label = r.Com_Name + ' ' + Math.round(r.Confidence * 100) + '%';
+            const exists = detLabels.value.some(d => d.text === label && d.col > _colsDrawn - 100);
+            if (!exists) {
+              detLabels.value.push({
+                text: label,
+                col: _colsDrawn,
+                row: Math.floor(Math.random() * (_H || 300) * 0.6) + 20,
+              });
+            }
+          }
+        } catch {}
+      }, 5000);
+    }
+
+    function stopLiveMic() {
+      if (_liveMicAudio) {
+        _liveMicAudio.pause();
+        _liveMicAudio.removeAttribute('src');
+        _liveMicAudio.load();
+        _liveMicAudio = null;
+      }
+      _liveMicSource = null;
+      if (_liveRafId) { cancelAnimationFrame(_liveRafId); _liveRafId = null; }
+      if (_liveMicDetInterval) { clearInterval(_liveMicDetInterval); _liveMicDetInterval = null; }
+      if (_audioCtx) { _audioCtx.close(); _audioCtx = null; }
+      _analyser = null; _gainNode = null; _hpFilter = null; _lpFilter = null;
+      nowPlaying.value = null;
+      status.value = 'idle';
+    }
+
+    return {
+      lang, t,
+      status, liveMode, errorMsg, gain, maxHz, volume, clockStr, nowPlaying,
+      mainCanvas, canvasWrap, colorbarCanvas,
+      recentDets, feedDets, lastPollAge,
+      detLabels, visibleDetLabels, freqLabels, timeLabels,
+      cleanMode, cleanStrength, processingClean,
+      gainDb, highpassHz, lowpassHz, playbackSpeed,
+      gainOptions, hpOptions, lpOptions, speedOptions,
+      startLive, stopLive, startLiveMic, stopLiveMic, setVolume,
+      setGainDb, setHighpass, setLowpass, setSpeed,
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

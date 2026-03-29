@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Sound Gallery</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="gallery" :title="t('nav_gallery')">
+
+    <!-- ── Title + filter bar ─────────────────────────────────────── -->
+    <div class="gallery-header">
+      <h2 class="gallery-title">{{t('gallery_title')}}</h2>
+      <div class="gallery-filters">
+        <div class="gallery-filter-group">
+          <span class="fp-label">{{t('period')}}</span>
+          <filter-period
+            :period="fp.period.value" :quick-buttons="fp.quickButtons.value"
+            :date-from="fp.dateFrom.value" :date-to="fp.dateTo.value"
+            @set-period="fp.setPeriod" @set-custom="fp.setCustomRange">
+          </filter-period>
+        </div>
+        <div class="gallery-filter-group">
+          <span class="fp-label">{{t('conf_min')}}</span>
+          <filter-confidence
+            :confidence="fc.confidence.value" :conf-editing="fc.confEditing.value" :conf-edit-val="fc.confEditVal.value"
+            @update:confidence="v => { fc.confidence.value = v; loadGallery(); }"
+            @start-edit="fc.startEdit()" @commit-edit="fc.commitEdit(); loadGallery();"
+            @update:conf-edit-val="v => fc.confEditVal.value = v">
+          </filter-confidence>
+        </div>
+        <div class="gallery-filter-group">
+          <input type="text" class="bird-input gallery-search" v-model="searchQuery"
+                 :placeholder="t('search') || 'Search species...'">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Loading ────────────────────────────────────────────────── -->
+    <div v-if="loading" style="text-align:center;padding:3rem;color:var(--text-muted);">
+      {{t('loading')}}
+    </div>
+
+    <!-- ── Empty state ────────────────────────────────────────────── -->
+    <div v-else-if="filteredGroups.length===0" style="text-align:center;padding:3rem;color:var(--text-muted);">
+      {{t('no_data')}}
+    </div>
+
+    <!-- ── Gallery grid ───────────────────────────────────────────── -->
+    <div v-else class="gallery-grid">
+      <div v-for="group in filteredGroups" :key="group.name" class="gallery-species-card card">
+        <!-- Species header -->
+        <div class="gallery-sp-header">
+          <div class="gallery-sp-photo">
+            <bird-img :src="group.imgUrl" :alt="group.name"></bird-img>
+          </div>
+          <div class="gallery-sp-info">
+            <div class="gallery-sp-name">{{group.name}}</div>
+            <div class="gallery-sp-sci">{{group.sci}}</div>
+            <div class="gallery-sp-count">{{group.dets.length}} {{t('top_detections_per_species')}}</div>
+          </div>
+        </div>
+
+        <!-- Detection rows -->
+        <div class="gallery-dets">
+          <div v-for="(det, di) in group.dets" :key="di"
+               class="gallery-det-row" :data-audio="det.audioUrl" ref="detRows">
+            <canvas class="gallery-spectro" width="200" height="60"
+                    :data-audio-url="det.audioUrl" :data-rendered="det.rendered?'1':'0'"
+                    style="cursor:pointer"
+                    @click="openModal(group, det)"></canvas>
+            <div class="gallery-det-meta">
+              <span class="gallery-conf-badge" :style="confStyle(det.conf)">{{Math.round(det.conf*100)}}%</span>
+              <span class="gallery-det-date">{{det.date}} {{det.time}}</span>
+            </div>
+            <button class="gallery-play-btn"
+                    @click="openModal(group, det)" title="Play">
+              ▶
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </birdash-shell>
+</div>
+
+<script>
+// ── FFT Cooley-Tukey (simplified from recordings.html) ──────────────────────
+function fftInPlace(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1;
+    const wc = Math.cos(-Math.PI/half), ws = Math.sin(-Math.PI/half);
+    for (let i = 0; i < n; i += len) {
+      let wR = 1, wI = 0;
+      for (let k = 0; k < half; k++) {
+        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
+        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
+        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
+      }
+    }
+  }
+}
+
+// ── Colormap plasma ─────────────────────────────────────────────────────────
+function buildColorLUT() {
+  const lut = new Uint8Array(256*3);
+  const stops = [
+    [0,[0,0,0]],[0.1,[20,0,50]],[0.25,[80,0,100]],
+    [0.42,[180,20,80]],[0.58,[230,70,20]],[0.75,[255,155,0]],
+    [0.90,[255,230,70]],[1.0,[255,255,255]],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const v = i/255; let s = 0;
+    while (s < stops.length-2 && stops[s+1][0] <= v) s++;
+    const [v0,c0]=stops[s],[v1,c1]=stops[s+1];
+    const t = Math.min(1,(v-v0)/(v1-v0+1e-9));
+    lut[i*3]=Math.round(c0[0]+t*(c1[0]-c0[0]));
+    lut[i*3+1]=Math.round(c0[1]+t*(c1[1]-c0[1]));
+    lut[i*3+2]=Math.round(c0[2]+t*(c1[2]-c0[2]));
+  }
+  return lut;
+}
+const COLOR_LUT = buildColorLUT();
+
+// ── Mini-spectrogram renderer ───────────────────────────────────────────────
+async function renderMiniSpectro(url, canvas) {
+  const resp = await fetch(url);
+  if (!resp.ok) return;
+  const arrBuf = await resp.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuf = await audioCtx.decodeAudioData(arrBuf);
+  await audioCtx.close();
+  const pcm = audioBuf.getChannelData(0);
+  const sr  = audioBuf.sampleRate;
+
+  const FFT = 256, HOP = 128, HALF = FFT/2;
+  const maxHz  = 12000;
+  const maxBin = Math.min(HALF, Math.floor(maxHz/sr*FFT));
+  const hann   = new Float32Array(FFT);
+  for (let i = 0; i < FFT; i++) hann[i] = 0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
+
+  const frames = [];
+  for (let off = 0; off+FFT <= pcm.length; off += HOP) {
+    const re = new Float32Array(FFT), im = new Float32Array(FFT);
+    for (let i = 0; i < FFT; i++) re[i] = pcm[off+i]*hann[i];
+    fftInPlace(re, im);
+    const mag = new Float32Array(maxBin);
+    for (let i = 1; i < maxBin; i++)
+      mag[i] = 20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);
+    frames.push(mag);
+  }
+  if (frames.length === 0) return;
+
+  const all = []; frames.forEach(f => f.forEach(v => all.push(v))); all.sort((a,b)=>a-b);
+  const lo  = all[Math.floor(all.length*0.05)] ?? -80;
+  const hi  = all[Math.floor(all.length*0.995)] ?? -10;
+  const rng = hi-lo || 1;
+
+  const W = canvas.width, H = canvas.height;
+  canvas.width = W; // clear
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const d   = img.data;
+  for (let px = 0; px < W; px++) {
+    const frame = frames[Math.min(Math.floor(px/W*frames.length), frames.length-1)];
+    for (let py = 0; py < H; py++) {
+      const bin = Math.floor((H-1-py)/H*maxBin);
+      const v   = Math.max(0,Math.min(1,(frame[bin]-lo)/rng));
+      const ci  = Math.min(255,Math.floor(v*255))*3;
+      const pi  = (py*W+px)*4;
+      d[pi]=COLOR_LUT[ci]; d[pi+1]=COLOR_LUT[ci+1]; d[pi+2]=COLOR_LUT[ci+2]; d[pi+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+</script>
+
+<script>
+const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+const { birdQuery, buildAudioUrl, useFilterPeriod, useFilterConfidence, buildWhereClause } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { t, lang } = BIRDASH.useI18n();
+    const { theme }   = BIRDASH.useTheme();
+
+    const loading      = ref(false);
+    const searchQuery  = ref('');
+    const allGroups    = ref([]);
+    const playingUrl   = ref(null);
+    let _audio         = null;
+
+    // ── Filtres (composables partagés) ────────────────────────────
+    const fp = useFilterPeriod({
+      default: '30d',
+      buttons: ['7d','30d','90d','all'],
+      onChange: () => loadGallery()
+    });
+    const fc = useFilterConfidence({ onChange: () => loadGallery() });
+
+    // ── Load detections ──────────────────────────────────────────────
+    async function loadGallery() {
+      loading.value = true;
+      try {
+        const wc = buildWhereClause({
+          dateFrom: fp.dateFrom.value,
+          dateTo:   fp.dateTo.value,
+          confidence: fc.confidence.value,
+          extraWhere: ['File_Name IS NOT NULL'],
+        });
+
+        const rows = await birdQuery(
+          `SELECT Com_Name, Sci_Name, Date, Time, Confidence, File_Name
+           FROM detections
+           WHERE ${wc.where}
+           ORDER BY Confidence DESC
+           LIMIT 100`, wc.params);
+
+        // Group by species, top 3 per species
+        const map = {};
+        for (const r of rows) {
+          if (!map[r.Com_Name]) {
+            map[r.Com_Name] = {
+              name: r.Com_Name,
+              sci:  r.Sci_Name,
+              imgUrl: BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(r.Sci_Name || r.Com_Name),
+              dets: [],
+            };
+          }
+          if (map[r.Com_Name].dets.length < 3) {
+            const audioUrl = buildAudioUrl(r.File_Name);
+            map[r.Com_Name].dets.push({
+              date: r.Date,
+              time: (r.Time || '').slice(0, 5),
+              conf: r.Confidence,
+              fileName: r.File_Name,
+              audioUrl: audioUrl,
+              rendered: false,
+            });
+          }
+        }
+
+        allGroups.value = Object.values(map).sort((a, b) =>
+          Math.max(...b.dets.map(d => d.conf)) - Math.max(...a.dets.map(d => d.conf))
+        );
+      } catch (e) {
+        console.error('gallery load:', e);
+      }
+      loading.value = false;
+      nextTick(() => initObserver());
+    }
+
+    // ── Filtered groups (search) ─────────────────────────────────────
+    const filteredGroups = computed(() => {
+      if (!searchQuery.value) return allGroups.value;
+      const q = searchQuery.value.toLowerCase();
+      return allGroups.value.filter(g =>
+        g.name.toLowerCase().includes(q) || g.sci.toLowerCase().includes(q)
+      );
+    });
+
+    // ── IntersectionObserver for lazy spectrogram ────────────────────
+    let _observer = null;
+    const _renderedSet = new Set();
+
+    function initObserver() {
+      if (_observer) _observer.disconnect();
+      _renderedSet.clear();
+
+      _observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const canvas = entry.target;
+          const url = canvas.dataset.audioUrl;
+          if (!url || _renderedSet.has(url)) continue;
+          _renderedSet.add(url);
+          renderMiniSpectro(url, canvas).catch(e => console.warn('spectro:', e));
+        }
+      }, { rootMargin: '200px' });
+
+      document.querySelectorAll('.gallery-spectro').forEach(c => {
+        if (c.dataset.audioUrl && !_renderedSet.has(c.dataset.audioUrl)) {
+          _observer.observe(c);
+        }
+      });
+    }
+
+    // ── Audio playback ───────────────────────────────────────────────
+    function togglePlay(det) {
+      if (playingUrl.value === det.audioUrl) {
+        stopPlay();
+        return;
+      }
+      stopPlay();
+      if (!det.audioUrl) return;
+      _audio = new Audio(det.audioUrl);
+      _audio.play().catch(() => {});
+      playingUrl.value = det.audioUrl;
+      _audio.onended = () => { playingUrl.value = null; };
+    }
+
+    function stopPlay() {
+      if (_audio) { _audio.pause(); _audio.currentTime = 0; _audio = null; }
+      playingUrl.value = null;
+    }
+
+    // ── Confidence badge color ───────────────────────────────────────
+    function confStyle(c) {
+      const pct = c * 100;
+      if (pct >= 90) return 'background:#4caf50;color:#fff';
+      if (pct >= 70) return 'background:#8bc34a;color:#222';
+      if (pct >= 50) return 'background:#ff9800;color:#222';
+      return 'background:#f44336;color:#fff';
+    }
+
+    // ── Open spectrogram modal ──────────────────────────────────────
+    function openModal(group, det) {
+      stopPlay();
+      BIRDASH.openSpectroModal({
+        fileName: det.fileName,
+        speciesName: group.name,
+        sciName: group.sci,
+        confidence: det.conf,
+        date: det.date,
+        time: det.time
+      });
+    }
+
+    onMounted(() => { loadGallery(); });
+
+    return {
+      t, lang, theme,
+      fp, fc,
+      loading, searchQuery,
+      allGroups, filteredGroups, playingUrl,
+      loadGallery,
+      togglePlay, confStyle, openModal,
+    };
+  }
+});
+
+BIRDASH.registerComponents(app);
+app.mount('#app');
+</script>
+</body>
+</html>

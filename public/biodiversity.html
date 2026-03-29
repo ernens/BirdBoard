@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Biodiversité</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js" integrity="sha384-BQKzmHvQLMCAnL3UtDBA1Al5tFjsCz1wrMlIUA1wkzo14DYkRWjywW+p9pCj0cwd" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="biodiversity" :title="t('nav_biodiversity')">
+
+    <div class="det-layout">
+
+      <!-- ── Filter panel (sidebar) ─────────────────────────────── -->
+      <div class="filter-panel">
+        <div>
+          <span class="fp-label">{{t('period')}}</span>
+          <filter-period
+            :period="fp.period.value" :quick-buttons="fp.quickButtons.value"
+            :date-from="fp.dateFrom.value" :date-to="fp.dateTo.value"
+            @set-period="fp.setPeriod" @set-custom="fp.setCustomRange">
+          </filter-period>
+        </div>
+        <div>
+          <span class="fp-label">{{t('conf_min')}}</span>
+          <filter-confidence
+            :confidence="fc.confidence.value" :conf-editing="fc.confEditing.value" :conf-edit-val="fc.confEditVal.value"
+            @update:confidence="v => { fc.confidence.value = v; }"
+            @start-edit="fc.startEdit()" @commit-edit="fc.commitEdit()"
+            @update:conf-edit-val="v => fc.confEditVal.value = v">
+          </filter-confidence>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')}}</button>
+        <button class="btn btn-primary" style="width:100%;" @click="loadAll">{{t('apply_filter')}}</button>
+      </div>
+
+      <!-- ── Main content ───────────────────────────────────────── -->
+      <div>
+        <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;margin-bottom:.75rem;">⬇ CSV</button>
+
+        <!-- Shannon diversity KPIs -->
+        <div v-if="shannonH !== null" class="kpi-strip" style="margin-bottom:.75rem;">
+          <div class="kpi-card">
+            <div class="kpi-value" style="color:var(--accent);">{{shannonH}}</div>
+            <div class="kpi-label">{{t('shannon_index')}} (H')</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value amber">{{shannonJ}}</div>
+            <div class="kpi-label">{{t('shannon_evenness')}} (J')</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value blue">{{shannonS}}</div>
+            <div class="kpi-label">{{t('species')}}</div>
+          </div>
+        </div>
+
+        <!-- Richesse journalière -->
+        <div class="card">
+          <div class="card-title">{{t('richness_per_day')}}</div>
+          <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasRichness"></canvas></div>
+        </div>
+
+        <!-- Matrice espèce × mois -->
+        <div class="card">
+          <div class="card-title">{{t('species_x_month')}}</div>
+          <div class="matrix-wrap">
+            <div v-if="matrix.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else-if="matrix.error" class="error-msg">⚠ {{matrix.error}}</div>
+            <div v-else v-html="safeHtml(matrix.html)"></div>
+          </div>
+        </div>
+
+        <!-- Top espèces ce mois -->
+        <div class="card">
+          <div class="card-title">{{t('top_species')}} — {{t('this_month')}}</div>
+          <div v-if="monthly.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="!monthly.rows.length" class="error-msg">{{t('no_data')}}</div>
+          <div v-else style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.5rem;">
+            <div v-for="(r,i) in monthly.rows" :key="r.Com_Name"
+                 style="display:flex;align-items:center;gap:.6rem;cursor:pointer;"
+                 @click="navigateTo('species.html',{species:r.Com_Name})">
+              <div style="font-size:.72rem;color:var(--text-faint);min-width:16px;text-align:right;">{{i+1}}</div>
+              <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                <bird-img v-if="r.photoUrl" :src="r.photoUrl" :alt="r.Com_Name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                <span v-else style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem;">🐦</span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(r.Com_Name, r.Sci_Name)}} <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button></div>
+                <div style="height:4px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
+                  <div :style="{height:'100%',width:Math.round(r.n/monthly.rows[0].n*100)+'%',background:chartColor(i),borderRadius:'2px',transition:'width .4s'}"></div>
+                </div>
+              </div>
+              <div style="font-size:.78rem;color:var(--text-muted);min-width:40px;text-align:right;">{{r.n.toLocaleString()}}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phenology chart -->
+        <div class="card">
+          <div class="card-title">{{t('phenology')}}</div>
+          <div v-if="phenology.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="!phenology.ready" class="error-msg">{{t('no_data')}}</div>
+          <div v-else class="chart-wrap" style="min-height:420px;"><canvas ref="canvasPhenology"></canvas></div>
+        </div>
+
+        <!-- Heatmap heure × jour -->
+        <div class="card">
+          <div class="card-title">{{t('heatmap_hour_day')}}</div>
+          <div class="heatmap-wrap">
+            <div v-if="heatmap.loading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else-if="heatmap.error" class="error-msg">⚠ {{heatmap.error}}</div>
+            <div v-else v-html="safeHtml(heatmap.html)"></div>
+          </div>
+        </div>
+
+        <!-- Répartition taxonomique — pie chart ECharts -->
+        <div class="card">
+          <div class="card-title">{{t('bio_taxonomy_orders')}}</div>
+          <div ref="elTaxOrders" style="width:100%;height:420px;"></div>
+        </div>
+
+        <!-- Familles détectées -->
+        <div class="card">
+          <div class="card-title">{{t('bio_taxonomy_families')}} ({{taxFamilies.length}})</div>
+          <div v-if="taxFamilies.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 1rem;max-height:400px;overflow-y:auto;">
+            <div v-for="f in taxFamilies" :key="f.sci"
+                 style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
+                 @click="navigateTo('detections.html',{family:f.sci})">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.8rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{f.com}}</div>
+                <div style="font-size:.68rem;color:var(--text-faint);">{{f.sci}} · {{f.order}}</div>
+              </div>
+              <div style="font-size:.75rem;color:var(--accent);font-weight:600;min-width:28px;text-align:right;">{{f.count}} <span style="font-size:.65rem;color:var(--text-faint);">{{t('species').toLowerCase()}}</span></div>
+            </div>
+          </div>
+          <div v-else class="spinner"><div></div><div></div><div></div></div>
+        </div>
+
+        <!-- Weather & Activity -->
+        <div class="card">
+          <div class="card-title">{{t('weather_activity')}}</div>
+          <div v-if="weather.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="weather.error" class="error-msg">{{weather.error}}</div>
+          <div v-else class="chart-wrap chart-wrap-tall"><canvas ref="canvasWeather"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart, useSpeciesNames,
+        useFilterPeriod, useFilterConfidence,
+        birdQuery, escHtml, safeHtml, chartDefaults, daysAgo, localDateStr, navigateTo, fetchCachedPhoto, quickPlaySpecies } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('biodiversity');
+    const { mountChart: mountRichness } = useChart();
+    const { mountChart: mountTaxChart } = useChart();
+    const { mountChart: mountPhenology } = useChart();
+    const { mountChart: mountWeather } = useChart();
+    let _echartsOrders = null;
+    const { spName } = useSpeciesNames();
+
+    const canvasRichness = ref(null);
+    const canvasPhenology = ref(null);
+    const canvasWeather = ref(null);
+    const elTaxOrders = ref(null);
+    const phenology = ref({ loading: true, ready: false });
+    const taxFamilies = ref([]);
+    // ── Filtres (composables partagés) ────────────────────────────
+    const fp = useFilterPeriod({
+      default: '1d',
+      buttons: ['1d','7d','30d','90d','6m','1y','all'],
+      onChange: () => loadAll()
+    });
+    const fc = useFilterConfidence({ onChange: () => loadAll() });
+
+    function resetDefaults() {
+      fc.confidence.value = BIRD_CONFIG.defaultConfidence;
+      fp.setPeriod('1d');
+    }
+
+    const richnessData = ref(null);
+    const heatmap  = ref({ loading:true, error:null, html:'' });
+    const monthly  = ref({ loading:true, rows:[] });
+    const matrix   = ref({ loading:true, error:null, html:'' });
+    const weather  = ref({ loading:true, error:null });
+
+    const chartColor = i => BIRD_CONFIG.chartColors[i % BIRD_CONFIG.chartColors.length];
+
+    // Shannon diversity index
+    const shannonH = ref(null);
+    const shannonJ = ref(null);
+    const shannonS = ref(null);
+
+    async function loadShannon() {
+      try {
+        const from = fp.dateFrom.value || '2000-01-01';
+        const rows = await birdQuery(
+          `SELECT Com_Name, COUNT(*) as n FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name`,
+          [from, fp.dateTo.value || localDateStr(), fc.confidence.value]);
+        if (!rows.length) { shannonH.value = null; shannonJ.value = null; shannonS.value = null; return; }
+        const total = rows.reduce((s, r) => s + r.n, 0);
+        const S = rows.length;
+        let H = 0;
+        for (const r of rows) {
+          const pi = r.n / total;
+          if (pi > 0) H -= pi * Math.log(pi);
+        }
+        const J = S > 1 ? H / Math.log(S) : 1;
+        shannonH.value = H.toFixed(3);
+        shannonJ.value = J.toFixed(3);
+        shannonS.value = S;
+      } catch(e) { console.error('[shannon]', e); }
+    }
+
+    function quickPlay(comName) { quickPlaySpecies(comName); }
+
+    async function loadPhenology() {
+      phenology.value = { loading: true, ready: false };
+      try {
+        const rows = await birdQuery(
+          `SELECT Sci_Name, Com_Name, strftime('%Y', Date) as year, MIN(Date) as first_seen, MAX(Date) as last_seen, COUNT(*) as cnt FROM detections WHERE Confidence >= ? GROUP BY Sci_Name, year ORDER BY first_seen`,
+          [fc.confidence.value]);
+        if (!rows.length) { phenology.value = { loading: false, ready: false }; return; }
+        // Find top 15 most detected species overall
+        const spTotals = {};
+        rows.forEach(r => { spTotals[r.Com_Name] = (spTotals[r.Com_Name] || 0) + r.cnt; });
+        const topSp = Object.entries(spTotals).sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
+        const topSet = new Set(topSp);
+        const filtered = rows.filter(r => topSet.has(r.Com_Name));
+        const years = [...new Set(filtered.map(r => r.year))].sort();
+        const yearColors = ['#5a9e3a','#c8a84b','#4a90d9','#d96b4a','#9b59b6','#1abc9c','#e67e22','#e74c3c','#3498db','#2ecc71'];
+        // Build datasets: one per year
+        const datasets = years.map((yr, yi) => {
+          const data = topSp.map(sp => {
+            const rec = filtered.find(r => r.Com_Name === sp && r.year === yr);
+            if (!rec) return null;
+            const first = new Date(rec.first_seen);
+            const last = new Date(rec.last_seen);
+            // Convert to day-of-year (0-365)
+            const doyFirst = Math.floor((first - new Date(first.getFullYear(), 0, 1)) / 86400000);
+            const doyLast = Math.floor((last - new Date(last.getFullYear(), 0, 1)) / 86400000);
+            return [doyFirst, doyLast];
+          });
+          return {
+            label: yr,
+            data: data.map(d => d ? { x: [d[0], d[1]] } : null),
+            backgroundColor: yearColors[yi % yearColors.length] + 'AA',
+            borderColor: yearColors[yi % yearColors.length],
+            borderWidth: 1,
+            borderRadius: 2,
+            borderSkipped: false,
+          };
+        });
+        phenology.value = { loading: false, ready: true, labels: topSp.map(sp => spName(sp, '')), datasets, years };
+        await nextTick();
+        if (!canvasPhenology.value) return;
+        const base = chartDefaults();
+        mountPhenology(canvasPhenology, () => ({
+          type: 'bar',
+          data: {
+            labels: phenology.value.labels,
+            datasets: datasets.map(ds => ({
+              label: ds.label,
+              data: ds.data.map(d => d ? [d.x[0], d.x[1]] : [null, null]),
+              backgroundColor: ds.backgroundColor,
+              borderColor: ds.borderColor,
+              borderWidth: ds.borderWidth,
+              borderRadius: ds.borderRadius,
+              borderSkipped: ds.borderSkipped,
+            })),
+          },
+          options: {
+            ...base,
+            indexAxis: 'y',
+            scales: {
+              x: {
+                ...base.scales.x,
+                min: 0, max: 365,
+                ticks: {
+                  ...base.scales.x.ticks,
+                  callback: function(v) {
+                    const monthStarts = [0,31,59,90,120,151,181,212,243,273,304,334];
+                    const mShort = t('months_short');
+                    const idx = monthStarts.findIndex((s, i) => {
+                      const next = monthStarts[i+1] || 366;
+                      return v >= s && v < next;
+                    });
+                    return idx >= 0 ? mShort[idx] : '';
+                  },
+                  stepSize: 30,
+                },
+                title: { display: false },
+              },
+              y: {
+                ...base.scales.y,
+                ticks: { ...base.scales.y.ticks, font: { size: 10 } },
+              },
+            },
+            plugins: {
+              ...base.plugins,
+              tooltip: {
+                ...base.plugins.tooltip,
+                callbacks: {
+                  label: function(ctx) {
+                    const raw = ctx.raw;
+                    if (!raw || raw[0] == null) return '';
+                    const monthStarts = [0,31,59,90,120,151,181,212,243,273,304,334];
+                    const mShort = t('months_short');
+                    function doyToLabel(doy) {
+                      let mi = 0;
+                      for (let i = 0; i < monthStarts.length; i++) { if (doy >= monthStarts[i]) mi = i; }
+                      const day = doy - monthStarts[mi] + 1;
+                      return day + ' ' + mShort[mi];
+                    }
+                    return ctx.dataset.label + ': ' + doyToLabel(raw[0]) + ' → ' + doyToLabel(raw[1]);
+                  }
+                }
+              }
+            }
+          }
+        }));
+      } catch(e) { console.error('[phenology]', e); phenology.value = { loading: false, ready: false }; }
+    }
+
+    async function loadWeather() {
+      weather.value = { loading: true, error: null };
+      try {
+        // Fetch weather data from Open-Meteo via server proxy
+        const weatherRes = await fetch(BIRD_CONFIG.apiUrl + '/weather?days=30');
+        if (!weatherRes.ok) throw new Error('weather API ' + weatherRes.status);
+        const weatherData = await weatherRes.json();
+        if (weatherData.error) throw new Error(weatherData.error);
+
+        // Fetch detection counts per day for last 30 days
+        const detRows = await birdQuery(
+          `SELECT Date, COUNT(*) as n FROM detections WHERE Date >= ? AND Confidence >= ? GROUP BY Date ORDER BY Date ASC`,
+          [daysAgo(30), fc.confidence.value]);
+        const detMap = {};
+        detRows.forEach(r => { detMap[r.Date] = r.n; });
+
+        const daily = weatherData.daily || {};
+        const dates = daily.time || [];
+        const tempMax = daily.temperature_2m_max || [];
+        const tempMin = daily.temperature_2m_min || [];
+        const precip  = daily.precipitation_sum || [];
+
+        // Build chart labels (short date)
+        const labels = dates.map(d => {
+          const dt = new Date(d);
+          const mo = t('months_short')[dt.getMonth()];
+          return dt.getDate() + ' ' + mo;
+        });
+
+        // Detection counts aligned to weather dates
+        const detData = dates.map(d => detMap[d] || 0);
+        // Avg temperature per day
+        const tempData = dates.map((_, i) => {
+          const hi = tempMax[i], lo = tempMin[i];
+          return (hi != null && lo != null) ? Math.round((hi + lo) / 2 * 10) / 10 : null;
+        });
+
+        weather.value = { loading: false, error: null };
+        await nextTick();
+        if (!canvasWeather.value) return;
+
+        const base = chartDefaults();
+        mountWeather(canvasWeather, () => ({
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: t('precipitation') + ' (mm)',
+                data: precip,
+                backgroundColor: 'rgba(100,180,255,.35)',
+                borderColor: 'rgba(100,180,255,.6)',
+                borderWidth: 1,
+                borderRadius: 2,
+                yAxisID: 'yPrecip',
+                order: 2,
+              },
+              {
+                label: t('detections'),
+                data: detData,
+                backgroundColor: 'rgba(90,158,58,.6)',
+                borderColor: '#5a9e3a',
+                borderWidth: 1,
+                borderRadius: 2,
+                yAxisID: 'y',
+                order: 1,
+              },
+              {
+                label: t('temperature') + ' (\u00B0C)',
+                data: tempData,
+                type: 'line',
+                borderColor: '#e6a23c',
+                backgroundColor: 'transparent',
+                pointRadius: 1.5,
+                pointBackgroundColor: '#e6a23c',
+                tension: 0.3,
+                borderWidth: 2,
+                yAxisID: 'yTemp',
+                order: 0,
+              },
+            ],
+          },
+          options: {
+            ...base,
+            scales: {
+              x: { ...base.scales.x, ticks: { maxTicksLimit: 15, font: { size: 9 } } },
+              y: {
+                ...base.scales.y, beginAtZero: true, position: 'left',
+                title: { display: true, text: t('detections'), color: '#5a9e3a', font: { size: 10 } },
+              },
+              yTemp: {
+                position: 'right', beginAtZero: false,
+                ticks: { color: '#e6a23c', font: { size: 9 } },
+                grid: { drawOnChartArea: false },
+                title: { display: true, text: '\u00B0C', color: '#e6a23c', font: { size: 10 } },
+              },
+              yPrecip: {
+                position: 'right', beginAtZero: true,
+                ticks: { color: 'rgba(100,180,255,.7)', font: { size: 9 } },
+                grid: { drawOnChartArea: false },
+                title: { display: true, text: 'mm', color: 'rgba(100,180,255,.7)', font: { size: 10 } },
+              },
+            },
+          },
+        }));
+      } catch(e) {
+        console.error('[weather]', e);
+        weather.value = { loading: false, error: e.message || 'Weather data unavailable' };
+      }
+    }
+
+    async function loadAll() {
+      await Promise.all([loadRichnessData(), loadHeatmap(), loadMonthly(), loadMatrix(), loadShannon(), loadPhenology(), loadWeather()]);
+    }
+
+    async function loadRichnessData() {
+      try {
+        const from = fp.dateFrom.value || '2000-01-01';
+        const rows = await birdQuery(
+          `SELECT Date, COUNT(DISTINCT Com_Name) as sp, COUNT(*) as det
+           FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC`,
+          [from, fp.dateTo.value || localDateStr(), fc.confidence.value]);
+        richnessData.value = rows;
+      } catch(e) {}
+    }
+
+    async function loadHeatmap() {
+      heatmap.value.loading = true;
+      try {
+        const from = fp.dateFrom.value || '2000-01-01';
+        const rows = await birdQuery(
+          `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, CAST(strftime('%w',Date) AS INTEGER) as dow, COUNT(*) as n
+           FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY hour,dow`,
+          [from, fp.dateTo.value || localDateStr(), fc.confidence.value]);
+        const grid = Array.from({length:7}, ()=>Array(24).fill(0));
+        let maxVal = 0;
+        rows.forEach(r => { grid[r.dow][r.hour]=r.n; if(r.n>maxVal) maxVal=r.n; });
+        const dayLabels = t('days_short');
+        const order = [1,2,3,4,5,6,0];
+        const hc = v => { if(!v) return 'hm-0'; const p=v/maxVal; return p<.1?'hm-1':p<.3?'hm-2':p<.5?'hm-3':p<.75?'hm-4':'hm-5'; };
+        const hours = Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
+        let html = `<table class="heatmap-table"><thead><tr><th class="row-header"></th>${hours.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+        order.forEach((dow,di) => {
+          html += `<tr><th class="row-header" style="text-align:left;">${dayLabels[di]}</th>`;
+          for(let h=0;h<24;h++) { const v=grid[dow][h]; html+=`<td class="${hc(v)}" title="${dayLabels[di]} ${String(h).padStart(2,'0')}h : ${v}">${v||''}</td>`; }
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+        heatmap.value = { loading:false, error:null, html };
+      } catch(e) { console.error('[biodiversity]', e); heatmap.value = { loading:false, error:t('error_generic') || 'Erreur de chargement', html:'' }; }
+    }
+
+    async function loadPhotosFor(targetRef, rows) {
+      const seen = new Set();
+      const tasks = rows.filter(r => { const s = r.Sci_Name; if (!s || seen.has(s)) return false; seen.add(s); return true; });
+      for (let i = 0; i < tasks.length; i += 4) {
+        await Promise.all(tasks.slice(i, i + 4).map(async r => {
+          const url = await fetchCachedPhoto(r.Sci_Name);
+          rows.forEach(d => { if (d.Sci_Name === r.Sci_Name) d.photoUrl = url; });
+        }));
+        targetRef.value = { ...targetRef.value, rows: [...rows] };
+      }
+    }
+
+    async function loadMonthly() {
+      monthly.value.loading = true;
+      try {
+        const ym = localDateStr().substring(0,7);
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n FROM detections WHERE SUBSTR(Date,1,7)=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC LIMIT 15`,
+          [ym, fc.confidence.value]);
+        monthly.value = { loading:false, rows };
+        loadPhotosFor(monthly, rows);
+      } catch(e) { monthly.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadMatrix() {
+      matrix.value.loading = true;
+      try {
+        const topRows = await birdQuery(`SELECT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT 20`,[fc.confidence.value]);
+        const topSp = topRows.map(r=>r.Com_Name);
+        const sciMap = {}; topRows.forEach(r=>{sciMap[r.Com_Name]=r.Sci_Name;});
+        if (!topSp.length) { matrix.value={loading:false,error:null,html:`<p class="error-msg">${t('no_data')}</p>`}; return; }
+        const rows = await birdQuery(
+          `SELECT Com_Name, CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM detections WHERE Com_Name IN (${topSp.map(()=>'?').join(',')}) AND Confidence>=? GROUP BY Com_Name,m`,
+          [...topSp, fc.confidence.value]);
+        const data = {};
+        topSp.forEach(sp=>{data[sp]=Array(12).fill(0);});
+        rows.forEach(r=>{if(data[r.Com_Name]) data[r.Com_Name][r.m-1]=r.n;});
+        let maxVal=0;
+        Object.values(data).forEach(arr=>arr.forEach(v=>{if(v>maxVal) maxVal=v;}));
+        const cs = v => { if(!v) return 'background:var(--bg-card2);color:var(--text-faint);'; const p=v/maxVal; const a=.15+p*.65; return `background:rgba(90,158,58,${a.toFixed(2)});color:${p>.4?'#fff':'var(--text-main)'};font-weight:${p>.3?'500':'400'};`; };
+        const months = t('months_short');
+        let html = `<table class="matrix-table"><thead><tr><th class="sp-col">${t('species_name')}</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>${t('bio_total')}</th></tr></thead><tbody>`;
+        topSp.forEach(sp => {
+          const arr=data[sp], tot=arr.reduce((a,b)=>a+b,0);
+          html+=`<tr><td class="sp-name" onclick="BIRDASH.navigateTo('species.html',{species:'${encodeURIComponent(sp)}'});">${escHtml(spName(sp, sciMap[sp]))}</td>`;
+          html+=arr.map(v=>`<td style="${cs(v)}">${v>0?v.toLocaleString():''}</td>`).join('');
+          html+=`<td style="color:var(--accent);font-weight:500;">${tot.toLocaleString()}</td></tr>`;
+        });
+        html+='</tbody></table>';
+        matrix.value = { loading:false, error:null, html };
+      } catch(e) { matrix.value = { loading:false, error:e.message, html:'' }; }
+    }
+
+    watch([richnessData, lang], async () => {
+      await nextTick();
+      const d = richnessData.value;
+      if (!d || !canvasRichness.value) return;
+      const map={};
+      d.forEach(r=>{map[r.Date]=r;});
+      // Construire les labels sur la plage réelle
+      const from = new Date(fp.dateFrom.value || '2000-01-01');
+      const to   = new Date(fp.dateTo.value   || localDateStr());
+      const days = Math.round((to-from)/86400000);
+      const labels=[],spData=[],detData=[];
+      for(let i=days;i>=0;i--) {
+        const d2=new Date(to); d2.setDate(d2.getDate()-i);
+        const ds=d2.toISOString().split('T')[0];
+        const mo=t('months_short')[d2.getMonth()];
+        labels.push(`${d2.getDate()} ${mo}`);
+        spData.push(map[ds]?map[ds].sp:0);
+        detData.push(map[ds]?map[ds].det:0);
+      }
+      const base=chartDefaults();
+      mountRichness(canvasRichness, ()=>({
+        type:'bar',
+        data:{labels, datasets:[
+          {label:t('species'), data:spData, backgroundColor:'rgba(90,158,58,.7)', borderColor:'#5a9e3a', borderWidth:1, borderRadius:2, order:1},
+          {label:t('detections'), data:detData, type:'line', borderColor:'rgba(200,168,75,.6)', backgroundColor:'transparent', pointRadius:0, tension:0.3, yAxisID:'y2', order:0}
+        ]},
+        options:{...base, scales:{...base.scales,
+          x:{...base.scales.x,ticks:{maxTicksLimit:15,font:{size:9}}},
+          y:{...base.scales.y,beginAtZero:true,title:{display:true,text:t('species'),color:'#5a9e3a',font:{size:10}}},
+          y2:{position:'right',beginAtZero:true,ticks:{color:'#c8a84b',font:{size:9}},grid:{drawOnChartArea:false},title:{display:true,text:t('detections'),color:'#c8a84b',font:{size:10}}}
+        }}
+      }));
+    });
+
+    // Heatmap et matrice : retraduits si lang change
+    watch(lang, () => { loadHeatmap(); loadMonthly(); loadMatrix(); loadTaxonomy(); loadPhenology(); loadWeather(); });
+
+    // ── Taxonomy donut chart ────────────────────────────────────────────
+    async function loadTaxonomy() {
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      if (!tax.orders || !Object.keys(tax.orders).length) return;
+
+      // Build families list
+      const famMap = {};
+      for (const s of tax.species) {
+        if (!s.familySci) continue;
+        if (!famMap[s.familySci]) famMap[s.familySci] = { sci: s.familySci, com: s.familyCom, order: s.order, count: 0 };
+        famMap[s.familySci].count++;
+      }
+      taxFamilies.value = Object.values(famMap).sort((a, b) => b.count - a.count);
+
+      // Render ECharts pie
+      await nextTick();
+      const el = elTaxOrders.value;
+      if (!el) return;
+      if (_echartsOrders) _echartsOrders.dispose();
+      _echartsOrders = echarts.init(el, null, { renderer: 'canvas' });
+
+      const orders = Object.entries(tax.orders).sort((a, b) => b[1] - a[1]);
+      const totalSp = orders.reduce((s, [, n]) => s + n, 0);
+      const palette = ['#5a9e3a','#c8a84b','#4a90d9','#d96b4a','#9b59b6','#1abc9c','#e67e22','#e74c3c',
+                        '#3498db','#2ecc71','#f39c12','#8e44ad','#16a085','#d35400','#c0392b','#2980b9','#27ae60'];
+
+      _echartsOrders.setOption({
+        backgroundColor: 'transparent',
+        graphic: [{
+          type: 'text', left: 'center', top: 'middle',
+          style: {
+            text: totalSp + '\n' + t('species').toLowerCase(),
+            textAlign: 'center', fill: '#9abf9a',
+            fontSize: 15, fontFamily: 'Lora, serif', lineHeight: 20,
+          }
+        }],
+        tooltip: {
+          trigger: 'item',
+          backgroundColor: 'rgba(10,20,12,0.92)',
+          borderColor: 'rgba(90,158,58,.4)', borderWidth: 1,
+          textStyle: { color: '#c8e6c0', fontFamily: 'Lora, serif', fontSize: 13 },
+          formatter: function(p) {
+            const famCount = taxFamilies.value.filter(f => f.order === p.name).length;
+            return '<b>' + p.name + '</b><br>'
+              + p.value + ' ' + t('species').toLowerCase() + ' · ' + p.percent + '%'
+              + '<br>' + famCount + ' ' + t('bio_taxonomy_families').toLowerCase();
+          }
+        },
+        series: [{
+          type: 'pie',
+          radius: ['30%', '70%'],
+          center: ['50%', '50%'],
+          avoidLabelOverlap: true,
+          itemStyle: { borderRadius: 4, borderColor: 'var(--bg-card)', borderWidth: 2 },
+          label: {
+            show: true,
+            formatter: function(p) {
+              if (p.percent < 3) return '';
+              return '{name|' + p.name + '}\n{val|' + p.value + ' sp · ' + p.percent + '%}';
+            },
+            rich: {
+              name: { fontSize: 11, fontFamily: 'Lora, serif', color: '#c8e6c0', lineHeight: 16 },
+              val:  { fontSize: 10, fontFamily: 'Lora, serif', color: '#8a9a8a', lineHeight: 14 },
+            }
+          },
+          labelLine: { length: 12, length2: 8, lineStyle: { color: 'rgba(255,255,255,.15)' } },
+          emphasis: {
+            label: { show: true, fontSize: 12, fontWeight: 'bold' },
+            itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,.3)' }
+          },
+          data: orders.map(([name, value], i) => ({
+            name, value,
+            itemStyle: { color: palette[i % palette.length] }
+          }))
+        }]
+      });
+
+      window.addEventListener('resize', () => { if (_echartsOrders) _echartsOrders.resize(); });
+    }
+
+    async function exportCsv() {
+      try {
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n, ROUND(AVG(Confidence)*100,1) as avg_conf, MIN(Date) as first_date, MAX(Date) as last_date, COUNT(DISTINCT Date) as days, COUNT(DISTINCT SUBSTR(Date,1,7)) as months FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC`,
+          [fp.dateFrom.value || '2000-01-01', fp.dateTo.value || localDateStr(), fc.confidence.value]
+        );
+        if (!rows.length) return;
+        const headers = ['Species','Scientific_Name','Detections','Avg_Confidence','First_Date','Last_Date','Days','Months'];
+        const csvRows = [headers.join(',')];
+        for (const r of rows) {
+          csvRows.push([
+            '"' + (r.Com_Name || '').replace(/"/g, '""') + '"',
+            '"' + (r.Sci_Name || '').replace(/"/g, '""') + '"',
+            r.n, r.avg_conf + '%', r.first_date, r.last_date, r.days, r.months
+          ].join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'birdash-biodiversity-' + localDateStr() + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { console.error('[export]', e); }
+    }
+
+    onMounted(() => { loadAll(); loadTaxonomy(); });
+
+    return {
+      lang, t, safeHtml,
+      shannonH, shannonJ, shannonS,
+      heatmap, monthly, matrix, phenology, weather,
+      canvasRichness, canvasPhenology, canvasWeather, elTaxOrders, taxFamilies,
+      fp, fc, resetDefaults, loadAll,
+      chartColor, navigateTo, spName, exportCsv, quickPlay,
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

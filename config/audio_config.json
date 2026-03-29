@@ -1,0 +1,18 @@
+{
+  "device_id": "rode",
+  "device_name": "RØDE AI-Micro",
+  "input_channels": 2,
+  "capture_sample_rate": 48000,
+  "bit_depth": 16,
+  "output_sample_rate": 32000,
+  "channel_strategy": "max",
+  "hop_size_s": 2.5,
+  "highpass_enabled": true,
+  "highpass_cutoff_hz": 80,
+  "rms_normalize": true,
+  "rms_target": 0.05,
+  "cal_gain_ch0": 1,
+  "cal_gain_ch1": 1,
+  "cal_date": null,
+  "profile_name": "jardin"
+}

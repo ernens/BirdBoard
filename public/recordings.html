@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Meilleurs enregistrements</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="recordings" :title="t('nav_recordings')">
+
+    <!-- ── Titre + tri global ────────────────────────────────────── -->
+    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <h2 style="margin:0;font-size:1.1rem;">🏆 {{t('best_recordings')}}</h2>
+      <div class="filter-sort" style="margin-left:auto;">
+        <label>{{t('sort_by')}}</label>
+        <select class="bird-select" v-model="sortBy" style="padding:.3rem .6rem;font-size:.78rem;">
+          <option value="conf">{{t('sort_conf_desc')}}</option>
+          <option value="date">{{t('sort_date_desc')}}</option>
+          <option value="species">{{t('sort_species_az')}}</option>
+        </select>
+      </div>
+      <span style="font-size:.78rem;color:var(--text-faint);">
+        {{filteredRecs.length}} {{t('nav_recordings').toLowerCase()}}
+      </span>
+    </div>
+
+    <div class="rec-layout">
+
+      <!-- ── Panneau filtres (gauche) ──────────────────────────── -->
+      <div class="filter-panel">
+        <span class="fp-label">{{t('period')||'Période'}}</span>
+        <filter-period
+          :period="fp.period.value"
+          :quick-buttons="fp.quickButtons.value"
+          :date-from="fp.dateFrom.value"
+          :date-to="fp.dateTo.value"
+          @set-period="fp.setPeriod"
+          @set-custom="fp.setCustomRange">
+        </filter-period>
+
+        <span class="fp-label" style="margin-top:.6rem;">{{t('avg_confidence')||'Confiance'}}</span>
+        <filter-confidence
+          :confidence="fc.confidence.value"
+          :conf-editing="fc.confEditing.value"
+          :conf-edit-val="fc.confEditVal.value"
+          @update:confidence="v => { fc.confidence.value = v; loadData(); }"
+          @start-edit="fc.startEdit()"
+          @commit-edit="fc.commitEdit(); loadData();"
+          @update:conf-edit-val="v => fc.confEditVal.value = v">
+        </filter-confidence>
+
+        <span class="fp-label" style="margin-top:.6rem;">{{t('species')||'Espèces'}}</span>
+        <filter-species
+          :source="availableSpecies"
+          :selected-species="fs.selectedSpecies.value"
+          :filtered-list="fs.filteredList.value"
+          :species-search="fs.speciesSearch.value"
+          :all-selected="fs.allSelected.value"
+          :sp-name="spName"
+          @toggle-species="fs.toggleSpecies"
+          @toggle-all="fs.toggleAll"
+          @update:species-search="v => fs.speciesSearch.value = v">
+        </filter-species>
+      </div>
+
+      <!-- ── Grille enregistrements ─────────────────────────────── -->
+      <div>
+        <div class="rec-grid">
+          <div v-if="loading" class="rec-empty">⏳ {{t('loading')}}</div>
+          <div v-else-if="!pagedRecs.length" class="rec-empty">
+            {{t('no_recordings')}}
+          </div>
+
+          <div v-for="rec in pagedRecs" :key="rec.uid"
+               class="rec-card" :class="{active: activeUid===rec.uid}">
+
+            <!-- Photo espèce (cliquable → fiche espèce) -->
+            <a :href="'species.html?species='+encodeURIComponent(rec.Com_Name)" class="rec-photo" style="position:relative;display:block;">
+              <bird-img v-if="rec.imgUrl" :src="rec.imgUrl" class="rec-photo-img"
+                   :alt="rec.Com_Name"></bird-img>
+              <div v-else class="rec-photo-placeholder">🐦</div>
+            </a>
+
+            <!-- Noms + confiance -->
+            <div class="rec-header">
+              <div class="rec-names">
+                <a class="rec-com-name" :href="'species.html?species='+encodeURIComponent(rec.Com_Name)" style="text-decoration:none;color:inherit;" @mouseenter="$event.target.style.color='var(--accent)'" @mouseleave="$event.target.style.color='inherit'">{{spName(rec.Com_Name, rec.Sci_Name)}}</a>
+                <div class="rec-sci-name">{{rec.Sci_Name}}</div>
+              </div>
+              <div class="rec-badges">
+                <span v-if="rec.Model" class="model-tag">{{shortModel(rec.Model)}}</span>
+                <span :class="'conf-badge '+(rec.conf>=80?'conf-high':rec.conf>=60?'conf-mid':'conf-low')">
+                  {{rec.conf.toFixed(1)}}%
+                </span>
+              </div>
+            </div>
+
+            <!-- Meta -->
+            <div class="rec-meta">
+              <span class="rec-meta-item">📅 {{rec.Date}}</span>
+              <span class="rec-meta-item">🕐 {{rec.Time.substring(0,5)}}</span>
+            </div>
+
+            <!-- Contrôles audio -->
+            <div class="rec-controls">
+              <button class="rec-play-btn" :class="{playing: playingUid===rec.uid}"
+                      @click="togglePlay(rec)">
+                {{playingUid===rec.uid ? '⏹' : '▶'}}
+              </button>
+              <div class="rec-progress">
+                <div class="rec-progress-bar"
+                     :style="{width: playingUid===rec.uid ? progress+'%' : '0%'}"></div>
+              </div>
+              <span class="rec-duration">{{rec.durationStr||''}}</span>
+              <a v-if="rec.File_Name"
+                 :href="dlUrl(rec)"
+                 :download="dlName(rec)"
+                 class="dl-btn" :title="t('download_audio')">⬇</a>
+              <button class="rec-spectro-btn"
+                      :class="{open: spectroUid===rec.uid}"
+                      :title="spectroUid===rec.uid ? t('spectro_close') : t('spectro_show')"
+                      @click="toggleSpectro(rec)">
+                📊
+              </button>
+            </div>
+
+            <!-- Spectrogramme inline -->
+            <div v-show="spectroUid===rec.uid" class="rec-spectro">
+              <div class="rec-spectro-freqs">
+                <span class="rec-spectro-freq">12k</span>
+                <span class="rec-spectro-freq">8k</span>
+                <span class="rec-spectro-freq">4k</span>
+                <span class="rec-spectro-freq">0</span>
+              </div>
+              <canvas :ref="el => { if(el) spectroCanvases[rec.uid]=el }"
+                      :width="600" :height="140" style="padding-left:28px;box-sizing:border-box;"></canvas>
+              <div v-if="spectroLoading===rec.uid" class="rec-spectro-loading">
+                ⏳ {{t('fft_analysis')}}
+              </div>
+              <!-- Bouton ouvrir spectro-modal -->
+              <button v-if="!spectroLoading" class="spectro-expand-btn"
+                      @click.stop="openSpectroModal(rec)"
+                      :title="t('spectro_expand')||'Agrandir le spectrogramme'">⛶</button>
+              <!-- Badge CLEAN sur le spectrogramme -->
+              <div v-if="cleanState[rec.uid]?.mode"
+                   style="position:absolute;top:5px;right:36px;z-index:3;
+                          background:rgba(90,158,58,.9);color:#fff;font-size:.6rem;
+                          font-weight:700;padding:.12rem .4rem;border-radius:3px;
+                          letter-spacing:.06em;pointer-events:none;">
+                ✨ CLEAN
+              </div>
+            </div>
+
+            <!-- Barre outils spectro : Clean + Filtres + Info -->
+            <div v-if="spectroUid===rec.uid && cleanState[rec.uid]" class="rec-spectro-toolbar">
+
+              <!-- Ligne 1 : Clean + Force slider -->
+              <div class="rstb-row">
+                <button @click="toggleClean(rec)"
+                        :disabled="cleanState[rec.uid]?.processing"
+                        class="stb-pill" style="font-weight:600;padding:.14rem .5rem;"
+                        :class="{'stb-pill-active': cleanState[rec.uid]?.mode}">
+                  <span v-if="cleanState[rec.uid]?.processing">⏳</span>
+                  <span v-else-if="cleanState[rec.uid]?.mode">✨ {{t('cleaned')}}</span>
+                  <span v-else>🎛 {{t('clean_audio')}}</span>
+                </button>
+                <template v-if="cleanState[rec.uid]?.mode && !cleanState[rec.uid]?.processing">
+                  <input type="range" min="0.2" max="1.0" step="0.05"
+                         :value="cleanState[rec.uid]?.strength ?? 0.75" aria-label="Clean strength"
+                         @change="e => { cleanState[rec.uid].strength=parseFloat(e.target.value); reapplyClean(rec); }"
+                         style="flex:1;min-width:50px;accent-color:var(--accent);">
+                  <span class="rstb-val">{{Math.round((cleanState[rec.uid]?.strength ?? 0.75)*100)}}%</span>
+                </template>
+                <span v-else-if="!cleanState[rec.uid]?.mode" class="rstb-hint">{{t('spectral_sub')}}</span>
+
+                <!-- Boutons Info à droite -->
+                <div style="margin-left:auto;">
+                  <button class="stb-pill" style="font-weight:600;padding:.14rem .5rem;"
+                          :class="{'stb-pill-active': fileInfoUid===rec.uid}"
+                          @click="toggleFileInfo(rec)">ℹ️</button>
+                </div>
+              </div>
+
+              <!-- Ligne 2 : Filtres — grille compacte label:pills -->
+              <div class="rstb-filters">
+                <span class="rstb-flabel">{{t('af_gain')}}</span>
+                <div class="stb-pills">
+                  <button v-for="g in gainOptions" :key="g"
+                          class="stb-pill stb-pill-sm" :class="{'stb-pill-active': audioFilters[rec.uid]?.gain===g}"
+                          @click="setFilter(rec,'gain',g)">{{g===0 ? t('af_off') : '+'+g}}</button>
+                </div>
+                <span class="rstb-flabel">{{t('af_highpass')}}</span>
+                <div class="stb-pills">
+                  <button v-for="h in hpOptions" :key="h"
+                          class="stb-pill stb-pill-sm" :class="{'stb-pill-active': audioFilters[rec.uid]?.highpass===h}"
+                          @click="setFilter(rec,'highpass',h)">{{h===0 ? t('af_off') : (h>=1000 ? (h/1000)+'k' : h)}}</button>
+                </div>
+                <span class="rstb-flabel">{{t('af_lowpass')}}</span>
+                <div class="stb-pills">
+                  <button v-for="l in lpOptions" :key="l"
+                          class="stb-pill stb-pill-sm" :class="{'stb-pill-active': audioFilters[rec.uid]?.lowpass===l}"
+                          @click="setFilter(rec,'lowpass',l)">{{l===0 ? t('af_off') : (l>=1000 ? (l/1000)+'k' : l)}}</button>
+                </div>
+              </div>
+
+              <!-- Panneau info fichier (dépliable) -->
+              <div v-if="fileInfoUid===rec.uid" class="rstb-info">
+                <div v-if="fileInfoData[rec.uid]" class="rstb-info-grid">
+                  <template v-if="fileInfoData[rec.uid].duration != null">
+                    <span class="rstb-ik">{{t('af_duration')}}</span><span class="rstb-iv">{{fileInfoData[rec.uid].duration.toFixed(2)}}s</span>
+                  </template>
+                  <span class="rstb-ik">{{t('af_type')}}</span><span class="rstb-iv">{{fileInfoData[rec.uid].type}}</span>
+                  <span class="rstb-ik">{{t('af_size')}}</span><span class="rstb-iv">{{fmtSize(fileInfoData[rec.uid].size)}}</span>
+                  <template v-if="fileInfoData[rec.uid].sample_rate">
+                    <span class="rstb-ik">{{t('af_sample_rate')}}</span><span class="rstb-iv">{{fileInfoData[rec.uid].sample_rate}} Hz</span>
+                  </template>
+                  <template v-if="fileInfoData[rec.uid].channels">
+                    <span class="rstb-ik">{{t('af_channels')}}</span><span class="rstb-iv">{{fileInfoData[rec.uid].channels === 1 ? t('af_mono') : t('af_stereo')}} ({{fileInfoData[rec.uid].channels}})</span>
+                  </template>
+                  <span class="rstb-ik">{{t('af_file_path')}}</span><span class="rstb-iv rstb-iv-path">{{fileInfoData[rec.uid].path}}</span>
+                </div>
+                <span v-else style="font-size:.7rem;color:var(--text-faint);">⏳</span>
+              </div>
+
+            </div>
+
+            <!-- Pied de carte : bouton Détails + liens externes -->
+            <div class="rec-footer">
+              <a :href="'species.html?species='+encodeURIComponent(rec.Com_Name)"
+                 class="btn-details">
+                🔍 {{t('species_detail')}}
+              </a>
+              <div class="rec-links">
+                <a v-for="(lnk,key) in buildSpeciesLinks(rec.Sci_Name, rec.Com_Name)"
+                   :key="key" :href="lnk.url" target="_blank" rel="noopener noreferrer" class="rec-link"
+                   :title="lnk.label">
+                  {{lnk.icon}}
+                </a>
+              </div>
+            </div>
+
+          </div><!-- /rec-card -->
+
+          <!-- Charger plus -->
+          <div v-if="hasMore" class="rec-load-more">
+            <button class="btn btn-secondary" @click="loadMore">
+              {{t('load_more')}}
+            </button>
+          </div>
+
+        </div><!-- /rec-grid -->
+      </div>
+
+    </div><!-- /rec-layout -->
+  </birdash-shell>
+</div>
+
+<script>
+// ── FFT Cooley-Tukey ──────────────────────────────────────────────────────────
+function fftInPlace(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1;
+    const wc = Math.cos(-Math.PI/half), ws = Math.sin(-Math.PI/half);
+    for (let i = 0; i < n; i += len) {
+      let wR = 1, wI = 0;
+      for (let k = 0; k < half; k++) {
+        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
+        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
+        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
+      }
+    }
+  }
+}
+
+// ── Colormap plasma ───────────────────────────────────────────────────────────
+function buildColorLUT() {
+  const lut = new Uint8Array(256*3);
+  const stops = [
+    [0,[0,0,0]],[0.1,[20,0,50]],[0.25,[80,0,100]],
+    [0.42,[180,20,80]],[0.58,[230,70,20]],[0.75,[255,155,0]],
+    [0.90,[255,230,70]],[1.0,[255,255,255]],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const v = i/255; let s = 0;
+    while (s < stops.length-2 && stops[s+1][0] <= v) s++;
+    const [v0,c0]=stops[s],[v1,c1]=stops[s+1];
+    const t = Math.min(1,(v-v0)/(v1-v0+1e-9));
+    lut[i*3]=Math.round(c0[0]+t*(c1[0]-c0[0]));
+    lut[i*3+1]=Math.round(c0[1]+t*(c1[1]-c0[1]));
+    lut[i*3+2]=Math.round(c0[2]+t*(c1[2]-c0[2]));
+  }
+  return lut;
+}
+const COLOR_LUT = buildColorLUT();
+
+// ── Fetch + décode + spectrogramme ───────────────────────────────────────────
+async function fetchAndDraw(url, canvas) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const arrBuf   = await resp.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuf = await audioCtx.decodeAudioData(arrBuf);
+  await audioCtx.close();
+  const pcm = audioBuf.getChannelData(0).slice(); // copie — évite detach
+  const sr  = audioBuf.sampleRate;
+
+  const FFT = 512, HOP = 128, HALF = FFT/2;
+  const maxHz  = 12000;
+  const maxBin = Math.min(HALF, Math.floor(maxHz/sr*FFT));
+  const hann   = new Float32Array(FFT);
+  for (let i = 0; i < FFT; i++) hann[i] = 0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
+
+  const frames = [];
+  for (let off = 0; off+FFT <= pcm.length; off += HOP) {
+    const re = new Float32Array(FFT), im = new Float32Array(FFT);
+    for (let i = 0; i < FFT; i++) re[i] = pcm[off+i]*hann[i];
+    fftInPlace(re, im);
+    const mag = new Float32Array(maxBin);
+    for (let i = 1; i < maxBin; i++)
+      mag[i] = 20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);
+    frames.push(mag);
+  }
+
+  // Percentiles pour normalisation robuste
+  const all = []; frames.forEach(f => f.forEach(v => all.push(v))); all.sort((a,b)=>a-b);
+  const lo  = all[Math.floor(all.length*0.05)] ?? -80;
+  const hi  = all[Math.floor(all.length*0.995)] ?? -10;
+  const rng = hi-lo || 1;
+
+  const W = canvas.width, H = canvas.height;
+  canvas.width = W;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const d   = img.data;
+  for (let px = 0; px < W; px++) {
+    const frame = frames[Math.min(Math.floor(px/W*frames.length), frames.length-1)];
+    for (let py = 0; py < H; py++) {
+      const bin = Math.floor((H-1-py)/H*maxBin);
+      const v   = Math.max(0,Math.min(1,(frame[bin]-lo)/rng));
+      const ci  = Math.min(255,Math.floor(v*255))*3;
+      const pi  = (py*W+px)*4;
+      d[pi]=COLOR_LUT[ci]; d[pi+1]=COLOR_LUT[ci+1]; d[pi+2]=COLOR_LUT[ci+2]; d[pi+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return { duration: audioBuf.duration, pcm, sr };
+}
+
+// ── DSP Pipeline nettoyage ────────────────────────────────────────────────────
+function _fftR(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half=len>>1, wc=Math.cos(-Math.PI/half), ws=Math.sin(-Math.PI/half);
+    for (let i = 0; i < n; i += len) {
+      let wR=1, wI=0;
+      for (let k = 0; k < half; k++) {
+        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
+        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
+        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
+      }
+    }
+  }
+}
+function _hpIIR(pcm, sr, cutHz=850) {
+  const alpha=1/(1+2*Math.PI*cutHz/sr), out=new Float32Array(pcm.length);
+  out[0]=pcm[0];
+  for (let i=1;i<pcm.length;i++) out[i]=alpha*(out[i-1]+pcm[i]-pcm[i-1]);
+  return out;
+}
+function _specSub(pcm, strength=0.8) {
+  const FFT=512, HOP=128, HALF=FFT/2;
+  const hann=new Float32Array(FFT);
+  for (let i=0;i<FFT;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
+  const frames=[];
+  for (let off=0;off+FFT<=pcm.length;off+=HOP) {
+    const re=new Float32Array(FFT),im=new Float32Array(FFT); let energy=0;
+    for (let i=0;i<FFT;i++){re[i]=pcm[off+i]*hann[i];energy+=re[i]*re[i];}
+    _fftR(re,im); frames.push({re,im,energy,off});
+  }
+  const byE=[...frames].sort((a,b)=>a.energy-b.energy);
+  const nC=Math.max(2,Math.floor(frames.length*.15));
+  const nM=new Float32Array(HALF);
+  for (let fi=0;fi<nC;fi++){const{re,im}=byE[fi];for(let k=0;k<HALF;k++)nM[k]+=Math.sqrt(re[k]*re[k]+im[k]*im[k]);}
+  for (let k=0;k<HALF;k++) nM[k]/=nC;
+  const out=new Float32Array(pcm.length),norm=new Float32Array(pcm.length);
+  for (const {re,im,off} of frames) {
+    for (let k=0;k<HALF;k++){const mag=Math.sqrt(re[k]*re[k]+im[k]*im[k]);const sc=mag>1e-12?Math.max(mag-strength*nM[k],0.05*mag)/mag:0;re[k]*=sc;im[k]*=sc;}
+    for (let k=1;k<HALF;k++){re[FFT-k]=re[k];im[FFT-k]=-im[k];}
+    re[HALF]=0;im[HALF]=0;
+    for (let k=0;k<FFT;k++) im[k]=-im[k];
+    _fftR(re,im);
+    for (let i=0;i<FFT;i++){const n=off+i;if(n<out.length){const w=hann[i];out[n]+=(re[i]/FFT)*w;norm[n]+=w*w;}}
+  }
+  for (let i=0;i<out.length;i++) if(norm[i]>1e-10) out[i]/=norm[i];
+  return out;
+}
+function recCleanPipeline(pcm, sr, strength) {
+  return _specSub(_hpIIR(pcm, sr, 850), strength);
+}
+function encodeWavRec(pcm, sr) {
+  const ds=pcm.length*2, buf=new ArrayBuffer(44+ds), v=new DataView(buf);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+ds,true);w(8,'WAVE');w(12,'fmt ');
+  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);
+  v.setUint16(32,2,true);v.setUint16(34,16,true);
+  w(36,'data');v.setUint32(40,ds,true);
+  for (let i=0;i<pcm.length;i++) v.setInt16(44+i*2,Math.max(-32768,Math.min(32767,Math.round(pcm[i]*32767))),true);
+  return new Blob([buf],{type:'audio/wav'});
+}
+
+// ── Vue 3 App ─────────────────────────────────────────────────────────────────
+const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
+const { useI18n, useTheme, useNav, useSpeciesNames, birdQuery, fmtConf, localDateStr,
+        buildAudioUrl, buildSpeciesLinks, shortModel,
+        useFilterPeriod, useFilterConfidence, useFilterSpecies, buildWhereClause } = BIRDASH;
+
+const PAGE_SIZE = 12;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('recordings');
+    const { spName } = useSpeciesNames();
+
+    // ── Données ────────────────────────────────────────────────────
+    const allRecs           = ref([]);
+    const availableSpecies  = ref([]);   // [{name, sci, count}]
+    const loading           = ref(true);
+    const sortBy            = ref('conf');
+    const page              = ref(1);
+
+    // ── Filtres (composables partagés) ────────────────────────────
+    const fp = useFilterPeriod({
+      default: '30d',
+      buttons: ['1d','7d','30d','90d','1y','all'],
+      onChange: () => loadData()
+    });
+    const fc = useFilterConfidence({
+      onChange: () => loadData()
+    });
+    const fs = useFilterSpecies({
+      source: availableSpecies,
+      spName,
+      onChange: () => { page.value = 1; }
+    });
+
+    // ── Audio ──────────────────────────────────────────────────────
+    const playingUid  = ref(null);
+    const progress    = ref(0);
+    let   _audio      = null;
+    let   _rafProg    = null;
+    let   _audioCtx   = null;
+    let   _sourceNode = null;
+    let   _gainNode   = null;
+    let   _hpNode     = null;
+    let   _lpNode     = null;
+
+    // ── Spectrogramme ──────────────────────────────────────────────
+    const spectroUid      = ref(null);
+    const spectroLoading  = ref(null);
+    const spectroCanvases = {};
+    const activeUid       = ref(null);
+
+    // ── Clean audio ────────────────────────────────────────────────
+    const cleanState   = ref({});
+    const _pcmStore    = {};
+    const _cleanBlobs  = {};
+
+    // ── Audio filters ───────────────────────────────────────────────
+    const audioFilters = ref({});
+    const gainOptions  = [0, 6, 12, 18, 24, 30];
+    const hpOptions    = [0, 250, 500, 1000, 1500];
+    const lpOptions    = [0, 2000, 4000, 8000];
+
+    // ── File info ───────────────────────────────────────────────────
+    const fileInfoUid  = ref(null);
+    const fileInfoData = ref({});
+
+    const filteredRecs = computed(() => {
+      let recs = allRecs.value;
+      if (fs.selectedSpecies.value.length)
+        recs = recs.filter(r => fs.selectedSpecies.value.includes(r.Com_Name));
+      // Tri
+      if (sortBy.value === 'conf')
+        recs = [...recs].sort((a,b) => b.conf - a.conf);
+      else if (sortBy.value === 'date')
+        recs = [...recs].sort((a,b) => (b.Date+b.Time).localeCompare(a.Date+a.Time));
+      else
+        recs = [...recs].sort((a,b) => a.Com_Name.localeCompare(b.Com_Name));
+      return recs;
+    });
+
+    const pagedRecs = computed(() => filteredRecs.value.slice(0, page.value * PAGE_SIZE));
+    const hasMore   = computed(() => pagedRecs.value.length < filteredRecs.value.length);
+
+    // ── Chargement ─────────────────────────────────────────────────
+    async function loadData() {
+      loading.value = true;
+      try {
+        // Build WHERE using shared helper + confidence & date from composables
+        const wc = buildWhereClause({
+          dateFrom: fp.dateFrom.value,
+          dateTo:   fp.dateTo.value,
+          confidence: fc.confidence.value,
+          extraWhere: ["File_Name != ''"],
+        });
+        const where = 'WHERE ' + wc.where;
+        const params = wc.params;
+
+        const rows = await birdQuery(
+          `SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name, Model
+           FROM detections
+           ${where}
+           ORDER BY Com_Name ASC, Confidence DESC`,
+          params
+        );
+
+        // 1 seul enregistrement par espèce — le meilleur (premier car trié DESC)
+        const seen = new Set();
+        const best = [];
+        for (const r of rows) {
+          if (!seen.has(r.Com_Name)) { seen.add(r.Com_Name); best.push(r); }
+        }
+
+        // Enrichir
+        const enriched = best.map(r => ({
+          ...r,
+          uid:         r.Date + '_' + r.Com_Name,
+          conf:        parseFloat(r.Confidence) * 100,
+          imgUrl:      null,
+          imgSrc:      null,
+          durationStr: null,
+        }));
+        // Charger les données dans allRecs
+        allRecs.value = enriched;
+
+        // Liste espèces pour le filtre (avec compteur sur rows complet)
+        const spMap = {};
+        const sciMap = {};
+        for (const r of rows) { spMap[r.Com_Name] = (spMap[r.Com_Name]||0)+1; sciMap[r.Com_Name] = r.Sci_Name; }
+        availableSpecies.value = Object.entries(spMap)
+          .map(([name, count]) => ({ name, sci: sciMap[name], count }))
+          .sort((a,b) => spName(a.name, a.sci).localeCompare(spName(b.name, b.sci)));
+
+        // Photos : URL directe vers /api/photo — le serveur gère le cache disque.
+        // Assignation synchrone → Vue rend immédiatement les img tags,
+        // le browser charge en parallèle (et met en cache HTTP côté navigateur).
+        for (const r of allRecs.value) {
+          r.imgUrl = BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(r.Sci_Name);
+          r.imgSrc = null; // badge de source supprimé (géré côté serveur)
+        }
+
+      } catch(e) {
+        console.error('[recordings] load error', e);
+      }
+      loading.value = false;
+    }
+
+    // ── Fallback photo si /api/photo échoue ───────────────────────
+    // Tente iNaturalist puis Wikipedia directement depuis le navigateur
+    const _photoFailed = new Set(); // évite les boucles
+    async function onPhotoError(rec) {
+      if (_photoFailed.has(rec.Sci_Name)) { rec.imgUrl = null; return; }
+      _photoFailed.add(rec.Sci_Name);
+
+      // 1. iNaturalist direct
+      try {
+        const tn  = encodeURIComponent(rec.Sci_Name);
+        const res = await fetch(
+          `https://api.inaturalist.org/v1/taxa?taxon_name=${tn}&rank=species&per_page=3`
+        );
+        if (res.ok) {
+          const data  = await res.json();
+          const taxon = data.results?.find(t =>
+            t.name.toLowerCase() === rec.Sci_Name.toLowerCase()
+          );
+          const url = taxon?.default_photo?.medium_url
+                   || taxon?.default_photo?.square_url
+                   || taxon?.default_photo?.url;
+          if (url) { rec.imgUrl = url; return; }
+        }
+      } catch(e) {}
+
+      // 2. Wikipedia direct
+      try {
+        const title = rec.Sci_Name.replace(/ /g, '_');
+        const res   = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const url  = data.thumbnail?.source;
+          if (url) { rec.imgUrl = url; return; }
+        }
+      } catch(e) {}
+
+      rec.imgUrl = null; // placeholder
+    }
+
+    // ── Filtres ────────────────────────────────────────────────────
+    function loadMore() { page.value++; }
+
+    // ── Lecture audio (Web Audio API avec filtres) ─────────────────
+    function togglePlay(rec) {
+      if (playingUid.value === rec.uid) {
+        stopAudio(); return;
+      }
+      stopAudio();
+      // Utiliser le blob clean si disponible et mode clean actif
+      const cs  = cleanState.value[rec.uid];
+      const url = (cs?.mode && _cleanBlobs[rec.uid])
+        ? _cleanBlobs[rec.uid]
+        : buildAudioUrl(rec.File_Name);
+      if (!url) return;
+
+      const audio = new Audio(url);
+      audio.crossOrigin = 'anonymous';
+      _audio = audio;
+      playingUid.value = rec.uid;
+      activeUid.value  = rec.uid;
+      progress.value   = 0;
+
+      // Ensure filter defaults exist
+      if (!audioFilters.value[rec.uid]) {
+        audioFilters.value = { ...audioFilters.value, [rec.uid]: { gain: 0, highpass: 0, lowpass: 0 } };
+      }
+
+      // Setup Web Audio API chain: source → highpass → lowpass → gain → destination
+      try {
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        _sourceNode = _audioCtx.createMediaElementSource(audio);
+
+        _hpNode = _audioCtx.createBiquadFilter();
+        _hpNode.type = 'highpass';
+        _lpNode = _audioCtx.createBiquadFilter();
+        _lpNode.type = 'lowpass';
+        _gainNode = _audioCtx.createGain();
+
+        // Apply current filter values
+        const af = audioFilters.value[rec.uid];
+        applyFilterValues(af);
+
+        _sourceNode.connect(_hpNode);
+        _hpNode.connect(_lpNode);
+        _lpNode.connect(_gainNode);
+        _gainNode.connect(_audioCtx.destination);
+      } catch(e) {
+        console.warn('[audio] Web Audio API not available, playing without filters', e);
+        // Fallback: no filters
+        _audioCtx = null;
+      }
+
+      audio.play().catch(e => { console.warn('[audio]', e); stopAudio(); });
+
+      // Progression rAF
+      function updateProgress() {
+        if (!_audio || _audio.paused) return;
+        progress.value = _audio.duration
+          ? (_audio.currentTime / _audio.duration * 100) : 0;
+        _rafProg = requestAnimationFrame(updateProgress);
+      }
+      _rafProg = requestAnimationFrame(updateProgress);
+
+      audio.addEventListener('loadedmetadata', () => {
+        rec.durationStr = formatDuration(audio.duration);
+      });
+      audio.addEventListener('ended', stopAudio);
+    }
+
+    function applyFilterValues(af) {
+      if (!af) return;
+      // Gain: convert dB to linear
+      if (_gainNode) {
+        _gainNode.gain.value = af.gain > 0 ? Math.pow(10, af.gain / 20) : 1;
+      }
+      // HighPass
+      if (_hpNode) {
+        if (af.highpass > 0) {
+          _hpNode.frequency.value = af.highpass;
+          _hpNode.Q.value = 0.707;
+        } else {
+          _hpNode.frequency.value = 1; // effectively off
+          _hpNode.Q.value = 0.001;
+        }
+      }
+      // LowPass
+      if (_lpNode) {
+        if (af.lowpass > 0) {
+          _lpNode.frequency.value = af.lowpass;
+          _lpNode.Q.value = 0.707;
+        } else {
+          _lpNode.frequency.value = 24000; // effectively off
+          _lpNode.Q.value = 0.001;
+        }
+      }
+    }
+
+    function setFilter(rec, key, value) {
+      const uid = rec.uid;
+      const current = audioFilters.value[uid] || { gain: 0, highpass: 0, lowpass: 0 };
+      const updated = { ...current, [key]: value };
+      audioFilters.value = { ...audioFilters.value, [uid]: updated };
+
+      // Apply in real-time if this rec is playing
+      if (playingUid.value === uid && _audioCtx) {
+        applyFilterValues(updated);
+      }
+    }
+
+    function stopAudio() {
+      if (_audio) { _audio.pause(); _audio = null; }
+      if (_rafProg) { cancelAnimationFrame(_rafProg); _rafProg = null; }
+      if (_audioCtx) {
+        try { _audioCtx.close(); } catch(e) {}
+        _audioCtx = null; _sourceNode = null; _gainNode = null; _hpNode = null; _lpNode = null;
+      }
+      playingUid.value = null;
+      progress.value   = 0;
+    }
+
+    function formatDuration(s) {
+      if (!isFinite(s)) return '';
+      const m = Math.floor(s/60), sec = Math.floor(s%60);
+      return `${m}:${sec.toString().padStart(2,'0')}`;
+    }
+
+    // ── Spectrogramme inline ───────────────────────────────────────
+    async function toggleSpectro(rec) {
+      if (spectroUid.value === rec.uid) {
+        spectroUid.value = null; return;
+      }
+      spectroUid.value     = rec.uid;
+      spectroLoading.value = rec.uid;
+      activeUid.value      = rec.uid;
+
+      await Vue.nextTick();
+
+      const canvas = spectroCanvases[rec.uid];
+      if (!canvas) { spectroLoading.value = null; return; }
+
+      const url = buildAudioUrl(rec.File_Name);
+      if (!url) { spectroLoading.value = null; return; }
+
+      // Initialiser l'état clean si absent
+      if (!cleanState.value[rec.uid]) {
+        cleanState.value = {
+          ...cleanState.value,
+          [rec.uid]: { mode: false, strength: 0.75, processing: false },
+        };
+      }
+      // Initialiser les filtres audio si absent
+      if (!audioFilters.value[rec.uid]) {
+        audioFilters.value = {
+          ...audioFilters.value,
+          [rec.uid]: { gain: 0, highpass: 0, lowpass: 0 },
+        };
+      }
+
+      try {
+        const { duration, pcm, sr } = await fetchAndDraw(url, canvas);
+        _pcmStore[rec.uid] = { pcm, sr };                          // stocker le PCM
+        if (!rec.durationStr) rec.durationStr = formatDuration(duration);
+      } catch(e) {
+        console.error('[spectro]', rec.File_Name, e.message);
+      }
+      spectroLoading.value = null;
+    }
+
+    // ── Clean audio par carte ──────────────────────────────────────
+    async function toggleClean(rec) {
+      const cs = cleanState.value[rec.uid];
+      if (!cs) return;
+      const pcmData = _pcmStore[rec.uid];
+      if (!pcmData) return;
+
+      const newMode = !cs.mode;
+      cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, mode: newMode, processing: true } };
+
+      // Arrêter lecture en cours si c'est cette carte
+      if (playingUid.value === rec.uid) stopAudio();
+
+      const canvas = spectroCanvases[rec.uid];
+
+      if (newMode) {
+        // Appliquer le clean
+        await new Promise(r => setTimeout(r, 20)); // cède le thread → spinner
+        try {
+          const cleaned = recCleanPipeline(pcmData.pcm, pcmData.sr, cs.strength);
+          if (canvas) {
+            // Redessiner spectrogramme nettoyé
+            drawCleanSpectro(cleaned, pcmData.sr, canvas);
+          }
+          // Créer blob WAV pour la lecture
+          if (_cleanBlobs[rec.uid]) URL.revokeObjectURL(_cleanBlobs[rec.uid]);
+          _cleanBlobs[rec.uid] = URL.createObjectURL(encodeWavRec(cleaned, pcmData.sr));
+        } catch(e) {
+          console.error('[clean]', e);
+          cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, mode: false, processing: false } };
+          return;
+        }
+      } else {
+        // Restaurer spectrogramme original
+        if (canvas && pcmData) drawCleanSpectro(pcmData.pcm, pcmData.sr, canvas);
+        if (_cleanBlobs[rec.uid]) { URL.revokeObjectURL(_cleanBlobs[rec.uid]); delete _cleanBlobs[rec.uid]; }
+      }
+
+      cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, mode: newMode, processing: false } };
+    }
+
+    async function reapplyClean(rec) {
+      const cs = cleanState.value[rec.uid];
+      if (!cs || !cs.mode) return;
+      const pcmData = _pcmStore[rec.uid];
+      if (!pcmData) return;
+
+      cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, processing: true } };
+      if (playingUid.value === rec.uid) stopAudio();
+
+      await new Promise(r => setTimeout(r, 20));
+      try {
+        const cleaned = recCleanPipeline(pcmData.pcm, pcmData.sr, cs.strength);
+        const canvas  = spectroCanvases[rec.uid];
+        if (canvas) drawCleanSpectro(cleaned, pcmData.sr, canvas);
+        if (_cleanBlobs[rec.uid]) URL.revokeObjectURL(_cleanBlobs[rec.uid]);
+        _cleanBlobs[rec.uid] = URL.createObjectURL(encodeWavRec(cleaned, pcmData.sr));
+      } catch(e) { console.error('[clean]', e); }
+
+      cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, processing: false } };
+    }
+
+    // Redessiner spectrogramme depuis PCM (copie de fetchAndDraw sans fetch)
+    function drawCleanSpectro(pcm, sr, canvas) {
+      const FFT=512, HOP=128, HALF=FFT/2;
+      const maxHz=12000, maxBin=Math.min(HALF,Math.floor(maxHz/sr*FFT));
+      const hann=new Float32Array(FFT);
+      for (let i=0;i<FFT;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
+      const frames=[];
+      for (let off=0;off+FFT<=pcm.length;off+=HOP) {
+        const re=new Float32Array(FFT),im=new Float32Array(FFT);
+        for (let i=0;i<FFT;i++) re[i]=pcm[off+i]*hann[i];
+        _fftR(re,im);
+        const mag=new Float32Array(maxBin);
+        for (let i=1;i<maxBin;i++) mag[i]=20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);
+        frames.push(mag);
+      }
+      const all=[]; frames.forEach(f=>f.forEach(v=>all.push(v))); all.sort((a,b)=>a-b);
+      const lo=all[Math.floor(all.length*.05)]??-80;
+      const hi=all[Math.floor(all.length*.995)]??-10;
+      const rng=hi-lo||1;
+      const W=canvas.width, H=canvas.height;
+      canvas.width=W;
+      const ctx=canvas.getContext('2d');
+      const img=ctx.createImageData(W,H); const d=img.data;
+      for (let px=0;px<W;px++) {
+        const frame=frames[Math.min(Math.floor(px/W*frames.length),frames.length-1)];
+        for (let py=0;py<H;py++) {
+          const bin=Math.floor((H-1-py)/H*maxBin);
+          const v=Math.max(0,Math.min(1,(frame[bin]-lo)/rng));
+          const ci=Math.min(255,Math.floor(v*255))*3;
+          const pi=(py*W+px)*4;
+          d[pi]=COLOR_LUT[ci];d[pi+1]=COLOR_LUT[ci+1];d[pi+2]=COLOR_LUT[ci+2];d[pi+3]=255;
+        }
+      }
+      ctx.putImageData(img,0,0);
+    }
+
+    // ── File info ────────────────────────────────────────────────────
+    async function toggleFileInfo(rec) {
+      if (fileInfoUid.value === rec.uid) { fileInfoUid.value = null; return; }
+      fileInfoUid.value = rec.uid;
+      if (fileInfoData.value[rec.uid]) return; // already loaded
+
+      try {
+        const resp = await fetch(`${BIRD_CONFIG.apiUrl}/audio-info?file=${encodeURIComponent(rec.File_Name)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          fileInfoData.value = { ...fileInfoData.value, [rec.uid]: data };
+        }
+      } catch(e) {
+        console.warn('[file-info]', e);
+      }
+    }
+
+    function fmtSize(bytes) {
+      if (!bytes) return '—';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes/1024).toFixed(2) + ' KB';
+      return (bytes/1048576).toFixed(2) + ' MB';
+    }
+
+    // ── Téléchargement audio ───────────────────────────────────────
+    function downloadAudio(rec) {
+      const url = buildAudioUrl(rec.File_Name);
+      if (!url) return;
+      const cs = cleanState.value[rec.uid];
+      const href = (cs && cs.mode && _cleanBlobs[rec.uid]) ? _cleanBlobs[rec.uid] : url;
+      const ext  = (cs && cs.mode && _cleanBlobs[rec.uid]) ? '.wav' : '.mp3';
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = (rec.Com_Name + '_' + rec.Date + ext).replace(/[^a-zA-Z0-9._-]/g, '_');
+      a.click();
+    }
+
+    // Templates helpers (évite les regex literals dans les bindings Vue)
+    function dlUrl(rec) {
+      const cs = cleanState.value[rec.uid];
+      return (cs && cs.mode && _cleanBlobs[rec.uid])
+        ? _cleanBlobs[rec.uid]
+        : buildAudioUrl(rec.File_Name);
+    }
+    function dlName(rec) {
+      const cs  = cleanState.value[rec.uid];
+      const ext = (cs && cs.mode && _cleanBlobs[rec.uid]) ? '.wav' : '.mp3';
+      return (rec.Com_Name + '_' + rec.Date + ext).replace(/[^a-zA-Z0-9._-]/g, '_');
+    }
+
+    watch([sortBy], () => { page.value = 1; });
+
+    // ── Lifecycle ──────────────────────────────────────────────────
+    onMounted(loadData);
+    onUnmounted(() => {
+      stopAudio();
+      Object.values(_cleanBlobs).forEach(u => URL.revokeObjectURL(u));
+    });
+
+    function openSpectroModal(rec) {
+      BIRDASH.openSpectroModal({
+        fileName: rec.File_Name,
+        speciesName: rec.Com_Name,
+        sciName: rec.Sci_Name,
+        confidence: rec.conf / 100,
+        date: rec.Date,
+        time: rec.Time
+      });
+    }
+
+    return {
+      lang, t, spName,
+      // Filter composables (exposed as objects for template)
+      fp, fc, fs,
+      allRecs, availableSpecies,
+      filteredRecs, pagedRecs, hasMore, loading,
+      sortBy, page, PAGE_SIZE,
+      playingUid, progress, activeUid,
+      spectroUid, spectroLoading, spectroCanvases,
+      cleanState, _cleanBlobs,
+      audioFilters, gainOptions, hpOptions, lpOptions,
+      fileInfoUid, fileInfoData,
+      onPhotoError, downloadAudio, dlUrl, dlName,
+      loadData, loadMore, togglePlay, toggleClean, reapplyClean,
+      toggleSpectro, buildSpeciesLinks,
+      setFilter, toggleFileInfo, fmtSize, shortModel,
+      openSpectroModal,
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

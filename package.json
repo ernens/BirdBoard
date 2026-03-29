@@ -1,0 +1,11 @@
+{
+  "name": "birdash",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test tests/server.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
+  }
+}

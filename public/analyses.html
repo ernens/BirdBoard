@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Analyses espèces</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js" integrity="sha384-BQKzmHvQLMCAnL3UtDBA1Al5tFjsCz1wrMlIUA1wkzo14DYkRWjywW+p9pCj0cwd" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="analyses" :title="t('nav_analyses')">
+  <div @click="pickerOpen=false">
+    <div class="det-layout">
+
+      <!-- ── Filter panel (sidebar) ──────────────────────────────── -->
+      <div class="filter-panel" @click.stop>
+
+        <!-- Guild quick-select buttons -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('guild_filter')}}</span>
+          <div class="fp-quick-btns" style="flex-wrap:wrap;">
+            <button class="fp-quick-btn" :class="{active:!fGuild}" @click="fGuild=''" style="font-size:.72rem;">{{t('guild_all')}}</button>
+            <button v-for="g in guildOptions" :key="g.key" class="fp-quick-btn" :class="{active:fGuild===g.key}"
+                    @click="selectGuild(g.key)" :title="g.label" style="font-size:.72rem;">
+              {{g.icon}} {{g.label}}
+            </button>
+          </div>
+        </div>
+
+        <!-- Ordre -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_order')}}</span>
+          <select class="fp-select" v-model="fOrder" @change="onOrderChange" :aria-label="t('filter_order')">
+            <option value="">{{t('all_orders')}}</option>
+            <option v-for="o in taxonomyOrders" :key="o" :value="o">{{o}}</option>
+          </select>
+        </div>
+
+        <!-- Famille -->
+        <div v-if="taxonomyOrders.length">
+          <span class="fp-label">{{t('filter_family')}}</span>
+          <select class="fp-select" v-model="fFamily" @change="onFamilyChange" :aria-label="t('filter_family')">
+            <option value="">{{t('all_families')}}</option>
+            <option v-for="f in availableFamilies" :key="f.sci" :value="f.sci">{{f.com}}</option>
+          </select>
+        </div>
+
+        <!-- Espèces -->
+        <div>
+          <span class="fp-label">{{t('filter_species')}}</span>
+          <div class="sp-picker" @click.stop>
+            <div class="sp-tags-bar" @click="pickerOpen=!pickerOpen">
+              <template v-if="selectedSpecies.length===0">
+                <span class="sp-placeholder">{{t('analyses_no_species')}}</span>
+              </template>
+              <template v-else>
+                <span v-for="name in selectedSpecies.slice(0,3)" :key="name" class="sp-tag">
+                  {{spName(name, sciFor(name))}}<button class="sp-tag-x" @click.stop="removeTag(name)">&#x2715;</button>
+                </span>
+                <span v-if="selectedSpecies.length>3" class="sp-tag"
+                      style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-muted);">
+                  +{{selectedSpecies.length-3}}
+                </span>
+              </template>
+              <span class="sp-caret">{{pickerOpen?'&#x25B4;':'&#x25BE;'}}</span>
+            </div>
+            <div v-show="pickerOpen" class="sp-dropdown">
+              <div class="sp-topn-bar" style="flex-wrap:wrap;">
+                <div style="display:flex;gap:.4rem;width:100%;">
+                  <button class="sp-topn-btn" style="flex:1;"
+                          :style="allFiltersSelected ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : ''"
+                          @click="allFiltersSelected ? clearSelection() : selectAllFiltered()">
+                    {{allFiltersSelected ? t('deselect_all') : t('select_all')+' ('+filteredSpeciesList.length+')'}}
+                  </button>
+                </div>
+                <div style="display:flex;align-items:center;gap:.4rem;width:100%;">
+                  <span>{{t('analyses_topn_label')||'Top'}}</span>
+                  <input type="number" class="sp-topn-input" v-model.number="topN" min="1" max="100">
+                  <button class="sp-topn-btn" @click="selectTopN">{{t('analyses_topn_btn')||'OK'}}</button>
+                </div>
+              </div>
+              <div class="sp-search-wrap">
+                <input ref="spSearchInput" type="text" class="sp-search" v-model="spSearch" :placeholder="t('analyses_search_ph')+' (/)' || 'Filter... (/)'">
+              </div>
+              <div class="sp-list">
+                <label v-for="sp in filteredSpeciesList" :key="sp.name"
+                       class="sp-item" :class="{checked:selectedSpecies.includes(sp.name)}">
+                  <input type="checkbox" :value="sp.name"
+                         :checked="selectedSpecies.includes(sp.name)"
+                         @change="toggleSpecies(sp.name)">
+                  {{spName(sp.name, sp.sci)}}<span class="sp-item-count">{{sp.n}}</span>
+                </label>
+              </div>
+              <div class="sp-footer">
+                <span>{{t('analyses_n_selected',{n:selectedSpecies.length})}}</span>
+                <span>{{t('analyses_n_total',{n:filteredSpeciesList.length})}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Période -->
+        <div>
+          <span class="fp-label">{{t('analyses_date_range')}}</span>
+          <filter-period
+            :period="fp.period.value" :quick-buttons="fp.quickButtons.value"
+            :date-from="fp.dateFrom.value" :date-to="fp.dateTo.value"
+            @set-period="fp.setPeriod" @set-custom="fp.setCustomRange">
+          </filter-period>
+        </div>
+
+        <!-- Résolution -->
+        <div>
+          <span class="fp-label">{{t('resolution')}}</span>
+          <div style="display:flex;flex-direction:column;gap:.25rem;font-size:.82rem;">
+            <label><input type="radio" v-model="resample" value="raw"> {{t('analyses_resample_raw')}}</label>
+            <label><input type="radio" v-model="resample" value="15min"> {{t('analyses_resample_15')}}</label>
+            <label><input type="radio" v-model="resample" value="hourly"> {{t('analyses_resample_1h')}}</label>
+            <label><input type="radio" v-model="resample" value="daily"> {{t('analyses_resample_1d')}}</label>
+          </div>
+        </div>
+
+        <!-- Confiance -->
+        <div>
+          <span class="fp-label">{{t('analyses_conf_label')}}</span>
+          <filter-confidence
+            :confidence="fc.confidence.value" :conf-editing="fc.confEditing.value" :conf-edit-val="fc.confEditVal.value"
+            @update:confidence="v => { fc.confidence.value = v; }"
+            @start-edit="fc.startEdit()" @commit-edit="fc.commitEdit()"
+            @update:conf-edit-val="v => fc.confEditVal.value = v">
+          </filter-confidence>
+        </div>
+
+        <!-- Actions -->
+        <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')||'Défaut'}}</button>
+        <button class="btn btn-primary" style="width:100%;margin-top:-.4rem;" @click="applyFilters">{{t('apply_filter')}}</button>
+
+      </div>
+
+      <!-- ── Main content ────────────────────────────────────────── -->
+      <div>
+
+        <!-- Header: adapts to selection context -->
+        <div class="species-header" v-if="selectedSpecies.length">
+          <div class="species-thumb-placeholder">
+            <img v-if="thumbUrl" :src="thumbUrl" class="species-thumb" :alt="mainSpecies" @error="thumbUrl=null">
+            <span v-else-if="selCtx.type==='single'" style="font-size:1.6rem;">&#x1F426;</span>
+            <span v-else style="font-size:1.4rem;background:var(--accent-dim);border-radius:50%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">&#x1F9EC;</span>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <span class="species-select-label" style="font-size:1.05rem;">{{headerTitle}}</span>
+              <button @click="exportCsv" class="dl-btn" title="Export CSV" style="font-size:.72rem;">⬇ CSV</button>
+            </div>
+            <div style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem;">{{speciesLabel}}</div>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div v-if="kpis.length" class="sp-kpis">
+          <div v-for="k in kpis" :key="k.label" class="sp-kpi">
+            <div class="sp-kpi-val" :class="k.cls">{{k.val}}</div>
+            <div class="sp-kpi-label">{{k.label}}</div>
+          </div>
+        </div>
+
+        <!-- Polar chart -->
+        <div v-show="selectedSpecies.length" class="chart-card">
+          <div class="chart-card-title">{{polarTitle}}</div>
+          <div class="polar-inner">
+            <div class="polar-wrap" ref="elPolar"></div>
+            <!-- Hour detail panel (single species only) -->
+            <div v-if="polarDetail.visible && selCtx.type==='single'" class="polar-detail">
+              <div class="pd-header">
+                <span class="pd-hour">{{polarDetail.hour}}h</span>
+                <span class="pd-count">{{polarDetail.count.toLocaleString()}} {{t('detections').toLowerCase()}}</span>
+                <span class="pd-pct">{{polarDetail.pct}}% {{t('analyses_pct_of_day')}}</span>
+                <button class="pd-close" @click="polarDetail.visible=false">✕</button>
+              </div>
+              <div class="pd-quarters">
+                <div class="pd-q-label">{{t('analyses_quarter_distrib')}}</div>
+                <div v-for="q in polarDetail.quarters" :key="q.m" class="pd-bar-row">
+                  <span class="pd-bar-label">{{zeroPad(polarDetail.hour)}}h{{zeroPad(q.m)}}</span>
+                  <div class="pd-bar-track">
+                    <div class="pd-bar-fill"
+                         :style="{width:polarDetail.qMax?Math.round(q.n/polarDetail.qMax*100)+'%':'0%'}"></div>
+                  </div>
+                  <span class="pd-bar-val">{{q.n}}</span>
+                </div>
+              </div>
+              <div class="pd-detections">
+                <div class="pd-det-label">{{t('analyses_best_dets')}}</div>
+                <div v-if="polarDetail.loadingDets" class="spinner" style="padding:.5rem;"><div></div><div></div><div></div></div>
+                <div v-else-if="!polarDetail.topDets.length" style="font-size:.78rem;color:var(--text-faint);">{{t('analyses_no_det')}}</div>
+                <div v-for="d in polarDetail.topDets" :key="d.Time+d.Confidence" class="pd-det-item">
+                  <span class="pd-det-time">{{fmtTimeFull(d.Time)}}</span>
+                  <span class="pd-det-conf conf-badge"
+                        :class="parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low'">
+                    {{Math.round(d.Confidence*100)}}%
+                  </span>
+                  <button v-if="d.File_Name" class="pd-det-play"
+                          @click="toggleAudioFile(d.File_Name)">▶</button>
+                  <span v-else style="width:22px;"></span>
+                </div>
+              </div>
+            </div>
+            <div class="activity-narrative">
+              <div v-if="narrativeLoading" class="spinner"><div></div><div></div><div></div></div>
+              <div v-else v-html="safeHtml(narrativeHtml)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Circadian comparison chart (multi-species) -->
+        <div v-show="selectedSpecies.length >= 2" class="chart-card">
+          <div class="chart-card-title">{{t('circadian_comparison')}}</div>
+          <div style="position:relative;height:320px;"><canvas ref="elCircadian"></canvas></div>
+        </div>
+
+        <!-- Series chart -->
+        <div v-show="selectedSpecies.length" class="chart-card">
+          <div class="chart-card-title">{{seriesTitle}}</div>
+          <div style="position:relative;height:320px;"><canvas ref="elSeries"></canvas></div>
+        </div>
+
+        <!-- Species breakdown table (multi-species) -->
+        <div v-if="breakdown.length>1" class="chart-card">
+          <div class="chart-card-title">{{t('grp_breakdown_title')}}</div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);font-size:.72rem;text-transform:uppercase;">
+                  <th style="text-align:left;padding:.4rem .5rem;">#</th>
+                  <th style="text-align:left;padding:.4rem .5rem;">{{t('grp_breakdown_species')}}</th>
+                  <th style="text-align:left;padding:.4rem .5rem;">{{t('filter_family')}}</th>
+                  <th style="text-align:right;padding:.4rem .5rem;">{{t('grp_breakdown_count')}}</th>
+                  <th style="text-align:right;padding:.4rem .5rem;">{{t('grp_breakdown_pct')}}</th>
+                  <th style="text-align:right;padding:.4rem .5rem;">{{t('grp_breakdown_conf')}}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(sp,i) in breakdown" :key="sp.name" style="border-bottom:1px solid var(--border-faint);">
+                  <td style="padding:.35rem .5rem;color:var(--text-faint);">{{i+1}}</td>
+                  <td style="padding:.35rem .5rem;">
+                    <div style="display:flex;align-items:center;gap:.45rem;">
+                      <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-card2);">
+                        <bird-img :src="photoUrl(sp.sci)" :alt="sp.name" style="width:100%;height:100%;object-fit:cover;"></bird-img>
+                      </div>
+                      <a @click.stop="navigateTo('species.html',{species:sp.name})" style="cursor:pointer;color:var(--text-main);text-decoration:none;" @mouseenter="$event.target.style.color='var(--accent)'" @mouseleave="$event.target.style.color='var(--text-main)'"
+                        >{{spName(sp.name, sp.sci)}}</a>
+                    </div>
+                  </td>
+                  <td style="padding:.35rem .5rem;font-size:.72rem;color:var(--text-muted);">{{sp.familyCom}}</td>
+                  <td style="text-align:right;padding:.35rem .5rem;font-variant-numeric:tabular-nums;">{{sp.count.toLocaleString()}}</td>
+                  <td style="text-align:right;padding:.35rem .5rem;">
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:.3rem;">
+                      <div style="width:50px;height:6px;background:var(--bg-deep);border-radius:3px;overflow:hidden;">
+                        <div :style="{width:sp.pct+'%',height:'100%',background:'var(--accent)',borderRadius:'3px'}"></div>
+                      </div>
+                      <span style="font-size:.72rem;min-width:2.5rem;text-align:right;">{{sp.pct}}%</span>
+                    </div>
+                  </td>
+                  <td style="text-align:right;padding:.35rem .5rem;">
+                    <span class="conf-badge" :class="sp.conf>=80?'conf-high':sp.conf>=60?'conf-mid':'conf-low'"
+                          style="font-size:.72rem;">{{sp.conf}}%</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div v-show="selectedSpecies.length" class="chart-card">
+          <div class="chart-card-title">{{heatmapTitle}}</div>
+          <div class="daily-heatmap-wrap" style="overflow-x:auto;">
+            <div v-if="heatmapLoading" class="spinner"><div></div><div></div><div></div></div>
+            <div v-else v-html="safeHtml(heatmapHtml)"></div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="!selectedSpecies.length&&!loading" style="padding:3rem;text-align:center;color:var(--text-faint);font-size:.9rem;">
+          &#x1F50D; {{t('analyses_select_prompt')}}
+        </div>
+
+      </div>
+    </div>
+  </div>
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
+        useFilterPeriod, useFilterConfidence,
+        birdQuery, escHtml, safeHtml, fmtDate, fmtTime, localDateStr, daysAgo, fetchSpeciesImage,
+        buildAudioUrl, navigateTo } = BIRDASH;
+
+let _chartPolar     = null;
+let _chartSeries    = null;
+let _chartCircadian = null;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName }      = useNav('analyses');
+    const { playingFile, toggleAudio }= useAudio();
+    const { spName, spNamesReady }   = useSpeciesNames();
+
+    // ── Filtres (composables partagés) ────────────────────────────────────
+    const fp = useFilterPeriod({
+      default: '7d',
+      buttons: ['1d','7d','30d','90d','6m','1y','all'],
+      onChange: () => {}  // apply on button click
+    });
+    const fc = useFilterConfidence({ default: 0.70, onChange: () => {} });
+
+    const resample    = ref('15min');
+
+    const fOrder  = ref('');
+    const fFamily = ref('');
+    const fGuild  = ref('');
+
+    const speciesList     = ref([]);   // all species for the period
+    const selectedSpecies = ref([]);
+    const mainSpecies     = computed(() => selectedSpecies.value[0] || null);
+    const spSearch        = ref('');
+    const pickerOpen      = ref(false);
+    const topN            = ref(10);
+    const loading         = ref(false);
+
+    const kpis            = ref([]);
+    const breakdown       = ref([]);
+    const narrativeHtml   = ref('');
+    const narrativeLoading= ref(false);
+    const heatmapHtml     = ref('');
+    const heatmapLoading  = ref(false);
+    const thumbUrl        = ref(null);
+
+    const elPolar     = ref(null);
+    const elSeries    = ref(null);
+    const elCircadian = ref(null);
+
+    const polarDetail = ref({
+      visible: false, hour: 0, count: 0, pct: 0,
+      quarters: [], qMax: 0, topDets: [], loadingDets: false,
+    });
+    let _byHourCache = null;
+    let _totalDetCache = 0;
+
+    // ── Taxonomy data ──────────────────────────────────────────────────────
+    const taxonomyData = ref([]);
+    const taxonomyOrders = computed(() => {
+      const set = new Set(taxonomyData.value.map(s => s.order).filter(Boolean));
+      return [...set].sort();
+    });
+    const availableFamilies = computed(() => {
+      const map = {};
+      for (const s of taxonomyData.value) {
+        if (s.familySci && !map[s.familySci] && (!fOrder.value || s.order === fOrder.value))
+          map[s.familySci] = { sci: s.familySci, com: s.familyCom };
+      }
+      return Object.values(map).sort((a, b) => a.com.localeCompare(b.com));
+    });
+
+    // Guild options and helpers
+    const GUILDS = BIRDASH_UTILS.ECOLOGICAL_GUILDS;
+    const guildOptions = computed(() => {
+      return Object.keys(GUILDS).filter(k => k !== 'other').concat(['other']).map(key => ({
+        key, icon: GUILDS[key].icon, label: t('guild_' + key)
+      }));
+    });
+
+    function selectGuild(key) {
+      fGuild.value = fGuild.value === key ? '' : key;
+      fOrder.value = ''; fFamily.value = '';
+      // Auto-select all species matching this guild
+      if (fGuild.value) {
+        const matching = filteredSpeciesList.value.map(s => s.name);
+        selectedSpecies.value = matching;
+      }
+    }
+
+    // Set of comNames allowed by current taxonomy + guild filters
+    const taxonomyAllowed = computed(() => {
+      if (!fOrder.value && !fFamily.value && !fGuild.value) return null; // no filter
+      const set = new Set();
+      for (const s of taxonomyData.value) {
+        if (fOrder.value && s.order !== fOrder.value) continue;
+        if (fFamily.value && s.familySci !== fFamily.value) continue;
+        if (fGuild.value) {
+          const guild = BIRDASH_UTILS.getSpeciesGuild(s.order, s.familySci);
+          if (guild !== fGuild.value) continue;
+        }
+        set.add(s.comName);
+      }
+      return set;
+    });
+
+    const filteredSpeciesList = computed(() => {
+      let list = speciesList.value;
+      // Apply taxonomy filter
+      const allowed = taxonomyAllowed.value;
+      if (allowed) list = list.filter(s => allowed.has(s.name));
+      // Apply text search
+      const q = spSearch.value.toLowerCase();
+      if (q) list = list.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        spName(s.name, s.sci).toLowerCase().includes(q) ||
+        (s.sci && s.sci.toLowerCase().includes(q))
+      );
+      return list;
+    });
+
+    // ── Selection context (for smart header) ───────────────────────────────
+    const selCtx = computed(() => {
+      const sel = selectedSpecies.value;
+      if (sel.length === 0) return { type: 'none' };
+      if (sel.length === 1) return { type: 'single', name: sel[0] };
+      const families = new Set(), orders = new Set();
+      for (const name of sel) {
+        const tax = taxonomyData.value.find(t => t.comName === name);
+        if (tax) { families.add(tax.familySci); orders.add(tax.order); }
+      }
+      if (families.size === 1) {
+        const fam = taxonomyData.value.find(t => t.familySci === [...families][0]);
+        return { type: 'family', sci: [...families][0], name: fam ? fam.familyCom : [...families][0], count: sel.length };
+      }
+      if (orders.size === 1) return { type: 'order', name: [...orders][0], count: sel.length };
+      return { type: 'mixed', count: sel.length };
+    });
+
+    const headerTitle = computed(() => {
+      const ctx = selCtx.value;
+      if (ctx.type === 'single') return spName(ctx.name, sciFor(ctx.name));
+      if (ctx.type === 'family') return t('grp_title_family', { name: ctx.name }) + ' · ' + ctx.count + ' ' + t('species').toLowerCase();
+      if (ctx.type === 'order') return t('grp_title_order', { name: ctx.name }) + ' · ' + ctx.count + ' ' + t('species').toLowerCase();
+      if (ctx.type === 'mixed') return ctx.count + ' ' + t('species').toLowerCase();
+      return '';
+    });
+
+    const speciesLabel = computed(() =>
+      t('analyses_period', { from: fmtDate(fp.dateFrom.value), to: fmtDate(fp.dateTo.value) })
+    );
+    const polarTitle = computed(() => {
+      const ctx = selCtx.value;
+      if (ctx.type === 'none') return '';
+      if (ctx.type === 'single') return t('analyses_polar_title', { species: spName(ctx.name, sciFor(ctx.name)) });
+      if (ctx.type === 'family') return t('grp_polar_title', { name: ctx.name });
+      if (ctx.type === 'order') return t('grp_polar_title', { name: ctx.name });
+      return t('analyses_multi_polar', { species: spName(mainSpecies.value, sciFor(mainSpecies.value)) });
+    });
+    const seriesTitle = computed(() => {
+      const ctx = selCtx.value;
+      if (ctx.type === 'none') return '';
+      if (ctx.type === 'single') return t('analyses_series_title', { species: spName(ctx.name, sciFor(ctx.name)) });
+      if (ctx.type === 'family') return t('grp_series_title', { name: ctx.name });
+      if (ctx.type === 'order') return t('grp_series_title', { name: ctx.name });
+      return t('analyses_multi_series', { n: selectedSpecies.value.length });
+    });
+    const heatmapTitle = computed(() => {
+      const ctx = selCtx.value;
+      if (ctx.type === 'none') return '';
+      if (ctx.type === 'single') return t('analyses_heatmap_title', { species: spName(ctx.name, sciFor(ctx.name)) });
+      if (ctx.type === 'family') return t('grp_heatmap_title', { name: ctx.name });
+      if (ctx.type === 'order') return t('grp_heatmap_title', { name: ctx.name });
+      return t('analyses_heatmap_title', { species: selectedSpecies.value.length + ' ' + t('species').toLowerCase() });
+    });
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function sciFor(comName) {
+      const sp = speciesList.value.find(s => s.name === comName);
+      return sp ? sp.sci : '';
+    }
+    function resampleExpr(r) {
+      switch (r) {
+        case 'raw':    return 'COUNT(*) as n';
+        case 'hourly': return "COUNT(DISTINCT Date || SUBSTR(Time,1,2)) as n";
+        case 'daily':  return "COUNT(DISTINCT Date) as n";
+        default:       return "COUNT(DISTINCT Date || SUBSTR(Time,1,2) || CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)) as n";
+      }
+    }
+    function selectedSciNames() {
+      return selectedSpecies.value.map(name => {
+        const sp = speciesList.value.find(s => s.name === name);
+        return sp ? sp.sci : name;
+      }).filter(Boolean);
+    }
+    function sqlInClause(arr) {
+      return arr.map(() => '?').join(',');
+    }
+    function photoUrl(sci) { return sci ? BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sci) : ''; }
+    function zeroPad(n) { return n < 10 ? '0' + n : '' + n; }
+    function fmtTimeFull(t) { return t ? t.substring(0, 5) : '—'; }
+    function toggleAudioFile(fileName) {
+      const url = buildAudioUrl(fileName);
+      if (url) toggleAudio(fileName);
+    }
+
+    // ── Filter actions ─────────────────────────────────────────────────────
+    function onOrderChange() {
+      fFamily.value = ''; fGuild.value = '';
+    }
+    function onFamilyChange() { fGuild.value = ''; }
+
+    function resetDefaults() {
+      fOrder.value = ''; fFamily.value = ''; fGuild.value = '';
+      selectedSpecies.value = [];
+      fp.setPeriod('7d');
+      resample.value = '15min'; fc.confidence.value = 0.70;
+      kpis.value = []; breakdown.value = [];
+      narrativeHtml.value = ''; heatmapHtml.value = '';
+      applyFilters();
+    }
+
+    // ── Species selection ──────────────────────────────────────────────────
+    function toggleSpecies(name) {
+      const idx = selectedSpecies.value.indexOf(name);
+      if (idx >= 0) selectedSpecies.value.splice(idx, 1);
+      else           selectedSpecies.value.push(name);
+      if (selectedSpecies.value.length) loadAnalysis();
+    }
+    function removeTag(name) {
+      selectedSpecies.value = selectedSpecies.value.filter(s => s !== name);
+      if (selectedSpecies.value.length) loadAnalysis();
+      else { kpis.value = []; breakdown.value = []; narrativeHtml.value = ''; heatmapHtml.value = ''; }
+    }
+    function selectTopN() {
+      selectedSpecies.value = filteredSpeciesList.value.slice(0, topN.value).map(s => s.name);
+      pickerOpen.value = false;
+      if (selectedSpecies.value.length) loadAnalysis();
+    }
+    function selectAllFiltered() {
+      selectedSpecies.value = filteredSpeciesList.value.map(s => s.name);
+      pickerOpen.value = false;
+      if (selectedSpecies.value.length) loadAnalysis();
+    }
+    function clearSelection() {
+      selectedSpecies.value = [];
+      kpis.value = []; breakdown.value = [];
+      narrativeHtml.value = ''; heatmapHtml.value = '';
+    }
+
+    const allFiltersSelected = computed(() => filteredSpeciesList.value.length > 0 && selectedSpecies.value.length === filteredSpeciesList.value.length);
+
+    async function applyFilters() {
+      loading.value    = true;
+      pickerOpen.value = false;
+      try {
+        const conf = fc.confidence.value;
+        const expr = resampleExpr(resample.value);
+        const rows = await birdQuery(
+          'SELECT Com_Name, MIN(Sci_Name) as Sci_Name, ' + expr + ' FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC',
+          [fp.dateFrom.value, fp.dateTo.value, conf]
+        );
+        speciesList.value = rows.map(r => ({ name: r.Com_Name, sci: r.Sci_Name || '', n: r.n }));
+        // Auto-select all if none selected, otherwise keep valid selection
+        const available = new Set(rows.map(r => r.Com_Name));
+        if (selectedSpecies.value.length === 0) {
+          selectedSpecies.value = rows.map(r => r.Com_Name);
+        } else {
+          selectedSpecies.value = selectedSpecies.value.filter(s => available.has(s));
+        }
+        if (selectedSpecies.value.length) await loadAnalysis();
+      } catch(e) { console.error('[analyses] applyFilters:', e); }
+      loading.value = false;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  UNIFIED ANALYSIS (works for 1 or N species)
+    // ══════════════════════════════════════════════════════════════════════
+
+    async function loadAnalysis() {
+      if (!selectedSpecies.value.length) return;
+      thumbUrl.value = null;
+      if (selCtx.value.type === 'single') {
+        fetchSpeciesImage(mainSpecies.value).then(u => { if (u) thumbUrl.value = u; });
+      }
+      await Promise.all([loadKpis(), loadPolarChart(), loadSeriesChart(), loadCircadianChart(), loadDailyHeatmap()]);
+    }
+
+    async function loadKpis() {
+      const sciNames = selectedSciNames();
+      if (!sciNames.length) return;
+      const conf = fc.confidence.value;
+      const ph = sqlInClause(sciNames);
+      try {
+        const [r] = await birdQuery(
+          'SELECT COUNT(*) as total, ROUND(AVG(Confidence)*100,1) as avg_conf, COUNT(DISTINCT Com_Name) as sp_count, COUNT(DISTINCT Date) as days FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=?',
+          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
+        );
+        if (!r) return;
+
+        if (selectedSpecies.value.length === 1) {
+          const expr = resampleExpr(resample.value);
+          const [sampled] = await birdQuery(
+            'SELECT ' + expr + ' FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=?',
+            [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
+          );
+          const avgPerDay = r.days > 0 ? (r.total / r.days).toFixed(1) : '—';
+          kpis.value = [
+            { val: r.total.toLocaleString(),            label: t('analyses_kpi_raw'),       cls: ''      },
+            { val: sampled && sampled.n ? sampled.n.toLocaleString() : '—', label: t('analyses_kpi_resampled'), cls: 'amber' },
+            { val: r.avg_conf + '%',                    label: t('analyses_kpi_conf'),      cls: 'blue'  },
+            { val: r.days,                              label: t('analyses_kpi_days'),      cls: ''      },
+            { val: avgPerDay,                           label: t('analyses_kpi_avg_day'),   cls: 'green' },
+          ];
+          breakdown.value = [];
+        } else {
+          const grpAvgPerDay = r.days > 0 ? (r.total / r.days).toFixed(1) : '—';
+          kpis.value = [
+            { val: r.sp_count,                           label: t('grp_kpi_species'),    cls: ''      },
+            { val: r.total.toLocaleString(),             label: t('grp_kpi_detections'), cls: 'amber' },
+            { val: r.avg_conf + '%',                     label: t('grp_kpi_conf'),       cls: 'blue'  },
+            { val: r.days,                               label: t('grp_kpi_days'),       cls: ''      },
+            { val: grpAvgPerDay,                         label: t('grp_kpi_avg_day'),    cls: 'green' },
+          ];
+          // Build breakdown
+          const bdRows = await birdQuery(
+            'SELECT Com_Name, Sci_Name, COUNT(*) as count, ROUND(AVG(Confidence)*100,0) as avg_conf FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY count DESC',
+            [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
+          );
+          const totalCount = bdRows.reduce((s, r) => s + r.count, 0);
+          breakdown.value = bdRows.map(row => {
+            const tax = taxonomyData.value.find(s => s.sciName === row.Sci_Name);
+            return {
+              name: row.Com_Name, sci: row.Sci_Name, count: row.count,
+              pct: totalCount ? Math.round(row.count / totalCount * 100) : 0,
+              conf: row.avg_conf,
+              familyCom: tax ? tax.familyCom : '',
+            };
+          });
+        }
+      } catch(e) { console.error('[analyses] kpis:', e); }
+    }
+
+    async function loadPolarChart() {
+      const sciNames = selectedSciNames();
+      if (!sciNames.length) return;
+      const conf = fc.confidence.value;
+      const ph = sqlInClause(sciNames);
+      narrativeLoading.value = true;
+      polarDetail.value.visible = false;
+      try {
+        const rows = await birdQuery(
+          'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY h ORDER BY h ASC',
+          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
+        );
+        const rowsMin = await birdQuery(
+          'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)*15 as m, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY h, m ORDER BY n DESC',
+          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
+        );
+        const byHour = Array(24).fill(0);
+        rows.forEach(r => { byHour[r.h] = r.n; });
+        const totalDet = byHour.reduce((a,b)=>a+b,0);
+        const maxVal   = Math.max(...byHour) || 1;
+        const peakH    = rowsMin.length ? rowsMin[0].h : byHour.indexOf(maxVal);
+
+        _byHourCache = byHour;
+        _totalDetCache = totalDet;
+
+        await nextTick();
+        const el = elPolar.value;
+        if (!el) { narrativeLoading.value = false; return; }
+        if (_chartPolar) _chartPolar.dispose();
+        _chartPolar = echarts.init(el, null, { renderer: 'canvas', width: 'auto', height: 'auto' });
+        renderPolarChart(_chartPolar, byHour, totalDet, maxVal, peakH);
+
+        _chartPolar.off('click');
+        _chartPolar.on('click', function(params) {
+          if (params.componentType === 'series' && selCtx.value.type === 'single') loadHourDetail(params.dataIndex);
+        });
+
+        narrativeHtml.value = buildNarrative(byHour, rowsMin, totalDet, maxVal, peakH);
+      } catch(e) {
+        console.error('[analyses] polar:', e);
+        narrativeHtml.value = '<p>' + t('narr_no_data') + '</p>';
+      }
+      narrativeLoading.value = false;
+    }
+
+    async function loadHourDetail(h) {
+      const sp   = mainSpecies.value;
+      const conf = fc.confidence.value;
+      const count = (_byHourCache && _byHourCache[h]) || 0;
+      const pct   = _totalDetCache ? Math.round(count / _totalDetCache * 100) : 0;
+      polarDetail.value = { visible: true, hour: h, count, pct, quarters: [], qMax: 0, topDets: [], loadingDets: true };
+      try {
+        const qRows = await birdQuery(
+          'SELECT CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)*15 as m, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? AND CAST(SUBSTR(Time,1,2) AS INTEGER)=? GROUP BY m ORDER BY m ASC',
+          [sp, fp.dateFrom.value, fp.dateTo.value, conf, h]
+        );
+        const qMap = { 0:0, 15:0, 30:0, 45:0 };
+        qRows.forEach(r => { qMap[r.m] = r.n; });
+        const quarters = [0, 15, 30, 45].map(m => ({ m, n: qMap[m] || 0 }));
+        const qMax = Math.max(...quarters.map(q => q.n)) || 1;
+        const topDets = await birdQuery(
+          'SELECT Time, Confidence, File_Name FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? AND CAST(SUBSTR(Time,1,2) AS INTEGER)=? ORDER BY Confidence DESC LIMIT 5',
+          [sp, fp.dateFrom.value, fp.dateTo.value, conf, h]
+        );
+        polarDetail.value = { visible: true, hour: h, count, pct, quarters, qMax, topDets, loadingDets: false };
+      } catch(e) { polarDetail.value.loadingDets = false; }
+    }
+
+    function renderPolarChart(chart, byHour, totalDet, maxVal, peakH) {
+      const sectorColors = byHour.map((v,i) => {
+        const p = v / maxVal;
+        if (i === peakH) return 'rgba(200,168,75,0.95)';
+        if (i === 5 || i === 6 || i === 20 || i === 21) return 'rgba(200,168,75,' + (0.28 + p * 0.55) + ')';
+        if (i >= 6 && i <= 20) return 'rgba(90,158,58,' + (0.22 + p * 0.65) + ')';
+        return 'rgba(74,138,181,' + (0.18 + p * 0.65) + ')';
+      });
+      const labelColors = byHour.map((v, i) => {
+        if (i === peakH) return '#c8a84b';
+        if (i === 5 || i === 6 || i === 19 || i === 20 || i === 21) return '#d4a840';
+        if (i >= 6 && i <= 19) return '#8abf8a';
+        return '#5a7ab5';
+      });
+      chart.setOption({
+        backgroundColor: 'transparent',
+        graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: totalDet.toLocaleString() + '\n' + t('detections').toLowerCase(), textAlign: 'center', fill: '#9abf9a', fontSize: 13, fontFamily: 'Lora, serif', lineHeight: 18 } }],
+        tooltip: { trigger: 'item', backgroundColor: 'rgba(10,20,12,0.92)', borderColor: 'rgba(90,158,58,.4)', borderWidth: 1, textStyle: { color: '#c8e6c0', fontFamily: 'Lora, serif', fontSize: 13 },
+          formatter: function(p) { const pct = totalDet ? Math.round(p.value / totalDet * 100) : 0; return '<b>' + p.name + '</b><br>' + t('analyses_tooltip_det', {n: p.value.toLocaleString(), pct}) + (p.dataIndex === peakH ? '<br>⭐ ' + t('analyses_peak_hour') : ''); }
+        },
+        angleAxis: { type: 'category', data: Array.from({length: 24}, (_, i) => i + 'h'), startAngle: 90, clockwise: true, boundaryGap: false, axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: (val, idx) => labelColors[idx], fontWeight: (val, idx) => idx === peakH ? 'bold' : 'normal', fontSize: 12, fontFamily: 'Lora, serif', margin: 10 }
+        },
+        radiusAxis: { type: 'value', min: 0, max: maxVal, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false }, splitLine: { lineStyle: { color: 'rgba(255,255,255,.06)' } } },
+        polar: { radius: ['6%', '85%'], center: ['50%', '50%'] },
+        series: [{ type: 'bar', coordinateSystem: 'polar', barMaxWidth: '100%',
+          data: byHour.map((v, i) => ({ value: v, name: i + 'h', itemStyle: { color: sectorColors[i], borderRadius: [2, 2, 0, 0] } })),
+          emphasis: { itemStyle: { opacity: 1, borderColor: '#c8a84b', borderWidth: 1 } }
+        }]
+      });
+    }
+
+    function buildNarrative(byHour, rowsMin, totalDet, maxVal, peakH) {
+      if (!totalDet) return '<p>'+t('narr_no_data')+'</p>';
+      const ctx = selCtx.value;
+      const chip = (v,cls) => '<span class="stat-chip '+(cls||'')+'">'+v+'</span>';
+      const from = fmtDate(fp.dateFrom.value), to = fmtDate(fp.dateTo.value);
+
+      let html = '';
+      // Multi-species group intro
+      if (ctx.type !== 'single' && ctx.type !== 'none') {
+        const label = ctx.name || (ctx.count + ' ' + t('species').toLowerCase());
+        html += '<p>' + t('grp_narr_period', {
+          from: chip(from,'amber'), to: chip(to,'amber'),
+          name: '<strong>'+escHtml(label)+'</strong>',
+          species: chip(selectedSpecies.value.length),
+          total: chip(totalDet.toLocaleString())
+        }) + '</p>';
+        if (breakdown.value.length) {
+          const dom = breakdown.value[0];
+          html += '<p>' + t('grp_narr_dominant', { species: escHtml(spName(dom.name, dom.sci)), pct: dom.pct }) + '</p>';
+        }
+        html += '<p>' + t('grp_narr_peak', { time: chip(peakH + 'h') }) + '</p>';
+        return html;
+      }
+
+      // Single species narrative
+      const sp = mainSpecies.value;
+      const threshold = maxVal*0.10;
+      const peakM = rowsMin.length ? rowsMin[0].m : 0;
+      const peakLabel = zeroPad(peakH)+'h'+(peakM>0?zeroPad(peakM):'');
+      let startH=-1, endH=-1;
+      for (let h=0; h<24; h++) { if (byHour[h]>=threshold) { startH=h; break; } }
+      for (let h=23; h>=0; h--) { if (byHour[h]>=threshold) { endH=h; break; } }
+      let startLabel = startH>=0 ? zeroPad(startH)+'h' : '—';
+      let endLabel   = endH>=0   ? zeroPad(endH)+'h' : '—';
+      if (rowsMin.length) {
+        const ss = rowsMin.filter(r => r.h===startH).sort((a,b) => a.m-b.m);
+        const es = rowsMin.filter(r => r.h===endH).sort((a,b) => b.m-a.m);
+        if (ss.length) startLabel = zeroPad(startH)+'h'+(ss[0].m>0?zeroPad(ss[0].m):'');
+        if (es.length) endLabel   = zeroPad(endH)+'h'+(es[0].m>0?zeroPad(es[0].m):'');
+      }
+      const durationH = endH-startH;
+      const durLabel  = t(durationH>0?'narr_duration':'narr_duration_short',{n:durationH});
+      let habitKey;
+      if      (peakH>=5 &&peakH<=9)  habitKey='narr_habit_morning';
+      else if (peakH>=10&&peakH<=14) habitKey='narr_habit_midday';
+      else if (peakH>=15&&peakH<=19) habitKey='narr_habit_afternoon';
+      else if (peakH>=20||peakH<=4)  habitKey='narr_habit_night';
+      else                            habitKey='narr_habit_day';
+      const sorted2 = byHour.map((v,h)=>({h,v})).filter(x=>x.h!==peakH&&x.v>=maxVal*0.40).sort((a,b)=>b.v-a.v);
+      const secondaryLabel = sorted2.length ? zeroPad(sorted2[0].h)+'h' : null;
+      const peakPct  = Math.round(byHour[peakH]/totalDet*100);
+      const nightDet = byHour.slice(21).concat(byHour.slice(0,5)).reduce((a,b)=>a+b,0);
+      const nightPct = Math.round(nightDet/totalDet*100);
+      const spDisplay = spName(sp, sciFor(sp));
+      html += '<p>'+t('narr_period',{from:chip(from,'amber'),to:chip(to,'amber')})
+        +' <strong>'+escHtml(spDisplay)+'</strong> '+t('narr_is')+' <em>'+t(habitKey)+'</em>.'
+        +' '+t('narr_peak_at',{time:chip(peakLabel),pct:chip(peakPct+'%')})+'</p>';
+      if (startH>=0&&endH>=0) html += '<p>'+t('narr_activity_range',{start:chip(startLabel),end:chip(endLabel),duration:chip(durLabel,'blue')})+'</p>';
+      if (secondaryLabel) html += '<p>'+t('narr_second_peak',{time:chip(secondaryLabel)})+'</p>';
+      else if (nightPct>10) html += '<p>'+t('narr_night_pct',{pct:chip(nightPct+'%','amber')})+'</p>';
+      html += '<p style="margin-top:.3rem;font-size:.78rem;color:var(--text-muted);">'+t('narr_total',{n:'<strong>'+totalDet.toLocaleString()+'</strong>',h:'<strong>'+byHour.filter(v=>v>0).length+'</strong>'})+'</p>';
+      return html;
+    }
+
+    async function loadSeriesChart() {
+      const species = selectedSpecies.value;
+      const conf    = fc.confidence.value;
+      if (!species.length) return;
+      const PALETTE = ['#4a8ab5','#5a9e3a','#c8a84b','#e06c4a','#9a5eb5','#2ab8c8','#d45a8a','#7a9e3a','#d4a040','#5a7ad4'];
+      try {
+        const daysDiff = (new Date(fp.dateTo.value)-new Date(fp.dateFrom.value))/86400000;
+        const byMonth  = resample.value==='daily' ? false : daysDiff>90;
+        let labels = [];
+
+        // For many species (>10) from same order: group by family
+        const ctx = selCtx.value;
+        const groupByFamily = species.length > 10 && (ctx.type === 'order' || ctx.type === 'family');
+        let datasets;
+
+        if (groupByFamily) {
+          // Group species by family
+          const famGroups = {};
+          for (const name of species) {
+            const tax = taxonomyData.value.find(t => t.comName === name);
+            const key = tax ? tax.familySci : 'other';
+            const label = tax ? tax.familyCom : 'Other';
+            if (!famGroups[key]) famGroups[key] = { label, sciNames: [] };
+            const sp = speciesList.value.find(s => s.name === name);
+            if (sp) famGroups[key].sciNames.push(sp.sci);
+          }
+          const families = Object.values(famGroups);
+          const dsPromises = families.map((fam, idx) => (async () => {
+            const fph = sqlInClause(fam.sciNames);
+            let data;
+            if (!byMonth) {
+              const rows = await birdQuery('SELECT Date, COUNT(*) as n FROM detections WHERE Sci_Name IN ('+fph+') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC', [...fam.sciNames, fp.dateFrom.value, fp.dateTo.value, conf]);
+              const map = {}; rows.forEach(r => { map[r.Date] = r.n; });
+              if (idx === 0) { labels = []; let cur=new Date(fp.dateFrom.value), end=new Date(fp.dateTo.value); while(cur<=end){ labels.push(cur.getDate()+' '+t('months_short')[cur.getMonth()]+' '+cur.getFullYear().toString().slice(2)); cur.setDate(cur.getDate()+1); } }
+              data = []; let cur2=new Date(fp.dateFrom.value), end2=new Date(fp.dateTo.value); while(cur2<=end2){ data.push(map[cur2.toISOString().slice(0,10)]||0); cur2.setDate(cur2.getDate()+1); }
+            } else {
+              const rows = await birdQuery('SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM detections WHERE Sci_Name IN ('+fph+') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC', [...fam.sciNames, fp.dateFrom.value, fp.dateTo.value, conf]);
+              if (idx === 0) labels = rows.map(r => { const p=r.ym.split('-'); return t('months_short')[parseInt(p[1])-1]+' '+p[0].slice(2); });
+              data = rows.map(r => r.n);
+            }
+            const hex = PALETTE[idx%PALETTE.length]; const rr=parseInt(hex.slice(1,3),16),gg=parseInt(hex.slice(3,5),16),bb=parseInt(hex.slice(5,7),16);
+            return { label: fam.label, data, backgroundColor:'rgba('+rr+','+gg+','+bb+',.35)', borderColor:hex, borderWidth:1.5, pointRadius:byMonth?2:0, tension:0.3, fill:false };
+          })());
+          datasets = await Promise.all(dsPromises);
+        } else {
+          // Per-species lines/bars
+          const dsPromises = species.map((sp, idx) => (async () => {
+            let data;
+            if (!byMonth) {
+              const rows = await birdQuery('SELECT Date, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC', [sp, fp.dateFrom.value, fp.dateTo.value, conf]);
+              const map = {}; rows.forEach(r => { map[r.Date] = r.n; });
+              if (idx === 0) { labels = []; let cur=new Date(fp.dateFrom.value), end=new Date(fp.dateTo.value); while(cur<=end){ labels.push(cur.getDate()+' '+t('months_short')[cur.getMonth()]+' '+cur.getFullYear().toString().slice(2)); cur.setDate(cur.getDate()+1); } }
+              data = []; let cur2=new Date(fp.dateFrom.value), end2=new Date(fp.dateTo.value); while(cur2<=end2){ data.push(map[cur2.toISOString().slice(0,10)]||0); cur2.setDate(cur2.getDate()+1); }
+            } else {
+              const rows = await birdQuery('SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC', [sp, fp.dateFrom.value, fp.dateTo.value, conf]);
+              if (idx === 0) labels = rows.map(r => { const p=r.ym.split('-'); return t('months_short')[parseInt(p[1])-1]+' '+p[0].slice(2); });
+              data = rows.map(r => r.n);
+            }
+            const isSingle = species.length===1;
+            const hex = PALETTE[idx%PALETTE.length]; const rr=parseInt(hex.slice(1,3),16),gg=parseInt(hex.slice(3,5),16),bb=parseInt(hex.slice(5,7),16);
+            return { label: spName(sp, sciFor(sp)), data, backgroundColor:isSingle&&!byMonth?'rgba(74,138,181,.40)':'rgba('+rr+','+gg+','+bb+',.35)', borderColor:hex, borderWidth:isSingle&&!byMonth?1:1.5, borderRadius:!byMonth?2:0, fill:byMonth&&isSingle, pointRadius:!byMonth?0:(isSingle?2:1.5), tension:0.3 };
+          })());
+          datasets = await Promise.all(dsPromises);
+        }
+
+        await nextTick();
+        const canvas = elSeries.value; if (!canvas) return;
+        if (_chartSeries) _chartSeries.destroy();
+        const multi = species.length > 1 || groupByFamily;
+        _chartSeries = new Chart(canvas.getContext('2d'), {
+          type: byMonth||multi ? 'line' : 'bar',
+          data: { labels, datasets },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            interaction:{mode:'index',intersect:false},
+            plugins:{
+              legend:{display:multi,labels:{color:'var(--text-muted)',font:{family:'Lora',size:11},boxWidth:12}},
+              tooltip:{callbacks:{label:c => ' '+c.dataset.label+' : '+c.raw.toLocaleString()+' '+t('detections').toLowerCase()}}
+            },
+            scales:{
+              x:{ticks:{maxTicksLimit:18,color:'#7a9a7a',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},
+              y:{beginAtZero:true,ticks:{color:'#7a9a7a',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}}
+            }
+          }
+        });
+      } catch(e) { console.error('[analyses] series:', e); }
+    }
+
+    async function loadCircadianChart() {
+      const species = selectedSpecies.value;
+      if (species.length < 2) return;
+      const conf = fc.confidence.value;
+      const COLORS = BIRD_CONFIG.chartColors;
+      try {
+        const dsPromises = species.map((sp, idx) => (async () => {
+          const rows = await birdQuery(
+            'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date BETWEEN ? AND ? AND Confidence>=? GROUP BY hour',
+            [sp, fp.dateFrom.value, fp.dateTo.value, conf]
+          );
+          const byHour = Array(24).fill(0);
+          rows.forEach(r => { byHour[r.hour] = r.n; });
+          const hex = COLORS[idx % COLORS.length];
+          const rr = parseInt(hex.slice(1, 3), 16), gg = parseInt(hex.slice(3, 5), 16), bb = parseInt(hex.slice(5, 7), 16);
+          return {
+            label: spName(sp, sciFor(sp)),
+            data: byHour,
+            borderColor: hex,
+            backgroundColor: 'rgba(' + rr + ',' + gg + ',' + bb + ',.15)',
+            borderWidth: 2,
+            pointRadius: 2,
+            tension: 0.35,
+            fill: false,
+          };
+        })());
+        const datasets = await Promise.all(dsPromises);
+        await nextTick();
+        const canvas = elCircadian.value;
+        if (!canvas) return;
+        if (_chartCircadian) _chartCircadian.destroy();
+        _chartCircadian = new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: Array.from({ length: 24 }, (_, i) => i + 'h'),
+            datasets,
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: true, labels: { color: 'var(--text-muted)', font: { family: 'Lora', size: 11 }, boxWidth: 12 } },
+              tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ' : ' + c.raw.toLocaleString() + ' ' + t('detections').toLowerCase() } },
+            },
+            scales: {
+              x: { title: { display: true, text: t('hour') || 'Hour', color: '#7a9a7a', font: { size: 10 } }, ticks: { color: '#7a9a7a', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,.03)' } },
+              y: { beginAtZero: true, ticks: { color: '#7a9a7a', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+            },
+          },
+        });
+      } catch (e) { console.error('[analyses] circadian:', e); }
+    }
+
+    async function loadDailyHeatmap() {
+      const sciNames = selectedSciNames();
+      if (!sciNames.length) return;
+      const conf = fc.confidence.value;
+      const ph = sqlInClause(sciNames);
+      heatmapLoading.value = true;
+      try {
+        const daysDiff = (new Date(fp.dateTo.value)-new Date(fp.dateFrom.value))/86400000;
+        const from = daysDiff > 120 ? daysAgo(89) : fp.dateFrom.value;
+        const rows = await birdQuery(
+          'SELECT Date, CAST(SUBSTR(Time,1,2) AS INTEGER)*4+CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER) as slot, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date, slot ORDER BY Date ASC, slot ASC',
+          [...sciNames, from, fp.dateTo.value, conf]
+        );
+        if (!rows.length) {
+          heatmapHtml.value = '<p style="color:var(--text-faint);font-size:.8rem;padding:.5rem;">' + t('analyses_no_data_period') + '</p>';
+          heatmapLoading.value = false; return;
+        }
+        const datesSet = new Set(rows.map(r => r.Date));
+        const dates = Array.from(datesSet).sort();
+        const grid = {};
+        rows.forEach(r => { if (!grid[r.Date]) grid[r.Date] = {}; grid[r.Date][r.slot] = (grid[r.Date][r.slot]||0) + r.n; });
+        const maxV = Math.max(...rows.map(r => r.n));
+        function heatClass(v) { if(!v) return 'dhm-0'; const p=v/maxV; if(p<.15) return 'dhm-1'; if(p<.35) return 'dhm-2'; if(p<.60) return 'dhm-3'; if(p<.85) return 'dhm-4'; return 'dhm-5'; }
+        const displayDates = dates.slice(-60);
+        const use12h = lang.value === 'en';
+        let html = '<table class="dhm-table"><thead><tr><th style="text-align:left;min-width:55px;">'+t('date')+'</th>';
+        for (let h=0;h<24;h++) { const lbl=use12h?(h===0?'12a':h<12?h+'a':h===12?'12p':(h-12)+'p'):h+'h'; html+='<th style="'+(h%3===0?'':'color:transparent;')+'">'+lbl+'</th>'; }
+        html += '</tr></thead><tbody>';
+        displayDates.forEach(date => {
+          const d=new Date(date); const mo=t('months_short')[d.getMonth()];
+          html += '<tr><th style="text-align:left;color:var(--text-muted);font-weight:400;padding-right:.4rem;">'+d.getDate()+' '+mo+'</th>';
+          for (let h=0;h<24;h++) { let total=0; for(let s=0;s<4;s++) total+=(grid[date]&&grid[date][h*4+s])||0; html+='<td class="'+heatClass(total)+'" title="'+(total?date+' '+zeroPad(h)+'h : '+total:'')+'"></td>'; }
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+        if (dates.length > 60) html = '<p style="font-size:.72rem;color:var(--text-faint);margin-bottom:.3rem;">'+t('analyses_last_60d',{total:dates.length})+'</p>'+html;
+        heatmapHtml.value = html;
+      } catch(e) { console.error('[analyses-heatmap]',e); heatmapHtml.value='<div class="error-msg">'+t('error')+'</div>'; }
+      heatmapLoading.value = false;
+    }
+
+    // ── Watchers ───────────────────────────────────────────────────────────
+    watch(lang, async () => {
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      taxonomyData.value = tax.species || [];
+      if (selectedSpecies.value.length) loadAnalysis();
+    });
+
+    function onResize() { if (_chartPolar) _chartPolar.resize(); }
+
+    const spSearchInput = ref(null);
+    function onKeydown(e) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        pickerOpen.value = true;
+        nextTick(() => { if (spSearchInput.value) spSearchInput.value.focus(); });
+      }
+    }
+
+    onMounted(async () => {
+      document.addEventListener('keydown', onKeydown);
+      const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
+      taxonomyData.value = tax.species || [];
+      await applyFilters();
+      window.addEventListener('resize', onResize);
+    });
+    async function exportCsv() {
+      const sciNames = selectedSciNames();
+      if (!sciNames.length) return;
+      const conf = fc.confidence.value;
+      const ph = sqlInClause(sciNames);
+      try {
+        const data = await birdQuery(
+          'SELECT Date, Time, Com_Name, Sci_Name, ROUND(Confidence*100,1) as Confidence FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? ORDER BY Date DESC, Time DESC LIMIT 10000',
+          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
+        );
+        if (!data.length) return;
+        const headers = ['Date','Time','Species','Scientific_Name','Confidence'];
+        const csvRows = [headers.join(',')];
+        for (const r of data) {
+          csvRows.push([
+            r.Date, r.Time,
+            '"' + (r.Com_Name || '').replace(/"/g, '""') + '"',
+            '"' + (r.Sci_Name || '').replace(/"/g, '""') + '"',
+            r.Confidence + '%'
+          ].join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'birdash-analyses-' + localDateStr() + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { console.error('[export]', e); }
+    }
+
+    onUnmounted(() => {
+      document.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('resize', onResize);
+      if (_chartPolar)     { _chartPolar.dispose(); _chartPolar = null; }
+      if (_chartSeries)    { _chartSeries.destroy(); _chartSeries = null; }
+      if (_chartCircadian) { _chartCircadian.destroy(); _chartCircadian = null; }
+    });
+
+    return {
+      lang, t, spName, sciFor,
+      fp, fc, resample,
+      fOrder, fFamily, fGuild, guildOptions, selectGuild, taxonomyOrders, availableFamilies, onOrderChange, onFamilyChange,
+      speciesList, selectedSpecies, mainSpecies, spSearch, spSearchInput, pickerOpen, topN,
+      filteredSpeciesList, selCtx, headerTitle,
+      loading, kpis, breakdown, narrativeHtml, narrativeLoading, heatmapHtml, heatmapLoading, safeHtml,
+      navigateTo, thumbUrl, elPolar, elSeries, elCircadian, polarDetail,
+      speciesLabel, polarTitle, seriesTitle, heatmapTitle,
+      playingFile, fmtTime, zeroPad, fmtTimeFull, toggleAudioFile, photoUrl,
+      resetDefaults, applyFilters, toggleSpecies, removeTag, selectTopN, selectAllFiltered, clearSelection, allFiltersSelected, exportCsv,
+    };
+  }
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

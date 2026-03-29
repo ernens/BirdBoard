@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <title>BIRDASH — Système</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+  <style>
+    .sys-tabs{display:flex;gap:.25rem;padding:.25rem;background:var(--bg-card2);border-radius:.5rem;margin-bottom:1.25rem;overflow-x:auto;}
+    .sys-tab-btn{display:flex;align-items:center;gap:.35rem;padding:.5rem .9rem;border:none;background:transparent;color:var(--text-muted);font-size:.82rem;font-family:inherit;cursor:pointer;border-radius:.4rem;transition:all .2s;white-space:nowrap;}
+    .sys-tab-btn:hover{background:var(--bg-card);color:var(--text-main);}
+    .sys-tab-btn.active{background:var(--bg-card);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+    .sys-tab-icon{font-size:1rem;}
+    .sys-tab-label{font-size:.78rem;}
+
+    .health-bar{flex:1;height:8px;background:var(--bg-card2);border-radius:4px;overflow:hidden;min-width:80px;}
+    .health-fill{height:100%;border-radius:4px;transition:width .4s;}
+    .health-fill.bar-ok{background:var(--accent);}
+    .health-fill.bar-warn{background:var(--warning);}
+    .health-fill.bar-danger{background:var(--danger);}
+    .health-pct{font-size:.75rem;font-family:monospace;min-width:36px;text-align:right;}
+
+    .svc-card{border:1px solid var(--border);border-radius:.4rem;margin-bottom:.5rem;overflow:hidden;}
+    .svc-header{display:flex;align-items:center;gap:.5rem;padding:.5rem .65rem;cursor:pointer;transition:background .15s;}
+    .svc-header:hover{background:var(--bg-card2);}
+    .svc-name{flex:1;font-size:.82rem;font-weight:600;color:var(--text-main);}
+    .svc-state-badge{font-size:.68rem;padding:.12rem .4rem;border-radius:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+    .svc-active{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);}
+    .svc-failed{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
+    .svc-inactive,.svc-dead,.svc-stopped{background:var(--bg-card2);color:var(--text-faint);}
+    .svc-chevron{font-size:.6rem;color:var(--text-faint);transition:transform .2s;display:inline-block;}
+    .svc-chevron.open{transform:rotate(90deg);}
+    .svc-detail{padding:.65rem;border-top:1px solid var(--border);background:var(--bg-deep);}
+    .svc-info-grid{display:flex;flex-wrap:wrap;gap:.75rem;font-size:.78rem;color:var(--text-muted);margin-bottom:.65rem;}
+    .svc-actions{display:flex;gap:.4rem;margin-bottom:.65rem;}
+    .svc-btn{padding:.25rem .55rem;border:1px solid var(--border);border-radius:.3rem;font-size:.72rem;font-family:inherit;cursor:pointer;background:var(--bg-card);color:var(--text-main);transition:all .15s;}
+    .svc-btn:disabled{opacity:.4;cursor:not-allowed;}
+    .svc-btn-start:not(:disabled):hover{border-color:var(--accent);color:var(--accent);}
+    .svc-btn-stop:not(:disabled):hover{border-color:var(--danger);color:var(--danger);}
+    .svc-btn-restart:not(:disabled):hover{border-color:var(--warning);color:var(--warning);}
+    .svc-logs{max-height:200px;overflow-y:auto;}
+    .svc-logs pre{font-size:.68rem;line-height:1.45;color:var(--text-muted);margin:0;white-space:pre-wrap;word-break:break-all;}
+  </style>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="system" :title="t('nav_system')">
+
+    <!-- ── Tab Navigation ──────────────────────────────────────── -->
+    <div class="sys-tabs">
+      <button v-for="tab in tabs" :key="tab.id"
+              class="sys-tab-btn" :class="{active: activeTab === tab.id}"
+              @click="switchTab(tab.id)">
+        <span class="sys-tab-icon">{{tab.icon}}</span>
+        <span class="sys-tab-label">{{tab.label || t(tab.labelKey)}}</span>
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 1: HEALTH
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='health'">
+
+      <div class="grid-2">
+
+        <!-- System Health -->
+        <div class="card">
+          <div class="card-title">{{t('sys_health_title')}}</div>
+          <div v-if="health.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="health.error" class="error-msg">{{health.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_cpu')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                <div class="health-bar"><div class="health-fill" :style="{width: health.cpu.usage+'%'}" :class="barColor(health.cpu.usage)"></div></div>
+                <span class="health-pct">{{health.cpu.usage}}%</span>
+              </span>
+            </div>
+            <div class="sys-row" style="padding-left:1rem;">
+              <span class="sys-label" style="font-size:.72rem;color:var(--text-faint);">Cores</span>
+              <span class="sys-value" style="font-size:.75rem;">{{health.cpu.cores}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_ram')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                <div class="health-bar"><div class="health-fill" :style="{width: health.ram.pct+'%'}" :class="barColor(health.ram.pct)"></div></div>
+                <span class="health-pct">{{health.ram.pct}}%</span>
+              </span>
+            </div>
+            <div class="sys-row" style="padding-left:1rem;">
+              <span class="sys-label" style="font-size:.72rem;color:var(--text-faint);">{{fmtBytes(health.ram.used)}} / {{fmtBytes(health.ram.total)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_disk')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                <div class="health-bar"><div class="health-fill" :style="{width: health.disk.pct+'%'}" :class="barColor(health.disk.pct)"></div></div>
+                <span class="health-pct">{{health.disk.pct}}%</span>
+              </span>
+            </div>
+            <div class="sys-row" style="padding-left:1rem;">
+              <span class="sys-label" style="font-size:.72rem;color:var(--text-faint);">{{fmtBytes(health.disk.used)}} / {{fmtBytes(health.disk.total)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_temp')}}</span>
+              <span class="sys-value" :style="{color: health.temp > 70 ? 'var(--danger)' : health.temp > 55 ? 'var(--warning)' : 'var(--accent)'}">
+                {{health.temp}}°C
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_uptime')}}</span>
+              <span class="sys-value">{{fmtUptime(health.uptime)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_load')}}</span>
+              <span class="sys-value" style="font-family:monospace;font-size:.78rem;">{{health.loadAvg}}</span>
+            </div>
+            <!-- API status merged -->
+            <div class="sys-row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border);">
+              <span class="sys-label">{{t('sys_api_label')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span v-if="api.error" class="status-dot dot-err"></span>
+                <span v-else class="status-dot dot-ok"></span>
+                {{api.error ? t('api_error') : t('api_ok')}}
+              </span>
+            </div>
+            <div v-if="!api.error" class="sys-row">
+              <span class="sys-label">{{t('sys_latency')}}</span>
+              <span class="sys-value">{{api.latency}} ms</span>
+            </div>
+            <div v-if="!api.error" class="sys-row">
+              <span class="sys-label">{{t('db_total')}}</span>
+              <span class="sys-value">{{api.total ? api.total.toLocaleString() : '—'}}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Services Manager -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
+            <div class="card-title" style="margin:0;">{{t('sys_services_title')}}</div>
+            <span v-if="services.refreshAt" style="font-size:.65rem;color:var(--text-faint);">{{services.refreshAt}}</span>
+          </div>
+          <div v-if="services.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="services.error" class="error-msg">{{services.error}}</div>
+          <div v-else-if="!services.list.length" style="font-size:.82rem;color:var(--text-muted);">{{t('sys_no_data')}}</div>
+          <div v-else>
+            <div v-for="svc in services.list" :key="svc.name" class="svc-card">
+              <div class="svc-header" @click="toggleSvc(svc.name)">
+                <span class="status-dot" :class="svcDotClass(svc.state)"></span>
+                <span class="svc-name">{{svcLabel(svc.name)}}</span>
+                <span style="font-size:.62rem;color:var(--text-faint);margin-left:.3rem;">{{svc.name}}</span>
+                <span v-if="svc.pid" style="font-size:.62rem;color:var(--text-faint);font-family:monospace;">PID {{svc.pid}}</span>
+                <span v-if="svc.memory > 0" style="font-size:.62rem;color:var(--text-faint);font-family:monospace;">{{fmtBytes(svc.memory)}}</span>
+                <span v-if="svc.uptime > 0" style="font-size:.62rem;color:var(--text-faint);font-family:monospace;">{{fmtUptime(svc.uptime)}}</span>
+                <span class="svc-state-badge" :class="'svc-'+svc.state">{{svc.state}}</span>
+                <span class="svc-chevron" :class="{open: svcExpanded===svc.name}">&#9654;</span>
+              </div>
+              <div v-if="svcExpanded===svc.name && svcDetail" class="svc-detail">
+                <div class="svc-info-grid">
+                  <div>PID: {{svcDetail.pid || '—'}}</div>
+                  <div>RAM: {{fmtBytes(svcDetail.memory)}}</div>
+                  <div>Uptime: {{fmtUptime(svcDetail.uptime)}}</div>
+                </div>
+                <div class="svc-actions">
+                  <button class="svc-btn svc-btn-start" @click.stop="svcAction(svc.name,'start')" :disabled="svc.state==='active'">&#9654; Start</button>
+                  <button class="svc-btn svc-btn-stop" @click.stop="confirmStop(svc.name)" :disabled="svc.state!=='active'">&#9209; Stop</button>
+                  <button class="svc-btn svc-btn-restart" @click.stop="svcAction(svc.name,'restart')">&#128260; Restart</button>
+                </div>
+                <div v-if="svcDetail.logs && svcDetail.logs.length" class="svc-logs">
+                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);margin-bottom:.3rem;">{{t('sys_svc_logs')}}</div>
+                  <pre>{{svcDetail.logs.join('\n')}}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="grid-2">
+
+        <!-- Analysis Status -->
+        <div class="card">
+          <div class="card-title">{{t('sys_analysis_title')}}</div>
+          <div v-if="analysis.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="analysis.error" class="error-msg">{{analysis.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_model_active')}}</span>
+              <span class="sys-value" style="font-weight:600;color:var(--accent);">{{analysis.modelLabel}}</span>
+            </div>
+            <div v-if="analysis.secondaryLabel" class="sys-row">
+              <span class="sys-label">Modèle secondaire</span>
+              <span class="sys-value">{{analysis.secondaryLabel}} <span style="opacity:.6;">({{analysis.secondaryInference || '—'}})</span></span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_backlog')}}</span>
+              <span class="sys-value">{{analysis.backlog}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_lag')}}</span>
+              <span class="sys-value" :style="{color: analysis.lag > 120 ? 'var(--danger)' : analysis.lag > 30 ? 'var(--warning)' : 'var(--accent)'}">
+                {{analysis.lag < 60 ? analysis.lag + 's' : analysis.lag < 3600 ? Math.round(analysis.lag/60) + ' min' : Math.round(analysis.lag/3600) + 'h'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_inference')}}</span>
+              <span class="sys-value">{{analysis.inferenceSpeed}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">Confidence</span>
+              <span class="sys-value">{{analysis.confidenceThreshold}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">Sensitivity</span>
+              <span class="sys-value">{{analysis.sensitivity}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">SF_THRESH</span>
+              <span class="sys-value">{{analysis.sfThresh}}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Audio Device -->
+        <div class="card">
+          <div class="card-title">{{t('sys_audio_title')}}</div>
+          <div v-if="audio.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="audio.error" class="error-msg">{{audio.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_rec_card')}}</span>
+              <span class="sys-value">{{audio.card || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_channels')}}</span>
+              <span class="sys-value">{{audio.channels || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_format')}}</span>
+              <span class="sys-value">{{audio.format || '—'}}</span>
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+      <div class="grid-2">
+
+        <!-- Backup Status -->
+        <div class="card">
+          <div class="card-title">{{t('sys_backup_title')}}</div>
+          <div v-if="backup.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="backup.error" class="error-msg">{{backup.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_nfs_mount')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span class="status-dot" :class="backup.nfsMounted ? 'dot-ok' : 'dot-err'"></span>
+                {{backup.nfsMounted ? 'OK' : 'Not mounted'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_last_backup')}}</span>
+              <span class="sys-value">{{backup.lastBackup || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_backup_size')}}</span>
+              <span class="sys-value">{{backup.size || '—'}}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Network -->
+        <div class="card">
+          <div class="card-title">{{t('sys_network_title')}}</div>
+          <div v-if="network.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="network.error" class="error-msg">{{network.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_hostname')}}</span>
+              <span class="sys-value">{{network.hostname || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_ip')}}</span>
+              <span class="sys-value" style="font-family:monospace;font-size:.78rem;">{{network.ip || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_nas_ping')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span class="status-dot" :class="network.nasPing ? 'dot-ok' : 'dot-err'"></span>
+                <span v-if="network.nasPing">{{network.nasLatency}} {{t('sys_latency_ms')}}</span>
+                <span v-else>Unreachable</span>
+              </span>
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+      <div class="grid-2">
+        <!-- Data Freshness -->
+        <div class="card">
+          <div class="card-title">{{t('data_freshness')}}</div>
+          <div v-if="fresh.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="fresh.error" class="error-msg">{{fresh.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_last_det')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;gap:.4rem;">
+                {{fresh.icon}} {{fresh.species || '—'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_date_time')}}</span>
+              <span class="sys-value">{{fresh.datetime}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('data_freshness')}}</span>
+              <span class="sys-value">{{freshnessLabel(fresh.date, fresh.time, t)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_det_today')}}</span>
+              <span class="sys-value" style="color:var(--accent);">
+                {{fresh.today ? fresh.today.toLocaleString() : '0'}}
+              </span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_det_yesterday')}}</span>
+              <span class="sys-value">{{fresh.yesterday ? fresh.yesterday.toLocaleString() : '0'}}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Hardware -->
+        <div class="card">
+          <div class="card-title">{{t('sys_hardware_title')}}</div>
+          <div v-if="hw.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="hw.error" class="error-msg">{{hw.error}}</div>
+          <template v-else>
+            <!-- Pi model -->
+            <div class="hw-item">
+              <span class="hw-icon">🍓</span>
+              <div class="hw-info">
+                <div class="hw-name">{{hw.piModel || 'Raspberry Pi'}}</div>
+                <div class="hw-detail">CPU {{hw.cpuFreq}} MHz · RAM {{fmtBytes(hw.ramTotal)}}</div>
+              </div>
+            </div>
+            <!-- Disks -->
+            <div v-for="d in hw.disks" :key="d.name" class="hw-item">
+              <span class="hw-icon">💾</span>
+              <div class="hw-info">
+                <div class="hw-name">{{d.model || d.name}}</div>
+                <div class="hw-detail">/dev/{{d.name}} · {{fmtBytes(d.size)}} · {{d.transport.toUpperCase()}}
+                  <span v-if="d.mounts.length"> · {{d.mounts.join(', ')}}</span>
+                </div>
+              </div>
+              <span class="hw-badge">{{d.transport}}</span>
+            </div>
+            <!-- Sound cards -->
+            <div v-for="sc in hw.soundCards" :key="sc.id" class="hw-item">
+              <span class="hw-icon">🎙️</span>
+              <div class="hw-info">
+                <div class="hw-name">{{sc.name}}</div>
+                <div class="hw-detail">Card #{{sc.id}} · {{sc.shortName}}</div>
+              </div>
+            </div>
+            <!-- USB devices -->
+            <div v-for="u in hw.usbDevices" :key="u.id" class="hw-item">
+              <span class="hw-icon">🔌</span>
+              <div class="hw-info">
+                <div class="hw-name">{{u.name}}</div>
+                <div class="hw-detail">{{u.id}} · Bus {{u.bus}}</div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 2: MODEL
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='model'">
+
+      <!-- Model Performance Monitor -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <div class="card-title" style="margin:0;">&#129302; {{t('mod_title')}}</div>
+          <div class="fp-quick-btns">
+            <button v-for="p in modPeriods" :key="p.val"
+                    class="fp-quick-btn" :class="{active:modPeriod===p.val}"
+                    @click="modPeriod=p.val;loadModelMonitor()">{{p.label}}</button>
+          </div>
+        </div>
+
+        <div v-if="mod.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="mod.error" class="error-msg">{{mod.error}}</div>
+        <template v-else>
+          <!-- Model name badge -->
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;">
+            <span style="font-size:.75rem;color:var(--text-muted);">{{t('mod_current')}} :</span>
+            <span style="font-size:.8rem;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);
+                         padding:.2rem .6rem;border-radius:.3rem;">
+              {{mod.modelLabel}}
+            </span>
+          </div>
+
+          <!-- KPIs row -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-value">{{mod.totalDet?.toLocaleString() || '0'}}</div>
+              <div class="kpi-label">{{t('mod_detections')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value amber">{{mod.uniqueSpecies || '0'}}</div>
+              <div class="kpi-label">{{t('mod_species')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value blue">{{mod.avgConf}}%</div>
+              <div class="kpi-label">{{t('mod_confidence')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value" style="color:var(--info);">{{mod.ratePerHour}}<span style="font-size:.6em;color:var(--text-muted);">{{t('mod_per_hour')}}</span></div>
+              <div class="kpi-label">{{t('mod_rate')}}</div>
+            </div>
+          </div>
+
+          <!-- Two columns: confidence distribution + top species -->
+          <div class="grid-2">
+            <!-- Confidence distribution -->
+            <div>
+              <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+                {{t('mod_conf_dist')}}
+              </div>
+              <div class="chart-wrap" style="max-height:180px;"><canvas ref="canvasModConf"></canvas></div>
+            </div>
+
+            <!-- Top species -->
+            <div>
+              <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+                {{t('mod_top_species')}}
+              </div>
+              <div v-if="!mod.topSpecies.length" class="error-msg" style="font-size:.8rem;">{{t('mod_no_data')}}</div>
+              <div v-else>
+                <div v-for="(sp, i) in mod.topSpecies" :key="sp.name"
+                     style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;">
+                  <div style="font-size:.68rem;color:var(--text-faint);min-width:16px;text-align:right;font-family:monospace;">{{i+1}}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.78rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      {{sp.name}}
+                    </div>
+                    <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:2px;">
+                      <div :style="{height:'100%',width:sp.pct+'%',background:'var(--accent)',borderRadius:'2px',transition:'width .4s'}"></div>
+                    </div>
+                  </div>
+                  <div style="font-size:.72rem;color:var(--accent);min-width:32px;text-align:right;font-family:monospace;">
+                    {{sp.count}}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Daily trend sparkline -->
+          <div style="margin-top:1rem;">
+            <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+              {{t('mod_trend')}} — {{t('mod_detections')}} & {{t('mod_species')}}
+            </div>
+            <div class="chart-wrap" style="max-height:160px;"><canvas ref="canvasModTrend"></canvas></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Model Comparison -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <div class="card-title" style="margin:0;">&#128260; {{t('cmp_title')}}</div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <label style="font-size:.72rem;color:var(--text-muted);">{{t('cmp_split_date')}}</label>
+            <input type="date" v-model="cmpDate" @change="loadModelCompare()"
+                   style="font-size:.75rem;padding:.2rem .4rem;border:1px solid var(--border);
+                          border-radius:.3rem;background:var(--bg-card);color:var(--text-main);
+                          font-family:inherit;">
+          </div>
+        </div>
+
+        <div v-if="cmp.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="cmp.error" class="error-msg">{{cmp.error}}</div>
+        <template v-else>
+          <!-- Side-by-side KPIs -->
+          <div class="cmp-grid">
+            <div class="cmp-col">
+              <div class="cmp-header cmp-before">{{t('cmp_before')}} <span class="cmp-dates">{{cmp.beforeRange}}</span></div>
+              <div class="cmp-kpis">
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.totalDet?.toLocaleString() || '0'}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_detections')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.detPerDay}}<small>{{t('cmp_per_day')}}</small></div>
+                  <div class="cmp-kpi-lbl">{{t('cmp_det_day')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.species}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_species')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.before.avgConf}}%</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_confidence')}}</div>
+                </div>
+              </div>
+            </div>
+            <div class="cmp-col">
+              <div class="cmp-header cmp-after">{{t('cmp_after')}} <span class="cmp-dates">{{cmp.afterRange}}</span></div>
+              <div class="cmp-kpis">
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.totalDet?.toLocaleString() || '0'}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_detections')}}</div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.detPerDay}}<small>{{t('cmp_per_day')}}</small></div>
+                  <div class="cmp-kpi-lbl">{{t('cmp_det_day')}}
+                    <span :class="cmp.detDayDelta>0?'cmp-up':'cmp-down'" v-if="cmp.detDayDelta!==0">
+                      {{cmp.detDayDelta>0?'&#8593;':'&#8595;'}}{{Math.abs(cmp.detDayDelta)}}%
+                    </span>
+                  </div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.species}}</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_species')}}
+                    <span :class="cmp.speciesDelta>=0?'cmp-up':'cmp-down'" v-if="cmp.speciesDelta!==0">
+                      {{cmp.speciesDelta>0?'+':''}}{{cmp.speciesDelta}}
+                    </span>
+                  </div>
+                </div>
+                <div class="cmp-kpi">
+                  <div class="cmp-kpi-val">{{cmp.after.avgConf}}%</div>
+                  <div class="cmp-kpi-lbl">{{t('mod_confidence')}}
+                    <span :class="cmp.confDelta>=0?'cmp-up':'cmp-down'" v-if="cmp.confDelta!==0">
+                      {{cmp.confDelta>0?'+':''}}{{cmp.confDelta}}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Species gained / lost -->
+          <div class="grid-2" style="margin-top:1rem;">
+            <div>
+              <div class="cmp-section-title" style="color:var(--accent);">
+                &#9989; {{t('cmp_species_gained')}} <span class="cmp-badge cmp-badge-ok">{{cmp.gained.length}}</span>
+              </div>
+              <div v-if="!cmp.gained.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
+              <div v-else class="cmp-species-list">
+                <div v-for="sp in cmp.gained" :key="sp.name" class="cmp-sp-row">
+                  <span class="cmp-sp-name">{{sp.name}}</span>
+                  <span class="cmp-sp-count">{{sp.count}}&#215; <span style="color:var(--text-faint);">({{sp.conf}}%)</span></span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="cmp-section-title" style="color:var(--danger);">
+                &#10060; {{t('cmp_species_lost')}} <span class="cmp-badge cmp-badge-err">{{cmp.lost.length}}</span>
+              </div>
+              <div v-if="!cmp.lost.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
+              <div v-else class="cmp-species-list">
+                <div v-for="sp in cmp.lost" :key="sp.name" class="cmp-sp-row">
+                  <span class="cmp-sp-name">{{sp.name}}</span>
+                  <span class="cmp-sp-count" style="color:var(--text-faint);">{{sp.count}}&#215; <span>({{sp.conf}}%)</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-species comparison table -->
+          <div style="margin-top:1rem;">
+            <div class="cmp-section-title">&#128202; {{t('cmp_species_detail')}}</div>
+            <div class="cmp-table-wrap">
+              <table class="cmp-table">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">{{t('species_name')}}</th>
+                    <th>{{t('cmp_before')}}</th>
+                    <th>{{t('cmp_after')}}</th>
+                    <th>{{t('cmp_change')}}</th>
+                    <th>{{t('mod_confidence')}}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="sp in cmp.speciesTable" :key="sp.sci">
+                    <td style="text-align:left;">
+                      <div style="font-size:.78rem;">{{sp.name}}</div>
+                      <div style="font-size:.65rem;color:var(--text-faint);font-style:italic;">{{sp.sci}}</div>
+                    </td>
+                    <td>{{sp.beforeCount || '—'}}</td>
+                    <td>{{sp.afterCount || '—'}}</td>
+                    <td>
+                      <span v-if="sp.beforeCount===0" class="cmp-up" style="font-weight:600;">NEW</span>
+                      <span v-else-if="sp.afterCount===0" class="cmp-down" style="font-weight:600;">LOST</span>
+                      <span v-else :class="sp.delta>=0?'cmp-up':'cmp-down'">
+                        {{sp.delta>0?'&#8593;':'&#8595;'}}{{Math.abs(sp.delta)}}%
+                      </span>
+                    </td>
+                    <td>
+                      <span style="color:var(--text-faint);">{{sp.beforeConf || '—'}}</span>
+                      &#8594;
+                      <span :style="{color: sp.afterConf >= sp.beforeConf ? 'var(--accent)' : 'var(--danger)'}">{{sp.afterConf || '—'}}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Nocturnal detections -->
+          <div style="margin-top:1rem;">
+            <div class="cmp-section-title">
+              &#127769; {{t('cmp_nocturnal')}} <span style="font-weight:400;color:var(--text-faint);">({{t('cmp_nocturnal_sub')}})</span>
+              <span class="cmp-badge" :class="cmp.nocturnal.length>5?'cmp-badge-err':'cmp-badge-ok'">{{cmp.nocturnal.length}}</span>
+            </div>
+            <div v-if="!cmp.nocturnal.length" style="font-size:.78rem;color:var(--text-faint);padding:.3rem 0;">{{t('cmp_none')}}</div>
+            <div v-else class="cmp-species-list" style="max-height:180px;overflow-y:auto;">
+              <div v-for="d in cmp.nocturnal" :key="d.date+d.time" class="cmp-sp-row">
+                <span style="font-size:.7rem;color:var(--text-faint);min-width:95px;font-family:monospace;">
+                  {{d.date}} {{d.time}}
+                </span>
+                <span class="cmp-sp-name">{{d.species}}</span>
+                <span class="cmp-sp-count">{{d.conf}}%</span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 3: DATA
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='data'">
+
+      <div class="grid-2">
+
+        <!-- Database Status -->
+        <div class="card">
+          <div class="card-title">{{t('db_status')}}</div>
+          <div v-if="db.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="db.error" class="error-msg">{{db.error}}</div>
+          <template v-else>
+            <div class="sys-row">
+              <span class="sys-label">{{t('db_total')}}</span>
+              <span class="sys-value">{{db.total ? db.total.toLocaleString() : '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_species_distinct')}}</span>
+              <span class="sys-value">{{db.species}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_days_recorded')}}</span>
+              <span class="sys-value">{{db.days}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('db_first')}}</span>
+              <span class="sys-value">{{fmtDate(db.first)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('db_last')}}</span>
+              <span class="sys-value">{{fmtDate(db.last)}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_conf_range')}}</span>
+              <span class="sys-value">{{db.avgConf}}% / {{db.minConf}}% / {{db.maxConf}}%</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Data Gaps -->
+        <div class="card">
+          <div class="card-title">{{t('sys_gaps_title', {n:1})}}</div>
+          <div v-if="gaps.loading" class="spinner"><div></div><div></div><div></div></div>
+          <div v-else-if="gaps.error" class="error-msg">{{gaps.error}}</div>
+          <p v-else-if="!gaps.list.length"
+             style="color:var(--accent);font-size:.85rem;padding:.5rem 0;">
+            {{t('sys_no_gap_full')}}
+          </p>
+          <template v-else>
+            <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem;">
+              {{t('sys_gaps_found', {n: gaps.total})}}
+            </p>
+            <div v-for="g in gaps.list" :key="g.from" class="gap-item">
+              <span class="gap-date">{{fmtDate(g.from)}} &#8594; {{fmtDate(g.to)}}</span>
+              <span class="gap-days"> — {{t('sys_gap_missing', {n: g.days})}}</span>
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+      <div class="card">
+        <div class="card-title">{{t('sys_activity_30d')}}</div>
+        <div class="chart-wrap"><canvas ref="canvasActivity"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">{{t('sys_hourly_distrib')}}</div>
+        <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+      </div>
+
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 4: EXTERNAL
+         ════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab==='external'">
+
+      <!-- Local Rare Species -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
+          <div class="card-title" style="margin:0;">&#128142; Raretés locales récentes</div>
+          <span style="font-size:.72rem;color:var(--text-faint);">&#8804;5 détections total</span>
+        </div>
+        <div v-if="rareLocal.loading" class="spinner"><div></div><div></div><div></div></div>
+        <div v-else-if="!rareLocal.rows.length" class="error-msg">{{t('no_rarities_detected')}}</div>
+        <div v-else>
+          <div v-for="r in rareLocal.rows" :key="r.Com_Name" class="det-item"
+               style="cursor:pointer;gap:.5rem;border-left:2px solid var(--danger);padding-left:.5rem;"
+               @click="navigateTo('rarities.html')">
+            <div style="font-size:1.1rem;">{{r.n===1?'&#128142;':r.n<=3?'&#128310;':'&#128313;'}}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.85rem;font-weight:600;color:var(--text-main);">{{r.Com_Name}}</div>
+              <div style="font-size:.72rem;color:var(--text-muted);font-style:italic;">{{r.sci}}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <span class="conf-badge conf-high" style="font-size:.7rem;">{{r.n}}&#215;</span>
+              <div style="font-size:.68rem;color:var(--text-faint);margin-top:.15rem;">{{fmtDate(r.last_date)}}</div>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:.5rem;">
+            <a href="rarities.html" class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
+              Toutes les raretés &#8594;
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- eBird Notable Observations -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem;">
+          <div class="card-title" style="margin:0;">&#127757; eBird — Observations notables Belgique</div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <span v-if="ebird.fetchedAt" style="font-size:.68rem;color:var(--text-faint);">
+              Mis à jour {{ebird.fetchedAt}}
+            </span>
+            <span v-if="!ebird.hasKey"
+                  style="font-size:.72rem;color:var(--warning);background:color-mix(in srgb,var(--warning) 10%,transparent);
+                         padding:.15rem .45rem;border-radius:6px;border:1px solid color-mix(in srgb,var(--warning) 30%,transparent);">
+              &#9888; {{t('ebird_api_missing')}}
+            </span>
+          </div>
+        </div>
+
+        <!-- No API key -->
+        <div v-if="!ebird.hasKey" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          {{t('ebird_enable_text')}}
+          <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">ebird.org/api/keygen</a>
+          {{t('ebird_then_configure')}}<br>
+          <code style="background:var(--bg-deep);padding:.2rem .5rem;border-radius:4px;font-size:.78rem;display:inline-block;margin-top:.4rem;">
+            sudo systemctl edit birdash-api --force
+          </code><br>
+          <span style="font-size:.75rem;color:var(--text-faint);">{{t('ebird_add_env')}} <code>Environment=EBIRD_API_KEY={{t('ebird_your_key')}}</code></span>
+        </div>
+
+        <!-- Loading -->
+        <div v-else-if="ebird.loading" class="spinner"><div></div><div></div><div></div></div>
+
+        <!-- Error -->
+        <div v-else-if="ebird.error" class="error-msg">{{ebird.error}}</div>
+
+        <!-- Results -->
+        <div v-else-if="!ebird.obs.length" class="error-msg">
+          {{t('ebird_no_notable')}}
+        </div>
+        <div v-else>
+          <div v-for="obs in ebird.obs" :key="obs.subId" class="det-item"
+               style="gap:.5rem;cursor:pointer;" @click="openUrl(obs.obsUrl)">
+            <div style="font-size:1rem;flex-shrink:0;" :title="obs.localMatch?t('detected_locally'):t('not_detected_locally')">
+              {{obs.localMatch ? '&#9989;' : '&#128065;'}}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.85rem;font-weight:600;color:var(--text-main);
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{obs.comName}}
+              </div>
+              <div style="font-size:.72rem;color:var(--text-muted);">
+                &#128205; {{obs.locName}}
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:.78rem;color:var(--text-muted);">&#215;{{obs.howMany}}</div>
+              <div style="font-size:.68rem;color:var(--text-faint);">{{obs.obsDt}}</div>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:.5rem;">
+            <a href="https://ebird.org/region/BE/recent-notable" target="_blank" rel="noopener noreferrer"
+               class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;">
+              {{t('ebird_see_on')}} &#8594;
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- BirdWeather Station -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+          <div style="display:flex;align-items:center;gap:.6rem;">
+            <img src="https://app.birdweather.com/favicon.ico" style="width:20px;height:20px;border-radius:4px;" alt="">
+            <div class="card-title" style="margin:0;">BirdWeather — Station #{{bw.stationId||'?'}}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <div class="fp-quick-btns" v-if="bw.hasStation">
+              <button v-for="p in bwPeriods" :key="p.val"
+                      class="fp-quick-btn" :class="{active:bwPeriod===p.val}"
+                      @click="bwPeriod=p.val;loadBirdWeather()">{{p.label}}</button>
+            </div>
+            <a v-if="bw.stationId" :href="'https://app.birdweather.com/stations/'+bw.stationId"
+               target="_blank" rel="noopener noreferrer" class="btn btn-secondary"
+               style="font-size:.72rem;padding:.22rem .55rem;">{{t('bw_see_on')}} &#8599;</a>
+          </div>
+        </div>
+
+        <!-- Not configured -->
+        <div v-if="!bw.hasStation" style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          {{t('bw_add_in')}} <code style="background:var(--bg-deep);padding:.1rem .35rem;border-radius:3px;">birdash-local.js</code> :
+          <code style="display:block;background:var(--bg-deep);padding:.4rem .65rem;border-radius:5px;margin-top:.4rem;font-size:.78rem;">
+            birdweatherStationId: 'YOUR_STATION_ID',
+          </code>
+          <div style="font-size:.72rem;color:var(--text-faint);margin-top:.3rem;">
+            {{t('bw_id_in_url')}} app.birdweather.com/stations/<strong>XXXX</strong>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-else-if="bw.loading" class="spinner"><div></div><div></div><div></div></div>
+
+        <!-- Error -->
+        <div v-else-if="bw.error" class="error-msg">{{bw.error}}</div>
+
+        <!-- Data -->
+        <div v-else>
+          <!-- KPIs BirdWeather -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-value">{{bw.stats.detections?.toLocaleString() || '—'}}</div>
+              <div class="kpi-label">{{t('detections')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value amber">{{bw.stats.species_count || '—'}}</div>
+              <div class="kpi-label">{{t('species')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value blue">{{bw.species.length || '—'}}</div>
+              <div class="kpi-label">{{t('top_species')}}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value" style="font-size:.85rem;">{{bw.stats.top_species?.commonName || '—'}}</div>
+              <div class="kpi-label">{{t('top_species')}} #1</div>
+            </div>
+          </div>
+
+          <!-- Top species BirdWeather -->
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+            {{t('top_detected')}}
+          </div>
+          <div v-if="!bw.species.length" class="error-msg" style="font-size:.8rem;">Aucune donnée</div>
+          <div v-else>
+            <div v-for="(sp, i) in bw.species.slice(0,10)" :key="sp.id || i"
+                 style="display:flex;align-items:center;gap:.55rem;margin-bottom:.35rem;">
+              <div style="font-size:.7rem;color:var(--text-faint);min-width:18px;text-align:right;font-family:monospace;">{{i+1}}</div>
+              <img loading="lazy" v-if="sp.thumbnailUrl" :src="sp.thumbnailUrl"
+                   style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0;"
+                   :alt="sp.commonName" @error="sp.thumbnailUrl=null">
+              <div v-else style="width:28px;height:28px;border-radius:4px;background:var(--bg-card2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;">&#128038;</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  {{sp.commonName || '—'}}
+                </div>
+                <div style="height:3px;background:var(--bg-card2);border-radius:2px;margin-top:3px;">
+                  <div :style="{height:'100%',width:Math.round((sp.detections?.total||0)/bw.species[0].detections?.total*100)+'%',background:'var(--accent)',borderRadius:'2px',transition:'width .4s'}"></div>
+                </div>
+              </div>
+              <div style="font-size:.78rem;color:var(--accent);min-width:36px;text-align:right;font-family:monospace;">
+                {{sp.detections?.total || 0}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Confirmation Modal ────────────────────────────────────── -->
+    <div v-if="confirmAction" class="info-overlay" @click.self="confirmAction=null">
+      <div class="info-modal">
+        <div class="info-modal-title">&#9888;&#65039; {{t('sys_confirm_stop')}}</div>
+        <p style="font-size:.85rem;color:var(--text-muted);margin:.75rem 0;">
+          {{t('sys_confirm_stop_msg', {name: confirmAction.service})}}
+        </p>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button class="btn-outline" @click="confirmAction=null">{{t('sys_cancel')}}</button>
+          <button class="btn-save" style="background:var(--danger);"
+                  @click="svcAction(confirmAction.service,'stop');confirmAction=null">&#9209; Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: TERMINAL ═══ -->
+    <div v-if="activeTab==='terminal'">
+      <div class="card" style="padding:.5rem;">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+          <span style="font-size:.85rem;opacity:.7;">Bash sur Raspberry Pi — supporte Claude Code (<code style="font-size:.8em;">claude</code>)</span>
+          <button class="btn-outline" style="font-size:.72rem;margin-left:auto;"
+                  @click="terminalKey++">Nouveau terminal</button>
+        </div>
+        <iframe :key="terminalKey" src="terminal/"
+                style="width:100%;height:calc(100vh - 180px);border:1px solid var(--border);border-radius:.4rem;background:#000;">
+        </iframe>
+      </div>
+    </div>
+
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, useChart, MODEL_LABELS,
+        birdQuery, fmtDate, fmtTime, freshnessLabel,
+        localDateStr, daysAgo, chartDefaults, navigateTo, authHeaders } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t, setLang, langs } = useI18n();
+    const { theme, themes, setTheme } = useTheme();
+    const { navItems, siteName } = useNav('system');
+    const { mountChart: mountAct }    = useChart();
+    const { mountChart: mountHrly }   = useChart();
+    const { mountChart: mountModC }   = useChart();
+    const { mountChart: mountModT }   = useChart();
+
+    const canvasActivity = ref(null);
+    const canvasHourly   = ref(null);
+    const canvasModConf  = ref(null);
+    const canvasModTrend = ref(null);
+
+    // ── Tab system ────────────────────────────────────────────────
+    const tabs = [
+      { id: 'health',   icon: '\u{1F4E1}', labelKey: 'sys_tab_health' },
+      { id: 'model',    icon: '\u{1F916}', labelKey: 'sys_tab_model' },
+      { id: 'data',     icon: '\u{1F4CA}', labelKey: 'sys_tab_data' },
+      { id: 'external', icon: '\u{1F30D}', labelKey: 'sys_tab_external' },
+      { id: 'terminal', icon: '\u{1F4BB}', label: 'Terminal' },
+    ];
+
+    const validTabs = ['health', 'model', 'data', 'external', 'terminal'];
+    const hashTab = location.hash.slice(1);
+    const initialTab = validTabs.includes(hashTab) ? hashTab : 'health';
+
+    const activeTab = ref(initialTab);
+    const tabLoaded = ref({ health: false, model: false, data: false, external: false, terminal: false });
+
+    function switchTab(id) {
+      activeTab.value = id;
+      location.hash = id;
+      if (!tabLoaded.value[id]) {
+        tabLoaded.value[id] = true;
+        loadTabData(id);
+      }
+    }
+
+    function loadTabData(tab) {
+      switch(tab) {
+        case 'health':   Promise.all([loadHealth(), loadServices(), loadAnalysis(), loadAudio(), loadBackup(), loadNetwork(), loadHardware(), loadFresh(), loadApi()]); break;
+        case 'model':    Promise.all([loadModelMonitor(), loadModelCompare()]); break;
+        case 'data':     Promise.all([loadDb(), loadGaps(), loadActData(), loadHrlyData()]); break;
+        case 'external': Promise.all([loadRareLocal(), loadEbird(), loadBirdWeather()]); break;
+      }
+    }
+
+    // ── Helper functions ──────────────────────────────────────────
+    function fmtBytes(b) {
+      if (!b || b === 0) return '0 B';
+      const u = ['B','Ko','Mo','Go','To'];
+      const i = Math.floor(Math.log(b) / Math.log(1024));
+      return (b / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + u[i];
+    }
+
+    function fmtUptime(secs) {
+      if (!secs) return '\u2014';
+      const d = Math.floor(secs / 86400);
+      const h = Math.floor((secs % 86400) / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      if (d > 0) return `${d}j ${h}h`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    function barColor(pct) {
+      if (pct >= 90) return 'bar-danger';
+      if (pct >= 70) return 'bar-warn';
+      return 'bar-ok';
+    }
+
+    const SVC_LABELS = {
+      'birdengine':           'Moteur de détection',
+      'birdengine-recording': 'Capture audio',
+      'birdash':              'Dashboard API',
+      'caddy':                'Serveur web',
+      'ttyd':                 'Terminal web',
+    };
+    function svcLabel(name) { return SVC_LABELS[name] || name; }
+
+    function svcDotClass(state) {
+      if (state === 'active') return 'dot-ok';
+      if (state === 'failed') return 'dot-err';
+      if (state === 'activating' || state === 'deactivating') return 'dot-warn';
+      return 'dot-off';
+    }
+
+    // ── Health tab state ──────────────────────────────────────────
+    const api   = ref({ loading:true, error:null, latency:0, total:0 });
+    const health = ref({ loading:true, error:null, cpu:{usage:0,cores:0}, ram:{used:0,total:0,pct:0}, disk:{used:0,total:0,pct:0}, temp:0, uptime:0, loadAvg:'' });
+    const services = ref({ loading:true, error:null, list:[], refreshAt:'' });
+    const hw = ref({ loading:true, error:null, piModel:'', cpuFreq:0, ramTotal:0, disks:[], soundCards:[], usbDevices:[] });
+    const svcExpanded = ref(null);
+    const svcDetail = ref(null);
+    const terminalKey = ref(0);
+    const confirmAction = ref(null);
+    const analysis = ref({ loading:true, error:null, modelLabel:'', backlog:0, lag:0, inferenceSpeed:'', confidenceThreshold:'', sensitivity:'', sfThresh:'' });
+    const audio = ref({ loading:true, error:null, card:'', channels:'', format:'' });
+    const backup = ref({ loading:true, error:null, nfsMounted:false, lastBackup:'', size:'' });
+    const network = ref({ loading:true, error:null, hostname:'', ip:'', nasPing:false, nasLatency:'' });
+    const fresh = ref({ loading:true, error:null, icon:'\u{1F7E2}', species:null, date:null, time:null, datetime:'\u2014', today:0, yesterday:0 });
+
+    let svcRefreshTimer = null;
+
+    async function loadHealth() {
+      health.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/system-health`);
+        const d = await res.json();
+        health.value = {
+          loading: false, error: null,
+          cpu: { usage: d.cpu && d.cpu.usage || 0, cores: d.cpu && d.cpu.cores || 0 },
+          ram: { used: d.memory && d.memory.used || 0, total: d.memory && d.memory.total || 0, pct: d.memory && d.memory.percent || 0 },
+          disk: { used: d.disk && d.disk.used || 0, total: d.disk && d.disk.total || 0, pct: d.disk && d.disk.percent || 0 },
+          temp: d.temperature || 0,
+          uptime: d.uptime || 0,
+          loadAvg: Array.isArray(d.loadAvg) ? d.loadAvg.map(v => v.toFixed(2)).join(', ') : ''
+        };
+      } catch(e) { health.value = { ...health.value, loading:false, error:e.message }; }
+    }
+
+    async function loadServices() {
+      services.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/services`);
+        const data = await res.json();
+        services.value = {
+          loading: false, error: null,
+          list: data.services || [],
+          refreshAt: new Date().toLocaleTimeString('fr-BE', {hour:'2-digit',minute:'2-digit'})
+        };
+      } catch(e) { services.value = { ...services.value, loading:false, error:e.message }; }
+    }
+
+    async function toggleSvc(name) {
+      if (svcExpanded.value === name) {
+        svcExpanded.value = null;
+        svcDetail.value = null;
+        return;
+      }
+      svcExpanded.value = name;
+      svcDetail.value = null;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/services/${encodeURIComponent(name)}/status`);
+        svcDetail.value = await res.json();
+      } catch(e) { svcDetail.value = { pid: null, memory: 0, uptime: 0, logs: ['Error: ' + e.message] }; }
+    }
+
+    async function svcAction(name, action) {
+      try {
+        await fetch(`${BIRD_CONFIG.apiUrl}/services/${encodeURIComponent(name)}/${action}`, { method: 'POST', headers: authHeaders() });
+        // Reload services list and detail after action
+        await loadServices();
+        if (svcExpanded.value === name) {
+          svcExpanded.value = null;
+          await nextTick();
+          toggleSvc(name);
+        }
+      } catch(e) { console.error('svcAction:', e); }
+    }
+
+    function confirmStop(name) {
+      confirmAction.value = { service: name };
+    }
+
+    async function loadAnalysis() {
+      analysis.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/analysis-status`);
+        const d = await res.json();
+        const rawModel = d.model || '';
+        const secModel = d.secondaryModel || '';
+        analysis.value = {
+          loading: false, error: null,
+          modelLabel: MODEL_LABELS[rawModel] || rawModel.replace(/_/g, ' '),
+          secondaryLabel: secModel ? (MODEL_LABELS[secModel] || secModel.replace(/_/g, ' ')) : null,
+          secondaryInference: d.secondaryInferenceTime ? d.secondaryInferenceTime.toFixed(1) + 's' : null,
+          backlog: d.backlog || 0,
+          lag: d.lagSecs || d.lag || 0,
+          inferenceSpeed: d.inferenceTime != null ? d.inferenceTime.toFixed(1) + 's' : '\u2014',
+          confidenceThreshold: d.confidence != null ? d.confidence : '\u2014',
+          sensitivity: d.sensitivity || '\u2014',
+          sfThresh: d.sfThresh || '\u2014'
+        };
+      } catch(e) { analysis.value = { ...analysis.value, loading:false, error:e.message }; }
+    }
+
+    async function loadAudio() {
+      audio.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/audio-device`);
+        const d = await res.json();
+        audio.value = {
+          loading: false, error: null,
+          card: d.card || '\u2014',
+          channels: d.channels || '\u2014',
+          format: d.format || '\u2014'
+        };
+      } catch(e) { audio.value = { ...audio.value, loading:false, error:e.message }; }
+    }
+
+    async function loadBackup() {
+      backup.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/backup-status`);
+        const d = await res.json();
+        backup.value = {
+          loading: false, error: null,
+          nfsMounted: d.nfs_mounted || false,
+          lastBackup: d.last_backup || '\u2014',
+          size: d.size || '\u2014'
+        };
+      } catch(e) { backup.value = { ...backup.value, loading:false, error:e.message }; }
+    }
+
+    async function loadNetwork() {
+      network.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/network-info`);
+        const d = await res.json();
+        network.value = {
+          loading: false, error: null,
+          hostname: d.hostname || '\u2014',
+          ip: d.ip || '\u2014',
+          nasPing: d.nasPing && d.nasPing.reachable ? true : false,
+          nasLatency: d.nasPing && d.nasPing.latency ? d.nasPing.latency.toFixed(1) : '\u2014'
+        };
+      } catch(e) { network.value = { ...network.value, loading:false, error:e.message }; }
+    }
+
+    async function loadHardware() {
+      hw.value.loading = true;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/hardware`);
+        const d = await res.json();
+        hw.value = { loading:false, error:null, ...d };
+      } catch(e) { hw.value = { ...hw.value, loading:false, error:e.message }; }
+    }
+
+    async function loadApi() {
+      api.value.loading = true;
+      const t0 = Date.now();
+      try {
+        const res  = await fetch(`${BIRD_CONFIG.apiUrl}/health`);
+        const data = await res.json();
+        api.value  = { loading:false, error:null, latency:Date.now()-t0, total:data.total_detections||0 };
+      } catch(e) { api.value = { loading:false, error:e.message, latency:0, total:0 }; }
+    }
+
+    async function loadFresh() {
+      fresh.value.loading = true;
+      try {
+        const [last]  = await birdQuery(`SELECT Date,Time,Com_Name FROM detections ORDER BY Date DESC,Time DESC LIMIT 1`);
+        const [today] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [localDateStr()]);
+        const [yest]  = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [daysAgo(1)]);
+        const diffMin = last ? Math.floor((Date.now()-new Date(`${last.Date}T${last.Time}`).getTime())/60000) : null;
+        const icon    = diffMin===null?'\u26AB':diffMin<30?'\u{1F7E2}':diffMin<120?'\u{1F7E1}':'\u{1F534}';
+        fresh.value   = { loading:false, error:null, icon,
+                          species:last?last.Com_Name:null, date:last?last.Date:null, time:last?last.Time:null,
+                          datetime:last?`${fmtDate(last.Date)} ${fmtTime(last.Time)}`:'\u2014',
+                          today:today?today.n:0, yesterday:yest?yest.n:0 };
+      } catch(e) { fresh.value = {...fresh.value, loading:false, error:e.message}; }
+    }
+
+    // ── Data tab state ────────────────────────────────────────────
+    const db    = ref({ loading:true, error:null, total:0, species:0, days:0,
+                        first:null, last:null, avgConf:0, minConf:0, maxConf:0 });
+    const gaps  = ref({ loading:true, error:null, total:0, list:[] });
+    const actData  = ref({ labels:[], values:[], colors:[], borderColors:[] });
+    const hrlyData = ref({ values:[] });
+
+    async function loadDb() {
+      db.value.loading = true;
+      try {
+        const [s] = await birdQuery(
+          `SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species,
+                  COUNT(DISTINCT Date) as days, MIN(Date) as first, MAX(Date) as last
+           FROM detections`);
+        const [c] = await birdQuery(
+          `SELECT ROUND(AVG(Confidence)*100,1) as avg_conf,
+                  ROUND(MIN(Confidence)*100,1) as min_conf,
+                  ROUND(MAX(Confidence)*100,1) as max_conf
+           FROM detections`);
+        db.value = { loading:false, error:null,
+                     total:s.total, species:s.species, days:s.days,
+                     first:s.first, last:s.last,
+                     avgConf:c.avg_conf, minConf:c.min_conf, maxConf:c.max_conf };
+      } catch(e) { db.value = {...db.value, loading:false, error:e.message}; }
+    }
+
+    async function loadGaps() {
+      gaps.value.loading = true;
+      try {
+        const rows  = await birdQuery(`SELECT Date FROM detections GROUP BY Date ORDER BY Date ASC`);
+        const found = [];
+        for (let i=1;i<rows.length;i++) {
+          const diff = Math.round((new Date(rows[i].Date)-new Date(rows[i-1].Date))/86400000);
+          if (diff>1) found.push({from:rows[i-1].Date, to:rows[i].Date, days:diff-1});
+        }
+        found.sort((a,b)=>b.days-a.days);
+        gaps.value = { loading:false, error:null, total:found.length, list:found.slice(0,8) };
+      } catch(e) { gaps.value = {...gaps.value, loading:false, error:e.message}; }
+    }
+
+    async function loadActData() {
+      try {
+        const rows = await birdQuery(
+          `SELECT Date,COUNT(*) as n FROM detections WHERE Date>=? GROUP BY Date ORDER BY Date ASC`,
+          [daysAgo(29)]);
+        const map = {};
+        rows.forEach(r => { map[r.Date]=r.n; });
+        const values=[],colors=[],borderColors=[];
+        for (let i=29;i>=0;i--) {
+          const d=daysAgo(i), n=map[d]||0;
+          values.push(n);
+          colors.push(n===0?'rgba(224,108,74,.3)':'rgba(90,158,58,.65)');
+          borderColors.push(n===0?'#e06c4a':'#5a9e3a');
+        }
+        actData.value = { values, colors, borderColors };
+      } catch(e) { console.error('activity:',e); }
+    }
+
+    async function loadHrlyData() {
+      try {
+        const rows = await birdQuery(
+          `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n
+           FROM detections GROUP BY h ORDER BY h ASC`);
+        const vals = Array(24).fill(0);
+        rows.forEach(r => { vals[r.h]=r.n; });
+        hrlyData.value = { values:vals };
+      } catch(e) { console.error('hourly:',e); }
+    }
+
+    // Charts — rebuilt if data OR language changes
+    watch([actData, lang], async () => {
+      if (activeTab.value !== 'data') return;
+      await nextTick();
+      const d = actData.value;
+      if (!d.values||!d.values.length||!canvasActivity.value) return;
+      const labels=[];
+      for (let i=29;i>=0;i--) {
+        const date=daysAgo(i);
+        const mo=t('months_short')[new Date(date).getMonth()];
+        labels.push(`${new Date(date).getDate()} ${mo}`);
+      }
+      const base=chartDefaults();
+      mountAct(canvasActivity, ()=>({
+        type:'bar',
+        data:{ labels, datasets:[{ label:t('detections'), data:d.values,
+               backgroundColor:d.colors, borderColor:d.borderColors, borderWidth:1, borderRadius:2 }] },
+        options:{...base, plugins:{...base.plugins,legend:{display:false}},
+                 scales:{x:{...base.scales.x,ticks:{maxTicksLimit:10,font:{size:9}}},
+                         y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    watch([hrlyData, lang], async () => {
+      if (activeTab.value !== 'data') return;
+      await nextTick();
+      const d = hrlyData.value;
+      if (!d.values||!d.values.length||!canvasHourly.value) return;
+      const base=chartDefaults();
+      mountHrly(canvasHourly, ()=>({
+        type:'bar',
+        data:{ labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),
+               datasets:[{ label:t('detections'), data:d.values,
+               backgroundColor:'rgba(74,138,181,.65)', borderColor:'#4a8ab5',
+               borderWidth:1, borderRadius:2 }] },
+        options:{...base, plugins:{...base.plugins,legend:{display:false}},
+                 scales:{x:{...base.scales.x,ticks:{font:{size:10}}},
+                         y:{...base.scales.y,beginAtZero:true}}}
+      }));
+    });
+
+    // Re-render data charts when switching to data tab (canvas refs become available)
+    watch(activeTab, async (newTab) => {
+      if (newTab === 'data' && tabLoaded.value.data) {
+        await nextTick();
+        // Trigger chart renders by touching reactive deps
+        const d = actData.value;
+        if (d.values && d.values.length) {
+          actData.value = { ...d };
+        }
+        const h = hrlyData.value;
+        if (h.values && h.values.length) {
+          hrlyData.value = { ...h };
+        }
+      }
+      if (newTab === 'model' && tabLoaded.value.model) {
+        await nextTick();
+        renderModCharts();
+      }
+    });
+
+    // ── Model monitoring ──────────────────────────────────────────
+    const modPeriod  = ref('today');
+    const modPeriods = computed(() => [
+      { label: t('mod_today'), val:'today' },
+      { label: t('mod_7d'),    val:'7d'    },
+      { label: t('mod_30d'),   val:'30d'   },
+    ]);
+    const mod = ref({
+      loading:true, error:null, modelLabel:'', totalDet:0, uniqueSpecies:0,
+      avgConf:0, ratePerHour:0, confDist:[], topSpecies:[], dailyTrend:[]
+    });
+
+    async function loadModelMonitor() {
+      mod.value.loading = true;
+      try {
+        // Fetch current model
+        const settingsRes = await fetch(`${BIRD_CONFIG.apiUrl}/settings`);
+        const conf = await settingsRes.json();
+        const rawModel = conf.MODEL || '';
+        const modelLabel = MODEL_LABELS[rawModel] || rawModel.replace(/_/g, ' ');
+
+        // Date range
+        const periodDays = modPeriod.value === 'today' ? 0 : modPeriod.value === '7d' ? 6 : 29;
+        const dateFrom = periodDays === 0 ? localDateStr() : daysAgo(periodDays);
+
+        // Main KPIs
+        const [kpi] = await birdQuery(
+          `SELECT COUNT(*) as total, COUNT(DISTINCT Sci_Name) as species,
+                  ROUND(AVG(Confidence)*100,1) as avg_conf,
+                  MIN(Date) as first_date, MAX(Date) as last_date,
+                  MIN(Time) as first_time, MAX(Time) as last_time
+           FROM detections WHERE Date >= ?`, [dateFrom]);
+
+        // Hours active (for rate calc)
+        const hourRows = await birdQuery(
+          `SELECT Date, MIN(Time) as t0, MAX(Time) as t1
+           FROM detections WHERE Date >= ? GROUP BY Date`, [dateFrom]);
+
+        let totalHours = 0;
+        hourRows.forEach(r => {
+          const h0 = parseInt(r.t0?.substring(0,2) || '0');
+          const h1 = parseInt(r.t1?.substring(0,2) || '23');
+          totalHours += Math.max(h1 - h0, 1);
+        });
+        const ratePerHour = totalHours > 0 ? Math.round(kpi.total / totalHours) : 0;
+
+        // Confidence distribution
+        const confRows = await birdQuery(
+          `SELECT
+            CASE
+              WHEN Confidence < 0.7 THEN '65-70'
+              WHEN Confidence < 0.75 THEN '70-75'
+              WHEN Confidence < 0.8 THEN '75-80'
+              WHEN Confidence < 0.85 THEN '80-85'
+              WHEN Confidence < 0.9 THEN '85-90'
+              WHEN Confidence < 0.95 THEN '90-95'
+              ELSE '95-100'
+            END as bracket,
+            COUNT(*) as n
+           FROM detections WHERE Date >= ?
+           GROUP BY bracket ORDER BY bracket`, [dateFrom]);
+
+        // Top species
+        const spRows = await birdQuery(
+          `SELECT Com_Name as name, COUNT(*) as count
+           FROM detections WHERE Date >= ?
+           GROUP BY Sci_Name ORDER BY count DESC LIMIT 10`, [dateFrom]);
+        const maxCount = spRows.length ? spRows[0].count : 1;
+        const topSpecies = spRows.map(r => ({ ...r, pct: Math.round(r.count / maxCount * 100) }));
+
+        // Daily trend (7 days)
+        const trendRows = await birdQuery(
+          `SELECT Date, COUNT(*) as det, COUNT(DISTINCT Sci_Name) as sp
+           FROM detections WHERE Date >= ? GROUP BY Date ORDER BY Date`, [daysAgo(6)]);
+
+        mod.value = {
+          loading: false, error: null, modelLabel, totalDet: kpi.total,
+          uniqueSpecies: kpi.species, avgConf: kpi.avg_conf || 0,
+          ratePerHour, confDist: confRows, topSpecies, dailyTrend: trendRows
+        };
+
+        // Render charts after data is set
+        await nextTick();
+        renderModCharts();
+      } catch(e) {
+        mod.value = { ...mod.value, loading:false, error: e.message };
+      }
+    }
+
+    function renderModCharts() {
+      // Confidence distribution bar chart
+      if (canvasModConf.value && mod.value.confDist.length) {
+        const base = chartDefaults();
+        const labels = mod.value.confDist.map(r => r.bracket + '%');
+        const data = mod.value.confDist.map(r => r.n);
+        const colors = mod.value.confDist.map(r => {
+          const b = parseInt(r.bracket);
+          if (b >= 90) return 'rgba(90,158,58,.8)';
+          if (b >= 80) return 'rgba(74,138,181,.8)';
+          if (b >= 70) return 'rgba(200,168,75,.8)';
+          return 'rgba(224,108,74,.8)';
+        });
+        mountModC(canvasModConf, () => ({
+          type: 'bar',
+          data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 3 }] },
+          options: { ...base, plugins: { ...base.plugins, legend: { display: false } },
+            scales: { x: { ...base.scales.x, ticks: { font: { size: 9 } } },
+                      y: { ...base.scales.y, beginAtZero: true } } }
+        }));
+      }
+
+      // Daily trend dual-axis chart
+      if (canvasModTrend.value && mod.value.dailyTrend.length) {
+        const base = chartDefaults();
+        const labels = mod.value.dailyTrend.map(r => {
+          const d = new Date(r.Date);
+          const mo = t('months_short')[d.getMonth()];
+          return `${d.getDate()} ${mo}`;
+        });
+        mountModT(canvasModTrend, () => ({
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: t('mod_detections'), data: mod.value.dailyTrend.map(r => r.det),
+                backgroundColor: 'rgba(90,158,58,.6)', borderColor: '#5a9e3a',
+                borderWidth: 1, borderRadius: 3, yAxisID: 'y', order: 2 },
+              { label: t('mod_species'), data: mod.value.dailyTrend.map(r => r.sp),
+                type: 'line', borderColor: '#c8a84b', backgroundColor: 'rgba(200,168,75,.15)',
+                borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#c8a84b',
+                fill: true, tension: .3, yAxisID: 'y1', order: 1 },
+            ]
+          },
+          options: {
+            ...base,
+            plugins: { ...base.plugins, legend: { display: true, labels: { boxWidth: 12, font: { size: 10 } } } },
+            scales: {
+              x: { ...base.scales.x, ticks: { font: { size: 9 } } },
+              y:  { ...base.scales.y, beginAtZero: true, position: 'left',
+                    title: { display: true, text: t('mod_detections'), font: { size: 9 }, color: '#5a9e3a' } },
+              y1: { ...base.scales.y, beginAtZero: true, position: 'right', grid: { drawOnChartArea: false },
+                    title: { display: true, text: t('mod_species'), font: { size: 9 }, color: '#c8a84b' } },
+            }
+          }
+        }));
+      }
+    }
+
+    // ── Model Comparison ─────────────────────────────────────────
+    const cmpDate = ref(daysAgo(1));
+    const cmp = ref({
+      loading:true, error:null,
+      beforeRange:'', afterRange:'',
+      before: { totalDet:0, detPerDay:0, species:0, avgConf:0 },
+      after:  { totalDet:0, detPerDay:0, species:0, avgConf:0 },
+      detDayDelta:0, speciesDelta:0, confDelta:0,
+      gained:[], lost:[], speciesTable:[], nocturnal:[]
+    });
+
+    async function loadModelCompare() {
+      cmp.value.loading = true;
+      try {
+        const splitDate = cmpDate.value;
+        const afterStart = splitDate;
+        const todayStr = localDateStr();
+
+        const afterDays = Math.max(1, Math.round((new Date(todayStr) - new Date(afterStart)) / 86400000) + 1);
+        const splitD = new Date(afterStart + 'T12:00:00');
+        const beforeEndD = new Date(splitD); beforeEndD.setDate(beforeEndD.getDate() - 1);
+        const beforeStartD = new Date(beforeEndD); beforeStartD.setDate(beforeStartD.getDate() - afterDays + 1);
+        const pad = d => d.toISOString().slice(0, 10);
+        const beforeEnd = pad(beforeEndD);
+        const beforeStart = pad(beforeStartD);
+
+        // KPIs — before
+        const [bKpi] = await birdQuery(
+          `SELECT COUNT(*) as total, COUNT(DISTINCT Sci_Name) as species,
+                  ROUND(AVG(Confidence)*100,1) as avg_conf
+           FROM detections WHERE Date >= ? AND Date < ?`, [beforeStart, afterStart]);
+
+        // KPIs — after
+        const [aKpi] = await birdQuery(
+          `SELECT COUNT(*) as total, COUNT(DISTINCT Sci_Name) as species,
+                  ROUND(AVG(Confidence)*100,1) as avg_conf
+           FROM detections WHERE Date >= ?`, [afterStart]);
+
+        // Days active
+        const [bDays] = await birdQuery(
+          `SELECT COUNT(DISTINCT Date) as d FROM detections WHERE Date >= ? AND Date < ?`, [beforeStart, afterStart]);
+        const [aDays] = await birdQuery(
+          `SELECT COUNT(DISTINCT Date) as d FROM detections WHERE Date >= ?`, [afterStart]);
+
+        const bDetDay = bDays.d > 0 ? Math.round(bKpi.total / bDays.d) : 0;
+        const aDetDay = aDays.d > 0 ? Math.round(aKpi.total / aDays.d) : 0;
+
+        const detDayDelta = bDetDay > 0 ? Math.round((aDetDay - bDetDay) / bDetDay * 100) : 0;
+        const speciesDelta = (aKpi.species || 0) - (bKpi.species || 0);
+        const confDelta = Math.round(((aKpi.avg_conf || 0) - (bKpi.avg_conf || 0)) * 10) / 10;
+
+        // Species lists — before and after
+        const beforeSpecies = await birdQuery(
+          `SELECT Com_Name as name, Sci_Name as sci, COUNT(*) as count,
+                  ROUND(AVG(Confidence)*100,1) as conf
+           FROM detections WHERE Date >= ? AND Date < ?
+           GROUP BY Sci_Name ORDER BY count DESC`, [beforeStart, afterStart]);
+
+        const afterSpecies = await birdQuery(
+          `SELECT Com_Name as name, Sci_Name as sci, COUNT(*) as count,
+                  ROUND(AVG(Confidence)*100,1) as conf
+           FROM detections WHERE Date >= ?
+           GROUP BY Sci_Name ORDER BY count DESC`, [afterStart]);
+
+        const beforeMap = {};
+        beforeSpecies.forEach(s => { beforeMap[s.sci] = s; });
+        const afterMap = {};
+        afterSpecies.forEach(s => { afterMap[s.sci] = s; });
+
+        // Gained: in after but not before
+        const gained = afterSpecies
+          .filter(s => !beforeMap[s.sci])
+          .map(s => ({ name: s.name, count: s.count, conf: s.conf }));
+
+        // Lost: in before but not after
+        const lost = beforeSpecies
+          .filter(s => !afterMap[s.sci])
+          .map(s => ({ name: s.name, count: s.count, conf: s.conf }));
+
+        // Full species comparison table
+        const allSci = new Set([...beforeSpecies.map(s=>s.sci), ...afterSpecies.map(s=>s.sci)]);
+        const speciesTable = Array.from(allSci).map(sci => {
+          const b = beforeMap[sci] || {};
+          const a = afterMap[sci] || {};
+          const bPerDay = bDays.d > 0 ? b.count / bDays.d : 0;
+          const aPerDay = aDays.d > 0 ? (a.count || 0) / aDays.d : 0;
+          const delta = bPerDay > 0 ? Math.round((aPerDay - bPerDay) / bPerDay * 100) : 0;
+          return {
+            name: a.name || b.name, sci,
+            beforeCount: b.count || 0, afterCount: a.count || 0,
+            beforeConf: b.conf || 0, afterConf: a.conf || 0,
+            delta
+          };
+        }).sort((a,b) => (b.afterCount + b.beforeCount) - (a.afterCount + a.beforeCount));
+
+        // Nocturnal detections (22h-4h) in "after" period
+        const nocturnal = await birdQuery(
+          `SELECT Date as date, Time as time, Com_Name as species,
+                  ROUND(Confidence*100,1) as conf
+           FROM detections
+           WHERE Date >= ?
+             AND (CAST(substr(Time,1,2) AS INT) >= 22 OR CAST(substr(Time,1,2) AS INT) < 4)
+           ORDER BY Date DESC, Time DESC LIMIT 20`, [afterStart]);
+
+        cmp.value = {
+          loading: false, error: null,
+          beforeRange: `${fmtDate(beforeStart)} \u2192 ${fmtDate(beforeEnd)}`,
+          afterRange: `${fmtDate(afterStart)} \u2192 ${fmtDate(todayStr)}`,
+          before: { totalDet: bKpi.total, detPerDay: bDetDay, species: bKpi.species, avgConf: bKpi.avg_conf || 0 },
+          after:  { totalDet: aKpi.total, detPerDay: aDetDay, species: aKpi.species, avgConf: aKpi.avg_conf || 0 },
+          detDayDelta, speciesDelta, confDelta,
+          gained, lost, speciesTable, nocturnal
+        };
+      } catch(e) {
+        cmp.value = { ...cmp.value, loading:false, error: e.message };
+      }
+    }
+
+    // ── External tab state ────────────────────────────────────────
+    const rareLocal = ref({ loading:true, rows:[] });
+    const ebird = ref({ loading:false, error:null, hasKey:true, obs:[], fetchedAt:'' });
+    const bwPeriod  = ref('day');
+    const bwPeriods = [
+      { label:'Auj.',  val:'day'   },
+      { label:'7j',    val:'week'  },
+      { label:'30j',   val:'month' },
+      { label:'Tout',  val:'all'   },
+    ];
+    const bw = ref({ loading:false, error:null, hasStation:false, stationId:'', stats:{}, species:[] });
+
+    async function loadRareLocal() {
+      rareLocal.value.loading = true;
+      try {
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as sci, COUNT(*) as n, MAX(Date) as last_date
+           FROM detections WHERE Confidence>=? GROUP BY Com_Name HAVING n<=5
+           ORDER BY last_date DESC LIMIT 10`,
+          [BIRD_CONFIG.defaultConfidence]
+        );
+        rareLocal.value = { loading:false, rows };
+      } catch(e) { rareLocal.value = { loading:false, rows:[] }; }
+    }
+
+    async function loadEbird() {
+      ebird.value.loading = true;
+      try {
+        const res  = await fetch(`${BIRD_CONFIG.apiUrl}/ebird-notable?days=7&maxResults=25`);
+        const data = await res.json();
+
+        if (data.error === 'no_key') {
+          ebird.value = { loading:false, error:null, hasKey:false, obs:[], fetchedAt:'' };
+          return;
+        }
+        if (data.error) {
+          ebird.value = { loading:false, error:data.message || data.error, hasKey:true, obs:[], fetchedAt:'' };
+          return;
+        }
+
+        // Cross-reference with local species
+        const localSpecies = new Set(
+          (await birdQuery(`SELECT DISTINCT Com_Name FROM detections`)).map(r => r.Com_Name)
+        );
+
+        const obs = (data.obs || []).map(o => ({
+          ...o,
+          localMatch: localSpecies.has(o.comName),
+        }));
+
+        const ts = data.fetchedAt ? new Date(data.fetchedAt).toLocaleTimeString('fr-BE', {hour:'2-digit',minute:'2-digit'}) : '';
+        ebird.value = { loading:false, error:null, hasKey:true, obs, fetchedAt: ts };
+      } catch(e) {
+        ebird.value = { loading:false, error:'Erreur réseau : '+e.message, hasKey:true, obs:[], fetchedAt:'' };
+      }
+    }
+
+    async function loadBirdWeather() {
+      bw.value.loading = true;
+      try {
+        const statsRes  = await fetch(`${BIRD_CONFIG.apiUrl}/birdweather?endpoint=stats&period=${bwPeriod.value}`);
+        const statsData = await statsRes.json();
+
+        if (statsData.error === 'no_station') {
+          bw.value = { loading:false, error:null, hasStation:false, stationId:'', stats:{}, species:[] };
+          return;
+        }
+        if (statsData.error) {
+          bw.value = { ...bw.value, loading:false, error:statsData.message || statsData.error };
+          return;
+        }
+
+        const spRes  = await fetch(`${BIRD_CONFIG.apiUrl}/birdweather?endpoint=species&period=${bwPeriod.value}&limit=10&locale=fr`);
+        const spData = await spRes.json();
+        const species = spData.species || [];
+
+        bw.value = {
+          loading:    false,
+          error:      null,
+          hasStation: true,
+          stationId:  statsData.stationId || '',
+          stats: {
+            detections:    statsData.detections   || 0,
+            species_count: statsData.species      || 0,
+            top_species:   species[0]             || null,
+          },
+          species,
+        };
+      } catch(e) {
+        bw.value = { ...bw.value, loading:false, error:'Erreur : '+e.message };
+      }
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────
+    onMounted(() => {
+      // Load initial tab
+      tabLoaded.value[activeTab.value] = true;
+      loadTabData(activeTab.value);
+
+      // Auto-refresh services every 30s when health tab is active
+      svcRefreshTimer = setInterval(() => {
+        if (activeTab.value === 'health' && tabLoaded.value.health) {
+          loadServices();
+        }
+      }, 30000);
+
+      // Listen for hash changes (browser back/forward)
+      window.addEventListener('hashchange', () => {
+        const h = location.hash.slice(1);
+        if (validTabs.includes(h) && h !== activeTab.value) {
+          switchTab(h);
+        }
+      });
+    });
+
+    onUnmounted(() => {
+      if (svcRefreshTimer) clearInterval(svcRefreshTimer);
+    });
+
+    function openUrl(url) { window.open(url, '_blank'); }
+
+    return {
+      lang, t,
+      // Tabs
+      tabs, activeTab, tabLoaded, switchTab,
+      // Health tab
+      api, health, services, svcExpanded, svcDetail, confirmAction, analysis, audio, backup, network, hw, fresh,
+      loadHealth, loadServices, toggleSvc, svcAction, confirmStop, svcLabel, svcDotClass, terminalKey,
+      loadApi, loadFresh, fmtBytes,
+      // Model tab
+      mod, modPeriod, modPeriods, loadModelMonitor,
+      cmp, cmpDate, loadModelCompare,
+      // Data tab
+      db, gaps,
+      // External tab
+      rareLocal, ebird,
+      bw, bwPeriod, bwPeriods, loadBirdWeather,
+      // Helpers
+      fmtDate, fmtTime, fmtBytes, fmtUptime, barColor, freshnessLabel, navigateTo, openUrl,
+      canvasActivity, canvasHourly, canvasModConf, canvasModTrend,
+    };
+  },
+});
+BIRDASH.registerComponents(app).mount('#app');
+</script>
+</body>
+</html>
