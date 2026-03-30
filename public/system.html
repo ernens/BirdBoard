@@ -970,21 +970,28 @@ const app = createApp({
 
     // ── Tab system ────────────────────────────────────────────────
     const tabs = [
-      { id: 'health',   icon: '\u{1F4E1}', labelKey: 'sys_tab_health' },
-      { id: 'model',    icon: '\u{1F916}', labelKey: 'sys_tab_model' },
-      { id: 'data',     icon: '\u{1F4CA}', labelKey: 'sys_tab_data' },
-      { id: 'external', icon: '\u{1F30D}', labelKey: 'sys_tab_external' },
-      { id: 'terminal', icon: '\u{1F4BB}', label: 'Terminal' },
+      { id: 'health',    icon: '\u{1F4E1}', label: 'Santé' },
+      { id: 'detection', icon: '\u{1F916}', label: 'Détection', href: 'settings.html#detection' },
+      { id: 'audio',     icon: '\u{1F3A4}', label: 'Audio', href: 'settings.html#audio' },
+      { id: 'notif',     icon: '\u{1F514}', label: 'Notifications', href: 'settings.html#notif' },
+      { id: 'station',   icon: '\u{1F4CD}', label: 'Station', href: 'settings.html#station' },
+      { id: 'services',  icon: '\u{1F527}', label: 'Services', href: 'settings.html#services' },
+      { id: 'data',      icon: '\u{1F4CA}', label: 'Données' },
+      { id: 'external',  icon: '\u{1F30D}', label: 'Externe' },
+      { id: 'backup',    icon: '\u{1F4BE}', label: 'Backup', href: 'settings.html#backup' },
+      { id: 'terminal',  icon: '\u{1F4BB}', label: 'Terminal', href: 'settings.html#terminal' },
     ];
 
-    const validTabs = ['health', 'model', 'data', 'external', 'terminal'];
+    const validTabs = ['health', 'model', 'data', 'external'];
     const hashTab = location.hash.slice(1);
     const initialTab = validTabs.includes(hashTab) ? hashTab : 'health';
 
     const activeTab = ref(initialTab);
-    const tabLoaded = ref({ health: false, model: false, data: false, external: false, terminal: false });
+    const tabLoaded = ref({ health: false, model: false, data: false, external: false });
 
     function switchTab(id) {
+      const tab = tabs.find(t => t.id === id);
+      if (tab && tab.href) { window.location.href = tab.href; return; }
       activeTab.value = id;
       location.hash = id;
       if (!tabLoaded.value[id]) {
