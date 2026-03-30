@@ -176,12 +176,14 @@ const app = createApp({
         const days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
         const resp = await fetch(`api/model-comparison?days=${days}`);
         data.value = await resp.json();
+        loading.value = false;
+        await nextTick();
         await nextTick();
         drawChart();
       } catch (e) {
         console.error('model-comparison:', e);
+        loading.value = false;
       }
-      loading.value = false;
     }
 
     function drawChart() {
