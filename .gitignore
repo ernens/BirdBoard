@@ -11,6 +11,8 @@ config/backup-history.json
 deploy.sh
 photo-cache/
 birdash.db
+*.db-shm
+*.db-wal
 .claude/
 engine/venv/
 engine/audio/

@@ -353,10 +353,23 @@ async function getRecentMp3s() {
   return files.sort((a, b) => a.mtime - b.mtime);
 }
 
-// Vérifie que la DB existe
+// Bootstrap DB if missing (fresh install)
 if (!fs.existsSync(DB_PATH)) {
-  console.error(`[BIRDASH] birds.db introuvable : ${DB_PATH}`);
-  process.exit(1);
+  const dbDir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+  console.log(`[BIRDASH] Creating new birds.db at ${DB_PATH}`);
+  const initDb = new Database(DB_PATH);
+  initDb.exec(`CREATE TABLE IF NOT EXISTS detections (
+    Date DATE, Time TIME, Sci_Name VARCHAR(100) NOT NULL, Com_Name VARCHAR(100) NOT NULL,
+    Confidence FLOAT, Lat FLOAT, Lon FLOAT, Cutoff FLOAT,
+    Week INT, Sens FLOAT, Overlap FLOAT, File_Name VARCHAR(100) NOT NULL, Model VARCHAR(50)
+  )`);
+  initDb.exec('CREATE INDEX IF NOT EXISTS idx_date_time ON detections(Date, Time DESC)');
+  initDb.exec('CREATE INDEX IF NOT EXISTS idx_com_name ON detections(Com_Name)');
+  initDb.exec('CREATE INDEX IF NOT EXISTS idx_sci_name ON detections(Sci_Name)');
+  initDb.pragma('journal_mode = WAL');
+  initDb.close();
+  console.log('[BIRDASH] Empty birds.db created successfully');
 }
 
 // Ouvre en lecture seule (requêtes SELECT)
@@ -975,15 +988,15 @@ function rateLimit(req) {
 
 // ── Auth helper: check Bearer token for write operations ─────────────────────
 function requireAuth(req, res) {
-  if (!API_TOKEN) return true; // no token configured → open access
+  if (!API_TOKEN) return true; // no token configured → open access (LAN-only deployment)
   const auth = req.headers['authorization'] || '';
-  const url  = new URL(req.url, 'http://localhost');
-  const qToken = url.searchParams.get('token');
-  if (auth === `Bearer ${API_TOKEN}` || qToken === API_TOKEN) return true;
+  // Only accept Bearer token in header (no query string — avoids log/proxy leaks)
+  if (auth === `Bearer ${API_TOKEN}`) return true;
   res.writeHead(401, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Unauthorized — set Authorization: Bearer <token> header' }));
   return false;
 }
+if (!API_TOKEN) console.warn('[BIRDASH] WARNING: No BIRDASH_API_TOKEN set — write endpoints are unprotected. Set Environment=BIRDASH_API_TOKEN=... in birdash.service for production.');
 
 // --- Shared JSON helpers (used by multiple routes)
 function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
@@ -1000,14 +1013,20 @@ const server = http.createServer((req, res) => {
   // Body size limit for POST requests
   if (req.method === 'POST') {
     let bodySize = 0;
+    let bodyLimited = false;
     req.on('data', (chunk) => {
       bodySize += chunk.length;
-      if (bodySize > MAX_BODY_SIZE) {
-        req.destroy();
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Request body too large' }));
+      if (bodySize > MAX_BODY_SIZE && !bodyLimited) {
+        bodyLimited = true;
+        req.removeAllListeners('data'); // Stop reading
+        if (!res.headersSent) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request body too large' }));
+        }
       }
     });
+    // Expose flag for route handlers to check
+    req._bodyLimited = () => bodyLimited;
   }
 
   // Headers de sécurité
@@ -3599,8 +3618,21 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const updates = JSON.parse(body);
+        // Whitelist allowed audio config keys
+        const AUDIO_KEYS = ['device_id','device_name','input_channels','capture_sample_rate','bit_depth',
+          'output_sample_rate','channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
+          'rms_normalize','rms_target','cal_gain_ch0','cal_gain_ch1','cal_date','profile_name'];
+        const filtered = {};
+        for (const k of Object.keys(updates)) {
+          if (AUDIO_KEYS.includes(k)) filtered[k] = updates[k];
+        }
+        if (Object.keys(filtered).length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No valid audio config keys provided' }));
+          return;
+        }
         const current = readJsonFile(AUDIO_CONFIG_PATH) || {};
-        Object.assign(current, updates);
+        Object.assign(current, filtered);
         writeJsonFileAtomic(AUDIO_CONFIG_PATH, current);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, config: current }));
@@ -3627,8 +3659,13 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const profile = JSON.parse(body);
-        if (!profile.profile_name) throw new Error('profile_name required');
+        const raw = JSON.parse(body);
+        if (!raw.profile_name) throw new Error('profile_name required');
+        // Validate and whitelist profile fields
+        const PROFILE_KEYS = ['profile_name','highpass_enabled','highpass_cutoff_hz','hop_size_s',
+          'channel_strategy','rms_normalize','rms_target'];
+        const profile = { profile_name: raw.profile_name };
+        for (const k of PROFILE_KEYS) { if (k in raw) profile[k] = raw[k]; }
         const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
         if (profiles[profile.profile_name]?.builtin) throw new Error('Cannot overwrite builtin profile');
         profiles[profile.profile_name] = { ...profile, builtin: false };
