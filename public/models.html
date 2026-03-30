@@ -59,17 +59,17 @@
       <div class="cmp-grid" style="margin-bottom:1.2rem;">
         <div v-for="(m, i) in data.models" :key="m" class="card cmp-stat">
           <div class="big" :class="'model-color-'+(i+1)">{{ data.stats[m]?.total || 0 }}</div>
-          <div class="label">détections</div>
+          <div class="label">{{t('models_detections')}}</div>
           <div style="font-weight:600;margin-top:.3rem;">{{ modelLabel(m) }}</div>
           <div style="font-size:.78rem;opacity:.7;margin-top:.2rem;">
-            {{ data.stats[m]?.species || 0 }} espèces | conf. moy. {{ ((data.stats[m]?.avg_conf || 0) * 100).toFixed(0) }}%
+            {{ data.stats[m]?.species || 0 }} {{t('models_species')}} | {{t('models_avg_conf')}} {{ ((data.stats[m]?.avg_conf || 0) * 100).toFixed(0) }}%
           </div>
         </div>
       </div>
 
       <!-- Daily chart -->
       <div class="card" style="margin-bottom:1.2rem;">
-        <div class="section-title">Détections par jour et par modèle</div>
+        <div class="section-title">{{t('models_daily')}}</div>
         <canvas ref="dailyChart" height="200"></canvas>
       </div>
 
@@ -78,10 +78,10 @@
         <div v-for="(m, i) in data.models" :key="'u'+m" class="card">
           <div class="section-title">
             <span :class="'pill pill-'+(i+1)">{{ modelLabel(m) }}</span>
-            — Espèces exclusives ({{ (data.unique[m] || []).length }})
+            — {{t('models_exclusive')}} ({{ (data.unique[m] || []).length }})
           </div>
           <div v-if="!data.unique[m]?.length" style="font-size:.82rem;opacity:.5;padding:.5rem;">
-            Aucune espèce exclusive
+            {{t('models_none')}}
           </div>
           <table v-else class="cmp-table">
             <tr><th>Espèce</th><th>N</th><th>Conf.</th></tr>
@@ -107,13 +107,13 @@
 
       <!-- Overlap: species detected by both -->
       <div v-if="data.overlap.length" class="card">
-        <div class="section-title">Espèces détectées par les deux modèles (top 30)</div>
+        <div class="section-title">{{t('models_overlap')}}</div>
         <table class="cmp-table">
           <tr>
             <th>Espèce</th>
             <th><span class="pill pill-1">{{ modelLabel(data.models[0]) }}</span></th>
             <th><span class="pill pill-2">{{ modelLabel(data.models[1]) }}</span></th>
-            <th>Ratio</th>
+            <th>{{t('models_ratio')}}</th>
           </tr>
           <tr v-for="s in data.overlap" :key="s.Sci_Name">
             <td>

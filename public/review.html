@@ -45,21 +45,21 @@
           @set-period="fp.setPeriod"
           @set-custom-range="fp.setCustomRange"
         ></filter-period>
-        <span class="stat-pill">{{ flagged.length }} suspectes / {{ totalDets }} total</span>
-        <span v-if="selected.size > 0" class="stat-pill" style="background:var(--accent);color:#fff;">{{ selected.size }} sélectionnées</span>
+        <span class="stat-pill">{{ flagged.length }} {{t('review_suspects','').replace('{n}','')}} / {{ totalDets }} {{t('review_total')}}</span>
+        <span v-if="selected.size > 0" class="stat-pill" style="background:var(--accent);color:#fff;">{{ selected.size }} {{t('review_selected','').replace('{n}','')}}</span>
       </div>
       <div style="display:flex;gap:.3rem;flex-wrap:wrap;">
         <button class="btn-outline" @click="selectAll" style="font-size:.75rem;">
-          {{ selected.size === flagged.length ? 'Tout désélectionner' : 'Tout sélectionner' }}
+          {{ selected.size === flagged.length ? t('review_deselect') : t('review_select_all') }}
         </button>
-        <button class="btn-confirm" @click="bulkAction('confirmed')" :disabled="selected.size === 0">Confirmer ({{ selected.size }})</button>
-        <button class="btn-reject" @click="bulkAction('rejected')" :disabled="selected.size === 0">Rejeter ({{ selected.size }})</button>
+        <button class="btn-confirm" @click="bulkAction('confirmed')" :disabled="selected.size === 0">{{t('review_confirm')}} ({{ selected.size }})</button>
+        <button class="btn-reject" @click="bulkAction('rejected')" :disabled="selected.size === 0">{{t('review_reject')}} ({{ selected.size }})</button>
       </div>
     </div>
 
     <!-- Bulk by rule -->
     <div v-if="reasonGroups.length > 0" style="padding:.5rem 1rem;display:flex;gap:.4rem;flex-wrap:wrap;">
-      <span style="font-size:.8rem;opacity:.6;align-self:center;">Rejeter par règle :</span>
+      <span style="font-size:.8rem;opacity:.6;align-self:center;">{{t('review_reject_rule')}} :</span>
       <button v-for="rg in reasonGroups" :key="rg.reason"
               class="btn-reject" style="font-size:.72rem;padding:.2rem .5rem;"
               @click="bulkRejectByReason(rg.reason)">
@@ -74,7 +74,7 @@
 
     <!-- No flagged -->
     <div v-else-if="flagged.length === 0" style="text-align:center;padding:3rem;opacity:.6;">
-      Aucune détection suspecte pour cette date.
+      {{t('review_none')}}
     </div>
 
     <!-- Detection list -->
@@ -200,7 +200,7 @@ const app = createApp({
         .filter(d => selected.has(detKey(d)))
         .map(d => ({ date: d.date, time: d.time, sci_name: d.sci_name }));
       if (dets.length === 0) return;
-      if (!confirm(`${status === 'rejected' ? 'Rejeter' : 'Confirmer'} ${dets.length} détections ?`)) return;
+      if (!confirm(`${status === 'rejected' ? t('review_reject') : t('review_confirm')} ${dets.length} ?`)) return;
       try {
         await fetch(`${API}/bulk-validate`, {
           method: 'POST',
@@ -221,7 +221,7 @@ const app = createApp({
         d.reasons.includes(reason) && d.validation !== 'rejected' && d.validation !== 'confirmed'
       );
       if (matching.length === 0) return;
-      if (!confirm(`Rejeter ${matching.length} détections "${reason}" ?`)) return;
+      if (!confirm(`${t('review_reject')} ${matching.length} "${reason}" ?`)) return;
       const dets = matching.map(d => ({ date: d.date, time: d.time, sci_name: d.sci_name }));
       fetch(`${API}/bulk-validate`, {
         method: 'POST',

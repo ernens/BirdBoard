@@ -188,7 +188,7 @@
 
         <!-- SQL Editor -->
         <div class="card">
-          <div class="section-title">Requête SQL</div>
+          <div class="section-title">{{t('db_query')}}</div>
           <textarea v-model="dbSql" rows="4"
                     style="width:100%;font-family:monospace;font-size:.82rem;padding:.5rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg-deep);color:var(--text-main);resize:vertical;"
                     placeholder="SELECT * FROM detections ORDER BY Date DESC, Time DESC LIMIT 20"
@@ -201,7 +201,7 @@
             <button class="btn-accent" @click="dbExec" :disabled="dbLoading || !!dbSqlWarning" style="font-size:.82rem;">
               {{dbLoading ? 'Exécution...' : 'Exécuter'}} <span style="opacity:.5;font-size:.72rem;">(Ctrl+Enter)</span>
             </button>
-            <span style="font-size:.7rem;opacity:.4;">Lecture seule — SELECT, PRAGMA, WITH uniquement</span>
+            <span style="font-size:.7rem;opacity:.4;">{{t('db_readonly')}}</span>
             <span v-if="dbError" style="color:var(--danger);font-size:.78rem;margin-left:.5rem;">{{dbError}}</span>
             <span v-else-if="dbRows.length" style="font-size:.78rem;opacity:.6;margin-left:.5rem;">
               {{dbRows.length}} ligne{{dbRows.length > 1 ? 's' : ''}} ({{dbExecTime}}ms)
@@ -277,15 +277,15 @@
               <input type="checkbox"
                      :checked="conf.DUAL_MODEL_ENABLED == 1"
                      @change="conf.DUAL_MODEL_ENABLED = $event.target.checked ? 1 : 0">
-              Dual-model
+              {{t('dual_model')}}
             </label>
             <span style="font-size:1.1em;">⚡</span>
-            <span style="font-size:.82em;opacity:.6;">Analyse chaque fichier avec deux modèles en parallèle</span>
+            <span style="font-size:.82em;opacity:.6;">{{t('dual_desc')}}</span>
           </div>
 
           <div v-if="conf.DUAL_MODEL_ENABLED == 1">
             <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
-              <span style="font-size:.85em;">Modèle secondaire :</span>
+              <span style="font-size:.85em;">{{t('secondary_model')}} :</span>
               <select v-model="conf.SECONDARY_MODEL"
                       style="padding:.3rem .5rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.85em;">
                 <option v-for="m in secondaryModelOptions" :key="m" :value="m">{{ modelLabel(m) }}</option>
@@ -302,7 +302,7 @@
             </div>
             <div v-else-if="conf.DUAL_MODEL_ENABLED == 1"
                  style="margin-top:.5rem;font-size:.82em;color:var(--text-muted);">
-              Le modèle secondaire sera chargé au prochain cycle (~5 min).
+              {{t('dual_wait')}}
             </div>
           </div>
         </div>
@@ -461,7 +461,7 @@
               <button class="btn-outline" @click="loadAudioDevices" style="margin-left:.5rem;font-size:.75em;">Rafraîchir</button>
             </div>
             <div v-if="audioDevices.length === 0" style="padding:1rem;color:var(--text-muted);">
-              Aucun périphérique audio détecté. Vérifiez la connexion USB.<br>
+              {{t('audio_no_device')}}<br>
               <code style="font-size:.8em;">arecord -l</code> pour diagnostiquer.
             </div>
             <div v-for="d in audioDevices" :key="d.id"
@@ -479,7 +479,7 @@
           </div>
 
           <div class="card" v-if="audioConf.device_id">
-            <div class="section-title">Câblage microphones</div>
+            <div class="section-title">{{t('audio_wiring')}}</div>
             <div style="display:flex;flex-direction:column;gap:.5rem;">
               <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
                 <input type="radio" v-model.number="audioConf.input_channels" :value="1"> 1 microphone (canal 0)
@@ -489,7 +489,7 @@
               </label>
             </div>
             <div style="margin-top:.8rem;font-size:.82em;opacity:.6;">
-              Sample rate de sortie : <strong>32 000 Hz</strong> (imposé par Perch V2, non modifiable)
+              {{t('audio_sr_note')}}
             </div>
           </div>
         </div>
@@ -497,7 +497,7 @@
         <!-- ── Sub-tab: Profil & Paramètres ── -->
         <div v-if="audioSubTab==='profile'">
           <div class="card">
-            <div class="section-title">Profil actif</div>
+            <div class="section-title">{{t('audio_profile')}}</div>
             <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
               <select v-model="audioConf.profile_name" @change="activateAudioProfile(audioConf.profile_name)"
                       style="padding:.4rem .6rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.9em;">
@@ -510,9 +510,9 @@
           </div>
 
           <div class="card">
-            <div class="section-title">Stratégie multi-canaux</div>
+            <div class="section-title">{{t('audio_strategy')}}</div>
             <div v-if="audioConf.input_channels < 2" style="opacity:.6;font-size:.85em;">
-              Disponible uniquement avec 2 microphones.
+              {{t('audio_strategy_2ch')}}
             </div>
             <div v-else style="display:flex;flex-direction:column;gap:.5rem;">
               <label v-for="s in channelStrategies" :key="s.id"
@@ -588,9 +588,9 @@
         <!-- ── Sub-tab: Calibration ── -->
         <div v-if="audioSubTab==='calibration'">
           <div class="card">
-            <div class="section-title">Calibration inter-canaux</div>
+            <div class="section-title">{{t('cal_title')}}</div>
             <div v-if="audioConf.input_channels < 2" style="opacity:.6;padding:1rem;">
-              La calibration nécessite 2 microphones.
+              {{t('cal_need_2ch')}}
             </div>
             <div v-else>
               <div v-if="audioConf.cal_date" style="margin-bottom:1rem;">
@@ -599,11 +599,11 @@
                   CH0: gain ×{{ audioConf.cal_gain_ch0 }} &nbsp;|&nbsp; CH1: gain ×{{ audioConf.cal_gain_ch1 }}
                 </div>
                 <div v-if="calExpired" style="color:var(--warning);font-size:.85em;margin-top:.3rem;">
-                  Calibration expirée (> 7 jours). Recalibration recommandée.
+                  {{t('cal_expired')}}
                 </div>
               </div>
               <div v-else style="color:var(--warning);margin-bottom:1rem;">
-                Les deux canaux ne sont pas calibrés. Les détections peuvent être biaisées.
+                {{t('cal_not_done')}}
               </div>
 
               <div v-if="!calRunning && !calResult">
@@ -611,12 +611,12 @@
                   Placez les deux microphones côte à côte (< 5 cm d'écart), orientés dans la même direction.
                   Assurez-vous qu'aucun bruit fort n'est présent. La capture dure 10 secondes.
                 </p>
-                <button class="btn-accent" @click="startCalibration">Démarrer la calibration</button>
+                <button class="btn-accent" @click="startCalibration">{{t('cal_start')}}</button>
               </div>
 
               <div v-if="calRunning" style="text-align:center;padding:1rem;">
                 <div class="spinner" style="margin:0 auto .5rem;"></div>
-                <div>Capture en cours... (10 secondes)</div>
+                <div>{{t('cal_capturing')}}</div>
               </div>
 
               <div v-if="calResult" class="card" style="background:var(--bg-card2);">
@@ -637,8 +637,8 @@
                   {{ calResult.message }}
                 </div>
                 <div style="display:flex;gap:.5rem;margin-top:.8rem;">
-                  <button class="btn-accent" @click="applyCalibration">Appliquer et sauvegarder</button>
-                  <button class="btn-outline" @click="calResult=null">Recommencer</button>
+                  <button class="btn-accent" @click="applyCalibration">{{t('cal_apply')}}</button>
+                  <button class="btn-outline" @click="calResult=null">{{t('cal_retry')}}</button>
                 </div>
               </div>
             </div>
@@ -708,13 +708,13 @@
         <!-- ═══ Global toggle + Apprise URL ═══ -->
         <div class="card">
           <div class="section-title" style="display:flex;align-items:center;gap:.8rem;">
-            <span>Canal de notification</span>
+            <span>{{t('notif_channel')}}</span>
             <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.82rem;font-weight:normal;margin-left:auto;">
               <input type="checkbox"
                      :checked="notifGlobalEnabled"
                      @change="toggleNotifGlobal($event.target.checked)">
               <span :style="{color: notifGlobalEnabled ? 'var(--accent)' : 'var(--text-muted)'}">
-                {{ notifGlobalEnabled ? 'Notifications actives' : 'Notifications désactivées' }}
+                {{ notifGlobalEnabled ? '{{t('notif_on')}}' : '{{t('notif_off')}}' }}
               </span>
             </label>
           </div>
@@ -873,7 +873,7 @@
             <input v-model="conf.PURGE_THRESHOLD" type="range" min="50" max="99" step="1" class="set-range" :aria-label="t('set_purge_threshold')">
           </div>
           <div class="set-row">
-            <span class="set-label">Rétention audio (jours)</span>
+            <span class="set-label">{{t('retention_days')}}</span>
             <span class="set-range-val">{{conf.AUDIO_RETENTION_DAYS}} j</span>
             <input v-model="conf.AUDIO_RETENTION_DAYS" type="range" min="7" max="365" step="1" class="set-range">
           </div>
@@ -959,9 +959,9 @@
       <div v-if="activeTab==='species'">
 
       <div class="card">
-        <div class="section-title">📋 Inclusion / Exclusion d'espèces <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
+        <div class="section-title">📋 {{t('species_tab')}} <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
         <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem 0;">
-          Contrôle quelles espèces sont détectées. Un nom scientifique par ligne.
+          {{t('species_desc')}}
           La liste d'inclusion, si remplie, limite les détections aux espèces listées uniquement.
           La liste d'exclusion supprime les espèces indésirables.
         </p>
@@ -969,14 +969,14 @@
           <div>
             <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_include_list')}}</div>
             <p style="font-size:.72rem;color:var(--text-muted);margin:0 0 .4rem 0;">
-              Si remplie, seules ces espèces seront détectées. Laisser vide pour tout détecter.
+              {{t('species_include_desc')}}
             </p>
             <textarea v-model="includeList" class="set-textarea" rows="12" :placeholder="'Pica pica\nTurdus merula\nPhylloscopus collybita\n...'"></textarea>
           </div>
           <div>
             <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_exclude_list')}}</div>
             <p style="font-size:.72rem;color:var(--text-muted);margin:0 0 .4rem 0;">
-              Ces espèces seront ignorées même si détectées par le modèle.
+              {{t('species_exclude_desc')}}
             </p>
             <textarea v-model="excludeList" class="set-textarea" rows="12" :placeholder="'Homo sapiens\nCanis lupus familiaris\n...'"></textarea>
           </div>
