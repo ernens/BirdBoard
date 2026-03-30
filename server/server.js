@@ -902,6 +902,7 @@ async function checkBirdAlerts() {
 // Start monitoring loop after 30s (let services stabilize)
 let _birdAlertTick = 0;
 let _alertIntervalId = null;
+let _activeBackupProc = null;
 setTimeout(() => {
   console.log('[BIRDASH] System alerts monitoring started (every 60s, bird alerts every 15min)');
   _alertIntervalId = setInterval(() => {
@@ -984,6 +985,14 @@ function requireAuth(req, res) {
   return false;
 }
 
+// --- Shared JSON helpers (used by multiple routes)
+function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+function writeJsonFileAtomic(p, data) {
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+  fs.renameSync(tmp, p);
+}
+
 // --- Handler HTTP
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB max for POST bodies
 
@@ -1005,7 +1014,7 @@ const server = http.createServer((req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Content-Security-Policy', CSP);
+  // CSP set below after pathname is parsed
 
   // CORS — restrictif par défaut
   const allowedOrigin = getCorsOrigin(req);
@@ -1031,6 +1040,8 @@ const server = http.createServer((req, res) => {
 
   // Extraire le pathname proprement (ignore query string éventuel)
   const pathname = req.url.split('?')[0].replace(/\/$/, '') || '/';
+  // CSP only for non-API routes (HTML pages)
+  if (!pathname.startsWith('/api/')) res.setHeader('Content-Security-Policy', CSP);
   console.log(`[BIRDASH] ${req.method} ${req.url} → pathname: ${pathname}`);
 
   // ── Route : GET /api/photo?sci=Pica+pica ────────────────────────────────────
@@ -1119,6 +1130,11 @@ const server = http.createServer((req, res) => {
     }
 
     // Cache in memory (labels don't change at runtime)
+    // Limit cache to 6 languages to prevent unbounded growth
+    if (Object.keys(_speciesNamesCache).length > 6) {
+      const oldest = Object.keys(_speciesNamesCache)[0];
+      delete _speciesNamesCache[oldest];
+    }
     if (!_speciesNamesCache[lang]) {
       const labelFile = path.join(
         process.env.HOME, 'BirdNET-Pi', 'model', 'l18n', `labels_${lang}.json`
@@ -2720,6 +2736,7 @@ const server = http.createServer((req, res) => {
         // Run backup script asynchronously
         const statusPath = path.join(__dirname, '..', 'config', 'backup-status.json');
         const proc = spawn('bash', [scriptPath], { env: { ...process.env, BACKUP_CONFIG: cfgPath, BACKUP_STATUS: statusPath } });
+        _activeBackupProc = proc; // Track for graceful shutdown
         let stdout = '', stderr = '';
         proc.stdout.on('data', d => stdout += d);
         proc.stderr.on('data', d => stderr += d);
@@ -3324,14 +3341,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ── Shared helpers ──────────────────────────────────────────────────────
-  // ══════════════════════════════════════════════════════════════════════════
-  function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
-  function writeJsonFileAtomic(p, data) {
-    const tmp = p + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
-    fs.renameSync(tmp, p);
-  }
+  // (readJsonFile/writeJsonFileAtomic defined before createServer)
 
   // ══════════════════════════════════════════════════════════════════════════
   // ── DETECTION RULES MODULE ──────────────────────────────────────────────
@@ -3699,13 +3709,15 @@ const server = http.createServer((req, res) => {
         // Analyze RMS per channel using ffmpeg
         const analyzeChannel = async (ch) => {
           return new Promise((resolve) => {
-            require('child_process').exec(
-              `ffmpeg -i ${tmpFile} -af "pan=mono|c0=c${ch},astats=metadata=1:reset=0" -f null - 2>&1 | grep "RMS level dB"`,
-              (err, stdout) => {
-                const m = stdout.match(/RMS level dB:\s*([-\d.]+)/);
-                resolve(m ? parseFloat(m[1]) : -60);
-              }
-            );
+            const ff = require('child_process').spawn('ffmpeg', [
+              '-i', tmpFile, '-af', `pan=mono|c0=c${ch},astats=metadata=1:reset=0`, '-f', 'null', '-'
+            ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            let output = '';
+            ff.stderr.on('data', d => output += d);
+            ff.on('close', () => {
+              const m = output.match(/RMS level dB:\s*([-\d.]+)/);
+              resolve(m ? parseFloat(m[1]) : -60);
+            });
           });
         };
         const rms0 = await analyzeChannel(0);
@@ -3906,9 +3918,12 @@ const server = http.createServer((req, res) => {
         });
         // Generate spectrogram
         await new Promise((resolve, reject) => {
-          require('child_process').exec(
-            `ffmpeg -y -i ${tmpWav} -lavfi "showspectrumpic=s=800x400:legend=0:color=intensity" -frames:v 1 ${tmpPng}`,
-            (err) => err ? reject(err) : resolve()
+          const ff = require('child_process').spawn('ffmpeg', [
+            '-y', '-i', tmpWav, '-lavfi', 'showspectrumpic=s=800x400:legend=0:color=intensity',
+            '-frames:v', '1', tmpPng
+          ]);
+          ff.on('close', code => code === 0 ? resolve() : reject(new Error('ffmpeg ' + code)));
+          ff.on('error', reject
           );
         });
         const png = fs.readFileSync(tmpPng);
@@ -3937,6 +3952,7 @@ server.listen(PORT, '127.0.0.1', () => {
 function gracefulShutdown() {
   if (_alertIntervalId) clearInterval(_alertIntervalId);
   if (_rateBucketCleanup) clearInterval(_rateBucketCleanup);
+  if (_activeBackupProc) try { _activeBackupProc.kill(); } catch{}
   try { db.close(); } catch{} try { dbWrite.close(); } catch{}
   try { if (taxonomyDb) taxonomyDb.close(); } catch{} try { if (birdashDb) birdashDb.close(); } catch{}
   process.exit(0);

@@ -82,7 +82,9 @@ def load_labels(model_name, models_dir):
     with open(label_path) as f:
         labels = [line.strip() for line in f.readlines()]
     # Strip common name suffix if present (e.g. "Pica pica_Eurasian Magpie")
-    if labels and labels[0].count("_") == 1:
+    # Check multiple labels to avoid edge case where first label differs
+    has_suffix = any(l.count("_") == 1 for l in labels[:10] if l)
+    if has_suffix:
         labels = [re.sub(r"_.+$", "", label) for label in labels]
     return labels
 
@@ -1108,6 +1110,9 @@ class BirdEngine:
                 current_name = self.secondary_model.name if self.secondary_model else ""
                 if new_secondary != current_name:
                     log.info("Secondary model change: %s -> %s", current_name or "none", new_secondary)
+                    # Drain queue before swapping model
+                    if self._secondary_queue:
+                        self._secondary_queue.join()
                     self.secondary_model = get_model(new_secondary, self.models_dir, sens, sf_val, mdv)
                     if not self._secondary_queue:
                         from queue import Queue
@@ -1125,7 +1130,7 @@ class BirdEngine:
         except Exception as e:
             log.warning("Error checking model change: %s", e)
 
-    def _purge_processed(self, max_age_seconds=3600):
+    def _purge_processed(self, max_age_seconds=7200):
         """Delete processed WAV files older than max_age_seconds. Also trim processed_files set."""
         # Trim the in-memory set to prevent unbounded growth
         if len(self.processed_files) > 5000:
