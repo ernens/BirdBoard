@@ -149,6 +149,86 @@
       </div>
 
       <!-- ════════════════════════════════════════════════════════════
+           TAB: DATABASE
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='database'">
+
+        <!-- Tables list -->
+        <div class="card">
+          <div class="section-title" style="display:flex;align-items:center;gap:.8rem;">
+            <span>Tables</span>
+            <button class="btn-outline" style="font-size:.72rem;" @click="dbLoadTables">Rafraîchir</button>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            <button v-for="t in dbTables" :key="t.name"
+                    class="btn-outline" :class="{'btn-accent': dbSelectedTable === t.name}"
+                    style="font-size:.75rem;padding:.25rem .5rem;"
+                    @click="dbSelectTable(t.name)">
+              {{t.name}} <span style="opacity:.5;">({{t.count}})</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Schema -->
+        <div v-if="dbSchema.length" class="card">
+          <div class="section-title">Schema : {{dbSelectedTable}}</div>
+          <table style="width:100%;font-size:.78rem;border-collapse:collapse;">
+            <tr style="border-bottom:2px solid var(--border);">
+              <th style="text-align:left;padding:.3rem .5rem;">#</th>
+              <th style="text-align:left;padding:.3rem .5rem;">Colonne</th>
+              <th style="text-align:left;padding:.3rem .5rem;">Type</th>
+            </tr>
+            <tr v-for="(col, i) in dbSchema" :key="i" style="border-bottom:1px solid var(--border);">
+              <td style="padding:.3rem .5rem;opacity:.5;">{{col.cid}}</td>
+              <td style="padding:.3rem .5rem;font-weight:600;">{{col.name}}</td>
+              <td style="padding:.3rem .5rem;font-family:monospace;font-size:.72rem;">{{col.type}}</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- SQL Editor -->
+        <div class="card">
+          <div class="section-title">Requête SQL</div>
+          <textarea v-model="dbSql" rows="4"
+                    style="width:100%;font-family:monospace;font-size:.82rem;padding:.5rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg-deep);color:var(--text-main);resize:vertical;"
+                    placeholder="SELECT * FROM detections ORDER BY Date DESC, Time DESC LIMIT 20"
+                    @keydown.ctrl.enter="dbExec"
+                    @keydown.meta.enter="dbExec"></textarea>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+            <button class="btn-accent" @click="dbExec" :disabled="dbLoading" style="font-size:.82rem;">
+              {{dbLoading ? 'Exécution...' : 'Exécuter'}} <span style="opacity:.5;font-size:.72rem;">(Ctrl+Enter)</span>
+            </button>
+            <span v-if="dbError" style="color:var(--danger);font-size:.78rem;">{{dbError}}</span>
+            <span v-else-if="dbRows.length" style="font-size:.78rem;opacity:.6;">
+              {{dbRows.length}} ligne{{dbRows.length > 1 ? 's' : ''}} ({{dbExecTime}}ms)
+            </span>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div v-if="dbColumns.length" class="card" style="overflow-x:auto;">
+          <table style="width:100%;font-size:.75rem;border-collapse:collapse;white-space:nowrap;">
+            <tr style="border-bottom:2px solid var(--border);background:var(--bg-card2);">
+              <th v-for="col in dbColumns" :key="col"
+                  style="text-align:left;padding:.35rem .5rem;font-size:.7rem;text-transform:uppercase;opacity:.7;position:sticky;top:0;background:var(--bg-card2);">
+                {{col}}
+              </th>
+            </tr>
+            <tr v-for="(row, i) in dbRows" :key="i"
+                style="border-bottom:1px solid var(--border);"
+                :style="{background: i % 2 === 0 ? 'transparent' : 'var(--bg-card2)'}">
+              <td v-for="col in dbColumns" :key="col"
+                  style="padding:.3rem .5rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"
+                  :title="String(row[col])">
+                {{row[col]}}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
            TAB: TERMINAL
            ════════════════════════════════════════════════════════════ -->
       <div v-if="activeTab==='terminal'">
@@ -1285,10 +1365,11 @@ const app = createApp({
       { id: 'data',      icon: '📊', label: 'Données', href: 'system.html#data' },
       { id: 'external',  icon: '🌍', label: 'Externe', href: 'system.html#external' },
       { id: 'backup',    icon: '💾', labelKey: 'set_tab_backup' },
+      { id: 'database',  icon: '🗄️', label: 'Base de données' },
       { id: 'terminal',  icon: '💻', label: 'Terminal' },
     ];
     const hashTab = location.hash.slice(1);
-    const localTabs = ['detection', 'audio', 'notif', 'station', 'services', 'species', 'backup', 'terminal'];
+    const localTabs = ['detection', 'audio', 'notif', 'station', 'services', 'species', 'backup', 'database', 'terminal'];
     const activeTab = ref(
       localTabs.includes(hashTab) ? hashTab :
       localStorage.getItem('birdash-settings-tab') || 'detection'
@@ -2122,6 +2203,83 @@ const app = createApp({
     // ── Audio config ──────────────────────────────────────────────────────────
     const terminalKey = ref(0);
 
+    // ── Database explorer ──────────────────────────────────────────
+    const dbTables = ref([]);
+    const dbSelectedTable = ref('');
+    const dbSchema = ref([]);
+    const dbSql = ref('SELECT Date, Time, Com_Name, Sci_Name, round(Confidence,2) as Conf, Model FROM detections ORDER BY Date DESC, Time DESC LIMIT 50');
+    const dbColumns = ref([]);
+    const dbRows = ref([]);
+    const dbLoading = ref(false);
+    const dbError = ref('');
+    const dbExecTime = ref(0);
+
+    async function dbQuery(sql) {
+      const resp = await fetch(BIRD_CONFIG.apiUrl + '/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql }),
+      });
+      return resp.json();
+    }
+
+    async function dbLoadTables() {
+      try {
+        const data = await dbQuery("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+        const tables = [];
+        for (const row of data.rows || []) {
+          const name = Array.isArray(row) ? row[0] : row.name;
+          const countData = await dbQuery(`SELECT COUNT(*) as n FROM "${name}"`);
+          const count = Array.isArray(countData.rows?.[0]) ? countData.rows[0][0] : countData.rows?.[0]?.n || 0;
+          tables.push({ name, count });
+        }
+        dbTables.value = tables;
+      } catch (e) { console.error('dbLoadTables:', e); }
+    }
+
+    async function dbSelectTable(name) {
+      dbSelectedTable.value = name;
+      try {
+        const data = await dbQuery(`PRAGMA table_info("${name}")`);
+        dbSchema.value = (data.rows || []).map(row => {
+          if (Array.isArray(row)) {
+            return { cid: row[0], name: row[1], type: row[2] || 'TEXT' };
+          }
+          return row;
+        });
+        dbSql.value = `SELECT * FROM "${name}" LIMIT 50`;
+        await dbExec();
+      } catch (e) { console.error('dbSelectTable:', e); }
+    }
+
+    async function dbExec() {
+      dbLoading.value = true;
+      dbError.value = '';
+      dbColumns.value = [];
+      dbRows.value = [];
+      const t0 = performance.now();
+      try {
+        const data = await dbQuery(dbSql.value);
+        dbExecTime.value = Math.round(performance.now() - t0);
+        if (data.error) {
+          dbError.value = data.error;
+        } else {
+          dbColumns.value = data.columns || [];
+          dbRows.value = (data.rows || []).map(row => {
+            if (Array.isArray(row)) {
+              const obj = {};
+              (data.columns || []).forEach((col, i) => { obj[col] = row[i]; });
+              return obj;
+            }
+            return row;
+          });
+        }
+      } catch (e) {
+        dbError.value = e.message;
+      }
+      dbLoading.value = false;
+    }
+
     const audioConf = reactive({
       device_id: '', device_name: '', input_channels: 2,
       capture_sample_rate: 48000, bit_depth: 16, output_sample_rate: 32000,
@@ -2319,7 +2477,7 @@ const app = createApp({
       audioTesting.value = false;
     }
 
-    onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); loadAudioConfig(); loadAudioDevices(); loadAudioProfiles(); });
+    onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); loadAudioConfig(); loadAudioDevices(); loadAudioProfiles(); dbLoadTables(); });
 
     return {
       t, lang, safeHtml, conf, models, analysisStatus, languages, services,
@@ -2340,6 +2498,8 @@ const app = createApp({
       modelLabel, modelDescription, secondaryModelOptions,
       appriseEnabled, toggleAllApprise,
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
+      dbTables, dbSelectedTable, dbSchema, dbSql, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
+      dbLoadTables, dbSelectTable, dbExec,
       reload, save, restartService, saveSpeciesLists,
       helpKey, helpTitle, helpBody,
       bkp, backupDests, savingBkp, runningBkp, bkpProgress,
