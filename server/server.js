@@ -959,7 +959,7 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 function rateLimit(req) {
-  const ip = req.socket.remoteAddress || 'unknown';
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
   let bucket = _rateBuckets.get(ip);
   if (!bucket || now - bucket.ts > RATE_WINDOW) {
@@ -3340,6 +3340,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/detection-rules ───────────────────────────────────
   if (req.method === 'POST' && pathname === '/api/detection-rules') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3470,6 +3471,7 @@ const server = http.createServer((req, res) => {
   // ── Route : POST /api/bulk-validate ─────────────────────────────────────
   // Bulk confirm or reject detections
   if (req.method === 'POST' && pathname === '/api/bulk-validate') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3572,6 +3574,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/audio/config ──────────────────────────────────────
   if (req.method === 'POST' && pathname === '/api/audio/config') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3600,6 +3603,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/audio/profiles ────────────────────────────────────
   if (req.method === 'POST' && pathname === '/api/audio/profiles') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3622,6 +3626,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/audio/profiles/activate ───────────────────────────
   if (req.method === 'POST' && pathname.match(/^\/api\/audio\/profiles\/(.+)\/activate$/)) {
+    if (!requireAuth(req, res)) return;
     const name = decodeURIComponent(pathname.match(/^\/api\/audio\/profiles\/(.+)\/activate$/)[1]);
     const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
     if (!profiles[name]) {
@@ -3648,6 +3653,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : DELETE /api/audio/profiles/:name ────────────────────────────
   if (req.method === 'DELETE' && pathname.startsWith('/api/audio/profiles/')) {
+    if (!requireAuth(req, res)) return;
     const name = decodeURIComponent(pathname.replace('/api/audio/profiles/', ''));
     const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
     if (profiles[name]?.builtin) {
@@ -3664,6 +3670,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/audio/calibration/start ───────────────────────────
   if (req.method === 'POST' && pathname === '/api/audio/calibration/start') {
+    if (!requireAuth(req, res)) return;
     (async () => {
       try {
         const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
@@ -3729,6 +3736,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/audio/calibration/apply ───────────────────────────
   if (req.method === 'POST' && pathname === '/api/audio/calibration/apply') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3917,5 +3925,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[BIRDASH] API démarrée sur http://127.0.0.1:${PORT}`);
 });
 
-process.on('SIGTERM', () => { db.close(); if (taxonomyDb) taxonomyDb.close(); if (birdashDb) birdashDb.close(); process.exit(0); });
-process.on('SIGINT',  () => { db.close(); if (taxonomyDb) taxonomyDb.close(); if (birdashDb) birdashDb.close(); process.exit(0); });
+function gracefulShutdown() { try { db.close(); } catch{} try { dbWrite.close(); } catch{} try { if (taxonomyDb) taxonomyDb.close(); } catch{} try { if (birdashDb) birdashDb.close(); } catch{} process.exit(0); }
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT',  gracefulShutdown);

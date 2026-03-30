@@ -452,7 +452,10 @@ class Notifier:
             log.warning("Notifier cache load failed: %s", e)
 
     def _read_notif_conf(self):
-        """Read notification settings from birdnet.conf."""
+        """Read notification settings from birdnet.conf (cached 60s)."""
+        now = time.time()
+        if hasattr(self, '_notif_conf_cache') and now - self._notif_conf_ts < 60:
+            return self._notif_conf_cache
         conf = {}
         try:
             with open("/etc/birdnet/birdnet.conf") as f:
@@ -461,8 +464,10 @@ class Notifier:
                     if line and not line.startswith("#") and "=" in line:
                         k, v = line.split("=", 1)
                         conf[k] = v.strip('"')
-        except:
+        except Exception:
             pass
+        self._notif_conf_cache = conf
+        self._notif_conf_ts = now
         return conf
 
     def check_and_notify(self, det):
@@ -515,7 +520,7 @@ class Notifier:
                 if days_absent >= season_days:
                     reason = f"Premiere de saison (absente depuis {days_absent} jours)"
                     priority = "high"
-            except:
+            except Exception:
                 pass
 
         # Rule 3: New species ever
@@ -1118,7 +1123,11 @@ class BirdEngine:
             log.warning("Error checking model change: %s", e)
 
     def _purge_processed(self, max_age_seconds=3600):
-        """Delete processed WAV files older than max_age_seconds."""
+        """Delete processed WAV files older than max_age_seconds. Also trim processed_files set."""
+        # Trim the in-memory set to prevent unbounded growth
+        if len(self.processed_files) > 5000:
+            self.processed_files.clear()
+            log.info("Cleared processed_files set (was > 5000)")
         processed_dir = self.config["audio"]["processed_dir"]
         if not os.path.isdir(processed_dir):
             return
