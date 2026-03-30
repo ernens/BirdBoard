@@ -867,25 +867,42 @@
 
         <!-- Notifications moved to dedicated tab -->
 
-      <!-- ═══ Species Lists ═══ -->
-      <div class="card" style="margin-top:1.2rem;">
-        <div class="section-title">📋 {{t('set_species_lists')}} <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
+      </div><!-- /tab services -->
+
+      <!-- ════════════════════════════════════════════════════════════
+           TAB: ESPÈCES (inclusion/exclusion)
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab==='species'">
+
+      <div class="card">
+        <div class="section-title">📋 Inclusion / Exclusion d'espèces <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
+        <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem 0;">
+          Contrôle quelles espèces sont détectées. Un nom scientifique par ligne.
+          La liste d'inclusion, si remplie, limite les détections aux espèces listées uniquement.
+          La liste d'exclusion supprime les espèces indésirables.
+        </p>
         <div class="settings-grid">
           <div>
             <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_include_list')}}</div>
-            <textarea v-model="includeList" class="set-textarea" :placeholder="'Pica pica\nTurdus merula\n...'"></textarea>
+            <p style="font-size:.72rem;color:var(--text-muted);margin:0 0 .4rem 0;">
+              Si remplie, seules ces espèces seront détectées. Laisser vide pour tout détecter.
+            </p>
+            <textarea v-model="includeList" class="set-textarea" rows="12" :placeholder="'Pica pica\nTurdus merula\nPhylloscopus collybita\n...'"></textarea>
           </div>
           <div>
             <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_exclude_list')}}</div>
-            <textarea v-model="excludeList" class="set-textarea" :placeholder="'Homo sapiens\n...'"></textarea>
+            <p style="font-size:.72rem;color:var(--text-muted);margin:0 0 .4rem 0;">
+              Ces espèces seront ignorées même si détectées par le modèle.
+            </p>
+            <textarea v-model="excludeList" class="set-textarea" rows="12" :placeholder="'Homo sapiens\nCanis lupus familiaris\n...'"></textarea>
           </div>
         </div>
-        <button class="btn-outline" style="margin-top:.8rem;" @click="saveSpeciesLists" :disabled="savingLists">
-          {{savingLists ? '...' : t('set_save') + ' lists'}}
+        <button class="btn-accent" style="margin-top:.8rem;" @click="saveSpeciesLists" :disabled="savingLists">
+          {{savingLists ? '...' : t('set_save')}}
         </button>
       </div>
 
-      </div><!-- /tab system -->
+      </div><!-- /tab species -->
 
       <!-- ════════════════════════════════════════════════════════════
            TAB 4: BACKUP
@@ -1264,13 +1281,14 @@ const app = createApp({
       { id: 'notif',     icon: '🔔', label: 'Notifications' },
       { id: 'station',   icon: '📍', labelKey: 'set_tab_station' },
       { id: 'services',  icon: '🔧', label: 'Services' },
+      { id: 'species',   icon: '📋', label: 'Espèces' },
       { id: 'data',      icon: '📊', label: 'Données', href: 'system.html#data' },
       { id: 'external',  icon: '🌍', label: 'Externe', href: 'system.html#external' },
       { id: 'backup',    icon: '💾', labelKey: 'set_tab_backup' },
       { id: 'terminal',  icon: '💻', label: 'Terminal' },
     ];
     const hashTab = location.hash.slice(1);
-    const localTabs = ['detection', 'audio', 'notif', 'station', 'services', 'backup', 'terminal'];
+    const localTabs = ['detection', 'audio', 'notif', 'station', 'services', 'species', 'backup', 'terminal'];
     const activeTab = ref(
       localTabs.includes(hashTab) ? hashTab :
       localStorage.getItem('birdash-settings-tab') || 'detection'
