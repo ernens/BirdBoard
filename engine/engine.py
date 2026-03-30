@@ -292,17 +292,22 @@ class PerchModel:
         self.interpreter.invoke()
         logits = self.interpreter.get_tensor(self._output_idx)[0]
 
-        # Temperature-scaled softmax
-        scaled = (logits - np.max(logits)) / self._temperature
+        # Filter to bird-only BEFORE softmax (avoids probability dilution
+        # across insects, frogs, mammals etc.)
+        if self._bird_indices is not None:
+            bird_logits = logits[self._bird_indices]
+            labels = self._bird_labels
+        else:
+            bird_logits = logits
+            labels = self.labels
+
+        # Temperature-scaled softmax on bird-only logits
+        scaled = (bird_logits - np.max(bird_logits)) / self._temperature
         exp_x = np.exp(scaled)
         probs = exp_x / np.sum(exp_x)
 
-        if self._bird_indices is not None:
-            bird_probs = probs[self._bird_indices]
-            labeled = sorted(zip(self._bird_labels, bird_probs), key=lambda x: x[1], reverse=True)
-        else:
-            labeled = sorted(zip(self.labels, probs), key=lambda x: x[1], reverse=True)
-        return labeled
+        order = np.argsort(probs)[::-1]
+        return [(labels[i], float(probs[i])) for i in order]
 
     def get_species_list(self, lat, lon, week):
         if self.mdata and self._birdnet_labels:
@@ -676,8 +681,7 @@ def extract_clip(wav_path, det, config):
         # Sync clip + spectrogram to biloute (for biloute's birdash)
         if config["output"].get("sync_to_biloute", False):
             remote_host = config["audio"]["remote_host"]
-            remote_user = remote_host.split("@")[0] if "@" in remote_host else os.environ.get("USER", "pi")
-            remote_dir = f"/home/{remote_user}/BirdSongs/Extracted/By_Date/{det['date']}/{com_name_safe}"
+            remote_dir = f"/home/bjorn/BirdSongs/Extracted/By_Date/{det['date']}/{com_name_safe}"
             try:
                 subprocess.run(["ssh", remote_host, f"mkdir -p '{remote_dir}'"],
                                capture_output=True, timeout=10)
@@ -829,7 +833,6 @@ class BirdEngine:
         """
         lat = self.config["station"]["latitude"]
         lon = self.config["station"]["longitude"]
-        conf_threshold = self.config["detection"].get("confidence", 0.65)
         sensitivity = self.config["detection"].get("sensitivity", 1.0)
         overlap = self.config["detection"].get("overlap", 0.5)
         basename = os.path.basename(file_path)
@@ -850,14 +853,30 @@ class BirdEngine:
         species_list = model.get_species_list(lat, lon, week)
         detections = []
 
+        # Model-specific thresholds
+        is_perch = isinstance(model, PerchModel)
+        if is_perch:
+            min_conf = self.config["detection"].get("perch_confidence", 0.15)
+            min_margin = self.config["detection"].get("perch_min_margin", 0.05)
+        else:
+            min_conf = self.config["detection"].get("birdnet_confidence",
+                       self.config["detection"].get("confidence", 0.65))
+            min_margin = 0  # BirdNET: sigmoid scores are independent, no margin needed
+
         pred_start = 0.0
         for chunk in chunks:
             predictions = model.predict(chunk)
             pred_end = pred_start + model.chunk_duration
 
-            for sci_name, confidence in predictions[:10]:
-                if confidence < conf_threshold:
+            for rank, (sci_name, confidence) in enumerate(predictions[:10]):
+                if confidence < min_conf:
                     break
+                # Perch: check margin between top-1 and top-2
+                if is_perch and rank == 0 and min_margin > 0 and len(predictions) > 1:
+                    top2_conf = predictions[1][1]
+                    margin = confidence - top2_conf
+                    if margin < min_margin:
+                        break  # ambiguous detection, skip entire chunk
                 if species_list and sci_name not in species_list:
                     continue
 
@@ -876,7 +895,7 @@ class BirdEngine:
                     "confidence": round(float(confidence), 4),
                     "lat": lat,
                     "lon": lon,
-                    "cutoff": conf_threshold,
+                    "cutoff": min_conf,
                     "week": week,
                     "sens": sensitivity,
                     "overlap": overlap,
@@ -922,6 +941,8 @@ class BirdEngine:
                                 remote_host = cfg["audio"]["remote_host"]
                                 remote_db = cfg["output"]["biloute_db"]
                                 sync_detections_to_remote(detections, remote_host, remote_db)
+                            for d in detections:
+                                extract_clip(fpath, d, cfg)
                             upload_to_birdweather(fpath, detections, cfg)
                         except Exception as e:
                             log.warning("[%s] Post-processing error: %s",
