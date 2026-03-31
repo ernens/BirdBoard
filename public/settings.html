@@ -482,10 +482,10 @@
             <div class="section-title">{{t('audio_wiring')}}</div>
             <div style="display:flex;flex-direction:column;gap:.5rem;">
               <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
-                <input type="radio" v-model.number="audioConf.input_channels" :value="1"> 1 microphone (canal 0)
+                <input type="radio" v-model.number="audioConf.input_channels" :value="1"> {{t('audio_1ch')}}
               </label>
               <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
-                <input type="radio" v-model.number="audioConf.input_channels" :value="2"> 2 microphones (canaux 0+1)
+                <input type="radio" v-model.number="audioConf.input_channels" :value="2"> {{t('audio_2ch')}}
               </label>
             </div>
             <div style="margin-top:.8rem;font-size:.82em;opacity:.6;">
@@ -503,9 +503,9 @@
                       style="padding:.4rem .6rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.9em;">
                 <option v-for="(p, name) in audioProfiles" :key="name" :value="name">{{ name }}</option>
               </select>
-              <button class="btn-outline" @click="duplicateAudioProfile" style="font-size:.78em;">Dupliquer</button>
+              <button class="btn-outline" @click="duplicateAudioProfile" style="font-size:.78em;">{{t('audio_duplicate')}}</button>
               <button class="btn-outline" @click="deleteAudioProfile" style="font-size:.78em;"
-                      :disabled="audioProfiles[audioConf.profile_name]?.builtin">Supprimer</button>
+                      :disabled="audioProfiles[audioConf.profile_name]?.builtin">{{t('audio_delete')}}</button>
             </div>
           </div>
 
@@ -527,7 +527,7 @@
           </div>
 
           <div class="card">
-            <div class="section-title">Filtre passe-haut</div>
+            <div class="section-title">{{t('audio_highpass')}}</div>
             <div style="display:flex;align-items:center;gap:.8rem;">
               <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
                 <input type="checkbox" v-model="audioConf.highpass_enabled"> Activé
@@ -543,9 +543,9 @@
               </div>
             </div>
             <div v-if="audioConf.highpass_enabled" style="display:flex;gap:.4rem;margin-top:.5rem;">
-              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=80">Calme (80)</button>
-              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=150">Route (150)</button>
-              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=200">Urbain (200)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=80">{{t('audio_calm')}} (80)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=150">{{t('audio_road')}} (150)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=200">{{t('audio_urban')}} (200)</button>
             </div>
           </div>
 
@@ -559,12 +559,12 @@
               <span>0% (5s)</span>
             </div>
             <div v-if="audioConf.hop_size_s < 2" style="color:var(--warning);font-size:.8em;margin-top:.3rem;">
-              Charge CPU élevée sur RPi5
+              {{t('audio_cpu_warn')}}
             </div>
           </div>
 
           <div class="card">
-            <div class="section-title">Normalisation RMS</div>
+            <div class="section-title">{{t('audio_rms')}}</div>
             <div style="display:flex;align-items:center;gap:.8rem;">
               <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
                 <input type="checkbox" v-model="audioConf.rms_normalize"> Activé
@@ -573,7 +573,7 @@
                 <input type="range" v-model.number="audioConf.rms_target" min="0.01" max="0.20" step="0.01"
                        style="width:100%;">
                 <div style="text-align:center;font-size:.82em;">
-                  Cible : <strong>{{ audioConf.rms_target }}</strong>
+                  {{t('audio_target')}} : <strong>{{ audioConf.rms_target }}</strong>
                 </div>
               </div>
             </div>
@@ -648,7 +648,7 @@
         <!-- ── Sub-tab: Monitoring ── -->
         <div v-if="audioSubTab==='monitoring'">
           <div class="card">
-            <div class="section-title">Niveaux d'entrée en temps réel
+            <div class="section-title">{{t('audio_levels')}}
               <button class="btn-outline" style="margin-left:.5rem;font-size:.75em;"
                       @click="audioMonitoring ? stopMonitor() : startMonitor()">
                 {{ audioMonitoring ? 'Arrêter' : 'Démarrer' }}
@@ -685,10 +685,10 @@
           </div>
 
           <div class="card">
-            <div class="section-title">Test audio (5 secondes)</div>
+            <div class="section-title">{{t('audio_test')}}</div>
             <div style="display:flex;align-items:center;gap:.8rem;">
               <button class="btn-accent" @click="testAudio" :disabled="audioTesting">
-                {{ audioTesting ? 'Capture...' : 'Tester l\'audio' }}
+                {{ audioTesting ? '...' : t('audio_test_btn') }}
               </button>
             </div>
             <div v-if="audioTestImg" style="margin-top:.8rem;">
@@ -743,10 +743,10 @@
             <span>🦅 <strong>Espèce rare</strong> — Jamais vue ou moins de N détections au total</span>
           </label></div>
           <div v-if="conf.NOTIFY_RARE_SPECIES == 1" style="margin-left:1.5rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;">
-            <span style="font-size:.82em;">Seuil :</span>
+            <span style="font-size:.82em;">{{t('audio_threshold')}} :</span>
             <input type="number" v-model.number="conf.NOTIFY_RARE_THRESHOLD" min="1" max="100" step="1"
                    style="width:60px;font-size:.82em;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
-            <span style="font-size:.78em;color:var(--text-muted);">détections max au total</span>
+            <span style="font-size:.78em;color:var(--text-muted);">{{t('audio_max_det')}}</span>
           </div>
 
           <div class="set-row"><label class="set-check">
@@ -2452,7 +2452,7 @@ const app = createApp({
       audioConf.profile_name = name;
     }
     async function deleteAudioProfile() {
-      if (!confirm('Supprimer le profil "' + audioConf.profile_name + '" ?')) return;
+      if (!confirm('{{t('audio_delete')}} le profil "' + audioConf.profile_name + '" ?')) return;
       await fetch(API + '/audio/profiles/' + encodeURIComponent(audioConf.profile_name), { method: 'DELETE' });
       await loadAudioProfiles();
       audioConf.profile_name = 'jardin';
