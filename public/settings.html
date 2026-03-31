@@ -645,6 +645,67 @@
           </div>
         </div>
 
+        <!-- ── Sub-tab: Adaptive Gain ── -->
+        <div v-if="audioSubTab==='adaptive'">
+          <div class="card">
+            <div class="section-title">{{t('ag_title')}}</div>
+            <p style="font-size:.78rem;opacity:.7;margin:0 0 .8rem 0;">{{t('ag_desc')}}</p>
+
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="agConf.enabled"> {{t('ag_enabled')}}
+            </label></div>
+
+            <div v-if="agConf.enabled">
+              <div class="set-row"><label class="set-check">
+                <input type="checkbox" v-model="agConf.observer_only"> {{t('ag_observer')}}
+              </label></div>
+
+              <div class="set-row">
+                <span class="set-label">{{t('ag_mode')}}</span>
+                <select v-model="agConf.mode" style="padding:.3rem;border-radius:.3rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);">
+                  <option value="conservative">{{t('ag_conservative')}}</option>
+                  <option value="balanced">{{t('ag_balanced')}}</option>
+                  <option value="night">{{t('ag_night')}}</option>
+                </select>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.5rem 0;">
+                <div class="set-row"><span class="set-label">{{t('ag_min')}}</span>
+                  <input type="number" v-model.number="agConf.min_db" min="-24" max="0" step="1" style="width:60px;" class="set-input"> dB</div>
+                <div class="set-row"><span class="set-label">{{t('ag_max')}}</span>
+                  <input type="number" v-model.number="agConf.max_db" min="0" max="24" step="1" style="width:60px;" class="set-input"> dB</div>
+                <div class="set-row"><span class="set-label">{{t('ag_target')}}</span>
+                  <input type="number" v-model.number="agConf.target_floor_dbfs" min="-80" max="-10" step="1" style="width:60px;" class="set-input"> dBFS</div>
+                <div class="set-row"><span class="set-label">{{t('ag_clip_guard')}}</span>
+                  <input type="number" v-model.number="agConf.clip_guard_dbfs" min="-12" max="0" step="0.5" style="width:60px;" class="set-input"> dBFS</div>
+                <div class="set-row"><span class="set-label">{{t('ag_interval')}}</span>
+                  <input type="number" v-model.number="agConf.update_interval_s" min="2" max="120" step="1" style="width:60px;" class="set-input"> s</div>
+                <div class="set-row"><span class="set-label">{{t('ag_hold')}}</span>
+                  <input type="number" v-model.number="agConf.activity_hold_s" min="0" max="120" step="1" style="width:60px;" class="set-input"> s</div>
+              </div>
+
+              <button class="btn-accent" @click="saveAgConf" style="margin-top:.5rem;">{{t('audio_save')}}</button>
+              <span v-if="agSaveMsg" style="font-size:.82em;color:var(--accent);margin-left:.5rem;">{{agSaveMsg}}</span>
+            </div>
+          </div>
+
+          <!-- Live state display -->
+          <div class="card" v-if="agConf.enabled">
+            <div class="section-title">{{t('ag_state')}}
+              <button class="btn-outline" style="font-size:.72rem;margin-left:.5rem;" @click="loadAgState">{{t('db_refresh')}}</button>
+            </div>
+            <div v-if="agState" style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;font-size:.82rem;">
+              <div>{{t('ag_noise_floor')}} : <strong>{{agState.noise_floor_dbfs ?? '—'}} dBFS</strong></div>
+              <div>{{t('ag_activity')}} : <strong>{{agState.activity_dbfs ?? '—'}} dBFS</strong></div>
+              <div>{{t('ag_peak')}} : <strong :style="{color: agState.peak_dbfs > -3 ? 'var(--danger)' : 'inherit'}">{{agState.peak_dbfs ?? '—'}} dBFS</strong></div>
+              <div>{{t('ag_recommended')}} : <strong style="color:var(--accent);">{{agState.recommended_gain_db ?? 0}} dB</strong></div>
+              <div>{{t('ag_current_gain')}} : <strong>{{agState.current_gain_db ?? 0}} dB</strong></div>
+              <div>{{t('ag_reason')}} : <strong>{{t('ag_' + (agState.reason || 'init')) || agState.reason}}</strong></div>
+            </div>
+            <div v-else style="font-size:.82em;opacity:.5;">{{t('ag_not_enough')}}</div>
+          </div>
+        </div>
+
         <!-- ── Sub-tab: Monitoring ── -->
         <div v-if="audioSubTab==='monitoring'">
           <div class="card">
@@ -2207,6 +2268,34 @@ const app = createApp({
     // ── Audio config ──────────────────────────────────────────────────────────
     const terminalKey = ref(0);
 
+    // ── Adaptive gain ──────────────────────────────────────────────────────
+    const agConf = reactive({ enabled: false, mode: 'balanced', observer_only: true,
+      min_db: -6, max_db: 9, target_floor_dbfs: -42, clip_guard_dbfs: -3,
+      update_interval_s: 10, activity_hold_s: 15 });
+    const agState = ref(null);
+    const agSaveMsg = ref('');
+    async function loadAgConf() {
+      try {
+        const data = await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/config').then(r => r.json());
+        Object.assign(agConf, data);
+      } catch {}
+    }
+    async function loadAgState() {
+      try {
+        const data = await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/state').then(r => r.json());
+        agState.value = data.state;
+      } catch {}
+    }
+    async function saveAgConf() {
+      try {
+        await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(agConf),
+        });
+        agSaveMsg.value = '✓'; setTimeout(() => agSaveMsg.value = '', 2000);
+      } catch (e) { agSaveMsg.value = e.message; }
+    }
+
     // ── Database explorer ──────────────────────────────────────────
     const dbTables = ref([]);
     const dbSelectedTable = ref('');
@@ -2316,6 +2405,7 @@ const app = createApp({
       { id: 'device', icon: '🔌', labelKey: 'audio_sub_device' },
       { id: 'profile', icon: '🎛️', labelKey: 'audio_sub_profile' },
       { id: 'calibration', icon: '⚖️', labelKey: 'audio_sub_cal' },
+      { id: 'adaptive', icon: '🎚️', labelKey: 'ag_title' },
       { id: 'monitoring', icon: '📊', labelKey: 'audio_sub_monitor' },
     ];
     const channelStrategies = computed(() => [
@@ -2497,7 +2587,7 @@ const app = createApp({
       audioTesting.value = false;
     }
 
-    onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); loadAudioConfig(); loadAudioDevices(); loadAudioProfiles(); dbLoadTables(); });
+    onMounted(() => { reload(); loadApprise(); loadAlertThresholds(); loadAudioConfig(); loadAudioDevices(); loadAudioProfiles(); dbLoadTables(); loadAgConf(); loadAgState(); });
 
     return {
       t, lang, safeHtml, conf, models, analysisStatus, languages, services,
@@ -2518,6 +2608,7 @@ const app = createApp({
       modelLabel, modelDescription, secondaryModelOptions,
       appriseEnabled, toggleAllApprise,
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
+      agConf, agState, agSaveMsg, loadAgState, saveAgConf,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
       reload, save, restartService, saveSpeciesLists,

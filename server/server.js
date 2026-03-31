@@ -3545,6 +3545,78 @@ const server = http.createServer((req, res) => {
 
   const AUDIO_CONFIG_PATH = path.join(__dirname, '..', 'config', 'audio_config.json');
   const AUDIO_PROFILES_PATH = path.join(__dirname, '..', 'config', 'audio_profiles.json');
+  const AG_CONFIG_PATH = path.join(__dirname, '..', 'config', 'adaptive_gain.json');
+
+  // ── Adaptive gain normalization ─────────────────────────────────────────
+  const AG_DEFAULTS = {
+    enabled: false, mode: 'balanced', observer_only: true,
+    min_db: -6, max_db: 9, step_up_db: 0.5, step_down_db: 1.5,
+    update_interval_s: 10, history_s: 30, noise_percentile: 20,
+    target_floor_dbfs: -42, clip_guard_dbfs: -3, activity_hold_s: 15,
+  };
+  const _agState = {
+    current_gain_db: 0, recommended_gain_db: 0, last_update_ts: 0, hold_until_ts: 0,
+    noise_floor_dbfs: null, activity_dbfs: null, peak_dbfs: null,
+    reason: 'init', history: [],
+  };
+  function _agPercentile(arr, p) {
+    if (!arr.length) return null;
+    const s = [...arr].sort((a,b) => a - b);
+    return s[Math.min(s.length - 1, Math.max(0, Math.floor(p / 100 * s.length)))];
+  }
+  function _agClamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+  function agPushSample(rms_dbfs, peak_dbfs) {
+    _agState.history.push({ ts: Date.now(), rms_dbfs, peak_dbfs });
+    if (_agState.history.length > 2000) _agState.history.splice(0, _agState.history.length - 1500);
+  }
+  function agUpdate(cfg) {
+    const c = { ...AG_DEFAULTS, ...cfg };
+    const now = Date.now();
+    if (!c.enabled) { _agState.reason = 'disabled'; return _agState; }
+    const windowMs = c.history_s * 1000;
+    _agState.history = _agState.history.filter(x => now - x.ts <= windowMs);
+    if (_agState.history.length < 5) { _agState.reason = 'not_enough_data'; return _agState; }
+    const rms = _agState.history.map(x => x.rms_dbfs).filter(Number.isFinite);
+    const peaks = _agState.history.map(x => x.peak_dbfs).filter(Number.isFinite);
+    if (!rms.length || !peaks.length) { _agState.reason = 'invalid'; return _agState; }
+    const nf = _agPercentile(rms, c.noise_percentile);
+    const act = _agPercentile(rms, 80);
+    const pk = Math.max(...peaks);
+    _agState.noise_floor_dbfs = Math.round(nf * 10) / 10;
+    _agState.activity_dbfs = Math.round(act * 10) / 10;
+    _agState.peak_dbfs = Math.round(pk * 10) / 10;
+    // Clip guard
+    if (pk >= c.clip_guard_dbfs) {
+      _agState.recommended_gain_db = _agClamp(_agState.recommended_gain_db - c.step_down_db, c.min_db, c.max_db);
+      _agState.reason = 'clip_guard';
+    }
+    // Activity hold
+    else if ((act - nf) >= 10) {
+      _agState.hold_until_ts = now + c.activity_hold_s * 1000;
+      _agState.reason = 'activity_hold';
+    }
+    else if (now < _agState.hold_until_ts) {
+      _agState.reason = 'activity_hold';
+    }
+    // Normal adjustment
+    else {
+      const desired = _agClamp(c.target_floor_dbfs - nf, c.min_db, c.max_db);
+      if (desired > _agState.recommended_gain_db) {
+        _agState.recommended_gain_db = Math.min(_agState.recommended_gain_db + c.step_up_db, desired);
+        _agState.reason = 'step_up';
+      } else if (desired < _agState.recommended_gain_db) {
+        _agState.recommended_gain_db = Math.max(_agState.recommended_gain_db - c.step_down_db, desired);
+        _agState.reason = 'step_down';
+      } else {
+        _agState.reason = 'stable';
+      }
+    }
+    _agState.recommended_gain_db = Math.round(_agClamp(_agState.recommended_gain_db, c.min_db, c.max_db) * 10) / 10;
+    if (!c.observer_only) _agState.current_gain_db = _agState.recommended_gain_db;
+    else _agState.reason = 'observer';
+    _agState.last_update_ts = now;
+    return _agState;
+  }
 
   // ── Route : GET /api/audio/devices ──────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/audio/devices') {
@@ -3599,6 +3671,48 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     })();
+    return;
+  }
+
+  // ── Route : GET /api/audio/adaptive-gain/state ───────────────────────────
+  if (req.method === 'GET' && pathname === '/api/audio/adaptive-gain/state') {
+    const cfg = readJsonFile(AG_CONFIG_PATH) || AG_DEFAULTS;
+    agUpdate(cfg);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, state: { ..._agState, history_count: _agState.history.length }, config: { ...AG_DEFAULTS, ...cfg } }));
+    return;
+  }
+
+  // ── Route : GET /api/audio/adaptive-gain/config ─────────────────────────
+  if (req.method === 'GET' && pathname === '/api/audio/adaptive-gain/config') {
+    const cfg = readJsonFile(AG_CONFIG_PATH) || AG_DEFAULTS;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ...AG_DEFAULTS, ...cfg }));
+    return;
+  }
+
+  // ── Route : POST /api/audio/adaptive-gain/config ────────────────────────
+  if (req.method === 'POST' && pathname === '/api/audio/adaptive-gain/config') {
+    if (!requireAuth(req, res)) return;
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const updates = JSON.parse(body);
+        const AG_KEYS = ['enabled','mode','observer_only','min_db','max_db','step_up_db','step_down_db',
+          'update_interval_s','history_s','noise_percentile','target_floor_dbfs','clip_guard_dbfs','activity_hold_s'];
+        const filtered = {};
+        for (const k of Object.keys(updates)) { if (AG_KEYS.includes(k)) filtered[k] = updates[k]; }
+        const current = readJsonFile(AG_CONFIG_PATH) || {};
+        Object.assign(current, filtered);
+        writeJsonFileAtomic(AG_CONFIG_PATH, current);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, config: { ...AG_DEFAULTS, ...current } }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return;
   }
 
@@ -3894,8 +4008,12 @@ const server = http.createServer((req, res) => {
             }
           }
         }
+        const rms0db = rms[0] > 0 ? Math.round(10 * Math.log10(rms[0] / samplesPerChannel) * 10) / 10 : -60;
+        const peak0db = peak[0] > 0 ? Math.round(20 * Math.log10(peak[0]) * 10) / 10 : -60;
+        // Feed adaptive gain system
+        agPushSample(rms0db, peak0db);
         const event = {
-          ch0_rms_db: rms[0] > 0 ? Math.round(10 * Math.log10(rms[0] / samplesPerChannel) * 10) / 10 : -60,
+          ch0_rms_db: rms0db,
           ch1_rms_db: channels > 1 && rms[1] > 0 ? Math.round(10 * Math.log10(rms[1] / samplesPerChannel) * 10) / 10 : -60,
           clipping_ch0: peak[0] > 0.99,
           clipping_ch1: peak[1] > 0.99,
