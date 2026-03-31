@@ -4088,6 +4088,61 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Route : POST /api/audio/filter-preview ───────────────────────────────
+  // Record 3s, apply filters via Python, return before/after spectrograms
+  if (req.method === 'POST' && pathname === '/api/audio/filter-preview') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      (async () => {
+        try {
+          const filterConf = JSON.parse(body);
+          const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
+          const device = config.device_id || 'default';
+          const channels = config.input_channels || 2;
+          const tmpWav = '/tmp/birdash_filter_preview.wav';
+
+          // Record 3 seconds
+          await new Promise((resolve, reject) => {
+            const proc = require('child_process').spawn('arecord', [
+              '-D', device, '-f', 'S16_LE', '-r', '48000', '-c', String(channels),
+              '-d', '3', tmpWav
+            ]);
+            proc.on('close', code => code === 0 ? resolve() : reject(new Error(`arecord exit ${code}`)));
+            proc.on('error', reject);
+            setTimeout(() => { proc.kill(); reject(new Error('timeout')); }, 8000);
+          });
+
+          // Run Python filter preview script
+          const pyBin = path.join(process.env.HOME || '/home/bjorn', 'birdengine', 'venv', 'bin', 'python');
+          const scriptPath = path.join(__dirname, '..', 'engine', 'filter_preview.py');
+          const result = await new Promise((resolve, reject) => {
+            const proc = require('child_process').spawn(pyBin, [
+              scriptPath, tmpWav, JSON.stringify(filterConf)
+            ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            let stdout = '', stderr = '';
+            proc.stdout.on('data', d => { stdout += d; });
+            proc.stderr.on('data', d => { stderr += d; });
+            proc.on('close', code => {
+              if (code === 0) resolve(stdout);
+              else reject(new Error(stderr || `python exit ${code}`));
+            });
+            proc.on('error', reject);
+            setTimeout(() => { proc.kill(); reject(new Error('python timeout')); }, 30000);
+          });
+
+          try { fs.unlinkSync(tmpWav); } catch {}
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(result);
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      })();
+    });
+    return;
+  }
+
   // ── Route : GET /api/audio/test ─────────────────────────────────────────
   // Capture 5s and return spectrogram as base64 PNG
   if (req.method === 'GET' && pathname === '/api/audio/test') {

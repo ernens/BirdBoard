@@ -626,8 +626,27 @@
 
           <div style="display:flex;gap:.5rem;margin-top:.5rem;">
             <button class="btn-accent" @click="saveAudioConfig">{{t('audio_save')}}</button>
+            <button class="btn-outline" @click="runFilterPreview" :disabled="filterPreviewing">
+              {{filterPreviewing ? t('fp_recording') : t('fp_preview')}}
+            </button>
             <span v-if="audioSaveMsg" style="color:var(--accent);font-size:.85em;align-self:center;">{{ audioSaveMsg }}</span>
           </div>
+
+          <div v-if="filterPreview" class="card" style="margin-top:.8rem;">
+            <div class="section-title">{{t('fp_title')}}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+              <div>
+                <div style="font-size:.78em;font-weight:600;text-align:center;margin-bottom:.3rem;">{{t('fp_before')}}</div>
+                <img :src="filterPreview.before" style="width:100%;border-radius:.3rem;border:1px solid var(--border);">
+              </div>
+              <div>
+                <div style="font-size:.78em;font-weight:600;text-align:center;margin-bottom:.3rem;">{{t('fp_after')}}</div>
+                <img :src="filterPreview.after" style="width:100%;border-radius:.3rem;border:1px solid var(--border);">
+              </div>
+            </div>
+            <div style="font-size:.72em;opacity:.5;margin-top:.3rem;text-align:center;">{{t('fp_hint')}}</div>
+          </div>
+          <div v-if="filterPreviewErr" style="color:var(--warning);font-size:.82em;margin-top:.5rem;">{{filterPreviewErr}}</div>
         </div>
 
         <!-- ── Sub-tab: Calibration ── -->
@@ -2469,6 +2488,33 @@ const app = createApp({
       { id: 'vote', label: t('audio_vote'), desc: t('audio_vote_desc') },
     ]);
     const audioSaveMsg = ref('');
+    const filterPreviewing = ref(false);
+    const filterPreview = ref(null);
+    const filterPreviewErr = ref('');
+    async function runFilterPreview() {
+      filterPreviewing.value = true;
+      filterPreview.value = null;
+      filterPreviewErr.value = '';
+      try {
+        const resp = await fetch(API + '/audio/filter-preview', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            highpass_enabled: audioConf.highpass_enabled,
+            highpass_cutoff_hz: audioConf.highpass_cutoff_hz,
+            lowpass_enabled: audioConf.lowpass_enabled,
+            lowpass_cutoff_hz: audioConf.lowpass_cutoff_hz,
+            denoise_enabled: audioConf.denoise_enabled,
+            denoise_strength: audioConf.denoise_strength,
+            rms_normalize: audioConf.rms_normalize,
+            rms_target: audioConf.rms_target,
+          }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        filterPreview.value = data;
+      } catch (e) { filterPreviewErr.value = e.message; }
+      filterPreviewing.value = false;
+    }
     const calRunning = ref(false);
     const calResult = ref(null);
     const audioMonitoring = ref(false);
@@ -2650,6 +2696,7 @@ const app = createApp({
       // Audio
       audioConf, audioDevices, audioProfiles, audioSubTab, audioSubTabs,
       channelStrategies, audioSaveMsg,
+      filterPreviewing, filterPreview, filterPreviewErr, runFilterPreview,
       calRunning, calResult, calExpired,
       audioMonitoring, monitorLevels, audioTesting, audioTestImg,
       loadAudioDevices, selectAudioDevice, activateAudioProfile,
