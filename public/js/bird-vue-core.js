@@ -1728,6 +1728,15 @@
       const openSection = ref(
         (BIRD_CONFIG.nav || []).findIndex(sec => sec.items.some(p => p.id === props.page))
       );
+      function navSectionClick(si) {
+        if (openSection.value === si) { openSection.value = -1; return; }
+        openSection.value = si;
+        // Navigate to first page of the section (unless current page is in it)
+        const sec = (BIRD_CONFIG.nav || [])[si];
+        if (sec && !sec.items.some(p => p.id === props.page)) {
+          window.location.href = sec.items[0].file;
+        }
+      }
       const { spName, spNamesReady }    = useSpeciesNames();
       const langOpen = ref(false);
       const themeOpen = ref(false);
@@ -1837,7 +1846,7 @@
         }
       }
 
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch };
     },
     directives: {
       'click-outside': {
@@ -1928,7 +1937,7 @@
       <button v-for="(sec, si) in navSections" :key="si"
               class="nav-section-btn"
               :class="{active: openSection === si, 'has-active-page': sec.items.some(p => p.active)}"
-              @click="openSection = openSection === si ? -1 : si">
+              @click="navSectionClick(si)">
         <span class="nav-section-icon">{{sec.icon}}</span>
         {{sec.section}}
       </button>
