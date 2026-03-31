@@ -550,6 +550,51 @@
           </div>
 
           <div class="card">
+            <div class="section-title">{{t('audio_lowpass')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.lowpass_enabled"> {{t('audio_enabled')}}
+              </label>
+              <div v-if="audioConf.lowpass_enabled" style="flex:1;">
+                <input type="range" v-model.number="audioConf.lowpass_cutoff_hz" min="4000" max="15000" step="500"
+                       style="width:100%;">
+                <div style="display:flex;justify-content:space-between;font-size:.78em;opacity:.6;">
+                  <span>4 kHz</span>
+                  <strong>{{ (audioConf.lowpass_cutoff_hz / 1000).toFixed(1) }} kHz</strong>
+                  <span>15 kHz</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="audioConf.lowpass_enabled" style="display:flex;gap:.4rem;margin-top:.5rem;">
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.lowpass_cutoff_hz=8000">{{t('audio_lp_birds')}} (8k)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.lowpass_cutoff_hz=10000">{{t('audio_lp_wide')}} (10k)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.lowpass_cutoff_hz=12000">{{t('audio_lp_full')}} (12k)</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_denoise')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.denoise_enabled"> {{t('audio_enabled')}}
+              </label>
+            </div>
+            <div v-if="audioConf.denoise_enabled" style="margin-top:.5rem;">
+              <div style="font-size:.82em;opacity:.7;margin-bottom:.5rem;">{{t('audio_denoise_desc')}}</div>
+              <input type="range" v-model.number="audioConf.denoise_strength" min="0.1" max="1.0" step="0.05"
+                     style="width:100%;">
+              <div style="display:flex;justify-content:space-between;font-size:.78em;opacity:.6;">
+                <span>{{t('audio_denoise_light')}}</span>
+                <strong>{{ audioConf.denoise_strength.toFixed(2) }}</strong>
+                <span>{{t('audio_denoise_strong')}}</span>
+              </div>
+              <div v-if="audioConf.denoise_strength > 0.8" style="color:var(--warning);font-size:.8em;margin-top:.3rem;">
+                {{t('audio_denoise_warn')}}
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
             <div class="section-title">{{t('audio_overlap') || 'Chevauchement des fenêtres'}}</div>
             <input type="range" v-model.number="audioConf.hop_size_s" min="1.0" max="5.0" step="0.5"
                    style="width:100%;">
@@ -580,7 +625,7 @@
           </div>
 
           <div style="display:flex;gap:.5rem;margin-top:.5rem;">
-            <button class="btn-accent" @click="saveAudioConfig">Sauvegarder</button>
+            <button class="btn-accent" @click="saveAudioConfig">{{t('audio_save')}}</button>
             <span v-if="audioSaveMsg" style="color:var(--accent);font-size:.85em;align-self:center;">{{ audioSaveMsg }}</span>
           </div>
         </div>
@@ -1829,11 +1874,19 @@ const app = createApp({
       saveMsg.value = '';
       saveErr.value = false;
       try {
-        const res = await fetch(API + '/settings', {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({ updates: { ...conf } }),
-        });
+        // Save main settings + adaptive gain config in parallel
+        const [res] = await Promise.all([
+          fetch(API + '/settings', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ updates: { ...conf } }),
+          }),
+          fetch(API + '/audio/adaptive-gain/config', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(agConf),
+          }),
+        ]);
         const data = await res.json();
         if (data.ok) {
           saveMsg.value = t('set_saved');
@@ -2289,7 +2342,7 @@ const app = createApp({
     async function saveAgConf() {
       try {
         await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/config', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: authHeaders(),
           body: JSON.stringify(agConf),
         });
         agSaveMsg.value = '✓'; setTimeout(() => agSaveMsg.value = '', 2000);
@@ -2394,6 +2447,8 @@ const app = createApp({
       capture_sample_rate: 48000, bit_depth: 16, output_sample_rate: 32000,
       channel_strategy: 'max', hop_size_s: 2.5,
       highpass_enabled: true, highpass_cutoff_hz: 80,
+      lowpass_enabled: false, lowpass_cutoff_hz: 10000,
+      denoise_enabled: false, denoise_strength: 0.5,
       rms_normalize: true, rms_target: 0.05,
       cal_gain_ch0: 1.0, cal_gain_ch1: 1.0, cal_date: null,
       profile_name: 'jardin',
@@ -2521,10 +2576,10 @@ const app = createApp({
     async function saveAudioConfig() {
       try {
         const data = await fetch(API + '/audio/config', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: authHeaders(),
           body: JSON.stringify(audioConf),
         }).then(r => r.json());
-        audioSaveMsg.value = 'Sauvegardé';
+        audioSaveMsg.value = '✓';
         setTimeout(() => audioSaveMsg.value = '', 2000);
       } catch (e) { audioSaveMsg.value = 'Erreur: ' + e.message; }
     }

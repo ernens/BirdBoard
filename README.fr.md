@@ -40,6 +40,7 @@ Raspberry Pi 5 + SSD
 - 🤖 **Inference dual-modele** — BirdNET V2.4 (rapide, ~2s) + Perch V2 INT8 (precis, ~12s) en parallele
 - 🎙️ **Enregistrement local** — interface USB via ALSA avec gain configurable
 - 🎚️ **Normalisation adaptative** — gain logiciel automatique selon le bruit ambiant, protection clipping, gel activite, mode observateur
+- 🔇 **Filtres audio** — passe-haut + passe-bas (bandpass), reduction de bruit spectrale (gating stationnaire), normalisation RMS
 - 📡 **BirdWeather** — upload automatique des paysages sonores + detections
 - 🔔 **Notifications intelligentes** — alertes ntfy.sh pour especes rares, premiere de saison, nouvelle espece (pas chaque moineau)
 - ⚡ **Post-traitement async** — extraction MP3, spectrogrammes, sync DB ne bloquent pas l'inference
@@ -69,6 +70,7 @@ Raspberry Pi 5 + SSD
 ### Configuration audio
 - 🎙️ Detection automatique des peripheriques USB audio
 - 🎚️ **Gain adaptatif** — estimation bruit de fond, protection clipping, mode observateur/application
+- 🔇 **Bandpass + debruitage** — filtre passe-bas (4-15 kHz), reduction spectrale (noisereduce), activable par profil
 - 🎛️ 6 profils d'environnement (jardin, foret, bord de route, ville, nuit, test)
 - ⚖️ Assistant de calibration inter-canaux pour micros EM272
 - 📊 VU-metres en temps reel via SSE

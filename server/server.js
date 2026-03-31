@@ -3732,6 +3732,7 @@ const server = http.createServer((req, res) => {
         // Whitelist allowed audio config keys
         const AUDIO_KEYS = ['device_id','device_name','input_channels','capture_sample_rate','bit_depth',
           'output_sample_rate','channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
+          'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
           'rms_normalize','rms_target','cal_gain_ch0','cal_gain_ch1','cal_date','profile_name'];
         const filtered = {};
         for (const k of Object.keys(updates)) {
@@ -3810,8 +3811,9 @@ const server = http.createServer((req, res) => {
         const raw = JSON.parse(body);
         if (!raw.profile_name) throw new Error('profile_name required');
         // Validate and whitelist profile fields
-        const PROFILE_KEYS = ['profile_name','highpass_enabled','highpass_cutoff_hz','hop_size_s',
-          'channel_strategy','rms_normalize','rms_target'];
+        const PROFILE_KEYS = ['profile_name','highpass_enabled','highpass_cutoff_hz',
+          'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
+          'hop_size_s','channel_strategy','rms_normalize','rms_target'];
         const profile = { profile_name: raw.profile_name };
         for (const k of PROFILE_KEYS) { if (k in raw) profile[k] = raw[k]; }
         const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};

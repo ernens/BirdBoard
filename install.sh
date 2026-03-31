@@ -113,7 +113,7 @@ if [ ! -d "$BIRDASH_DIR/engine/venv" ]; then
     ok "Virtual environment created"
 fi
 "$BIRDASH_DIR/engine/venv/bin/pip" install --upgrade pip -q 2>/dev/null
-"$BIRDASH_DIR/engine/venv/bin/pip" install ai-edge-litert numpy soundfile resampy toml watchdog -q 2>/dev/null
+"$BIRDASH_DIR/engine/venv/bin/pip" install ai-edge-litert numpy soundfile resampy toml watchdog scipy noisereduce -q 2>/dev/null
 ok "Python dependencies installed ($(python3 --version))"
 
 # ══════════════════════════════════════════════════════════════════════════

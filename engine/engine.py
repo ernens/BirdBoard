@@ -84,6 +84,78 @@ def apply_adaptive_gain(samples, api_url="http://127.0.0.1:7474"):
         return samples, 0.0
 
 
+def load_audio_config():
+    """Load audio_config.json from the birdash config directory."""
+    home = os.environ.get("HOME", os.path.expanduser("~"))
+    candidates = [
+        os.path.join(home, "birdash", "config", "audio_config.json"),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "audio_config.json"),
+    ]
+    for path in candidates:
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            continue
+    return {}
+
+
+def apply_filters(samples, sr, audio_config):
+    """Apply audio filters (highpass, lowpass, spectral gating) based on audio_config.
+
+    Returns filtered samples as float32.
+    """
+    sig = samples
+
+    # ── Highpass filter ──────────────────────────────────────────────────
+    if audio_config.get("highpass_enabled", False):
+        cutoff = audio_config.get("highpass_cutoff_hz", 100)
+        try:
+            from scipy.signal import butter, sosfilt
+            sos = butter(4, cutoff, btype="high", fs=sr, output="sos")
+            sig = sosfilt(sos, sig).astype(np.float32)
+            log.debug("Highpass filter applied: %d Hz", cutoff)
+        except ImportError:
+            log.warning("scipy not installed — highpass filter skipped")
+
+    # ── Lowpass filter ───────────────────────────────────────────────────
+    if audio_config.get("lowpass_enabled", False):
+        cutoff = audio_config.get("lowpass_cutoff_hz", 10000)
+        try:
+            from scipy.signal import butter, sosfilt
+            sos = butter(4, cutoff, btype="low", fs=sr, output="sos")
+            sig = sosfilt(sos, sig).astype(np.float32)
+            log.debug("Lowpass filter applied: %d Hz", cutoff)
+        except ImportError:
+            log.warning("scipy not installed — lowpass filter skipped")
+
+    # ── Spectral gating (noise reduction) ────────────────────────────────
+    if audio_config.get("denoise_enabled", False):
+        strength = audio_config.get("denoise_strength", 0.5)
+        try:
+            import noisereduce as nr
+            sig = nr.reduce_noise(
+                y=sig, sr=sr,
+                prop_decrease=strength,
+                stationary=True,
+                n_fft=1024,
+                hop_length=256,
+            ).astype(np.float32)
+            log.debug("Spectral gating applied: strength=%.2f", strength)
+        except ImportError:
+            log.warning("noisereduce not installed — spectral gating skipped")
+
+    # ── RMS normalization ────────────────────────────────────────────────
+    if audio_config.get("rms_normalize", False):
+        target = audio_config.get("rms_target", 0.05)
+        rms = np.sqrt(np.mean(sig ** 2))
+        if rms > 1e-6:
+            sig = (sig * (target / rms)).astype(np.float32)
+            log.debug("RMS normalized: %.4f → %.4f", rms, target)
+
+    return sig
+
+
 def split_signal(sig, rate, overlap, seconds=3.0, minlen=1.5):
     """Split audio signal into overlapping chunks."""
     chunks = []
@@ -1054,6 +1126,10 @@ class BirdEngine:
             raw_sig, gain_applied = apply_adaptive_gain(raw_sig)
             if gain_applied != 0:
                 log.info("Adaptive gain applied: %+.1f dB", gain_applied)
+
+            # Apply audio filters (highpass, lowpass, denoise, RMS normalize)
+            audio_conf = load_audio_config()
+            raw_sig = apply_filters(raw_sig, raw_sr, audio_conf)
 
             # Primary model (fast, synchronous)
             detections = self._analyze_with_model(

@@ -207,6 +207,47 @@ An optional software gain can be applied to the audio signal before inference, b
 | `update_interval_s` | 10 | Seconds between gain decisions |
 | `history_s` | 30 | Window for noise estimation |
 
+### Audio Filter Pipeline
+
+After adaptive gain and before model inference, audio passes through a configurable filter chain. All filters are optional, toggled in Audio settings, and stored in `audio_config.json`.
+
+```
+WAV → mono → adaptive gain → highpass → lowpass → spectral gating → RMS normalize → models
+```
+
+**Highpass filter** (Butterworth order 4):
+- Removes low-frequency noise (rumble, wind, traffic)
+- Configurable cutoff: 50-300 Hz, presets: Calm (80), Road (150), Urban (200)
+- Requires `scipy`
+
+**Lowpass filter** (Butterworth order 4):
+- Removes high-frequency noise above the bird vocalization range
+- Configurable cutoff: 4-15 kHz, presets: Birds (8k), Wide (10k), Full (12k)
+- Combined with highpass, forms a bandpass that isolates the 100 Hz – 10 kHz bird range
+- Requires `scipy`
+
+**Spectral noise reduction** (stationary gating via `noisereduce`):
+- Estimates stationary noise profile from the signal and applies a spectral mask
+- Strength parameter (0.1-1.0) controls how aggressively background noise is removed
+- `prop_decrease=strength, stationary=True, n_fft=1024, hop_length=256`
+- Best for constant background noise (wind, rain, traffic hum, insects)
+- Warning: strength > 0.8 may attenuate faint bird calls
+- Requires `noisereduce` + `scipy`
+
+**RMS normalization**:
+- Normalizes signal amplitude to a target RMS level (default 0.05)
+- Applied last so that all previous processing is taken into account
+- Prevents models from receiving signals that are too quiet or too loud
+
+All filters degrade gracefully: if scipy or noisereduce is not installed, the filter is skipped with a log warning.
+
+| Filter | Config key | Default | Dependency |
+|--------|-----------|---------|------------|
+| Highpass | `highpass_enabled`, `highpass_cutoff_hz` | on, 100 Hz | scipy |
+| Lowpass | `lowpass_enabled`, `lowpass_cutoff_hz` | off, 10000 Hz | scipy |
+| Spectral gating | `denoise_enabled`, `denoise_strength` | off, 0.5 | noisereduce |
+| RMS normalize | `rms_normalize`, `rms_target` | on, 0.05 | — |
+
 ### Resampling
 
 BirdNET expects 48 kHz, Perch expects 32 kHz. The engine reads at native 48 kHz and resamples for Perch using `resampy` (Kaiser filter).
