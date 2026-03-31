@@ -2452,7 +2452,7 @@ const app = createApp({
       audioConf.profile_name = name;
     }
     async function deleteAudioProfile() {
-      if (!confirm('{{t('audio_delete')}} le profil "' + audioConf.profile_name + '" ?')) return;
+      if (!confirm(t('audio_delete') + ' "' + audioConf.profile_name + '" ?')) return;
       await fetch(API + '/audio/profiles/' + encodeURIComponent(audioConf.profile_name), { method: 'DELETE' });
       await loadAudioProfiles();
       audioConf.profile_name = 'jardin';
