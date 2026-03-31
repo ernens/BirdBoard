@@ -788,22 +788,23 @@ def _generate_clip_spectrogram(audio_path, png_path, width=940, height=611):
     mag_db = 20 * np.log10(np.abs(Zxx) + 1e-10)
 
     max_hz = 12000
-    freq_mask = f <= max_hz
-    f = f[freq_mask]
-    mag_db = mag_db[freq_mask, :]
+    max_bin = int(max_hz / (sr / 2) * len(f))
+    mag_db = mag_db[:max_bin, :]
 
-    flat = mag_db.ravel()
+    flat = mag_db.ravel().copy()
     flat.sort()
     vmin = flat[int(len(flat) * 0.05)]
     vmax = flat[int(len(flat) * 0.995)]
     if vmax <= vmin:
         vmax = vmin + 1
 
-    dpi = 120
+    max_bin = int(max_hz / (sr / 2) * len(f))
+    mag_db = mag_db[:max_bin, :]
+
+    dpi = 96
     fig, ax = plt.subplots(1, 1, figsize=(width / dpi, height / dpi), dpi=dpi)
-    ax.pcolormesh(t, f, mag_db, shading="gouraud", cmap=cmap,
-                  vmin=vmin, vmax=vmax)
-    ax.set_ylim(0, max_hz)
+    ax.imshow(mag_db, aspect="auto", origin="lower", cmap=cmap,
+              vmin=vmin, vmax=vmax, interpolation="nearest")
     ax.axis("off")
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
     fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0)

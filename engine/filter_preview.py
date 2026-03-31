@@ -37,31 +37,35 @@ _CMAP = LinearSegmentedColormap.from_list("birdash_plasma", [
 MAX_HZ = 12000
 
 
-def make_spectrogram_png(samples, sr, title="", width=4.0, height=1.8,
-                         vmin=None, vmax=None):
-    """Generate a spectrogram PNG as bytes using percentile normalization."""
+def make_spectrogram_png(samples, sr, title="", width=480, height=216):
+    """Generate a spectrogram PNG as bytes using percentile normalization.
+
+    Renders pixel-by-pixel with imshow (matching JS canvas rendering).
+    """
     f, t, Zxx = stft(samples, fs=sr, nperseg=1024, noverlap=768)
     mag_db = 20 * np.log10(np.abs(Zxx) + 1e-10)
 
     # Limit to MAX_HZ
-    freq_mask = f <= MAX_HZ
-    f = f[freq_mask]
-    mag_db = mag_db[freq_mask, :]
+    max_bin = int(MAX_HZ / (sr / 2) * len(f))
+    mag_db = mag_db[:max_bin, :]
 
     # Percentile normalization (matching JS: 5th-99.5th)
-    if vmin is None or vmax is None:
-        flat = mag_db.ravel()
-        flat.sort()
-        vmin = flat[int(len(flat) * 0.05)] if vmin is None else vmin
-        vmax = flat[int(len(flat) * 0.995)] if vmax is None else vmax
-        if vmax <= vmin:
-            vmax = vmin + 1
+    flat = mag_db.ravel().copy()
+    flat.sort()
+    vmin = flat[int(len(flat) * 0.05)]
+    vmax = flat[int(len(flat) * 0.995)]
+    if vmax <= vmin:
+        vmax = vmin + 1
 
-    fig, ax = plt.subplots(1, 1, figsize=(width, height))
-    ax.pcolormesh(t, f, mag_db, shading="gouraud", cmap=_CMAP,
-                  vmin=vmin, vmax=vmax)
-    ax.set_ylim(0, MAX_HZ)
-    ax.set_ylabel("Hz", fontsize=7)
+    # Flip vertically so low freq is at bottom (origin='lower' in imshow)
+    dpi = 96
+    fig_w = width / dpi
+    fig_h = height / dpi
+    fig, ax = plt.subplots(1, 1, figsize=(fig_w, fig_h), dpi=dpi)
+    ax.imshow(mag_db, aspect="auto", origin="lower", cmap=_CMAP,
+              vmin=vmin, vmax=vmax, interpolation="nearest",
+              extent=[0, t[-1], 0, MAX_HZ / 1000])
+    ax.set_ylabel("kHz", fontsize=7)
     ax.set_xlabel("s", fontsize=7)
     ax.tick_params(labelsize=6)
     if title:
@@ -69,7 +73,7 @@ def make_spectrogram_png(samples, sr, title="", width=4.0, height=1.8,
     fig.tight_layout(pad=0.3)
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=dpi)
     plt.close(fig)
     buf.seek(0)
     return buf.read()
@@ -123,7 +127,6 @@ def main():
 
     filtered = apply_filters(raw, sr, config)
 
-    # Each image uses its own percentile range (matching JS behavior)
     before_png = make_spectrogram_png(raw, sr, "Before")
     after_png = make_spectrogram_png(filtered, sr, "After")
 
