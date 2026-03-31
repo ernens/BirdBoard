@@ -53,10 +53,11 @@
   const _TRANSLATIONS = {
     fr: {
       _meta: { lang:'fr', label:'Français', flag:'🇫🇷' },
-      nav_overview:'Vue d\'ensemble', nav_today:'Aujourd\'hui', nav_recent:'Récent',
+      nav_sec_observe:'Observer', nav_sec_explore:'Explorer', nav_sec_insights:'Comprendre', nav_sec_system:'Station',
+      nav_overview:'Vue d\'ensemble', nav_today:'Aujourd\'hui', nav_recent:'Activité', nav_review:'À vérifier',
       nav_detections:'Détections', nav_species:'Espèces',
       nav_biodiversity:'Biodiversité', nav_rarities:'Rarités', nav_stats:'Statistiques',
-      nav_system:'Système', nav_analyses:'Analyses', nav_models:'Modèles', nav_review:'Revue', nav_terminal:'Terminal', nav_spectrogram:'Spectrogramme', nav_recordings:'Enregistrements', nav_gallery:'Galerie sonore', nav_settings:'Système',
+      nav_system:'Système', nav_analyses:'Analyses', nav_models:'Modèles', nav_terminal:'Terminal', nav_spectrogram:'Spectrogramme', nav_recordings:'Enregistrements', nav_gallery:'Galerie sonore', nav_settings:'Réglages',
       gallery_title:'Galerie sonore', top_detections_per_species:'meilleures détections',
       // Settings page
       set_location:'Localisation', set_site_name:'Nom du site', set_latitude:'Latitude', set_longitude:'Longitude',
@@ -375,10 +376,11 @@
 
     en: {
       _meta: { lang:'en', label:'English', flag:'🇬🇧' },
-      nav_overview:'Overview', nav_today:'Today', nav_recent:'Recent',
+      nav_sec_observe:'Observe', nav_sec_explore:'Explore', nav_sec_insights:'Insights', nav_sec_system:'Station',
+      nav_overview:'Overview', nav_today:'Today', nav_recent:'Activity', nav_review:'To verify',
       nav_detections:'Detections', nav_species:'Species',
       nav_biodiversity:'Biodiversity', nav_rarities:'Rarities', nav_stats:'Statistics',
-      nav_system:'System', nav_analyses:'Analysis', nav_models:'Models', nav_review:'Review', nav_terminal:'Terminal', nav_spectrogram:'Spectrogram', nav_recordings:'Recordings', nav_gallery:'Sound Gallery', nav_settings:'System',
+      nav_system:'System', nav_analyses:'Analysis', nav_models:'Models', nav_terminal:'Terminal', nav_spectrogram:'Spectrogram', nav_recordings:'Recordings', nav_gallery:'Sound Gallery', nav_settings:'Settings',
       gallery_title:'Sound Gallery', top_detections_per_species:'top detections',
       set_location:'Location', set_site_name:'Site name', set_latitude:'Latitude', set_longitude:'Longitude',
       set_model:'Detection model', set_model_choice:'AI Model', set_species_freq_thresh:'Species frequency threshold',
@@ -679,10 +681,11 @@
 
     de: {
       _meta: { lang:'de', label:'Deutsch', flag:'🇩🇪' },
-      nav_overview:'Übersicht', nav_today:'Heute', nav_recent:'Aktuell',
+      nav_sec_observe:'Beobachten', nav_sec_explore:'Erkunden', nav_sec_insights:'Verstehen', nav_sec_system:'Station',
+      nav_overview:'Übersicht', nav_today:'Heute', nav_recent:'Aktivität', nav_review:'Zu prüfen',
       nav_detections:'Erkennungen', nav_species:'Arten',
       nav_biodiversity:'Biodiversität', nav_rarities:'Seltenheiten',
-      nav_stats:'Statistiken', nav_system:'System', nav_analyses:'Analysen', nav_models:'Modelle', nav_review:'Überprüfung', nav_terminal:'Terminal', nav_spectrogram:'Spektrogramm', nav_recordings:'Aufnahmen', nav_gallery:'Klanggalerie', nav_settings:'System',
+      nav_stats:'Statistiken', nav_system:'System', nav_analyses:'Analysen', nav_models:'Modelle', nav_terminal:'Terminal', nav_spectrogram:'Spektrogramm', nav_recordings:'Aufnahmen', nav_gallery:'Klanggalerie', nav_settings:'Einstellungen',
       gallery_title:'Klanggalerie', top_detections_per_species:'beste Erkennungen',
       set_location:'Standort', set_site_name:'Standortname', set_latitude:'Breitengrad', set_longitude:'Längengrad',
       set_model:'Erkennungsmodell', set_model_choice:'KI-Modell', set_species_freq_thresh:'Artenhäufigkeitsschwelle',
@@ -983,10 +986,11 @@
 
     nl: {
       _meta: { lang:'nl', label:'Nederlands', flag:'🇳🇱' },
-      nav_overview:'Overzicht', nav_today:'Vandaag', nav_recent:'Recent',
+      nav_sec_observe:'Observeren', nav_sec_explore:'Verkennen', nav_sec_insights:'Inzichten', nav_sec_system:'Station',
+      nav_overview:'Overzicht', nav_today:'Vandaag', nav_recent:'Activiteit', nav_review:'Te controleren',
       nav_detections:'Detecties', nav_species:'Soorten',
       nav_biodiversity:'Biodiversiteit', nav_rarities:'Zeldzaamheden',
-      nav_stats:'Statistieken', nav_system:'Systeem', nav_analyses:'Analyse', nav_models:'Modellen', nav_review:'Beoordeling', nav_terminal:'Terminal', nav_spectrogram:'Spectrogram', nav_recordings:'Opnames', nav_gallery:'Geluidsgalerij', nav_settings:'Systeem',
+      nav_stats:'Statistieken', nav_system:'Systeem', nav_analyses:'Analyse', nav_models:'Modellen', nav_terminal:'Terminal', nav_spectrogram:'Spectrogram', nav_recordings:'Opnames', nav_gallery:'Geluidsgalerij', nav_settings:'Instellingen',
       gallery_title:'Geluidsgalerij', top_detections_per_species:'beste detecties',
       set_location:'Locatie', set_site_name:'Sitenaam', set_latitude:'Breedtegraad', set_longitude:'Lengtegraad',
       set_model:'Detectiemodel', set_model_choice:'AI-model', set_species_freq_thresh:'Soortfrequentiedrempel',
@@ -1368,22 +1372,27 @@
     spectrogram:  'nav_spectrogram',
     recordings:   'nav_recordings',
     settings:     'nav_settings',
+    system:       'nav_system',
   };
 
   function useNav(pageId) {
     const { t } = useI18n();
-    const navItems = computed(() =>
-      BIRD_CONFIG.pages.map(p => ({
-        ...p,
-        label:  t(NAV_KEYS[p.id] || p.id),
-        active: p.id === pageId,
+    const navSections = computed(() =>
+      (BIRD_CONFIG.nav || []).map(sec => ({
+        section: t(sec.section),
+        items: sec.items.map(p => ({
+          ...p,
+          label:  t(NAV_KEYS[p.id] || p.id),
+          active: p.id === pageId,
+        })),
       }))
     );
-    // siteName exposé pour le template header-brand (BIRD_CONFIG non accessible directement dans Vue 3)
+    // Flat list for backwards compat
+    const navItems = computed(() => navSections.value.flatMap(s => s.items));
     const siteName = BIRD_CONFIG.siteName
       || (BIRD_CONFIG.location && BIRD_CONFIG.location.name)
       || '';
-    return { navItems, siteName };
+    return { navItems, navSections, siteName };
   }
 
   // ── useChart ──────────────────────────────────────────────────────────────
@@ -1713,7 +1722,7 @@
     setup(props) {
       const { lang, t, setLang, langs } = useI18n();
       const { theme, themes, setTheme } = useTheme();
-      const { navItems, siteName }      = useNav(props.page);
+      const { navItems, navSections, siteName } = useNav(props.page);
       const { spName, spNamesReady }    = useSpeciesNames();
       const langOpen = ref(false);
       const themeOpen = ref(false);
@@ -1823,7 +1832,7 @@
         }
       }
 
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch };
     },
     directives: {
       'click-outside': {
@@ -1910,11 +1919,15 @@
     </div>
   </header>
   <nav class="app-nav" aria-label="Navigation principale"><div id="main-nav">
-    <a v-for="p in navItems" :key="p.id" :href="p.file"
-       class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
-      <span class="nav-icon" aria-hidden="true">{{p.icon}}</span>
-      <span class="nav-label">{{p.label}}</span>
-    </a>
+    <template v-for="(sec, si) in navSections" :key="si">
+      <span v-if="si > 0" class="nav-sep"></span>
+      <span class="nav-section-title">{{sec.section}}</span>
+      <a v-for="p in sec.items" :key="p.id" :href="p.file"
+         class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
+        <span class="nav-icon" aria-hidden="true">{{p.icon}}</span>
+        <span class="nav-label">{{p.label}}</span>
+      </a>
+    </template>
   </div></nav>
   <main id="birdash-main" class="app-main" role="main">
     <h1 v-if="title" class="sr-only">{{title}}</h1>

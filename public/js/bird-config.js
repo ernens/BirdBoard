@@ -46,23 +46,37 @@ const BIRD_CONFIG = {
   // Langue par défaut
   defaultLang: 'fr',
 
-  // Navigation
-  pages: [
-    { id: 'index',        icon: '🦅', file: 'index.html'        },
-    { id: 'recent',       icon: '📅', file: 'recent.html'       },
-    { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
-    { id: 'recordings',   icon: '🏆', file: 'recordings.html'   },
-    { id: 'detections',   icon: '🎧', file: 'detections.html'   },
-    { id: 'species',      icon: '🦜', file: 'species.html'      },
-    { id: 'biodiversity', icon: '🌿', file: 'biodiversity.html' },
-    { id: 'rarities',     icon: '💎', file: 'rarities.html'     },
-    { id: 'stats',        icon: '📊', file: 'stats.html'        },
-    { id: 'gallery',      icon: '🎶', file: 'gallery.html'       },
-    { id: 'analyses',     icon: '🔬', file: 'analyses.html'     },
-    { id: 'models',       icon: '🤖', file: 'models.html'      },
-    { id: 'review',       icon: '🔍', file: 'review.html'      },
-    { id: 'settings',     icon: '⚙️', file: 'settings.html'    },
+  // Navigation (grouped by user intent)
+  nav: [
+    { section: 'nav_sec_observe', items: [
+      { id: 'today',        icon: '📅', file: 'today.html'        },
+      { id: 'index',        icon: '🦅', file: 'index.html'        },
+      { id: 'recent',       icon: '🕐', file: 'recent.html'       },
+      { id: 'rarities',     icon: '💎', file: 'rarities.html'     },
+      { id: 'species',      icon: '🦜', file: 'species.html'      },
+    ]},
+    { section: 'nav_sec_explore', items: [
+      { id: 'recordings',   icon: '🎧', file: 'recordings.html'   },
+      { id: 'detections',   icon: '📋', file: 'detections.html'   },
+      { id: 'review',       icon: '✅', file: 'review.html'       },
+      { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
+      { id: 'gallery',      icon: '🏆', file: 'gallery.html'      },
+    ]},
+    { section: 'nav_sec_insights', items: [
+      { id: 'stats',        icon: '📊', file: 'stats.html'        },
+      { id: 'biodiversity', icon: '🌿', file: 'biodiversity.html' },
+      { id: 'analyses',     icon: '🔬', file: 'analyses.html'     },
+      { id: 'models',       icon: '🤖', file: 'models.html'       },
+    ]},
+    { section: 'nav_sec_system', items: [
+      { id: 'settings',     icon: '⚙️', file: 'settings.html'    },
+      { id: 'system',       icon: '🖥️', file: 'system.html'      },
+    ]},
   ],
+  // Flat pages array (built from nav sections)
+  get pages() {
+    return this.nav.flatMap(s => s.items);
+  },
 
   // Couleurs Chart.js
   chartColors: [
