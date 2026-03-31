@@ -232,14 +232,15 @@ const app = createApp({
           extraWhere: ['File_Name IS NOT NULL'],
         });
 
+        // Top 3 per species using ROW_NUMBER window function
         const rows = await birdQuery(
-          `SELECT Com_Name, Sci_Name, Date, Time, Confidence, File_Name
-           FROM detections
-           WHERE ${wc.where}
-           ORDER BY Confidence DESC
-           LIMIT 100`, wc.params);
+          `SELECT Com_Name, Sci_Name, Date, Time, Confidence, File_Name FROM (
+             SELECT *, ROW_NUMBER() OVER (PARTITION BY Com_Name ORDER BY Confidence DESC) AS rn
+             FROM detections
+             WHERE ${wc.where}
+           ) WHERE rn <= 3
+           ORDER BY Com_Name, Confidence DESC`, wc.params);
 
-        // Group by species, top 3 per species
         const map = {};
         for (const r of rows) {
           if (!map[r.Com_Name]) {
@@ -250,17 +251,15 @@ const app = createApp({
               dets: [],
             };
           }
-          if (map[r.Com_Name].dets.length < 3) {
-            const audioUrl = buildAudioUrl(r.File_Name);
-            map[r.Com_Name].dets.push({
-              date: r.Date,
-              time: (r.Time || '').slice(0, 5),
-              conf: r.Confidence,
-              fileName: r.File_Name,
-              audioUrl: audioUrl,
-              rendered: false,
-            });
-          }
+          const audioUrl = buildAudioUrl(r.File_Name);
+          map[r.Com_Name].dets.push({
+            date: r.Date,
+            time: (r.Time || '').slice(0, 5),
+            conf: r.Confidence,
+            fileName: r.File_Name,
+            audioUrl: audioUrl,
+            rendered: false,
+          });
         }
 
         allGroups.value = Object.values(map).sort((a, b) =>
