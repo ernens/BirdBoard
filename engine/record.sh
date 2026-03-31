@@ -2,10 +2,18 @@
 # BirdEngine recording — captures WAV files from the configured audio device
 # Device is read from audio_config.json (set via Settings → Audio)
 
-BIRDASH_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CONFIG="$BIRDASH_DIR/config/audio_config.json"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOME_DIR="${HOME:-$(eval echo ~)}"
+# Find audio_config.json: try birdash/config/ first, then relative to script
+if [ -f "$HOME_DIR/birdash/config/audio_config.json" ]; then
+    CONFIG="$HOME_DIR/birdash/config/audio_config.json"
+elif [ -f "$SCRIPT_DIR/../config/audio_config.json" ]; then
+    CONFIG="$SCRIPT_DIR/../config/audio_config.json"
+else
+    CONFIG=""
+fi
 RECORDING_LENGTH=45
-OUTPUT_DIR="$BIRDASH_DIR/engine/audio/incoming"
+OUTPUT_DIR="$SCRIPT_DIR/audio/incoming"
 
 # Read device from audio_config.json
 if [ -f "$CONFIG" ]; then
