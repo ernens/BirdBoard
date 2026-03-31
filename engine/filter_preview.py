@@ -3,6 +3,8 @@
 
 Usage: filter_preview.py <wav_path> <json_config>
 Outputs JSON: {"before": "data:image/png;base64,...", "after": "data:image/png;base64,..."}
+
+Uses the same plasma colormap and percentile normalization as the JS frontend.
 """
 import base64
 import io
@@ -12,25 +14,53 @@ import sys
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.pyplot as plt
 from scipy.signal import stft, butter, sosfilt
+
+# ── Plasma colormap matching bird-shared.js buildColorLUT() ──────────────
+_PLASMA_STOPS = [
+    (0.00, (0, 0, 0)),
+    (0.10, (20, 0, 50)),
+    (0.25, (80, 0, 100)),
+    (0.42, (180, 20, 80)),
+    (0.58, (230, 70, 20)),
+    (0.75, (255, 155, 0)),
+    (0.90, (255, 230, 70)),
+    (1.00, (255, 255, 255)),
+]
+
+_CMAP = LinearSegmentedColormap.from_list("birdash_plasma", [
+    (pos, (r / 255, g / 255, b / 255)) for pos, (r, g, b) in _PLASMA_STOPS
+], N=256)
+
+MAX_HZ = 12000
 
 
 def make_spectrogram_png(samples, sr, title="", width=4.0, height=1.8,
                          vmin=None, vmax=None):
-    """Generate a spectrogram PNG as bytes."""
+    """Generate a spectrogram PNG as bytes using percentile normalization."""
     f, t, Zxx = stft(samples, fs=sr, nperseg=1024, noverlap=768)
     mag_db = 20 * np.log10(np.abs(Zxx) + 1e-10)
 
-    if vmin is None:
-        vmin = max(mag_db.max() - 80, -100)
-    if vmax is None:
-        vmax = mag_db.max()
+    # Limit to MAX_HZ
+    freq_mask = f <= MAX_HZ
+    f = f[freq_mask]
+    mag_db = mag_db[freq_mask, :]
+
+    # Percentile normalization (matching JS: 5th-99.5th)
+    if vmin is None or vmax is None:
+        flat = mag_db.ravel()
+        flat.sort()
+        vmin = flat[int(len(flat) * 0.05)] if vmin is None else vmin
+        vmax = flat[int(len(flat) * 0.995)] if vmax is None else vmax
+        if vmax <= vmin:
+            vmax = vmin + 1
 
     fig, ax = plt.subplots(1, 1, figsize=(width, height))
-    ax.pcolormesh(t, f, mag_db, shading="gouraud", cmap="inferno",
+    ax.pcolormesh(t, f, mag_db, shading="gouraud", cmap=_CMAP,
                   vmin=vmin, vmax=vmax)
-    ax.set_ylim(0, min(sr / 2, 15000))
+    ax.set_ylim(0, MAX_HZ)
     ax.set_ylabel("Hz", fontsize=7)
     ax.set_xlabel("s", fontsize=7)
     ax.tick_params(labelsize=6)
@@ -43,15 +73,6 @@ def make_spectrogram_png(samples, sr, title="", width=4.0, height=1.8,
     plt.close(fig)
     buf.seek(0)
     return buf.read()
-
-
-def compute_db_range(samples, sr):
-    """Compute vmin/vmax from a signal for consistent color scaling."""
-    _, _, Zxx = stft(samples, fs=sr, nperseg=1024, noverlap=768)
-    mag_db = 20 * np.log10(np.abs(Zxx) + 1e-10)
-    vmax = float(mag_db.max())
-    vmin = max(vmax - 80, -100)
-    return vmin, vmax
 
 
 def apply_filters(samples, sr, config):
@@ -102,14 +123,9 @@ def main():
 
     filtered = apply_filters(raw, sr, config)
 
-    # Compute shared color scale from both signals
-    vmin_r, vmax_r = compute_db_range(raw, sr)
-    vmin_f, vmax_f = compute_db_range(filtered, sr)
-    vmax = max(vmax_r, vmax_f)
-    vmin = max(vmax - 80, -100)
-
-    before_png = make_spectrogram_png(raw, sr, "Before", vmin=vmin, vmax=vmax)
-    after_png = make_spectrogram_png(filtered, sr, "After", vmin=vmin, vmax=vmax)
+    # Each image uses its own percentile range (matching JS behavior)
+    before_png = make_spectrogram_png(raw, sr, "Before")
+    after_png = make_spectrogram_png(filtered, sr, "After")
 
     result = {
         "before": "data:image/png;base64," + base64.b64encode(before_png).decode(),

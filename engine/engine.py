@@ -759,6 +759,57 @@ def upload_to_birdweather(wav_path, detections, config):
 # Audio extraction
 # ---------------------------------------------------------------------------
 
+def _generate_clip_spectrogram(audio_path, png_path, width=940, height=611):
+    """Generate a spectrogram PNG matching the dashboard plasma colormap.
+
+    Uses percentile 5%-99.5% normalization and 0-12 kHz range,
+    identical to bird-shared.js renderSpectrogram().
+    """
+    from matplotlib.colors import LinearSegmentedColormap
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from scipy.signal import stft as scipy_stft
+
+    plasma_stops = [
+        (0.00, (0, 0, 0)), (0.10, (20, 0, 50)), (0.25, (80, 0, 100)),
+        (0.42, (180, 20, 80)), (0.58, (230, 70, 20)), (0.75, (255, 155, 0)),
+        (0.90, (255, 230, 70)), (1.00, (255, 255, 255)),
+    ]
+    cmap = LinearSegmentedColormap.from_list("birdash_plasma", [
+        (pos, (r / 255, g / 255, b / 255)) for pos, (r, g, b) in plasma_stops
+    ], N=256)
+
+    sig, sr = sf.read(audio_path, dtype="float32", always_2d=False)
+    if sig.ndim > 1:
+        sig = sig.mean(axis=1)
+
+    f, t, Zxx = scipy_stft(sig, fs=sr, nperseg=1024, noverlap=768)
+    mag_db = 20 * np.log10(np.abs(Zxx) + 1e-10)
+
+    max_hz = 12000
+    freq_mask = f <= max_hz
+    f = f[freq_mask]
+    mag_db = mag_db[freq_mask, :]
+
+    flat = mag_db.ravel()
+    flat.sort()
+    vmin = flat[int(len(flat) * 0.05)]
+    vmax = flat[int(len(flat) * 0.995)]
+    if vmax <= vmin:
+        vmax = vmin + 1
+
+    dpi = 120
+    fig, ax = plt.subplots(1, 1, figsize=(width / dpi, height / dpi), dpi=dpi)
+    ax.pcolormesh(t, f, mag_db, shading="gouraud", cmap=cmap,
+                  vmin=vmin, vmax=vmax)
+    ax.set_ylim(0, max_hz)
+    ax.axis("off")
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0)
+    plt.close(fig)
+
+
 def extract_clip(wav_path, det, config):
     """Extract an audio clip for a detection and store locally.
 
@@ -791,13 +842,11 @@ def extract_clip(wav_path, det, config):
             log.error("ffmpeg extract failed: %s", result.stderr.strip())
             return None
 
-        # Generate spectrogram from the clip
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", mp3_path,
-             "-lavfi", "showspectrumpic=s=940x611:legend=0:color=intensity",
-             "-frames:v", "1", "-loglevel", "error", png_path],
-            capture_output=True, text=True, timeout=30
-        )
+        # Generate spectrogram from the clip (Python, matching dashboard colormap)
+        try:
+            _generate_clip_spectrogram(mp3_path, png_path)
+        except Exception as e:
+            log.warning("Spectrogram generation failed: %s", e)
 
         # Sync clip + spectrogram to biloute (for biloute's birdash)
         if config["output"].get("sync_to_biloute", False):
