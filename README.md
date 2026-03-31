@@ -27,7 +27,7 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 
 ```
 Raspberry Pi 5 + SSD
-├── RODE AI-Micro (USB)
+├── USB Audio Interface
 │     ↓
 ├── BirdEngine (Python)
 │   ├── Recording service (arecord → WAV 45s)
@@ -53,7 +53,7 @@ Raspberry Pi 5 + SSD
 
 ### Detection Engine (BirdEngine)
 - 🤖 **Dual-model inference** — BirdNET V2.4 (fast, ~2s) + Perch V2 INT8 (precise, ~12s) in parallel
-- 🎙️ **Local recording** — RODE AI-Micro via ALSA with configurable gain
+- 🎙️ **Local recording** — any USB audio interface via ALSA with configurable gain
 - 📡 **BirdWeather** — automatic upload of soundscapes + detections
 - 🔔 **Smart notifications** — ntfy.sh alerts for rare species, first-of-season, new species (not every sparrow)
 - ⚡ **Async post-processing** — MP3 extraction, spectrogram generation, DB sync don't block inference
@@ -81,7 +81,7 @@ Raspberry Pi 5 + SSD
 - 🎵 Audio playback per detection for manual verification
 
 ### Audio Configuration
-- 🎙️ Device detection and selection (RODE AI-Micro auto-highlighted)
+- 🎙️ Auto-detection of USB audio devices with one-click selection
 - 🎛️ 6 environment profiles (garden, forest, roadside, urban, night, test)
 - ⚖️ Inter-channel calibration wizard for dual EM272 microphones
 - 📊 Real-time VU meters via SSE
@@ -108,14 +108,14 @@ We publish the first **Perch V2 INT8** quantized model for edge deployment:
 |-----------|-------------|
 | SBC | Raspberry Pi 5 (8GB) |
 | Storage | NVMe SSD (500GB+) |
-| Audio | RODE AI-Micro + 2x Clippy EM272 |
+| Audio | Any USB audio interface (e.g., RODE AI-Micro, Focusrite Scarlett, Behringer UMC) |
 | Network | Ethernet or WiFi |
 
 ## Prerequisites
 
 - Raspberry Pi 5 (4 or 8 GB) with Raspberry Pi OS 64-bit (Bookworm/Trixie)
 - Internet connection (for initial setup and model download)
-- Audio interface (e.g., RODE AI-Micro) + microphone(s)
+- USB audio interface + microphone(s)
 
 All other dependencies are installed automatically by the installer.
 

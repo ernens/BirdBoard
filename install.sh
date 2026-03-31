@@ -248,20 +248,9 @@ if [ ! -f "$BIRDASH_DIR/public/js/birdash-local.js" ]; then
 fi
 
 # ALSA config for shared mic access
-if [ ! -f "$BIRDASH_HOME/.asoundrc" ]; then
-    cat > "$BIRDASH_HOME/.asoundrc" <<'EOF'
-pcm.rode {
-    type dsnoop
-    ipc_key 2048
-    slave {
-        pcm "hw:CARD=AIMicro,DEV=0"
-        channels 2
-        rate 48000
-    }
-}
-EOF
-    ok ".asoundrc created (RODE AI-Micro dsnoop)"
-fi
+# .asoundrc is auto-generated when user selects a device in Settings → Audio
+# No hardcoded device here — works with any USB audio interface
+ok "Audio device will be configured via Settings → Audio"
 
 # FUSE config for SSHFS
 if ! grep -q "^user_allow_other" /etc/fuse.conf 2>/dev/null; then

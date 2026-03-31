@@ -470,7 +470,7 @@
                  style="cursor:pointer;margin-bottom:.5rem;">
               <div style="display:flex;align-items:center;gap:.5rem;">
                 <span class="model-name">{{ d.name }}</span>
-                <span v-if="d.recommended" class="model-badge badge-recommended">recommandé</span>
+                <span v-if="d.usb_audio" class="model-badge badge-recommended">USB</span>
               </div>
               <div style="font-size:.82em;opacity:.7;">
                 ID: {{ d.id }} &nbsp;|&nbsp; Canaux: {{ d.channels }} &nbsp;|&nbsp; {{ d.sample_rates.join(', ') }} Hz

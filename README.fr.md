@@ -12,7 +12,7 @@ Dashboard et moteur de detection d'oiseaux pour Raspberry Pi 5. Architecture dua
 
 ```
 Raspberry Pi 5 + SSD
-├── RODE AI-Micro (USB)
+├── Interface audio USB
 │     ↓
 ├── BirdEngine (Python)
 │   ├── Enregistrement (arecord → WAV 45s)
@@ -38,7 +38,7 @@ Raspberry Pi 5 + SSD
 
 ### Moteur de detection (BirdEngine)
 - 🤖 **Inference dual-modele** — BirdNET V2.4 (rapide, ~2s) + Perch V2 INT8 (precis, ~12s) en parallele
-- 🎙️ **Enregistrement local** — RODE AI-Micro via ALSA avec gain configurable
+- 🎙️ **Enregistrement local** — interface USB via ALSA avec gain configurable
 - 📡 **BirdWeather** — upload automatique des paysages sonores + detections
 - 🔔 **Notifications intelligentes** — alertes ntfy.sh pour especes rares, premiere de saison, nouvelle espece (pas chaque moineau)
 - ⚡ **Post-traitement async** — extraction MP3, spectrogrammes, sync DB ne bloquent pas l'inference
@@ -66,7 +66,7 @@ Raspberry Pi 5 + SSD
 - 🎵 Lecture audio par detection pour verification manuelle
 
 ### Configuration audio
-- 🎙️ Detection et selection du peripherique (RODE AI-Micro en surbrillance)
+- 🎙️ Detection automatique des peripheriques USB audio
 - 🎛️ 6 profils d'environnement (jardin, foret, bord de route, ville, nuit, test)
 - ⚖️ Assistant de calibration inter-canaux pour micros EM272
 - 📊 VU-metres en temps reel via SSE
@@ -93,7 +93,7 @@ Nous publions le premier modele **Perch V2 INT8** quantifie pour le deploiement 
 |-----------|------------|
 | SBC | Raspberry Pi 5 (8 Go) |
 | Stockage | SSD NVMe (500 Go+) |
-| Audio | RODE AI-Micro + 2x Clippy EM272 |
+| Audio | Interface USB (ex: RODE AI-Micro, Focusrite Scarlett, Behringer UMC) |
 | Reseau | Ethernet ou WiFi |
 
 ## Installation

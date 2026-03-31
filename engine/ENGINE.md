@@ -5,7 +5,7 @@
 BirdEngine is a Python-based bird vocalization detection engine designed for Raspberry Pi 5. It runs two ML models in parallel (dual-model), records audio locally, and integrates with BirdWeather, ntfy.sh notifications, and remote database sync.
 
 ```
-RODE AI-Micro (USB)
+USB Audio Interface
       │
       ▼
 birdengine-recording.service (arecord → WAV 45s)
@@ -169,7 +169,7 @@ Post-processing (DB sync, MP3 extraction, BirdWeather upload, notifications) run
 Audio is captured via `arecord` using the ALSA `dsnoop` device for shared access:
 
 ```bash
-arecord -D rode -f S16_LE -c 2 -r 48000 -t wav --max-file-time 45
+arecord -D birdash -f S16_LE -c 2 -r 48000 -t wav --max-file-time 45
 ```
 
 - Format: 16-bit signed LE, stereo, 48 kHz
