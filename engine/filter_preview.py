@@ -100,10 +100,13 @@ def main():
     if raw.ndim > 1:
         raw = raw.mean(axis=1)
 
-    # Compute color scale from raw signal — used for both images
-    vmin, vmax = compute_db_range(raw, sr)
-
     filtered = apply_filters(raw, sr, config)
+
+    # Compute shared color scale from both signals
+    vmin_r, vmax_r = compute_db_range(raw, sr)
+    vmin_f, vmax_f = compute_db_range(filtered, sr)
+    vmax = max(vmax_r, vmax_f)
+    vmin = max(vmax - 80, -100)
 
     before_png = make_spectrogram_png(raw, sr, "Before", vmin=vmin, vmax=vmax)
     after_png = make_spectrogram_png(filtered, sr, "After", vmin=vmin, vmax=vmax)
