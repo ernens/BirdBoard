@@ -625,11 +625,9 @@
           </div>
 
           <div style="display:flex;gap:.5rem;margin-top:.5rem;">
-            <button class="btn-accent" @click="saveAudioConfig">{{t('audio_save')}}</button>
             <button class="btn-outline" @click="runFilterPreview" :disabled="filterPreviewing">
               {{filterPreviewing ? t('fp_recording') : t('fp_preview')}}
             </button>
-            <span v-if="audioSaveMsg" style="color:var(--accent);font-size:.85em;align-self:center;">{{ audioSaveMsg }}</span>
           </div>
 
           <div v-if="filterPreview" class="card" style="margin-top:.8rem;">
@@ -748,8 +746,6 @@
                   <input type="number" v-model.number="agConf.activity_hold_s" min="0" max="120" step="1" style="width:60px;" class="set-input"> s</div>
               </div>
 
-              <button class="btn-accent" @click="saveAgConf" style="margin-top:.5rem;">{{t('audio_save')}}</button>
-              <span v-if="agSaveMsg" style="font-size:.82em;color:var(--accent);margin-left:.5rem;">{{agSaveMsg}}</span>
             </div>
           </div>
 
@@ -1452,11 +1448,8 @@
 
       <!-- ═══ Save bar ═══ -->
       <div class="save-bar">
-        <button class="btn-save" @click="save(false)" :disabled="saving">
+        <button class="btn-save" @click="saveAll" :disabled="saving">
           {{saving ? '...' : t('set_save')}}
-        </button>
-        <button class="btn-save" style="background:#c8a84b;" @click="save(true)" :disabled="saving">
-          {{saving ? '...' : t('set_save_restart')}}
         </button>
         <button class="btn-outline" @click="reload">{{t('set_reload')}}</button>
         <span v-if="saveMsg" class="save-msg" :class="saveErr ? 'save-err' : 'save-ok'">{{saveMsg}}</span>
@@ -1888,17 +1881,22 @@ const app = createApp({
       svcLoading.value = false;
     }
 
-    async function save(andRestart) {
+    async function saveAll() {
       saving.value = true;
       saveMsg.value = '';
       saveErr.value = false;
       try {
-        // Save main settings + adaptive gain config in parallel
+        // Save all configs in parallel: settings + audio + adaptive gain
         const [res] = await Promise.all([
           fetch(API + '/settings', {
             method: 'POST',
             headers: authHeaders(),
             body: JSON.stringify({ updates: { ...conf } }),
+          }),
+          fetch(API + '/audio/config', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(audioConf),
           }),
           fetch(API + '/audio/adaptive-gain/config', {
             method: 'POST',
@@ -1910,18 +1908,6 @@ const app = createApp({
         if (data.ok) {
           saveMsg.value = t('set_saved');
           if (data.warnings) saveMsg.value += ' (' + data.warnings.join(', ') + ')';
-          if (andRestart) {
-            // Restart core services
-            for (const svc of ['birdnet_analysis', 'birdnet_recording']) {
-              await fetch(API + '/services/restart', {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify({ service: svc }),
-              });
-            }
-            saveMsg.value += ' + services restarted';
-            loadServices();
-          }
         } else {
           saveMsg.value = data.error || 'Error';
           saveErr.value = true;
@@ -2345,7 +2331,6 @@ const app = createApp({
       min_db: -6, max_db: 9, target_floor_dbfs: -42, clip_guard_dbfs: -3,
       update_interval_s: 10, activity_hold_s: 15 });
     const agState = ref(null);
-    const agSaveMsg = ref('');
     async function loadAgConf() {
       try {
         const data = await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/config').then(r => r.json());
@@ -2357,15 +2342,6 @@ const app = createApp({
         const data = await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/state').then(r => r.json());
         agState.value = data.state;
       } catch {}
-    }
-    async function saveAgConf() {
-      try {
-        await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/config', {
-          method: 'POST', headers: authHeaders(),
-          body: JSON.stringify(agConf),
-        });
-        agSaveMsg.value = '✓'; setTimeout(() => agSaveMsg.value = '', 2000);
-      } catch (e) { agSaveMsg.value = e.message; }
     }
 
     // ── Database explorer ──────────────────────────────────────────
@@ -2487,7 +2463,6 @@ const app = createApp({
       { id: 'max', label: t('audio_max'), desc: t('audio_max_desc') },
       { id: 'vote', label: t('audio_vote'), desc: t('audio_vote_desc') },
     ]);
-    const audioSaveMsg = ref('');
     const filterPreviewing = ref(false);
     const filterPreview = ref(null);
     const filterPreviewErr = ref('');
@@ -2619,16 +2594,6 @@ const app = createApp({
         if (data.config) Object.assign(audioConf, data.config);
       } catch {}
     }
-    async function saveAudioConfig() {
-      try {
-        const data = await fetch(API + '/audio/config', {
-          method: 'POST', headers: authHeaders(),
-          body: JSON.stringify(audioConf),
-        }).then(r => r.json());
-        audioSaveMsg.value = '✓';
-        setTimeout(() => audioSaveMsg.value = '', 2000);
-      } catch (e) { audioSaveMsg.value = 'Erreur: ' + e.message; }
-    }
     async function duplicateAudioProfile() {
       const name = prompt('Nom du nouveau profil:', audioConf.profile_name + '_copie');
       if (!name) return;
@@ -2695,12 +2660,12 @@ const app = createApp({
       tabs, activeTab, switchTab,
       // Audio
       audioConf, audioDevices, audioProfiles, audioSubTab, audioSubTabs,
-      channelStrategies, audioSaveMsg,
+      channelStrategies,
       filterPreviewing, filterPreview, filterPreviewErr, runFilterPreview,
       calRunning, calResult, calExpired,
       audioMonitoring, monitorLevels, audioTesting, audioTestImg,
       loadAudioDevices, selectAudioDevice, activateAudioProfile,
-      saveAudioConfig, duplicateAudioProfile, deleteAudioProfile,
+      duplicateAudioProfile, deleteAudioProfile,
       startCalibration, applyCalibration,
       startMonitor, stopMonitor, testAudio,
       loading, saving, svcLoading, saveMsg, saveErr,
@@ -2710,10 +2675,10 @@ const app = createApp({
       modelLabel, modelDescription, secondaryModelOptions,
       appriseEnabled, toggleAllApprise,
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
-      agConf, agState, agSaveMsg, loadAgState, saveAgConf,
+      agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
-      reload, save, restartService, saveSpeciesLists,
+      reload, saveAll, restartService, saveSpeciesLists,
       helpKey, helpTitle, helpBody,
       bkp, backupDests, savingBkp, runningBkp, bkpProgress,
       toggleBackupContent, saveBackupConfig, runBackup,
