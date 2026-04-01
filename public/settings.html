@@ -1471,7 +1471,7 @@
         <button class="btn-save" @click="saveAll" :disabled="saving">
           {{saving ? '...' : t('set_save')}}
         </button>
-        <button class="btn-outline" @click="reload">{{t('set_reload')}}</button>
+        <button class="btn-outline" @click="resetDefaults">{{t('set_defaults')}}</button>
         <span v-if="saveMsg" class="save-msg" :class="saveErr ? 'save-err' : 'save-ok'">{{saveMsg}}</span>
       </div>
 
@@ -1939,6 +1939,24 @@ const app = createApp({
         saveErr.value = true;
       }
       saving.value = false;
+    }
+
+    function resetDefaults() {
+      if (!confirm(t('set_defaults_confirm'))) return;
+      // Detection defaults
+      conf.BIRDNET_CONFIDENCE = 0.65;
+      conf.PERCH_CONFIDENCE = 0.15;
+      conf.PERCH_MIN_MARGIN = 0.05;
+      conf.SENSITIVITY = 1.3;
+      conf.OVERLAP = 0.5;
+      conf.SF_THRESH = 0.03;
+      conf.CONFIDENCE = 0.65;
+      conf.RECORDING_LENGTH = 45;
+      conf.EXTRACTION_LENGTH = 6;
+      conf.AUDIOFMT = 'mp3';
+      conf.CHANNELS = 1;
+      saveMsg.value = t('set_defaults_applied');
+      setTimeout(() => saveMsg.value = '', 3000);
     }
 
     async function restartService(name) {
@@ -2753,7 +2771,7 @@ const app = createApp({
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
-      reload, saveAll, restartService, saveSpeciesLists,
+      saveAll, resetDefaults, restartService, saveSpeciesLists,
       helpKey, helpTitle, helpBody,
       bkp, backupDests, savingBkp, runningBkp, bkpProgress,
       toggleBackupContent, saveBackupConfig, runBackup,
