@@ -185,7 +185,7 @@
 
       <!-- ── Heatmap jour/heure ─────────────────────────────────── -->
       <div class="card">
-        <div class="card-title">{{t('activity_by_weekday')}}</div>
+        <div class="card-title">{{t('activity_month_hour')}}</div>
         <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
       </div>
 
@@ -603,11 +603,11 @@ const app = createApp({
     async function loadDayHourData(name) {
       try {
         const rows = await birdQuery(
-          `SELECT CAST(strftime('%w', Date) AS INTEGER) as dow,
+          `SELECT CAST(strftime('%m', Date) AS INTEGER) as mon,
                   CAST(SUBSTR(Time,1,2) AS INTEGER) as h,
                   COUNT(*) as n
            FROM detections WHERE Com_Name=?
-           GROUP BY dow, h`, [name]);
+           GROUP BY mon, h`, [name]);
         dayHourData.value = rows;
       } catch(e) {}
     }
@@ -709,23 +709,22 @@ const app = createApp({
       await nextTick();
       if (!dayHourData.value || !canvasDayHour.value) return;
       const base = chartDefaults();
-      const ds = t('days_short') || ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-      // days_short starts Mon(0)..Sun(6), but strftime %w gives Sun=0..Sat=6
-      const dayLabels = [ds[6], ds[0], ds[1], ds[2], ds[3], ds[4], ds[5]];
+      const ms = t('months_short') || ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
       const hourLabels = Array.from({length:24}, (_,i) => `${String(i).padStart(2,'0')}h`);
 
-      const matrix = Array.from({length:7}, () => Array(24).fill(0));
+      // mon is 1-12 from SQL strftime('%m')
+      const matrix = Array.from({length:13}, () => Array(24).fill(0));
       let maxVal = 0;
       for (const r of dayHourData.value) {
-        matrix[r.dow][r.h] = r.n;
+        matrix[r.mon][r.h] = r.n;
         if (r.n > maxVal) maxVal = r.n;
       }
 
       const bubbleData = [];
-      for (let d = 0; d < 7; d++) {
+      for (let m = 1; m <= 12; m++) {
         for (let h = 0; h < 24; h++) {
-          if (matrix[d][h] > 0) {
-            bubbleData.push({ x: h, y: d, r: Math.max(2, Math.sqrt(matrix[d][h] / (maxVal||1)) * 14), v: matrix[d][h] });
+          if (matrix[m][h] > 0) {
+            bubbleData.push({ x: h, y: m - 1, r: Math.max(2, Math.sqrt(matrix[m][h] / (maxVal||1)) * 14), v: matrix[m][h] });
           }
         }
       }
@@ -745,13 +744,13 @@ const app = createApp({
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: ctx => `${dayLabels[ctx.raw.y]} ${hourLabels[ctx.raw.x]} : ${ctx.raw.v} ${t('detections').toLowerCase()}`
+                label: ctx => `${ms[ctx.raw.y]} ${hourLabels[ctx.raw.x]} : ${ctx.raw.v} ${t('detections').toLowerCase()}`
               }
             }
           },
           scales: {
             x: { ...base.scales.x, min: -0.5, max: 23.5, ticks: { callback: v => `${String(v).padStart(2,'0')}h`, stepSize: 1, font: { size: 9 } } },
-            y: { ...base.scales.y, min: -0.5, max: 6.5, reverse: true, ticks: { callback: v => dayLabels[v] || '', stepSize: 1, font: { size: 10 } } }
+            y: { ...base.scales.y, min: -0.5, max: 11.5, reverse: false, ticks: { callback: v => ms[v] || '', stepSize: 1, font: { size: 10 } } }
           }
         }
       }));
