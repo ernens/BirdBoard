@@ -1831,7 +1831,7 @@ const app = createApp({
       if (m === 'BirdNET_GLOBAL_6K_V2.4_MData_Model_FP16') return t('set_model_desc_mdata');
       if (m === 'BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16') return t('set_model_desc_mdata_v2');
       if (m === 'BirdNET_6K_GLOBAL_MODEL') return t('set_model_desc_v1');
-      if (m === 'Perch_v2_int8') return 'Google Perch V2 (poids d\u00e9quantifi\u00e9s float32\u2009\u2192\u2009int8\u2009\u2192\u2009float32) \u2014 ~30% plus rapide, 15K esp\u00e8ces, pr\u00e9cision quasi identique. Pas une vraie INT8 : m\u00eame taille de fichier, mais meilleure utilisation du cache CPU.';
+      if (m === 'Perch_v2_int8') return t('set_model_desc_perch_int8');
       if (m.includes('Perch')) return t('set_model_desc_perch');
       if (m.includes('Go')) return t('set_model_desc_go');
       return m;
@@ -1960,9 +1960,9 @@ const app = createApp({
           body: `Le modèle IA utilisé pour identifier les espèces d'oiseaux à partir de l'audio.<br><br>
             <strong>BirdNET V2.4</strong> — Modèle de référence par Cornell Lab. 6 500 espèces, optimisé pour Raspberry Pi. Chunks de 3s à 48 kHz. Rapide et fiable.<br>
             <strong>BirdNET V2.4 + MData</strong> — Même modèle + filtre géographique qui élimine les espèces improbables selon votre localisation et la semaine.<br>
-            <strong>Perch V2</strong> — Modèle Google Research. 10 340 espèces d'oiseaux (filtré). Chunks de 5s à 32 kHz. Plus précis mais plus lent (~1.6× temps réel sur Pi 4).<br>
+            <strong>Perch V2</strong> — Modèle Google Research. 10 340 espèces d'oiseaux (filtré). Chunks de 5s à 32 kHz. Plus précis mais plus lent (~1.6× temps réel sur Pi 4/5).<br>
             <strong>BirdNET-Go</strong> — Variante expérimentale.`,
-          rec: 'Recommandé : <strong>BirdNET V2.4</strong> sur Pi 4, <strong>Perch V2</strong> si vous acceptez un léger retard d\'analyse.'
+          rec: 'Recommandé : <strong>BirdNET V2.4</strong> sur Pi 4/5, <strong>Perch V2</strong> si vous acceptez un léger retard d\'analyse.'
         },
         confidence: {
           title: 'Seuil de confiance',
@@ -1997,16 +1997,17 @@ const app = createApp({
             <strong>BirdNET</strong> : chunks de 3s. Overlap 0.5 → fenêtres à 0s, 2.5s, 5s, 7.5s…<br>
             <strong>Perch V2</strong> : chunks de 5s. Overlap 0.5 → fenêtres à 0s, 4.5s, 9s, 13.5s…<br><br>
             ⚠️ Plus d'overlap = plus de chunks = analyse plus longue. Sur Pi 4 avec Perch, gardez une valeur basse.`,
-          rec: 'Recommandé : <strong>0.0–0.5</strong> pour Perch sur Pi 4, <strong>0.5–1.5</strong> pour BirdNET.'
+          rec: 'Recommandé : <strong>0.0–0.5</strong> pour Perch sur Pi 4/5, <strong>0.5–1.5</strong> pour BirdNET.'
         },
         rec_length: {
           title: 'Durée d\'enregistrement (secondes)',
           body: `Durée de chaque fichier audio capturé pour l'analyse (6–120 secondes).<br><br>
             Un fichier plus long contient plus de chants potentiels, mais prend plus de temps à analyser.<br><br>
-            <strong>BirdNET</strong> (3s chunks) : 15s = 5 chunks, 45s = 15 chunks.<br>
-            <strong>Perch V2</strong> (5s chunks, overlap 0.5) : 45s ≈ 10 chunks × 7.3s = ~73s d'analyse sur Pi 4.<br><br>
-            ⚠️ Si la durée d'analyse dépasse la durée d'enregistrement, un backlog s'accumule.`,
-          rec: 'Recommandé : <strong>15–18s</strong> pour BirdNET, <strong>45s max</strong> pour Perch sur Pi 4.'
+            <strong>BirdNET V2.4</strong> (3s chunks) : ~2s d'analyse/fichier sur Pi 5, ~4s sur Pi 4.<br>
+            <strong>Perch V2</strong> (5s chunks) : ~12s/fichier sur Pi 5, ~35s sur Pi 4.<br><br>
+            ⚠️ Si la durée d'analyse dépasse la durée d'enregistrement, un backlog s'accumule.<br>
+            💡 En mode dual (BirdNET + Perch), le secondaire tourne en parallèle et peut accumuler du retard sans bloquer le primaire.`,
+          rec: 'Recommandé : <strong>45s</strong> sur Pi 5 (dual-model), <strong>15–18s</strong> sur Pi 4 (BirdNET seul).'
         },
         extraction_length: {
           title: 'Durée d\'extraction (secondes)',
@@ -2135,9 +2136,9 @@ const app = createApp({
           body: `The AI model used to identify bird species from audio.<br><br>
             <strong>BirdNET V2.4</strong> — Reference model by Cornell Lab. 6,500 species, optimized for Raspberry Pi. 3s chunks at 48 kHz. Fast and reliable.<br>
             <strong>BirdNET V2.4 + MData</strong> — Same model + geographic filter that eliminates unlikely species based on your location and week.<br>
-            <strong>Perch V2</strong> — Google Research model. 10,340 bird species (filtered). 5s chunks at 32 kHz. More accurate but slower (~1.6× realtime on Pi 4).<br>
+            <strong>Perch V2</strong> — Google Research model. 10,340 bird species (filtered). 5s chunks at 32 kHz. More accurate but slower (~1.6× realtime on Pi 4/5).<br>
             <strong>BirdNET-Go</strong> — Experimental variant.`,
-          rec: 'Recommended: <strong>BirdNET V2.4</strong> on Pi 4, <strong>Perch V2</strong> if you accept slight analysis delay.'
+          rec: 'Recommended: <strong>BirdNET V2.4</strong> on Pi 4/5, <strong>Perch V2</strong> if you accept slight analysis delay.'
         },
         confidence: {
           title: 'Confidence threshold',
@@ -2167,14 +2168,14 @@ const app = createApp({
           body: `Overlap between successive analysis windows (0.0–2.9 seconds).<br><br>
             More overlap means each audio segment is analyzed with more offsets, increasing chances of capturing a song between windows.<br><br>
             ⚠️ More overlap = more chunks = longer analysis. On Pi 4 with Perch, keep low.`,
-          rec: 'Recommended: <strong>0.0–0.5</strong> for Perch on Pi 4, <strong>0.5–1.5</strong> for BirdNET.'
+          rec: 'Recommended: <strong>0.0–0.5</strong> for Perch on Pi 4/5, <strong>0.5–1.5</strong> for BirdNET.'
         },
         rec_length: {
           title: 'Recording length (seconds)',
           body: `Duration of each audio file captured for analysis (6–120 seconds).<br><br>
             Longer files contain more potential songs but take longer to analyze.<br><br>
             ⚠️ If analysis time exceeds recording duration, a backlog accumulates.`,
-          rec: 'Recommended: <strong>15–18s</strong> for BirdNET, <strong>45s max</strong> for Perch on Pi 4.'
+          rec: 'Recommended: <strong>15–18s</strong> for BirdNET, <strong>45s max</strong> for Perch on Pi 4/5.'
         },
         extraction_length: {
           title: 'Extraction length (seconds)',
@@ -2256,12 +2257,12 @@ const app = createApp({
         },
       },
       de: {
-        model: { title:'Erkennungsmodell', body:'Das KI-Modell zur Vogelartenerkennung.<br><br><strong>BirdNET V2.4</strong> — Referenzmodell, 6.500 Arten, optimiert für Pi. Schnell.<br><strong>Perch V2</strong> — Google-Modell, 10.340 Vogelarten. Genauer aber langsamer (~1,6× Echtzeit auf Pi 4).', rec:'Empfohlen: <strong>BirdNET V2.4</strong> auf Pi 4.' },
+        model: { title:'Erkennungsmodell', body:'Das KI-Modell zur Vogelartenerkennung.<br><br><strong>BirdNET V2.4</strong> — Referenzmodell, 6.500 Arten, optimiert für Pi. Schnell.<br><strong>Perch V2</strong> — Google-Modell, 10.340 Vogelarten. Genauer aber langsamer (~1,6× Echtzeit auf Pi 4/5).', rec:'Empfohlen: <strong>BirdNET V2.4</strong> auf Pi 4/5.' },
         confidence: { title:'Konfidenzschwelle', body:'Mindestkonfidenz (0,01–0,99) für eine Erkennung. Niedrig = mehr Erkennungen + mehr Fehlalarme. Hoch = nur sichere Erkennungen.', rec:'Empfohlen: <strong>0,65–0,75</strong>.' },
         sensitivity: { title:'Empfindlichkeit', body:'Steuert die Empfindlichkeit für leise Töne (0,5–1,5).<br><br><strong>BirdNET</strong>: Sigmoid-Skalierung.<br><strong>Perch V2</strong>: Softmax-Temperatur.<br><br>Höher = empfindlicher, mehr Erkennungen, mehr Fehlalarme.', rec:'Empfohlen: <strong>1,0–1,3</strong>.' },
         sf_thresh: { title:'Artenhäufigkeitsschwelle', body:'Geographischer Filter (0,0–0,5). Nur für BirdNET + MData. Arten unter diesem Schwellwert werden ausgeschlossen. Von Perch V2 ignoriert.', rec:'Empfohlen: <strong>0,03</strong>.' },
         overlap: { title:'Überlappung (Sekunden)', body:'Überlappung zwischen Analysefenstern (0,0–2,9s). Mehr Überlappung = mehr Chunks = längere Analyse. Auf Pi 4 mit Perch niedrig halten.', rec:'Empfohlen: <strong>0,0–0,5</strong> für Perch, <strong>0,5–1,5</strong> für BirdNET.' },
-        rec_length: { title:'Aufnahmedauer (Sekunden)', body:'Dauer jeder Audiodatei (6–120s). Längere Dateien = mehr potenzielle Gesänge, aber längere Analyse. ⚠️ Wenn die Analyse länger dauert als die Aufnahme, entsteht ein Rückstand.', rec:'Empfohlen: <strong>15–18s</strong> BirdNET, <strong>45s</strong> Perch auf Pi 4.' },
+        rec_length: { title:'Aufnahmedauer (Sekunden)', body:'Dauer jeder Audiodatei (6–120s). Längere Dateien = mehr potenzielle Gesänge, aber längere Analyse. ⚠️ Wenn die Analyse länger dauert als die Aufnahme, entsteht ein Rückstand.', rec:'Empfohlen: <strong>15–18s</strong> BirdNET, <strong>45s</strong> Perch auf Pi 4/5.' },
         extraction_length: { title:'Extraktionsdauer (Sekunden)', body:'Dauer der gespeicherten Audioclips pro Erkennung (3–30s).', rec:'Empfohlen: <strong>6s</strong>.' },
         audio_format: { title:'Audioformat', body:'<strong>MP3</strong>: gute Kompression. <strong>WAV</strong>: verlustfrei, 10× größer. <strong>FLAC</strong>: verlustfrei komprimiert.', rec:'Empfohlen: <strong>MP3</strong>.' },
         channels: { title:'Mikrofonkanäle', body:'Mono (1) oder Stereo (2). Das KI-Modell konvertiert immer zu Mono.', rec:'Empfohlen: <strong>Mono</strong>.' },
@@ -2280,12 +2281,12 @@ const app = createApp({
         backup: { title:'Sicherung', body:'Automatische Sicherung Ihrer BirdNET-Station.<br><br><strong>Ziele:</strong> USB/Lokal, SMB/CIFS, NFS, SFTP, Amazon S3, Google Drive, WebDAV.<br><strong>Inhalt:</strong> Datenbank, Audiodateien, Konfiguration oder alles.<br><strong>Zeitplan:</strong> Manuell, täglich oder wöchentlich.', rec:'Empfohlen: tägliche Sicherung von <strong>Datenbank + Konfiguration</strong>.' },
       },
       nl: {
-        model: { title:'Detectiemodel', body:'Het AI-model voor vogelsoortherkenning.<br><br><strong>BirdNET V2.4</strong> — Referentiemodel, 6.500 soorten, geoptimaliseerd voor Pi. Snel.<br><strong>Perch V2</strong> — Google-model, 10.340 vogelsoorten. Nauwkeuriger maar trager (~1,6× realtime op Pi 4).', rec:'Aanbevolen: <strong>BirdNET V2.4</strong> op Pi 4.' },
+        model: { title:'Detectiemodel', body:'Het AI-model voor vogelsoortherkenning.<br><br><strong>BirdNET V2.4</strong> — Referentiemodel, 6.500 soorten, geoptimaliseerd voor Pi. Snel.<br><strong>Perch V2</strong> — Google-model, 10.340 vogelsoorten. Nauwkeuriger maar trager (~1,6× realtime op Pi 4/5).', rec:'Aanbevolen: <strong>BirdNET V2.4</strong> op Pi 4/5.' },
         confidence: { title:'Betrouwbaarheidsdrempel', body:'Minimale betrouwbaarheid (0,01–0,99) voor een detectie. Laag = meer detecties + meer valse positieven. Hoog = alleen zekere detecties.', rec:'Aanbevolen: <strong>0,65–0,75</strong>.' },
         sensitivity: { title:'Gevoeligheid', body:'Regelt de gevoeligheid voor zachte geluiden (0,5–1,5).<br><br><strong>BirdNET</strong>: sigmoid-schaling.<br><strong>Perch V2</strong>: softmax-temperatuur.<br><br>Hoger = gevoeliger, meer detecties, meer valse positieven.', rec:'Aanbevolen: <strong>1,0–1,3</strong>.' },
         sf_thresh: { title:'Soortfrequentiedrempel', body:'Geografisch filter (0,0–0,5). Alleen voor BirdNET + MData. Soorten onder de drempel worden uitgesloten. Genegeerd door Perch V2.', rec:'Aanbevolen: <strong>0,03</strong>.' },
         overlap: { title:'Overlap (seconden)', body:'Overlap tussen analysevensters (0,0–2,9s). Meer overlap = meer chunks = langere analyse.', rec:'Aanbevolen: <strong>0,0–0,5</strong> voor Perch, <strong>0,5–1,5</strong> voor BirdNET.' },
-        rec_length: { title:'Opnameduur (seconden)', body:'Duur van elk audiobestand (6–120s). Langer = meer potentiële zang maar langere analyse.', rec:'Aanbevolen: <strong>15–18s</strong> BirdNET, <strong>45s</strong> Perch op Pi 4.' },
+        rec_length: { title:'Opnameduur (seconden)', body:'Duur van elk audiobestand (6–120s). Langer = meer potentiële zang maar langere analyse.', rec:'Aanbevolen: <strong>15–18s</strong> BirdNET, <strong>45s</strong> Perch op Pi 4/5.' },
         extraction_length: { title:'Extractieduur (seconden)', body:'Duur van opgeslagen audioclips per detectie (3–30s).', rec:'Aanbevolen: <strong>6s</strong>.' },
         audio_format: { title:'Audioformaat', body:'<strong>MP3</strong>: goede compressie. <strong>WAV</strong>: lossless, 10× groter. <strong>FLAC</strong>: lossless gecomprimeerd.', rec:'Aanbevolen: <strong>MP3</strong>.' },
         channels: { title:'Microfoonkanalen', body:'Mono (1) of Stereo (2). Het AI-model converteert altijd naar mono.', rec:'Aanbevolen: <strong>Mono</strong>.' },

@@ -56,7 +56,9 @@ const CSP = [
 const BIRDNET_CONF = '/etc/birdnet/birdnet.conf';
 const _birdashEngine = path.join(process.env.HOME, 'birdash', 'engine');
 const _birdengine = path.join(process.env.HOME, 'birdengine');
-const BIRDNET_DIR = fs.existsSync(path.join(_birdashEngine, 'models')) ? _birdashEngine : _birdengine;
+// Use birdengine if it has .tflite models, otherwise fall back to birdash/engine
+const _hasModels = (dir) => { try { return fs.readdirSync(path.join(dir, 'models')).some(f => f.endsWith('.tflite')); } catch { return false; } };
+const BIRDNET_DIR = _hasModels(_birdengine) ? _birdengine : _hasModels(_birdashEngine) ? _birdashEngine : _birdengine;
 
 // Parse birdnet.conf → { KEY: value }
 async function parseBirdnetConf() {
