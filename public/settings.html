@@ -20,14 +20,14 @@
   <style>
     .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     @media(max-width:768px) { .settings-grid { grid-template-columns:1fr; } }
-    .set-row { display:flex; justify-content:space-between; align-items:center; padding:.6rem 0; border-bottom:1px solid var(--border); }
+    .set-row { display:grid; grid-template-columns:minmax(140px,auto) 1fr auto; align-items:center; gap:.5rem; padding:.6rem 0; border-bottom:1px solid var(--border); }
     .set-row:last-child { border-bottom:none; }
-    .set-label { font-weight:500; font-size:.9rem; color:var(--text-secondary); flex:1; }
-    .set-input { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.45rem .7rem; color:var(--text); font-size:.9rem; width:180px; }
+    .set-label { font-weight:500; font-size:.85rem; color:var(--text-secondary); white-space:nowrap; }
+    .set-input { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.45rem .7rem; color:var(--text); font-size:.9rem; width:100%; min-width:80px; box-sizing:border-box; }
     .set-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(90,158,58,.2); }
-    .set-select { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.45rem .7rem; color:var(--text); font-size:.9rem; width:180px; cursor:pointer; }
-    .set-range { width:180px; accent-color:var(--accent); }
-    .set-range-val { font-size:.85rem; font-weight:600; color:var(--accent); min-width:3rem; text-align:right; }
+    .set-select { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:.45rem .7rem; color:var(--text); font-size:.9rem; width:100%; min-width:80px; cursor:pointer; box-sizing:border-box; }
+    .set-range { width:100%; min-width:120px; accent-color:var(--accent); }
+    .set-range-val { font-size:.85rem; font-weight:600; color:var(--accent); min-width:2.5rem; text-align:right; white-space:nowrap; }
     .set-check { display:flex; align-items:center; gap:.5rem; cursor:pointer; }
     .set-check input { accent-color:var(--accent); width:18px; height:18px; }
     .model-card { padding:.8rem; border-radius:8px; border:2px solid var(--border); cursor:pointer; transition:all .2s; }
