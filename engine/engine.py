@@ -1251,6 +1251,19 @@ class BirdEngine:
         try:
             conf = self._read_birdnet_conf()
             det = self.config["detection"]
+
+            # Hot-reload per-model thresholds from birdnet.conf
+            if "BIRDNET_CONFIDENCE" in conf:
+                det["birdnet_confidence"] = float(conf["BIRDNET_CONFIDENCE"])
+            if "PERCH_CONFIDENCE" in conf:
+                det["perch_confidence"] = float(conf["PERCH_CONFIDENCE"])
+            if "PERCH_MIN_MARGIN" in conf:
+                det["perch_min_margin"] = float(conf["PERCH_MIN_MARGIN"])
+            if "SENSITIVITY" in conf:
+                det["sensitivity"] = float(conf["SENSITIVITY"])
+            if "OVERLAP" in conf:
+                det["overlap"] = float(conf["OVERLAP"])
+
             sens = det.get("sensitivity", 1.0)
             sf_val = det.get("sf_thresh", 0.03)
             mdv = det.get("mdata_version", 2)

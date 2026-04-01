@@ -310,28 +310,48 @@
 
       <div class="settings-grid">
 
-        <!-- ═══ Analysis ═══ -->
+        <!-- ═══ BirdNET Parameters ═══ -->
         <div class="card">
-          <div class="section-title">🔬 {{t('set_analysis')}}</div>
+          <div class="section-title">🐦 BirdNET {{t('set_params')}}</div>
           <div class="set-row">
-            <span class="set-label">{{t('set_confidence')}} <button class="info-btn" @click="helpKey='confidence'">i</button></span>
-            <span class="set-range-val">{{conf.CONFIDENCE}}</span>
-            <input v-model="conf.CONFIDENCE" type="range" min="0.01" max="0.99" step="0.01" class="set-range" :aria-label="t('set_confidence')">
+            <span class="set-label">{{t('set_birdnet_conf')}} <button class="info-btn" @click="helpKey='birdnet_confidence'">i</button></span>
+            <span class="set-range-val">{{conf.BIRDNET_CONFIDENCE || conf.CONFIDENCE || 0.65}}</span>
+            <input v-model="conf.BIRDNET_CONFIDENCE" type="range" min="0.30" max="0.95" step="0.05" class="set-range">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_sensitivity')}} <button class="info-btn" @click="helpKey='sensitivity'">i</button></span>
             <span class="set-range-val">{{conf.SENSITIVITY}}</span>
-            <input v-model="conf.SENSITIVITY" type="range" min="0.5" max="1.5" step="0.05" class="set-range" :aria-label="t('set_sensitivity')">
-          </div>
-          <div class="set-row">
-            <span class="set-label">{{t('set_species_freq_thresh')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
-            <span class="set-range-val">{{conf.SF_THRESH}}</span>
-            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range" :aria-label="t('set_species_freq_thresh')">
+            <input v-model="conf.SENSITIVITY" type="range" min="0.5" max="1.5" step="0.05" class="set-range">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_overlap')}} <button class="info-btn" @click="helpKey='overlap'">i</button></span>
             <span class="set-range-val">{{conf.OVERLAP}}</span>
-            <input v-model="conf.OVERLAP" type="range" min="0" max="2.9" step="0.1" class="set-range" :aria-label="t('set_overlap')">
+            <input v-model="conf.OVERLAP" type="range" min="0" max="2.9" step="0.1" class="set-range">
+          </div>
+        </div>
+
+        <!-- ═══ Perch Parameters ═══ -->
+        <div class="card" v-if="conf.DUAL_MODEL_ENABLED == 1">
+          <div class="section-title">🔬 Perch V2 {{t('set_params')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_perch_conf')}} <button class="info-btn" @click="helpKey='perch_confidence'">i</button></span>
+            <span class="set-range-val">{{conf.PERCH_CONFIDENCE || 0.15}}</span>
+            <input v-model="conf.PERCH_CONFIDENCE" type="range" min="0.05" max="0.50" step="0.01" class="set-range">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_perch_margin')}} <button class="info-btn" @click="helpKey='perch_margin'">i</button></span>
+            <span class="set-range-val">{{conf.PERCH_MIN_MARGIN || 0.05}}</span>
+            <input v-model="conf.PERCH_MIN_MARGIN" type="range" min="0" max="0.20" step="0.01" class="set-range">
+          </div>
+        </div>
+
+        <!-- ═══ Shared Parameters ═══ -->
+        <div class="card">
+          <div class="section-title">🌍 {{t('set_shared_params')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_species_freq_thresh')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
+            <span class="set-range-val">{{conf.SF_THRESH}}</span>
+            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range">
           </div>
         </div>
 
@@ -1847,9 +1867,14 @@ const app = createApp({
           fetch(API + '/languages').then(r => r.json()),
           fetch(API + '/species-lists').then(r => r.json()),
         ]);
-        // Populate reactive config
+        // Populate reactive config with defaults for per-model params
         Object.keys(conf).forEach(k => delete conf[k]);
-        Object.assign(conf, confData);
+        const defaults = {
+          BIRDNET_CONFIDENCE: confData.CONFIDENCE || '0.65',
+          PERCH_CONFIDENCE: '0.15',
+          PERCH_MIN_MARGIN: '0.05',
+        };
+        Object.assign(conf, defaults, confData);
         models.value = modelData.models || [];
         languages.value = langData.languages || [];
         includeList.value = (listsData.include || []).join('\n');
@@ -1965,11 +1990,34 @@ const app = createApp({
           rec: 'Recommandé : <strong>BirdNET V2.4</strong> sur Pi 4/5, <strong>Perch V2</strong> si vous acceptez un léger retard d\'analyse.'
         },
         confidence: {
-          title: 'Seuil de confiance',
-          body: `Confiance minimale (0.01–0.99) requise pour qu'une détection soit enregistrée dans la base de données.<br><br>
-            Une valeur <strong>basse</strong> (0.50) capture plus de détections mais inclut plus de faux positifs.<br>
-            Une valeur <strong>haute</strong> (0.85) ne garde que les détections très sûres mais peut rater des espèces discrètes.`,
-          rec: 'Recommandé : <strong>0.65–0.75</strong>. Commencez à 0.70 et ajustez selon le bruit de votre environnement.'
+          title: 'Seuil de confiance (ancien)',
+          body: 'Paramètre de compatibilité. Utilisez les seuils par modèle ci-dessous.',
+          rec: ''
+        },
+        birdnet_confidence: {
+          title: 'Confiance BirdNET (sigmoid)',
+          body: `Seuil de confiance spécifique à BirdNET V2.4.<br><br>
+            BirdNET utilise un scoring <strong>sigmoid</strong> : chaque espèce reçoit un score indépendant entre 0 et 1. Un score de 0.70 signifie "70% de certitude que cette espèce est présente".<br><br>
+            <strong>0.50</strong> : sensible, plus de détections mais plus de faux positifs.<br>
+            <strong>0.80</strong> : strict, uniquement les détections très sûres.`,
+          rec: 'Recommandé : <strong>0.65</strong>. Montez à 0.75 en environnement bruyant.'
+        },
+        perch_confidence: {
+          title: 'Confiance Perch (softmax)',
+          body: `Seuil de confiance spécifique à Perch V2.<br><br>
+            Perch utilise un scoring <strong>softmax sur les oiseaux uniquement</strong> (10 340 espèces). Les scores sont compétitifs : la somme fait 100%. Un score de 0.15 signifie "15% de probabilité parmi tous les oiseaux".<br><br>
+            Les scores Perch sont naturellement plus bas que BirdNET car la probabilité est partagée entre plus d'espèces.<br><br>
+            <strong>0.10</strong> : très sensible, beaucoup de détections.<br>
+            <strong>0.30</strong> : strict, uniquement les identifications dominantes.`,
+          rec: 'Recommandé : <strong>0.15</strong>. Plus bas que BirdNET car softmax distribue la probabilité.'
+        },
+        perch_margin: {
+          title: 'Marge Perch (top1 - top2)',
+          body: `Écart minimum entre le score de la 1ère et de la 2ème espèce pour accepter une détection Perch.<br><br>
+            Si le modèle hésite entre deux espèces proches (ex: Merle 14% vs Grive 13%), la marge est faible (1%) et la détection est rejetée comme ambiguë.<br><br>
+            <strong>0.00</strong> : pas de filtre d'ambiguïté.<br>
+            <strong>0.10</strong> : exige un écart clair entre les deux meilleures espèces.`,
+          rec: 'Recommandé : <strong>0.05</strong>. Augmentez si trop de confusions entre espèces proches.'
         },
         sensitivity: {
           title: 'Sensibilité',
@@ -2141,11 +2189,34 @@ const app = createApp({
           rec: 'Recommended: <strong>BirdNET V2.4</strong> on Pi 4/5, <strong>Perch V2</strong> if you accept slight analysis delay.'
         },
         confidence: {
-          title: 'Confidence threshold',
-          body: `Minimum confidence (0.01–0.99) required for a detection to be saved to the database.<br><br>
-            A <strong>low</strong> value (0.50) captures more detections but includes more false positives.<br>
-            A <strong>high</strong> value (0.85) only keeps very certain detections but may miss subtle species.`,
-          rec: 'Recommended: <strong>0.65–0.75</strong>. Start at 0.70 and adjust based on your environment noise.'
+          title: 'Confidence threshold (legacy)',
+          body: 'Compatibility parameter. Use per-model thresholds below.',
+          rec: ''
+        },
+        birdnet_confidence: {
+          title: 'BirdNET confidence (sigmoid)',
+          body: `Confidence threshold specific to BirdNET V2.4.<br><br>
+            BirdNET uses <strong>sigmoid</strong> scoring: each species gets an independent score between 0 and 1. A score of 0.70 means "70% certainty this species is present".<br><br>
+            <strong>0.50</strong>: sensitive, more detections but more false positives.<br>
+            <strong>0.80</strong>: strict, only very confident detections.`,
+          rec: 'Recommended: <strong>0.65</strong>. Increase to 0.75 in noisy environments.'
+        },
+        perch_confidence: {
+          title: 'Perch confidence (softmax)',
+          body: `Confidence threshold specific to Perch V2.<br><br>
+            Perch uses <strong>bird-only softmax</strong> scoring (10,340 species). Scores are competitive: they sum to 100%. A score of 0.15 means "15% probability among all birds".<br><br>
+            Perch scores are naturally lower than BirdNET because probability is shared across more species.<br><br>
+            <strong>0.10</strong>: very sensitive, many detections.<br>
+            <strong>0.30</strong>: strict, only dominant identifications.`,
+          rec: 'Recommended: <strong>0.15</strong>. Lower than BirdNET because softmax distributes probability.'
+        },
+        perch_margin: {
+          title: 'Perch margin (top1 - top2)',
+          body: `Minimum gap between the top-1 and top-2 species scores to accept a Perch detection.<br><br>
+            When the model hesitates between two similar species (e.g. Blackbird 14% vs Thrush 13%), the margin is low (1%) and the detection is rejected as ambiguous.<br><br>
+            <strong>0.00</strong>: no ambiguity filter.<br>
+            <strong>0.10</strong>: requires a clear gap between the two best species.`,
+          rec: 'Recommended: <strong>0.05</strong>. Increase if too many confusions between similar species.'
         },
         sensitivity: {
           title: 'Sensitivity',
@@ -2258,7 +2329,10 @@ const app = createApp({
       },
       de: {
         model: { title:'Erkennungsmodell', body:'Das KI-Modell zur Vogelartenerkennung.<br><br><strong>BirdNET V2.4</strong> — Referenzmodell, 6.500 Arten, optimiert für Pi. Schnell.<br><strong>Perch V2</strong> — Google-Modell, 10.340 Vogelarten. Genauer aber langsamer (~1,6× Echtzeit auf Pi 4/5).', rec:'Empfohlen: <strong>BirdNET V2.4</strong> auf Pi 4/5.' },
-        confidence: { title:'Konfidenzschwelle', body:'Mindestkonfidenz (0,01–0,99) für eine Erkennung. Niedrig = mehr Erkennungen + mehr Fehlalarme. Hoch = nur sichere Erkennungen.', rec:'Empfohlen: <strong>0,65–0,75</strong>.' },
+        confidence: { title:'Konfidenzschwelle (alt)', body:'Kompatibilitätsparameter. Verwenden Sie die modellspezifischen Schwellenwerte.', rec:'' },
+        birdnet_confidence: { title:'BirdNET-Konfidenz (Sigmoid)', body:'Sigmoid-Score: jede Art erhält einen unabhängigen Score 0–1. 0,70 = 70% Sicherheit.<br>0,50: empfindlich. 0,80: streng.', rec:'Empfohlen: <strong>0,65</strong>.' },
+        perch_confidence: { title:'Perch-Konfidenz (Softmax)', body:'Bird-only Softmax über 10.340 Arten. Scores summieren sich auf 100%. 0,15 = 15% Wahrscheinlichkeit.<br>Natürlich niedriger als BirdNET.', rec:'Empfohlen: <strong>0,15</strong>.' },
+        perch_margin: { title:'Perch-Marge (Top1–Top2)', body:'Mindestabstand zwischen den beiden besten Arten. Filtert mehrdeutige Erkennungen (z.B. Amsel 14% vs Drossel 13%).', rec:'Empfohlen: <strong>0,05</strong>.' },
         sensitivity: { title:'Empfindlichkeit', body:'Steuert die Empfindlichkeit für leise Töne (0,5–1,5).<br><br><strong>BirdNET</strong>: Sigmoid-Skalierung.<br><strong>Perch V2</strong>: Softmax-Temperatur.<br><br>Höher = empfindlicher, mehr Erkennungen, mehr Fehlalarme.', rec:'Empfohlen: <strong>1,0–1,3</strong>.' },
         sf_thresh: { title:'Artenhäufigkeitsschwelle', body:'Geographischer Filter (0,0–0,5). Nur für BirdNET + MData. Arten unter diesem Schwellwert werden ausgeschlossen. Von Perch V2 ignoriert.', rec:'Empfohlen: <strong>0,03</strong>.' },
         overlap: { title:'Überlappung (Sekunden)', body:'Überlappung zwischen Analysefenstern (0,0–2,9s). Mehr Überlappung = mehr Chunks = längere Analyse. Auf Pi 4 mit Perch niedrig halten.', rec:'Empfohlen: <strong>0,0–0,5</strong> für Perch, <strong>0,5–1,5</strong> für BirdNET.' },
@@ -2282,7 +2356,10 @@ const app = createApp({
       },
       nl: {
         model: { title:'Detectiemodel', body:'Het AI-model voor vogelsoortherkenning.<br><br><strong>BirdNET V2.4</strong> — Referentiemodel, 6.500 soorten, geoptimaliseerd voor Pi. Snel.<br><strong>Perch V2</strong> — Google-model, 10.340 vogelsoorten. Nauwkeuriger maar trager (~1,6× realtime op Pi 4/5).', rec:'Aanbevolen: <strong>BirdNET V2.4</strong> op Pi 4/5.' },
-        confidence: { title:'Betrouwbaarheidsdrempel', body:'Minimale betrouwbaarheid (0,01–0,99) voor een detectie. Laag = meer detecties + meer valse positieven. Hoog = alleen zekere detecties.', rec:'Aanbevolen: <strong>0,65–0,75</strong>.' },
+        confidence: { title:'Betrouwbaarheidsdrempel (oud)', body:'Compatibiliteitsparameter. Gebruik de modelspecifieke drempels.', rec:'' },
+        birdnet_confidence: { title:'BirdNET-betrouwbaarheid (sigmoid)', body:'Sigmoid-score: elke soort krijgt een onafhankelijke score 0–1. 0,70 = 70% zekerheid.<br>0,50: gevoelig. 0,80: streng.', rec:'Aanbevolen: <strong>0,65</strong>.' },
+        perch_confidence: { title:'Perch-betrouwbaarheid (softmax)', body:'Bird-only softmax over 10.340 soorten. Scores tellen op tot 100%. 0,15 = 15% waarschijnlijkheid.<br>Natuurlijk lager dan BirdNET.', rec:'Aanbevolen: <strong>0,15</strong>.' },
+        perch_margin: { title:'Perch-marge (top1–top2)', body:'Minimumverschil tussen de twee beste soorten. Filtert dubbelzinnige detecties.', rec:'Aanbevolen: <strong>0,05</strong>.' },
         sensitivity: { title:'Gevoeligheid', body:'Regelt de gevoeligheid voor zachte geluiden (0,5–1,5).<br><br><strong>BirdNET</strong>: sigmoid-schaling.<br><strong>Perch V2</strong>: softmax-temperatuur.<br><br>Hoger = gevoeliger, meer detecties, meer valse positieven.', rec:'Aanbevolen: <strong>1,0–1,3</strong>.' },
         sf_thresh: { title:'Soortfrequentiedrempel', body:'Geografisch filter (0,0–0,5). Alleen voor BirdNET + MData. Soorten onder de drempel worden uitgesloten. Genegeerd door Perch V2.', rec:'Aanbevolen: <strong>0,03</strong>.' },
         overlap: { title:'Overlap (seconden)', body:'Overlap tussen analysevensters (0,0–2,9s). Meer overlap = meer chunks = langere analyse.', rec:'Aanbevolen: <strong>0,0–0,5</strong> voor Perch, <strong>0,5–1,5</strong> voor BirdNET.' },
