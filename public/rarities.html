@@ -240,6 +240,7 @@ const app = createApp({
           `SELECT Com_Name, MAX(Sci_Name) as sci, MAX(Date) as last_date, MAX(Confidence) as max_conf
            FROM detections WHERE Confidence>=?${dw} GROUP BY Com_Name HAVING COUNT(*)=1
            ORDER BY last_date DESC LIMIT 20`,[conf]);
+        rows.forEach(r => { r.photoUrl = null; });
         once.value = { loading:false, rows };
         loadPhotosFor(rows, 'sci');
       } catch(e) { once.value = { loading:false, rows:[] }; }
@@ -254,6 +255,7 @@ const app = createApp({
            INNER JOIN (SELECT Com_Name FROM detections WHERE Confidence>=?${dw} GROUP BY Com_Name HAVING COUNT(*)<=?) rare
            ON d.Com_Name=rare.Com_Name WHERE d.Confidence>=?${dw}
            ORDER BY d.Date DESC,d.Time DESC LIMIT 15`,[conf,maxDet,conf]);
+        rows.forEach(r => { r.photoUrl = null; });
         recent.value = { loading:false, rows };
         loadPhotosFor(rows);
       } catch(e) { recent.value = { loading:false, rows:[] }; }
@@ -268,6 +270,7 @@ const app = createApp({
                   ROUND(MAX(Confidence)*100,1) as max_conf
            FROM detections WHERE Confidence>=?${dw} GROUP BY Com_Name HAVING n<=?
            ORDER BY last_date DESC, n ASC`,[conf,maxDet]);
+        rows.forEach(r => { r.photoUrl = null; });
         table.value = { loading:false, rows };
         loadPhotosFor(rows, 'sci');
       } catch(e) { table.value = { loading:false, rows:[] }; }
