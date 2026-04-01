@@ -1875,11 +1875,20 @@ const server = http.createServer((req, res) => {
         ];
         const appriseBin = _ap.find(p => fs.existsSync(p)) || _ap[0];
         const { execFile } = require('child_process');
+        const testI18n = {
+          fr: { title: 'BIRDASH — Test', body: 'Ceci est une notification de test. Si vous voyez ce message, les notifications fonctionnent !' },
+          en: { title: 'BIRDASH — Test', body: 'This is a test notification. If you see this, notifications are working!' },
+          de: { title: 'BIRDASH — Test', body: 'Dies ist eine Testbenachrichtigung. Wenn Sie diese Nachricht sehen, funktionieren die Benachrichtigungen!' },
+          nl: { title: 'BIRDASH — Test', body: 'Dit is een testmelding. Als u dit bericht ziet, werken de meldingen!' },
+        };
+        let _testLang = 'en';
+        try { const m = fs.readFileSync(BIRDNET_CONF, 'utf8').match(/^DATABASE_LANG=(.+)/m); if (m) _testLang = m[1].replace(/"/g, '').trim().slice(0, 2); } catch {}
+        const tt = testI18n[_testLang] || testI18n.en;
         const result = await new Promise((resolve, reject) => {
           execFile(appriseBin, [
             '-vv',
-            '-t', 'BIRDASH Test',
-            '-b', 'This is a test notification from BIRDASH. If you see this, notifications are working!',
+            '-t', tt.title,
+            '-b', tt.body,
             '--config=' + appriseFile
           ], { timeout: 15000 }, (err, stdout, stderr) => {
             if (err) reject(new Error(stderr || err.message));

@@ -525,10 +525,43 @@ def sync_detections_to_remote(detections, remote_host, remote_db):
 class Notifier:
     """Smart push notifications via ntfy.sh — reads rules from birdnet.conf."""
 
+    # Notification message translations
+    NOTIF_I18N = {
+        "fr": {
+            "rare": lambda n: f"Espèce rare ({n} détection{'s' if n > 1 else ''} au total)",
+            "season": lambda d: f"Première de saison (absente depuis {d} jours)",
+            "new": "Nouvelle espèce — jamais détectée",
+            "daily": "Première du jour",
+            "conf": "Confiance",
+        },
+        "en": {
+            "rare": lambda n: f"Rare species ({n} detection{'s' if n > 1 else ''} total)",
+            "season": lambda d: f"First of season (absent for {d} days)",
+            "new": "New species — never detected before",
+            "daily": "First of the day",
+            "conf": "Confidence",
+        },
+        "de": {
+            "rare": lambda n: f"Seltene Art ({n} Erkennung{'en' if n > 1 else ''} insgesamt)",
+            "season": lambda d: f"Erste der Saison (seit {d} Tagen abwesend)",
+            "new": "Neue Art — noch nie erkannt",
+            "daily": "Erste des Tages",
+            "conf": "Konfidenz",
+        },
+        "nl": {
+            "rare": lambda n: f"Zeldzame soort ({n} detectie{'s' if n > 1 else ''} totaal)",
+            "season": lambda d: f"Eerste van het seizoen ({d} dagen afwezig)",
+            "new": "Nieuwe soort — nooit eerder gedetecteerd",
+            "daily": "Eerste van de dag",
+            "conf": "Betrouwbaarheid",
+        },
+    }
+
     def __init__(self, config, db_path=None):
         notif = config.get("notifications", {})
         self.ntfy_url = notif.get("ntfy_url", "")
         self.cooldown = notif.get("cooldown_seconds", 300)
+        self.lang = config.get("station", {}).get("language", "fr")[:2]
         self.db_path = db_path
         self._species_today = set()
         self._last_notif = {}
@@ -611,9 +644,11 @@ class Notifier:
         season_days = int(bconf.get("NOTIFY_SEASON_DAYS", "30"))
         last_seen = self._species_last_seen.get(sci_name)
 
+        msgs = self.NOTIF_I18N.get(self.lang, self.NOTIF_I18N["en"])
+
         # Rule 1: Rare species (highest priority)
         if bconf.get("NOTIFY_RARE_SPECIES", "0") == "1" and total_count <= rare_threshold:
-            reason = f"Espece rare ({total_count} detection{'s' if total_count > 1 else ''} au total)"
+            reason = msgs["rare"](total_count)
             priority = "high"
 
         # Rule 2: First of season (not seen in X days)
@@ -623,19 +658,19 @@ class Notifier:
                 today_dt = datetime.datetime.strptime(today, "%Y-%m-%d")
                 days_absent = (today_dt - last_dt).days
                 if days_absent >= season_days:
-                    reason = f"Premiere de saison (absente depuis {days_absent} jours)"
+                    reason = msgs["season"](days_absent)
                     priority = "high"
             except Exception:
                 pass
 
         # Rule 3: New species ever
         elif bconf.get("APPRISE_NOTIFY_NEW_SPECIES", "0") == "1" and total_count == 1:
-            reason = "Nouvelle espece — jamais detectee"
+            reason = msgs["new"]
             priority = "urgent"
 
         # Rule 4: First of the day (noisy)
         elif bconf.get("APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY", "0") == "1" and is_new_today:
-            reason = "Premiere du jour"
+            reason = msgs["daily"]
             priority = "low"
 
         if not reason:
@@ -654,7 +689,7 @@ class Notifier:
         confidence = det["confidence"]
         model = det["model"]
         title = f"{com_name} — {reason}"
-        body = f"{com_name} ({sci_name})\nConfiance: {confidence*100:.0f}% — {model}"
+        body = f"{com_name} ({sci_name})\n{msgs['conf']}: {confidence*100:.0f}% — {model}"
 
         try:
             import urllib.request
