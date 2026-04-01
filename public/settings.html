@@ -861,9 +861,6 @@
           <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;">
             <span style="font-size:.82em;white-space:nowrap;">Apprise URL :</span>
             <input type="text" v-model="appriseUrls" style="flex:1;padding:.3rem .5rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.82em;font-family:monospace;">
-            <button class="btn-outline" @click="saveApprise" :disabled="savingApprise" style="font-size:.75em;">
-              {{ savingApprise ? '...' : 'Sauvegarder' }}
-            </button>
             <button class="btn-outline" @click="testApprise" :disabled="testingApprise" style="font-size:.75em;">
               {{ testingApprise ? '...' : 'Tester' }}
             </button>
@@ -984,11 +981,6 @@
           </label></div>
         </div>
 
-        <div style="display:flex;gap:.5rem;margin-top:.5rem;">
-          <button class="btn-accent" @click="saveNotifSettings">Sauvegarder</button>
-          <span v-if="notifSaveMsg" style="font-size:.82em;align-self:center;" :style="{color: notifSaveErr ? 'var(--danger)' : 'var(--accent)'}">{{ notifSaveMsg }}</span>
-        </div>
-
       </div><!-- /tab notif -->
 
       <!-- ════════════════════════════════════════════════════════════
@@ -1053,9 +1045,6 @@
               {{t('set_notif_no_urls')}}
             </div>
             <div style="display:flex;gap:.5rem;margin-top:.4rem;">
-              <button class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;" @click="saveApprise" :disabled="savingApprise">
-                {{savingApprise ? '…' : t('set_save')}}
-              </button>
               <button class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;" @click="testApprise" :disabled="testingApprise || !appriseUrls.trim()">
                 {{testingApprise ? t('set_notif_testing') : '🔔 ' + t('set_notif_test')}}
               </button>
@@ -1121,9 +1110,6 @@
             <textarea v-model="excludeList" class="set-textarea" rows="12" :placeholder="'Homo sapiens\nCanis lupus familiaris\n...'"></textarea>
           </div>
         </div>
-        <button class="btn-accent" style="margin-top:.8rem;" @click="saveSpeciesLists" :disabled="savingLists">
-          {{savingLists ? '...' : t('set_save')}}
-        </button>
       </div>
 
       </div><!-- /tab species -->
@@ -1907,7 +1893,7 @@ const app = createApp({
       saveMsg.value = '';
       saveErr.value = false;
       try {
-        // Save all configs in parallel: settings + audio + adaptive gain
+        // Save all configs in parallel: settings + audio + adaptive gain + apprise + species lists + alerts
         const [res] = await Promise.all([
           fetch(API + '/settings', {
             method: 'POST',
@@ -1924,6 +1910,17 @@ const app = createApp({
             headers: authHeaders(),
             body: JSON.stringify(agConf),
           }),
+          fetch(API + '/apprise', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ urls: appriseUrls.value }),
+          }).catch(() => {}),
+          fetch(API + '/species-lists', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ include: includeList.value, exclude: excludeList.value }),
+          }).catch(() => {}),
+          saveAlertThresholds().catch(() => {}),
         ]);
         const data = await res.json();
         if (data.ok) {
