@@ -1916,9 +1916,12 @@ const app = createApp({
             body: JSON.stringify({ urls: appriseUrls.value }),
           }).catch(() => {}),
           fetch(API + '/species-lists', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ include: includeList.value, exclude: excludeList.value }),
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ list: 'include', species: includeList.value.split('\n').map(s => s.trim()).filter(Boolean) }),
+          }).catch(() => {}),
+          fetch(API + '/species-lists', {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ list: 'exclude', species: excludeList.value.split('\n').map(s => s.trim()).filter(Boolean) }),
           }).catch(() => {}),
           saveAlertThresholds().catch(() => {}),
         ]);
