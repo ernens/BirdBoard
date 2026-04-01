@@ -564,6 +564,7 @@ setTimeout(() => refreshTaxonomy().catch(e => console.error('[BIRDASH] Taxonomy 
 // ══════════════════════════════════════════════════════════════════════════════
 const ALERT_CHECK_INTERVAL = 60000; // 60 seconds
 const ALERT_COOLDOWN = 600000;      // 10 minutes between same alert type
+const ALERT_BIRD_COOLDOWN = 86400000; // 24 hours for bird-specific alerts (engine handles per-detection)
 const _alertLastSent = {};          // { alertType: timestamp }
 
 // ── Alert message translations ──────────────────────────────────────────────
@@ -592,7 +593,7 @@ const ALERT_I18N = {
     bird_missing_title:'🔍 BIRDASH — Missing common species',
     bird_missing_body: (species, avg) => `Missing today: ${species} (usually ${avg}/day)`,
     bird_rare_title:   '🦅 BIRDASH — Rare visitor',
-    bird_rare_body:    (species, total) => `Rare visitor: ${species} detected (only ${total} records total)`,
+    bird_rare_body:    (species, total, conf) => `Rare visitor: ${species} detected (${total} record${total>1?'s':''} total, ${conf}% confidence)`,
   },
   fr: {
     temp_crit_title:   '🔥 BIRDASH — Température critique !',
@@ -618,7 +619,7 @@ const ALERT_I18N = {
     bird_missing_title:'🔍 BIRDASH — Espèce commune absente',
     bird_missing_body: (species, avg) => `Absente aujourd'hui : ${species} (habituellement ${avg}/jour)`,
     bird_rare_title:   '🦅 BIRDASH — Visiteur rare',
-    bird_rare_body:    (species, total) => `Visiteur rare : ${species} détecté (seulement ${total} observations au total)`,
+    bird_rare_body:    (species, total, conf) => `Visiteur rare : ${species} détecté (${total} observation${total>1?'s':''} au total, confiance ${conf}%)`,
   },
   de: {
     temp_crit_title:   '🔥 BIRDASH — Kritische Temperatur!',
@@ -644,7 +645,7 @@ const ALERT_I18N = {
     bird_missing_title:'🔍 BIRDASH — Häufige Art fehlt',
     bird_missing_body: (species, avg) => `Heute fehlend: ${species} (normalerweise ${avg}/Tag)`,
     bird_rare_title:   '🦅 BIRDASH — Seltener Besucher',
-    bird_rare_body:    (species, total) => `Seltener Besucher: ${species} entdeckt (nur ${total} Einträge insgesamt)`,
+    bird_rare_body:    (species, total, conf) => `Seltener Besucher: ${species} entdeckt (${total} Eintrag${total>1?'e':''} insgesamt, ${conf}% Konfidenz)`,
   },
   nl: {
     temp_crit_title:   '🔥 BIRDASH — Kritieke temperatuur!',
@@ -670,7 +671,7 @@ const ALERT_I18N = {
     bird_missing_title:'🔍 BIRDASH — Veelvoorkomende soort afwezig',
     bird_missing_body: (species, avg) => `Vandaag afwezig: ${species} (normaal ${avg}/dag)`,
     bird_rare_title:   '🦅 BIRDASH — Zeldzame bezoeker',
-    bird_rare_body:    (species, total) => `Zeldzame bezoeker: ${species} gedetecteerd (slechts ${total} waarnemingen totaal)`,
+    bird_rare_body:    (species, total, conf) => `Zeldzame bezoeker: ${species} gedetecteerd (${total} waarneming${total>1?'en':''} totaal, ${conf}% betrouwbaarheid)`,
   },
 };
 
@@ -730,7 +731,8 @@ function getAlertThresholds() {
 
 async function sendAlert(type, title, body) {
   const now = Date.now();
-  if (_alertLastSent[type] && (now - _alertLastSent[type]) < ALERT_COOLDOWN) return;
+  const cooldown = type.startsWith('bird_') ? ALERT_BIRD_COOLDOWN : ALERT_COOLDOWN;
+  if (_alertLastSent[type] && (now - _alertLastSent[type]) < cooldown) return;
 
   const appriseFile = path.join(process.env.HOME, 'birdash', 'config', 'apprise.txt');
   const _apprisePaths = [
@@ -913,8 +915,8 @@ async function checkBirdAlerts() {
     if (th.alert_rare_visitor) {
       try {
         const rows = db.prepare(`
-          SELECT d.Com_Name, h.total
-          FROM (SELECT DISTINCT Com_Name FROM detections WHERE Date = ?) d
+          SELECT d.Com_Name, h.total, d.max_conf
+          FROM (SELECT Com_Name, MAX(Confidence) as max_conf FROM detections WHERE Date = ? GROUP BY Com_Name) d
           JOIN (
             SELECT Com_Name, COUNT(*) AS total
             FROM detections GROUP BY Com_Name HAVING COUNT(*) <= 3
@@ -922,7 +924,7 @@ async function checkBirdAlerts() {
         `).all(today);
         for (const r of rows) {
           await sendAlert('bird_rare_' + r.Com_Name, t.bird_rare_title,
-            t.bird_rare_body(r.Com_Name, r.total));
+            t.bird_rare_body(r.Com_Name, r.total, Math.round(r.max_conf * 100)));
         }
       } catch(e) { console.error('[ALERT] bird rare visitor error:', e.message); }
     }
