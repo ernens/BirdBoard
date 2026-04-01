@@ -733,7 +733,11 @@ async function sendAlert(type, title, body) {
   if (_alertLastSent[type] && (now - _alertLastSent[type]) < ALERT_COOLDOWN) return;
 
   const appriseFile = path.join(process.env.HOME, 'birdash', 'config', 'apprise.txt');
-  const appriseBin = path.join(process.env.HOME, 'birdash', 'engine', 'venv', 'bin', 'apprise');
+  const _apprisePaths = [
+    path.join(process.env.HOME, 'birdengine', 'venv', 'bin', 'apprise'),
+    path.join(process.env.HOME, 'birdash', 'engine', 'venv', 'bin', 'apprise'),
+  ];
+  const appriseBin = _apprisePaths.find(p => fs.existsSync(p)) || _apprisePaths[0];
 
   // Check apprise.txt exists and has content
   try {
@@ -1865,7 +1869,11 @@ const server = http.createServer((req, res) => {
     (async () => {
       try {
         const appriseFile = path.join(process.env.HOME, 'birdash', 'config', 'apprise.txt');
-        const appriseBin = path.join(process.env.HOME, 'birdash', 'engine', 'venv', 'bin', 'apprise');
+        const _ap = [
+          path.join(process.env.HOME, 'birdengine', 'venv', 'bin', 'apprise'),
+          path.join(process.env.HOME, 'birdash', 'engine', 'venv', 'bin', 'apprise'),
+        ];
+        const appriseBin = _ap.find(p => fs.existsSync(p)) || _ap[0];
         const { execFile } = require('child_process');
         const result = await new Promise((resolve, reject) => {
           execFile(appriseBin, [
