@@ -1961,31 +1961,57 @@
   // ── Composant BirdImg ────────────────────────────────────────────────────
   // Image avec animation de chargement (3 dots wave).
   // Usage : <bird-img :src="url" :alt="text" class="my-class" />
+  //         :src should be "/birds/api/photo?sci=Pica+pica" (server handles caching)
   const BirdImg = {
     props: {
       src:   { type: String, default: '' },
       alt:   { type: String, default: '' },
     },
-    setup(props) {
+    emits: ['refreshed'],
+    setup(props, { emit }) {
       const loaded = ref(false);
       const errored = ref(false);
+      const refreshing = ref(false);
+      const imgSrc = ref(props.src);
       // Reset on src change
-      watch(() => props.src, () => { loaded.value = false; errored.value = false; });
+      watch(() => props.src, (v) => { loaded.value = false; errored.value = false; imgSrc.value = v; });
       function onLoad() { loaded.value = true; }
       function onError() { loaded.value = true; errored.value = true; }
-      return { loaded, errored, onLoad, onError };
+      async function refreshPhoto() {
+        if (refreshing.value || !props.src) return;
+        // Extract sci name from URL (/api/photo?sci=X)
+        const m = props.src.match(/[?&]sci=([^&]+)/);
+        if (!m) return;
+        const sci = decodeURIComponent(m[1]);
+        refreshing.value = true;
+        try {
+          await fetch(BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sci), {
+            method: 'DELETE', headers: authHeaders(),
+          });
+          // Force reload with cache-bust
+          loaded.value = false;
+          errored.value = false;
+          imgSrc.value = props.src + (props.src.includes('?') ? '&' : '?') + '_t=' + Date.now();
+          emit('refreshed');
+        } catch(e) {}
+        refreshing.value = false;
+      }
+      return { loaded, errored, refreshing, imgSrc, onLoad, onError, refreshPhoto };
     },
     template: `
       <div class="img-wrap">
         <div class="img-loader" :class="{ hidden: loaded }">
           <span></span><span></span><span></span>
         </div>
-        <img v-if="src && !errored"
-             :src="src" :alt="alt"
+        <img v-if="imgSrc && !errored"
+             :src="imgSrc" :alt="alt"
              :class="{ loaded: loaded }"
              @load="onLoad" @error="onError"
              loading="lazy">
         <div v-if="errored" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:2rem;color:var(--text-faint);">🦜</div>
+        <button v-if="loaded && !errored && imgSrc"
+                class="img-refresh-btn" @click.stop="refreshPhoto"
+                :disabled="refreshing" title="Refresh photo">🔄</button>
       </div>
     `
   };

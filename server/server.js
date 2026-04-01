@@ -1190,6 +1190,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Route : DELETE /api/photo?sci=Pica+pica ─────────────────────────────────
+  // Delete cached photo so next GET re-fetches from iNaturalist/Wikipedia
+  if (req.method === 'DELETE' && pathname === '/api/photo') {
+    if (!requireAuth(req, res)) return;
+    const sciName = new URL(req.url, 'http://localhost').searchParams.get('sci');
+    if (!sciName || !/^[a-zA-Z ]+$/.test(sciName)) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'sci param required' })); return;
+    }
+    (async () => {
+      try {
+        const key = photoCacheKey(sciName);
+        const jpgPath = path.join(PHOTO_CACHE_DIR, key + '.jpg');
+        const metaPath = path.join(PHOTO_CACHE_DIR, key + '.json');
+        let deleted = false;
+        try { await fsp.unlink(jpgPath); deleted = true; } catch(e) {}
+        try { await fsp.unlink(metaPath); } catch(e) {}
+        console.log(`[photo-cache] Deleted: ${sciName} (${deleted ? 'found' : 'not cached'})`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, deleted }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
   // ── Route : GET /api/photo-cache-stats ──────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/photo-cache-stats') {
     (async () => {

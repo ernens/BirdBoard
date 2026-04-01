@@ -308,7 +308,7 @@
 const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
         useFilterPeriod, useFilterConfidence,
-        birdQuery, escHtml, safeHtml, fmtDate, fmtTime, localDateStr, daysAgo, fetchSpeciesImage,
+        birdQuery, escHtml, safeHtml, fmtDate, fmtTime, localDateStr, daysAgo, photoUrl,
         buildAudioUrl, navigateTo } = BIRDASH;
 
 let _chartPolar     = null;
@@ -590,7 +590,7 @@ const app = createApp({
       if (!selectedSpecies.value.length) return;
       thumbUrl.value = null;
       if (selCtx.value.type === 'single') {
-        fetchSpeciesImage(mainSpecies.value).then(u => { if (u) thumbUrl.value = u; });
+        thumbUrl.value = photoUrl(mainSpecies.value);
       }
       await Promise.all([loadKpis(), loadPolarChart(), loadSeriesChart(), loadCircadianChart(), loadDailyHeatmap()]);
     }

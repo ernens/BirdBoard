@@ -162,82 +162,18 @@
     } catch(e) { return null; }
   }
 
-  // ── Cached photo (localStorage + API + fallbacks) ────────────────────────
+  // ── Photo URL helper ─────────────────────────────────────────────────────
+  // Single source of truth: server /api/photo handles caching + resolution.
+  // No more client-side iNaturalist/Wikipedia fallbacks or localStorage cache.
 
-  var PHOTO_TTL       = 30 * 24 * 3600 * 1000;
-  var PHOTO_LS_PREFIX = 'birdash_photo_';
-
-  async function fetchCachedPhoto(sciName) {
+  function photoUrl(sciName) {
     if (!sciName) return null;
+    return BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sciName);
+  }
 
-    // 1. localStorage — check TTL
-    var lsKey = PHOTO_LS_PREFIX + sciName.replace(/[^a-zA-Z0-9]/g, '_');
-    try {
-      var cached = JSON.parse(localStorage.getItem(lsKey));
-      if (cached && cached.url && (Date.now() - cached.ts < PHOTO_TTL)) {
-        return cached.url;
-      }
-    } catch(e) {}
-
-    var url = null;
-
-    // 2. /api/photo (server disk cache)
-    try {
-      var apiUrl = BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(sciName);
-      var res = await fetch(apiUrl);
-      if (res.ok) url = apiUrl;
-    } catch(e) {}
-
-    // 3. iNaturalist direct (if server unavailable)
-    if (!url) {
-      try {
-        var tn  = encodeURIComponent(sciName);
-        var res2 = await fetch(
-          'https://api.inaturalist.org/v1/taxa?taxon_name=' + tn + '&rank=species&per_page=3'
-        );
-        if (res2.ok) {
-          var data  = await res2.json();
-          var taxon = null;
-          if (data.results) {
-            for (var i = 0; i < data.results.length; i++) {
-              if (data.results[i].name.toLowerCase() === sciName.toLowerCase()) {
-                taxon = data.results[i];
-                break;
-              }
-            }
-          }
-          if (taxon && taxon.default_photo) {
-            url = taxon.default_photo.square_url
-               || taxon.default_photo.medium_url
-               || taxon.default_photo.url
-               || null;
-          }
-        }
-      } catch(e) {}
-    }
-
-    // 4. Wikipedia direct
-    if (!url) {
-      try {
-        var title = sciName.replace(/ /g, '_');
-        var res3  = await fetch(
-          'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title)
-        );
-        if (res3.ok) {
-          var wData = await res3.json();
-          url = (wData.thumbnail && wData.thumbnail.source) || null;
-          // Reduce Wikipedia thumbnail to 150px for performance
-          if (url) url = url.replace(/\/(\d+)px-/, '/150px-');
-        }
-      } catch(e) {}
-    }
-
-    // Store in localStorage (even null — avoids re-fetching)
-    try {
-      localStorage.setItem(lsKey, JSON.stringify({ url: url, ts: Date.now() }));
-    } catch(e) {}
-
-    return url;
+  // Keep fetchCachedPhoto as alias (returns same URL synchronously now)
+  async function fetchCachedPhoto(sciName) {
+    return photoUrl(sciName);
   }
 
   // ── Chart.js defaults ──────────────────────────────────────────────────
@@ -584,6 +520,7 @@
     buildAudioUrl: buildAudioUrl,
     buildSpeciesLinks: buildSpeciesLinks,
     fetchSpeciesImage: fetchSpeciesImage,
+    photoUrl: photoUrl,
     fetchCachedPhoto: fetchCachedPhoto,
     chartDefaults: chartDefaults,
     escHtml: escHtml,

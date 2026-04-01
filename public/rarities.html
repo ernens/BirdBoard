@@ -170,7 +170,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useAudio, useSpeciesNames,
         useFilterPeriod, useFilterConfidence,
         birdQuery, fmtDate, fmtConf, localDateStr, daysAgo,
-        navigateTo, buildAudioUrl, fetchCachedPhoto, quickPlaySpecies } = BIRDASH;
+        navigateTo, buildAudioUrl, photoUrl, quickPlaySpecies } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -240,9 +240,8 @@ const app = createApp({
           `SELECT Com_Name, MAX(Sci_Name) as sci, MAX(Date) as last_date, MAX(Confidence) as max_conf
            FROM detections WHERE Confidence>=?${dw} GROUP BY Com_Name HAVING COUNT(*)=1
            ORDER BY last_date DESC LIMIT 20`,[conf]);
-        rows.forEach(r => { r.photoUrl = null; });
+        assignPhotos(rows, 'sci');
         once.value = { loading:false, rows };
-        loadPhotosFor(rows, 'sci');
       } catch(e) { once.value = { loading:false, rows:[] }; }
     }
 
@@ -255,9 +254,8 @@ const app = createApp({
            INNER JOIN (SELECT Com_Name FROM detections WHERE Confidence>=?${dw} GROUP BY Com_Name HAVING COUNT(*)<=?) rare
            ON d.Com_Name=rare.Com_Name WHERE d.Confidence>=?${dw}
            ORDER BY d.Date DESC,d.Time DESC LIMIT 15`,[conf,maxDet,conf]);
-        rows.forEach(r => { r.photoUrl = null; });
+        assignPhotos(rows);
         recent.value = { loading:false, rows };
-        loadPhotosFor(rows);
       } catch(e) { recent.value = { loading:false, rows:[] }; }
     }
 
@@ -276,19 +274,8 @@ const app = createApp({
       } catch(e) { table.value = { loading:false, rows:[] }; }
     }
 
-    // Charge les photos pour un tableau de lignes (Sci_Name ou sci)
-    async function loadPhotosFor(rows, sciField='Sci_Name') {
-      const seen = new Set();
-      const tasks = rows.filter(r => {
-        const s = r[sciField]; if (!s || seen.has(s)) return false; seen.add(s); return true;
-      });
-      for (let i=0; i<tasks.length; i+=4) {
-        await Promise.all(tasks.slice(i,i+4).map(async r => {
-          const sci = r[sciField];
-          const url = await fetchCachedPhoto(sci);
-          rows.forEach(d => { if (d[sciField]===sci) d.photoUrl=url; });
-        }));
-      }
+    function assignPhotos(rows, sciField='Sci_Name') {
+      rows.forEach(r => { r.photoUrl = photoUrl(r[sciField]); });
     }
 
     watch(lang, () => load());
