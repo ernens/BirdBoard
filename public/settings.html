@@ -359,15 +359,15 @@
           <div class="section-title">🎙️ {{t('set_recording')}}</div>
           <div class="set-row">
             <span class="set-label">{{t('set_rec_length')}} <button class="info-btn" @click="helpKey='rec_length'">i</button></span>
-            <input v-model="conf.RECORDING_LENGTH" type="number" min="6" max="120" class="set-input" style="width:80px;">
+            <input v-model="conf.RECORDING_LENGTH" type="number" min="6" max="120" class="set-input">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_extraction_length')}} <button class="info-btn" @click="helpKey='extraction_length'">i</button></span>
-            <input v-model="conf.EXTRACTION_LENGTH" type="number" min="3" max="30" class="set-input" style="width:80px;" placeholder="6">
+            <input v-model="conf.EXTRACTION_LENGTH" type="number" min="3" max="30" class="set-input" placeholder="6">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_audio_format')}} <button class="info-btn" @click="helpKey='audio_format'">i</button></span>
-            <select v-model="conf.AUDIOFMT" class="set-select" style="width:100px;">
+            <select v-model="conf.AUDIOFMT" class="set-select">
               <option value="mp3">MP3</option>
               <option value="wav">WAV</option>
               <option value="flac">FLAC</option>
@@ -376,7 +376,7 @@
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_channels')}} <button class="info-btn" @click="helpKey='channels'">i</button></span>
-            <select v-model="conf.CHANNELS" class="set-select" style="width:80px;">
+            <select v-model="conf.CHANNELS" class="set-select">
               <option value="1">Mono</option>
               <option value="2">Stereo</option>
             </select>
