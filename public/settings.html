@@ -765,6 +765,20 @@
                   <input type="number" v-model.number="agConf.activity_hold_s" min="0" max="120" step="1" style="width:60px;" class="set-input"> s</div>
               </div>
 
+              <details style="margin:.6rem 0 0 0;">
+                <summary style="cursor:pointer;font-size:.78rem;font-weight:600;opacity:.8;">{{t('ag_advanced')}}</summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.5rem 0;">
+                  <div class="set-row"><span class="set-label">{{t('ag_step_up')}}</span>
+                    <input type="number" v-model.number="agConf.step_up_db" min="0.1" max="6" step="0.1" style="width:60px;" class="set-input"> dB</div>
+                  <div class="set-row"><span class="set-label">{{t('ag_step_down')}}</span>
+                    <input type="number" v-model.number="agConf.step_down_db" min="0.1" max="6" step="0.1" style="width:60px;" class="set-input"> dB</div>
+                  <div class="set-row"><span class="set-label">{{t('ag_history')}}</span>
+                    <input type="number" v-model.number="agConf.history_s" min="5" max="300" step="5" style="width:60px;" class="set-input"> s</div>
+                  <div class="set-row"><span class="set-label">{{t('ag_noise_pct')}}</span>
+                    <input type="number" v-model.number="agConf.noise_percentile" min="1" max="50" step="1" style="width:60px;" class="set-input"> %</div>
+                </div>
+              </details>
+
             </div>
           </div>
 
@@ -1548,24 +1562,18 @@ const app = createApp({
     }
 
     // ── Alert thresholds ─────────────────────────────────────
-    const alertThresholds = reactive({
-      temp_warn:70, temp_crit:80, disk_warn:85, disk_crit:95, ram_warn:90, backlog_warn:50, no_detection_hours:4, service_down:1,
-      alert_temp:1, alert_temp_crit:1, alert_disk:1, alert_ram:1, alert_backlog:1, alert_no_det:1,
-      alert_influx:0, alert_missing:0, alert_rare_visitor:0,
-    });
+    const { data: alertThresholds, loadOk: alertsLoadOk, load: loadAlertThresholds } = useJsonConfig(
+      '/alert-thresholds',
+      { temp_warn:70, temp_crit:80, disk_warn:85, disk_crit:95, ram_warn:90, backlog_warn:50, no_detection_hours:4, service_down:1,
+        alert_temp:1, alert_temp_crit:1, alert_disk:1, alert_ram:1, alert_backlog:1, alert_no_det:1,
+        alert_influx:0, alert_missing:0, alert_rare_visitor:0 }
+    );
     const savingAlerts = ref(false);
     const alertSaveMsg = ref('');
     const alertSaveErr = ref(false);
 
-    async function loadAlertThresholds() {
-      try {
-        const res = await fetch(API + '/alert-thresholds');
-        const data = await res.json();
-        Object.assign(alertThresholds, data);
-      } catch(e) {}
-    }
-
     async function saveAlertThresholds() {
+      if (!alertsLoadOk.value) return;
       savingAlerts.value = true;
       alertSaveMsg.value = '';
       try {
@@ -1594,6 +1602,7 @@ const app = createApp({
           BIRDASH_ALERT_ON_INFLUX: String(alertThresholds.alert_influx || 0),
           BIRDASH_ALERT_ON_MISSING: String(alertThresholds.alert_missing || 0),
           BIRDASH_ALERT_ON_RARE_VISITOR: String(alertThresholds.alert_rare_visitor || 0),
+          BIRDASH_ALERT_ON_SVC_DOWN: String(alertThresholds.service_down || 0),
         };
         const res = await fetch(API + '/settings', {
           method: 'POST',
@@ -1900,16 +1909,8 @@ const app = createApp({
             headers: authHeaders(),
             body: JSON.stringify({ updates: { ...conf } }),
           }),
-          fetch(API + '/audio/config', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify(audioConf),
-          }),
-          fetch(API + '/audio/adaptive-gain/config', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify(agConf),
-          }),
+          saveAudioConf(),
+          saveAgConf(),
           fetch(API + '/apprise', {
             method: 'POST',
             headers: authHeaders(),
@@ -2418,17 +2419,40 @@ const app = createApp({
     // ── Audio config ──────────────────────────────────────────────────────────
     const terminalKey = ref(0);
 
-    // ── Adaptive gain ──────────────────────────────────────────────────────
-    const agConf = reactive({ enabled: false, mode: 'balanced', observer_only: true,
-      min_db: -6, max_db: 9, target_floor_dbfs: -42, clip_guard_dbfs: -3,
-      update_interval_s: 10, activity_hold_s: 15 });
-    const agState = ref(null);
-    async function loadAgConf() {
-      try {
-        const data = await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/config').then(r => r.json());
-        Object.assign(agConf, data);
-      } catch {}
+    // ── Generic JSON config loader ─────────────────────────────────────────
+    function useJsonConfig(endpoint, defaults) {
+      const data = reactive({ ...defaults });
+      const loadOk = ref(false);
+      async function load() {
+        try {
+          const r = await fetch(BIRD_CONFIG.apiUrl + endpoint);
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          Object.assign(data, await r.json());
+          loadOk.value = true;
+        } catch (e) {
+          console.error('Failed to load ' + endpoint + ':', e);
+          loadOk.value = false;
+        }
+      }
+      function save() {
+        if (!loadOk.value) return Promise.resolve({ json: () => ({ ok: true }) });
+        return fetch(BIRD_CONFIG.apiUrl + endpoint, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify(data),
+        });
+      }
+      return { data, loadOk, load, save };
     }
+
+    // ── Adaptive gain ──────────────────────────────────────────────────────
+    const { data: agConf, loadOk: agLoadOk, load: loadAgConf, save: saveAgConf } = useJsonConfig(
+      '/audio/adaptive-gain/config',
+      { enabled: false, mode: 'balanced', observer_only: true,
+        min_db: -6, max_db: 9, step_up_db: 0.5, step_down_db: 1.5,
+        target_floor_dbfs: -42, clip_guard_dbfs: -3,
+        update_interval_s: 10, history_s: 30, noise_percentile: 20, activity_hold_s: 15 }
+    );
+    const agState = ref(null);
     async function loadAgState() {
       try {
         const data = await fetch(BIRD_CONFIG.apiUrl + '/audio/adaptive-gain/state').then(r => r.json());
@@ -2529,17 +2553,18 @@ const app = createApp({
       dbLoading.value = false;
     }
 
-    const audioConf = reactive({
-      device_id: '', device_name: '', input_channels: 2,
-      capture_sample_rate: 48000, bit_depth: 16, output_sample_rate: 32000,
-      channel_strategy: 'max', hop_size_s: 2.5,
-      highpass_enabled: true, highpass_cutoff_hz: 80,
-      lowpass_enabled: false, lowpass_cutoff_hz: 10000,
-      denoise_enabled: false, denoise_strength: 0.5,
-      rms_normalize: true, rms_target: 0.05,
-      cal_gain_ch0: 1.0, cal_gain_ch1: 1.0, cal_date: null,
-      profile_name: 'jardin',
-    });
+    const { data: audioConf, loadOk: audioLoadOk, load: loadAudioConfig, save: saveAudioConf } = useJsonConfig(
+      '/audio/config',
+      { device_id: '', device_name: '', input_channels: 2,
+        capture_sample_rate: 48000, bit_depth: 16, output_sample_rate: 32000,
+        channel_strategy: 'max', hop_size_s: 2.5,
+        highpass_enabled: true, highpass_cutoff_hz: 80,
+        lowpass_enabled: false, lowpass_cutoff_hz: 10000,
+        denoise_enabled: false, denoise_strength: 0.5,
+        rms_normalize: true, rms_target: 0.05,
+        cal_gain_ch0: 1.0, cal_gain_ch1: 1.0, cal_date: null,
+        profile_name: 'jardin' }
+    );
     const audioDevices = ref([]);
     const audioProfiles = ref({});
     const audioSubTab = ref('device');
@@ -2656,12 +2681,7 @@ const app = createApp({
       return (Date.now() - new Date(audioConf.cal_date).getTime()) > 7 * 86400000;
     });
 
-    async function loadAudioConfig() {
-      try {
-        const data = await fetch(API + '/audio/config').then(r => r.json());
-        Object.assign(audioConf, data);
-      } catch {}
-    }
+    // loadAudioConfig provided by useJsonConfig above
     async function loadAudioDevices() {
       try {
         const data = await fetch(API + '/audio/devices').then(r => r.json());

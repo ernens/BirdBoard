@@ -1,8 +1,7 @@
 {
   "destination": "nfs",
   "content": [
-    "db",
-    "config"
+    "all"
   ],
   "schedule": "daily",
   "scheduleTime": "02:00",
@@ -48,5 +47,6 @@
   },
   "lastRun": "2026-03-31T18:56:32.527Z",
   "lastStatus": "success",
-  "lastMessage": ""
+  "lastMessage": "",
+  "lastBackupSize": 1782893661
 }

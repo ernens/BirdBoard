@@ -15,6 +15,11 @@ fi
 CONFIG_FILE="${BACKUP_CONFIG:-$(dirname "$0")/../config/backup.json}"
 STATUS_FILE="${BACKUP_STATUS:-$(dirname "$0")/../config/backup-status.json}"
 LOG_FILE="/var/log/birdash-backup.log"
+# Fallback if /var/log not writable
+if ! touch "$LOG_FILE" 2>/dev/null; then
+  LOG_FILE="$HOME/.local/share/birdash-backup.log"
+  mkdir -p "$(dirname "$LOG_FILE")"
+fi
 HISTORY_FILE="${CONFIG_FILE%/*}/backup-history.json"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" 2>/dev/null || echo "$*"; }
@@ -66,6 +71,16 @@ cleanup() {
   else
     progress "failed" "${_LAST_PCT:-0}" "${_LAST_STEP:-}" "Erreur (code $code)"
     append_history "failed" "Erreur code $code à l'étape ${_LAST_STEP:-?}"
+    # Update backup.json on failure too
+    node -e "
+      const fs=require('fs');
+      try {
+        const cfg=JSON.parse(fs.readFileSync('${CONFIG_FILE}','utf8'));
+        cfg.lastRun=new Date().toISOString();
+        cfg.lastStatus='failed';
+        fs.writeFileSync('${CONFIG_FILE}',JSON.stringify(cfg,null,2));
+      } catch(e) {}
+    " 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -442,7 +457,21 @@ fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 USED=$(du -sh "$BACKUP_BASE" 2>/dev/null | cut -f1 || echo "N/A")
+USED_BYTES=$(du -sb "$BACKUP_BASE" 2>/dev/null | cut -f1 || echo "0")
 log "========================================="
 log "Backup terminé ! Total: $USED"
 log "========================================="
+
+# Update backup.json with lastRun/lastStatus (so cron backups are also recorded)
+node -e "
+  const fs=require('fs');
+  try {
+    const cfg=JSON.parse(fs.readFileSync('$CONFIG_FILE','utf8'));
+    cfg.lastRun=new Date().toISOString();
+    cfg.lastStatus='success';
+    cfg.lastBackupSize=parseInt('$USED_BYTES')||0;
+    fs.writeFileSync('$CONFIG_FILE',JSON.stringify(cfg,null,2));
+  } catch(e) { console.error('Failed to update config:', e.message); }
+" 2>/dev/null || true
+
 # EXIT trap will set progress to "completed" 100%

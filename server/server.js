@@ -196,6 +196,7 @@ const SETTINGS_VALIDATORS = {
   BIRDASH_ALERT_ON_INFLUX:    v => v == 0 || v == 1,
   BIRDASH_ALERT_ON_MISSING:   v => v == 0 || v == 1,
   BIRDASH_ALERT_ON_RARE_VISITOR: v => v == 0 || v == 1,
+  BIRDASH_ALERT_ON_SVC_DOWN: v => v == 0 || v == 1,
   IMAGE_PROVIDER:  v => ['WIKIPEDIA','FLICKR'].includes(v),
   RARE_SPECIES_THRESHOLD: v => !isNaN(v) && v >= 1 && v <= 365,
   RAW_SPECTROGRAM: v => v == 0 || v == 1,
@@ -230,7 +231,8 @@ async function updateBackupCron(config) {
       if (config.schedule === 'daily') cronExpr = `${min} ${hour} * * *`;
       else if (config.schedule === 'weekly') cronExpr = `${min} ${hour} * * 0`;
       else return;
-      result.push(`${cronExpr} BACKUP_CONFIG=${cfgPath} bash ${scriptPath} >> /var/log/birdash-backup.log 2>&1 ${cronTag}`);
+      const logPath = path.join(process.env.HOME || '/home/bjorn', '.local', 'share', 'birdash-backup.log');
+      result.push(`${cronExpr} BACKUP_CONFIG=${cfgPath} bash ${scriptPath} >> ${logPath} 2>&1 ${cronTag}`);
     }
     const tmpCron = '/tmp/birdash-crontab.tmp';
     await fsp.writeFile(tmpCron, result.filter(l => l.trim() !== '').join('\n') + '\n');
@@ -771,6 +773,7 @@ function getAlertThresholds() {
     if (match('BIRDASH_ALERT_ON_INFLUX'))       t.alert_influx = parseInt(match('BIRDASH_ALERT_ON_INFLUX'));
     if (match('BIRDASH_ALERT_ON_MISSING'))      t.alert_missing = parseInt(match('BIRDASH_ALERT_ON_MISSING'));
     if (match('BIRDASH_ALERT_ON_RARE_VISITOR')) t.alert_rare_visitor = parseInt(match('BIRDASH_ALERT_ON_RARE_VISITOR'));
+    if (match('BIRDASH_ALERT_ON_SVC_DOWN'))    t.service_down = parseInt(match('BIRDASH_ALERT_ON_SVC_DOWN'));
   } catch(e) {}
   return t;
 }
@@ -1136,6 +1139,64 @@ function writeJsonFileAtomic(p, data) {
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
   fs.renameSync(tmp, p);
 }
+
+/**
+ * Generic JSON config GET handler.
+ * @param {object} res - HTTP response
+ * @param {string} filePath - path to JSON config file
+ * @param {object} [defaults] - default values to merge (returned even if file missing)
+ */
+function jsonConfigGet(res, filePath, defaults) {
+  const cfg = readJsonFile(filePath);
+  const merged = defaults ? { ...defaults, ...(cfg || {}) } : (cfg || {});
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(merged));
+}
+
+/**
+ * Generic JSON config POST handler.
+ * Reads body, filters against whitelist, merges with existing file, writes atomically.
+ * @param {object} req - HTTP request
+ * @param {object} res - HTTP response
+ * @param {string} filePath - path to JSON config file
+ * @param {string[]} whitelist - allowed keys
+ * @param {function} [afterSave] - optional callback(current, filtered) called after write
+ */
+function jsonConfigPost(req, res, filePath, whitelist, afterSave) {
+  let body = '';
+  req.on('data', chunk => { body += chunk; });
+  req.on('end', () => {
+    try {
+      const updates = JSON.parse(body);
+      const filtered = {};
+      for (const k of Object.keys(updates)) {
+        if (whitelist.includes(k)) filtered[k] = updates[k];
+      }
+      if (Object.keys(filtered).length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'No valid config keys provided' }));
+        return;
+      }
+      const current = readJsonFile(filePath) || {};
+      Object.assign(current, filtered);
+      writeJsonFileAtomic(filePath, current);
+      if (afterSave) afterSave(current, filtered);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, config: current }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  });
+}
+
+// --- Config key whitelists (shared between routes)
+const AUDIO_KEYS = ['device_id','device_name','input_channels','capture_sample_rate','bit_depth',
+  'output_sample_rate','channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
+  'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
+  'rms_normalize','rms_target','cal_gain_ch0','cal_gain_ch1','cal_date','profile_name'];
+const AG_KEYS = ['enabled','mode','observer_only','min_db','max_db','step_up_db','step_down_db',
+  'update_interval_s','history_s','noise_percentile','target_floor_dbfs','clip_guard_dbfs','activity_hold_s'];
 
 // --- Handler HTTP
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB max for POST bodies
@@ -3345,33 +3406,24 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && pathname === '/api/backup-status') {
     (async () => {
       try {
-        const nfsPath = (_localConfig && _localConfig.nfsMountPath) || '/mnt/backup';
-        const backupPath = (_localConfig && _localConfig.backupPath) || path.join(nfsPath, 'Backup', 'biloute');
-        let mounted = false;
-        try {
-          await execCmd('mountpoint', ['-q', nfsPath]);
-          mounted = true;
-        } catch(e) {}
+        const bkpCfg = readJsonFile(path.join(__dirname, '..', 'config', 'backup.json')) || {};
+        const dest = bkpCfg.destination || 'local';
+        const schedule = bkpCfg.schedule || 'manual';
+        const lastRun = bkpCfg.lastRun || null;
+        const lastStatus = bkpCfg.lastStatus || null;
 
-        let lastBackup = null, backupSize = null;
-        if (mounted) {
-          try {
-            const sizeOut = await execCmd('du', ['-sb', backupPath]);
-            backupSize = parseInt(sizeOut.split(/\s/)[0]);
-          } catch(e) {}
-          // Last backup from log
-          try {
-            const logRaw = await fsp.readFile('/var/log/backup-biloute.log', 'utf8');
-            const matches = logRaw.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] Backup terminé/g);
-            if (matches && matches.length > 0) {
-              const last = matches[matches.length - 1];
-              lastBackup = last.match(/\[(.+?)\]/)[1];
-            }
-          } catch(e) {}
+        // Check mount for NFS/SMB destinations
+        let mounted = null;
+        if (dest === 'nfs' || dest === 'smb') {
+          const mountPath = (dest === 'nfs' && bkpCfg.nfs && bkpCfg.nfs.mountPoint) || '/mnt/backup';
+          try { await execCmd('mountpoint', ['-q', mountPath]); mounted = true; } catch { mounted = false; }
         }
 
+        // Use cached backup size (du on NFS can take 30s+)
+        const backupSize = bkpCfg.lastBackupSize || null;
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ nfsPath, mounted, lastBackup, backupSize }));
+        res.end(JSON.stringify({ destination: dest, schedule, lastRun, lastStatus, mounted, backupSize }));
       } catch(e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));
@@ -3386,22 +3438,40 @@ const server = http.createServer((req, res) => {
       try {
         const hostname = (await fsp.readFile('/etc/hostname', 'utf8')).trim();
         let ip = '';
-        try { ip = (await execCmd('hostname', ['-I'])).trim().split(/\s+/)[0]; } catch(e) {}
+        try { ip = (await execCmd('hostname', ['-I'])).trim().split(/\s+/)[0]; } catch {}
 
-        const nasIp = (_localConfig && _localConfig.nasIp) || null;
+        // Gateway
+        let gateway = null;
+        try {
+          const routeOut = await execCmd('ip', ['route', 'show', 'default']);
+          const gw = routeOut.match(/default via ([\d.]+)/);
+          if (gw) gateway = gw[1];
+        } catch {}
+
+        // Internet connectivity
+        let internet = false;
+        try { await execCmd('ping', ['-c', '1', '-W', '2', '1.1.1.1']); internet = true; } catch {}
+
+        // NAS ping — derive IP from backup config if NFS/SMB/SFTP
+        const bkpCfg = readJsonFile(path.join(__dirname, '..', 'config', 'backup.json')) || {};
+        let nasHost = null;
+        if (bkpCfg.destination === 'nfs' && bkpCfg.nfs) nasHost = bkpCfg.nfs.host;
+        else if (bkpCfg.destination === 'smb' && bkpCfg.smb) nasHost = bkpCfg.smb.host;
+        else if (bkpCfg.destination === 'sftp' && bkpCfg.sftp) nasHost = bkpCfg.sftp.host;
+
         let nasPing = null;
-        if (nasIp) {
+        if (nasHost) {
           try {
-            const pingOut = await execCmd('ping', ['-c', '1', '-W', '2', nasIp]);
+            const pingOut = await execCmd('ping', ['-c', '1', '-W', '2', nasHost]);
             const latMatch = pingOut.match(/time=([\d.]+)/);
             nasPing = { reachable: true, latency: latMatch ? parseFloat(latMatch[1]) : 0 };
-          } catch(e) {
+          } catch {
             nasPing = { reachable: false, latency: 0 };
           }
         }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ hostname, ip, nasIp, nasPing }));
+        res.end(JSON.stringify({ hostname, ip, gateway, internet, nasHost, nasPing }));
       } catch(e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));
@@ -3995,6 +4065,19 @@ const server = http.createServer((req, res) => {
             cfg.lastRun = now;
             cfg.lastStatus = status;
             cfg.lastMessage = code === 0 ? '' : (stderr || stdout).slice(0, 500);
+            // Measure backup size after success (async, non-blocking)
+            if (code === 0) {
+              try {
+                const dest = cfg.destination || 'local';
+                const bkpDir = dest === 'local' ? (cfg.local && cfg.local.path || '/mnt/backup')
+                  : (dest === 'nfs' && cfg.nfs) ? path.join(cfg.nfs.mountPoint || '/mnt/backup', cfg.nfs.remotePath || 'birdash-backup')
+                  : null;
+                if (bkpDir) {
+                  const sizeOut = await execCmd('du', ['-sb', bkpDir]);
+                  cfg.lastBackupSize = parseInt(sizeOut.split(/\s/)[0]);
+                }
+              } catch {}
+            }
             await fsp.writeFile(cfgPath, JSON.stringify(cfg, null, 2));
           } catch(e) {}
         });
@@ -4598,9 +4681,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : GET /api/detection-rules ────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/detection-rules') {
-    const rules = readJsonFile(DETECTION_RULES_PATH) || {};
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(rules));
+    jsonConfigGet(res, DETECTION_RULES_PATH);
     return;
   }
 
@@ -4844,115 +4925,62 @@ const server = http.createServer((req, res) => {
 
   // ── Route : GET /api/audio/adaptive-gain/config ─────────────────────────
   if (req.method === 'GET' && pathname === '/api/audio/adaptive-gain/config') {
-    const cfg = readJsonFile(AG_CONFIG_PATH) || AG_DEFAULTS;
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ...AG_DEFAULTS, ...cfg }));
+    jsonConfigGet(res, AG_CONFIG_PATH, AG_DEFAULTS);
     return;
   }
 
   // ── Route : POST /api/audio/adaptive-gain/config ────────────────────────
   if (req.method === 'POST' && pathname === '/api/audio/adaptive-gain/config') {
     if (!requireAuth(req, res)) return;
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const updates = JSON.parse(body);
-        const AG_KEYS = ['enabled','mode','observer_only','min_db','max_db','step_up_db','step_down_db',
-          'update_interval_s','history_s','noise_percentile','target_floor_dbfs','clip_guard_dbfs','activity_hold_s'];
-        const filtered = {};
-        for (const k of Object.keys(updates)) { if (AG_KEYS.includes(k)) filtered[k] = updates[k]; }
-        const current = readJsonFile(AG_CONFIG_PATH) || {};
-        Object.assign(current, filtered);
-        writeJsonFileAtomic(AG_CONFIG_PATH, current);
-        // Start/stop collector based on enabled state
-        if (current.enabled) startAgCollector();
-        else stopAgCollector();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, config: { ...AG_DEFAULTS, ...current } }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
+    jsonConfigPost(req, res, AG_CONFIG_PATH, AG_KEYS, (current) => {
+      // Background interval (_agBgInterval) auto-starts/stops collector every 30s
+      // For immediate effect, trigger now
+      if (current.enabled && !_agBgProc) _agBgStart();
+      else if (!current.enabled && _agBgProc) _agBgStop();
     });
     return;
   }
 
   // ── Route : GET /api/audio/config ───────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/audio/config') {
-    const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(config));
+    jsonConfigGet(res, AUDIO_CONFIG_PATH);
     return;
   }
 
   // ── Route : POST /api/audio/config ──────────────────────────────────────
   if (req.method === 'POST' && pathname === '/api/audio/config') {
     if (!requireAuth(req, res)) return;
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const updates = JSON.parse(body);
-        // Whitelist allowed audio config keys
-        const AUDIO_KEYS = ['device_id','device_name','input_channels','capture_sample_rate','bit_depth',
-          'output_sample_rate','channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
-          'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
-          'rms_normalize','rms_target','cal_gain_ch0','cal_gain_ch1','cal_date','profile_name'];
-        const filtered = {};
-        for (const k of Object.keys(updates)) {
-          if (AUDIO_KEYS.includes(k)) filtered[k] = updates[k];
-        }
-        if (Object.keys(filtered).length === 0) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'No valid audio config keys provided' }));
-          return;
-        }
-        const current = readJsonFile(AUDIO_CONFIG_PATH) || {};
-        const oldDevice = current.device_id;
-        Object.assign(current, filtered);
-        writeJsonFileAtomic(AUDIO_CONFIG_PATH, current);
-
-        // When device changes, generate ALSA dsnoop config for shared access
-        if (filtered.device_id && filtered.device_id !== oldDevice) {
-          try {
-            const devId = filtered.device_id;
-            // Extract ALSA card name from hw_id or dsnoop id
-            let cardName = '';
-            const hwMatch = devId.match(/CARD=(\w+)/);
-            if (hwMatch) cardName = hwMatch[1];
-            else {
-              // Try to find card name from device list
-              const { execSync } = require('child_process');
-              const arecordOut = execSync('arecord -l 2>/dev/null', { encoding: 'utf8' });
-              const cardMatch = arecordOut.match(/card \d+: (\w+) \[/);
-              if (cardMatch) cardName = cardMatch[1];
-            }
-            if (cardName) {
-              const channels = current.input_channels || 2;
-              const rate = current.capture_sample_rate || 48000;
-              const asoundrc = `# Auto-generated by Birdash for ${current.device_name || cardName}\n` +
-                `pcm.birdash {\n    type dsnoop\n    ipc_key 2048\n    slave {\n` +
-                `        pcm "hw:CARD=${cardName},DEV=0"\n        channels ${channels}\n` +
-                `        rate ${rate}\n    }\n}\n`;
-              fs.writeFileSync(path.join(process.env.HOME, '.asoundrc'), asoundrc);
-              // Update device_id to use the dsnoop alias
-              current.device_id = 'birdash';
-              writeJsonFileAtomic(AUDIO_CONFIG_PATH, current);
-              console.log(`[audio] ALSA dsnoop config generated for ${cardName}`);
-              // Restart recording service to pick up new device
-              try { require('child_process').exec('sudo systemctl restart birdengine-recording'); } catch {}
-            }
-          } catch (e) {
-            console.warn('[audio] ALSA config generation failed:', e.message);
+    const oldDevice = (readJsonFile(AUDIO_CONFIG_PATH) || {}).device_id;
+    jsonConfigPost(req, res, AUDIO_CONFIG_PATH, AUDIO_KEYS, (current, filtered) => {
+      // When device changes, generate ALSA dsnoop config for shared access
+      if (filtered.device_id && filtered.device_id !== oldDevice) {
+        try {
+          const devId = filtered.device_id;
+          let cardName = '';
+          const hwMatch = devId.match(/CARD=(\w+)/);
+          if (hwMatch) cardName = hwMatch[1];
+          else {
+            const { execSync } = require('child_process');
+            const arecordOut = execSync('arecord -l 2>/dev/null', { encoding: 'utf8' });
+            const cardMatch = arecordOut.match(/card \d+: (\w+) \[/);
+            if (cardMatch) cardName = cardMatch[1];
           }
+          if (cardName) {
+            const channels = current.input_channels || 2;
+            const rate = current.capture_sample_rate || 48000;
+            const asoundrc = `# Auto-generated by Birdash for ${current.device_name || cardName}\n` +
+              `pcm.birdash {\n    type dsnoop\n    ipc_key 2048\n    slave {\n` +
+              `        pcm "hw:CARD=${cardName},DEV=0"\n        channels ${channels}\n` +
+              `        rate ${rate}\n    }\n}\n`;
+            fs.writeFileSync(path.join(process.env.HOME, '.asoundrc'), asoundrc);
+            current.device_id = 'birdash';
+            writeJsonFileAtomic(AUDIO_CONFIG_PATH, current);
+            console.log(`[audio] ALSA dsnoop config generated for ${cardName}`);
+            try { require('child_process').exec('sudo systemctl restart birdengine-recording'); } catch {}
+          }
+        } catch (e) {
+          console.warn('[audio] ALSA config generation failed:', e.message);
         }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, config: current }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
       }
     });
     return;
@@ -5007,15 +5035,13 @@ const server = http.createServer((req, res) => {
     }
     const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
     const p = profiles[name];
-    Object.assign(config, {
-      profile_name: name,
-      channel_strategy: p.channel_strategy,
-      hop_size_s: p.hop_size_s,
-      highpass_enabled: p.highpass_enabled,
-      highpass_cutoff_hz: p.highpass_cutoff_hz,
-      rms_normalize: p.rms_normalize,
-      rms_target: p.rms_target,
-    });
+    const patch = { profile_name: name };
+    for (const k of ['channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
+      'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
+      'rms_normalize','rms_target']) {
+      if (p[k] !== undefined) patch[k] = p[k];
+    }
+    Object.assign(config, patch);
     writeJsonFileAtomic(AUDIO_CONFIG_PATH, config);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, config }));

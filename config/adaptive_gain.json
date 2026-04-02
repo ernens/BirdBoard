@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "mode": "balanced",
   "observer_only": true,
   "min_db": -6,

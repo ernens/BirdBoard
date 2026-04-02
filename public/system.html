@@ -277,19 +277,26 @@
           <div v-else-if="backup.error" class="error-msg">{{backup.error}}</div>
           <template v-else>
             <div class="sys-row">
-              <span class="sys-label">{{t('sys_nfs_mount')}}</span>
+              <span class="sys-label">{{t('sys_backup_dest')}}</span>
+              <span class="sys-value">{{backup.destination.toUpperCase()}} — {{backup.schedule}}</span>
+            </div>
+            <div class="sys-row" v-if="backup.mounted !== null">
+              <span class="sys-label">{{t('sys_backup_mount')}}</span>
               <span class="sys-value" style="display:flex;align-items:center;">
-                <span class="status-dot" :class="backup.nfsMounted ? 'dot-ok' : 'dot-err'"></span>
-                {{backup.nfsMounted ? 'OK' : 'Not mounted'}}
+                <span class="status-dot" :class="backup.mounted ? 'dot-ok' : 'dot-err'"></span>
+                {{backup.mounted ? t('sys_mounted') : t('sys_not_mounted')}}
               </span>
             </div>
             <div class="sys-row">
               <span class="sys-label">{{t('sys_last_backup')}}</span>
-              <span class="sys-value">{{backup.lastBackup || '—'}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span v-if="backup.lastStatus" class="status-dot" :class="backup.lastStatus === 'success' ? 'dot-ok' : 'dot-err'" style="margin-right:.3rem;"></span>
+                {{backup.lastRun || '—'}}
+              </span>
             </div>
-            <div class="sys-row">
+            <div class="sys-row" v-if="backup.size">
               <span class="sys-label">{{t('sys_backup_size')}}</span>
-              <span class="sys-value">{{backup.size || '—'}}</span>
+              <span class="sys-value">{{backup.size}}</span>
             </div>
           </template>
         </div>
@@ -309,11 +316,22 @@
               <span class="sys-value" style="font-family:monospace;font-size:.78rem;">{{network.ip || '—'}}</span>
             </div>
             <div class="sys-row">
-              <span class="sys-label">{{t('sys_nas_ping')}}</span>
+              <span class="sys-label">{{t('sys_gateway')}}</span>
+              <span class="sys-value" style="font-family:monospace;font-size:.78rem;">{{network.gateway || '—'}}</span>
+            </div>
+            <div class="sys-row">
+              <span class="sys-label">{{t('sys_internet')}}</span>
+              <span class="sys-value" style="display:flex;align-items:center;">
+                <span class="status-dot" :class="network.internet ? 'dot-ok' : 'dot-err'"></span>
+                {{network.internet ? 'OK' : t('sys_unreachable')}}
+              </span>
+            </div>
+            <div class="sys-row" v-if="network.nasHost">
+              <span class="sys-label">{{t('sys_nas_ping')}} ({{network.nasHost}})</span>
               <span class="sys-value" style="display:flex;align-items:center;">
                 <span class="status-dot" :class="network.nasPing ? 'dot-ok' : 'dot-err'"></span>
-                <span v-if="network.nasPing">{{network.nasLatency}} {{t('sys_latency_ms')}}</span>
-                <span v-else>Unreachable</span>
+                <span v-if="network.nasPing">{{network.nasLatency}} ms</span>
+                <span v-else>{{t('sys_unreachable')}}</span>
               </span>
             </div>
           </template>
@@ -1065,8 +1083,8 @@ const app = createApp({
     const confirmAction = ref(null);
     const analysis = ref({ loading:true, error:null, modelLabel:'', backlog:0, lag:0, inferenceSpeed:'', confidenceThreshold:'', sensitivity:'', sfThresh:'' });
     const audio = ref({ loading:true, error:null, card:'', channels:'', format:'' });
-    const backup = ref({ loading:true, error:null, nfsMounted:false, lastBackup:'', size:'' });
-    const network = ref({ loading:true, error:null, hostname:'', ip:'', nasPing:false, nasLatency:'' });
+    const backup = ref({ loading:true, error:null, destination:'', schedule:'', mounted:null, lastRun:'', lastStatus:null, size:'' });
+    const network = ref({ loading:true, error:null, hostname:'', ip:'', gateway:'', internet:false, nasHost:null, nasPing:false, nasLatency:'' });
     const fresh = ref({ loading:true, error:null, icon:'\u{1F7E2}', species:null, date:null, time:null, datetime:'\u2014', today:0, yesterday:0 });
 
     let svcRefreshTimer = null;
@@ -1169,6 +1187,12 @@ const app = createApp({
       } catch(e) { audio.value = { ...audio.value, loading:false, error:e.message }; }
     }
 
+    function fmtDateShort(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString(lang.value, { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+      catch { return iso; }
+    }
+
     async function loadBackup() {
       backup.value.loading = true;
       try {
@@ -1176,9 +1200,12 @@ const app = createApp({
         const d = await res.json();
         backup.value = {
           loading: false, error: null,
-          nfsMounted: d.nfs_mounted || false,
-          lastBackup: d.last_backup || '\u2014',
-          size: d.size || '\u2014'
+          destination: d.destination || 'local',
+          schedule: d.schedule || 'manual',
+          mounted: d.mounted,
+          lastRun: fmtDateShort(d.lastRun),
+          lastStatus: d.lastStatus,
+          size: fmtBytes(d.backupSize)
         };
       } catch(e) { backup.value = { ...backup.value, loading:false, error:e.message }; }
     }
@@ -1190,10 +1217,13 @@ const app = createApp({
         const d = await res.json();
         network.value = {
           loading: false, error: null,
-          hostname: d.hostname || '\u2014',
-          ip: d.ip || '\u2014',
+          hostname: d.hostname || '—',
+          ip: d.ip || '—',
+          gateway: d.gateway || '—',
+          internet: d.internet || false,
+          nasHost: d.nasHost || null,
           nasPing: d.nasPing && d.nasPing.reachable ? true : false,
-          nasLatency: d.nasPing && d.nasPing.latency ? d.nasPing.latency.toFixed(1) : '\u2014'
+          nasLatency: d.nasPing && d.nasPing.latency ? d.nasPing.latency.toFixed(1) : '—'
         };
       } catch(e) { network.value = { ...network.value, loading:false, error:e.message }; }
     }
