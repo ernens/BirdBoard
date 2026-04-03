@@ -313,7 +313,7 @@
 </div>
 
 <script>
-const { createApp, ref, reactive, computed, watch, onMounted, nextTick } = Vue;
+const { createApp, ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf,
         daysAgo, getUrlParam, navigateTo,
@@ -764,7 +764,16 @@ const app = createApp({
       if (sp.value.name) loadDetail(sp.value.name);
     });
 
+    // ── Keyboard shortcuts ──────────────────────────────────────────
+    function _onKeydown(e) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.code === 'ArrowLeft' && hasPrevSpecies.value) { e.preventDefault(); prevSpecies(); }
+      else if (e.code === 'ArrowRight' && hasNextSpecies.value) { e.preventDefault(); nextSpecies(); }
+    }
+
     onMounted(async () => {
+      document.addEventListener('keydown', _onKeydown);
       // Pre-load taxonomy data (cached in sessionStorage)
       BIRDASH_UTILS.loadTaxonomy(lang.value);
       // Always load species list for the inline picker
@@ -796,6 +805,8 @@ const app = createApp({
         }
       }
     });
+
+    onUnmounted(() => { document.removeEventListener('keydown', _onKeydown); });
 
     // ── Delete management ─────────────────────────────────────────────────
     const deleteMode      = ref(false);

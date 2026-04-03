@@ -270,177 +270,12 @@
 </div>
 
 <script>
-// ── FFT Cooley-Tukey ──────────────────────────────────────────────────────────
-function fftInPlace(re, im) {
-  const n = re.length;
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const half = len >> 1;
-    const wc = Math.cos(-Math.PI/half), ws = Math.sin(-Math.PI/half);
-    for (let i = 0; i < n; i += len) {
-      let wR = 1, wI = 0;
-      for (let k = 0; k < half; k++) {
-        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
-        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
-        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
-      }
-    }
-  }
-}
-
-// ── Colormap plasma ───────────────────────────────────────────────────────────
-function buildColorLUT() {
-  const lut = new Uint8Array(256*3);
-  const stops = [
-    [0,[0,0,0]],[0.1,[20,0,50]],[0.25,[80,0,100]],
-    [0.42,[180,20,80]],[0.58,[230,70,20]],[0.75,[255,155,0]],
-    [0.90,[255,230,70]],[1.0,[255,255,255]],
-  ];
-  for (let i = 0; i < 256; i++) {
-    const v = i/255; let s = 0;
-    while (s < stops.length-2 && stops[s+1][0] <= v) s++;
-    const [v0,c0]=stops[s],[v1,c1]=stops[s+1];
-    const t = Math.min(1,(v-v0)/(v1-v0+1e-9));
-    lut[i*3]=Math.round(c0[0]+t*(c1[0]-c0[0]));
-    lut[i*3+1]=Math.round(c0[1]+t*(c1[1]-c0[1]));
-    lut[i*3+2]=Math.round(c0[2]+t*(c1[2]-c0[2]));
-  }
-  return lut;
-}
-const COLOR_LUT = buildColorLUT();
-
-// ── Fetch + décode + spectrogramme ───────────────────────────────────────────
-async function fetchAndDraw(url, canvas) {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error('HTTP ' + resp.status);
-  const arrBuf   = await resp.arrayBuffer();
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const audioBuf = await audioCtx.decodeAudioData(arrBuf);
-  await audioCtx.close();
-  const pcm = audioBuf.getChannelData(0).slice(); // copie — évite detach
-  const sr  = audioBuf.sampleRate;
-
-  const FFT = 512, HOP = 128, HALF = FFT/2;
-  const maxHz  = 12000;
-  const maxBin = Math.min(HALF, Math.floor(maxHz/sr*FFT));
-  const hann   = new Float32Array(FFT);
-  for (let i = 0; i < FFT; i++) hann[i] = 0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
-
-  const frames = [];
-  for (let off = 0; off+FFT <= pcm.length; off += HOP) {
-    const re = new Float32Array(FFT), im = new Float32Array(FFT);
-    for (let i = 0; i < FFT; i++) re[i] = pcm[off+i]*hann[i];
-    fftInPlace(re, im);
-    const mag = new Float32Array(maxBin);
-    for (let i = 1; i < maxBin; i++)
-      mag[i] = 20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);
-    frames.push(mag);
-  }
-
-  // Percentiles pour normalisation robuste
-  const all = []; frames.forEach(f => f.forEach(v => all.push(v))); all.sort((a,b)=>a-b);
-  const lo  = all[Math.floor(all.length*0.05)] ?? -80;
-  const hi  = all[Math.floor(all.length*0.995)] ?? -10;
-  const rng = hi-lo || 1;
-
-  const W = canvas.width, H = canvas.height;
-  canvas.width = W;
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(W, H);
-  const d   = img.data;
-  for (let px = 0; px < W; px++) {
-    const frame = frames[Math.min(Math.floor(px/W*frames.length), frames.length-1)];
-    for (let py = 0; py < H; py++) {
-      const bin = Math.floor((H-1-py)/H*maxBin);
-      const v   = Math.max(0,Math.min(1,(frame[bin]-lo)/rng));
-      const ci  = Math.min(255,Math.floor(v*255))*3;
-      const pi  = (py*W+px)*4;
-      d[pi]=COLOR_LUT[ci]; d[pi+1]=COLOR_LUT[ci+1]; d[pi+2]=COLOR_LUT[ci+2]; d[pi+3]=255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return { duration: audioBuf.duration, pcm, sr };
-}
-
-// ── DSP Pipeline nettoyage ────────────────────────────────────────────────────
-function _fftR(re, im) {
-  const n = re.length;
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const half=len>>1, wc=Math.cos(-Math.PI/half), ws=Math.sin(-Math.PI/half);
-    for (let i = 0; i < n; i += len) {
-      let wR=1, wI=0;
-      for (let k = 0; k < half; k++) {
-        const uR=re[i+k],uI=im[i+k],vR=re[i+k+half]*wR-im[i+k+half]*wI,vI=re[i+k+half]*wI+im[i+k+half]*wR;
-        re[i+k]=uR+vR; im[i+k]=uI+vI; re[i+k+half]=uR-vR; im[i+k+half]=uI-vI;
-        const nwR=wR*wc-wI*ws; wI=wR*ws+wI*wc; wR=nwR;
-      }
-    }
-  }
-}
-function _hpIIR(pcm, sr, cutHz=850) {
-  const alpha=1/(1+2*Math.PI*cutHz/sr), out=new Float32Array(pcm.length);
-  out[0]=pcm[0];
-  for (let i=1;i<pcm.length;i++) out[i]=alpha*(out[i-1]+pcm[i]-pcm[i-1]);
-  return out;
-}
-function _specSub(pcm, strength=0.8) {
-  const FFT=512, HOP=128, HALF=FFT/2;
-  const hann=new Float32Array(FFT);
-  for (let i=0;i<FFT;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
-  const frames=[];
-  for (let off=0;off+FFT<=pcm.length;off+=HOP) {
-    const re=new Float32Array(FFT),im=new Float32Array(FFT); let energy=0;
-    for (let i=0;i<FFT;i++){re[i]=pcm[off+i]*hann[i];energy+=re[i]*re[i];}
-    _fftR(re,im); frames.push({re,im,energy,off});
-  }
-  const byE=[...frames].sort((a,b)=>a.energy-b.energy);
-  const nC=Math.max(2,Math.floor(frames.length*.15));
-  const nM=new Float32Array(HALF);
-  for (let fi=0;fi<nC;fi++){const{re,im}=byE[fi];for(let k=0;k<HALF;k++)nM[k]+=Math.sqrt(re[k]*re[k]+im[k]*im[k]);}
-  for (let k=0;k<HALF;k++) nM[k]/=nC;
-  const out=new Float32Array(pcm.length),norm=new Float32Array(pcm.length);
-  for (const {re,im,off} of frames) {
-    for (let k=0;k<HALF;k++){const mag=Math.sqrt(re[k]*re[k]+im[k]*im[k]);const sc=mag>1e-12?Math.max(mag-strength*nM[k],0.05*mag)/mag:0;re[k]*=sc;im[k]*=sc;}
-    for (let k=1;k<HALF;k++){re[FFT-k]=re[k];im[FFT-k]=-im[k];}
-    re[HALF]=0;im[HALF]=0;
-    for (let k=0;k<FFT;k++) im[k]=-im[k];
-    _fftR(re,im);
-    for (let i=0;i<FFT;i++){const n=off+i;if(n<out.length){const w=hann[i];out[n]+=(re[i]/FFT)*w;norm[n]+=w*w;}}
-  }
-  for (let i=0;i<out.length;i++) if(norm[i]>1e-10) out[i]/=norm[i];
-  return out;
-}
-function recCleanPipeline(pcm, sr, strength) {
-  return _specSub(_hpIIR(pcm, sr, 850), strength);
-}
-function encodeWavRec(pcm, sr) {
-  const ds=pcm.length*2, buf=new ArrayBuffer(44+ds), v=new DataView(buf);
-  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
-  w(0,'RIFF');v.setUint32(4,36+ds,true);w(8,'WAVE');w(12,'fmt ');
-  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
-  v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);
-  v.setUint16(32,2,true);v.setUint16(34,16,true);
-  w(36,'data');v.setUint32(40,ds,true);
-  for (let i=0;i<pcm.length;i++) v.setInt16(44+i*2,Math.max(-32768,Math.min(32767,Math.round(pcm[i]*32767))),true);
-  return new Blob([buf],{type:'audio/wav'});
-}
-
 // ── Vue 3 App ─────────────────────────────────────────────────────────────────
 const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
 const { useI18n, useTheme, useNav, useSpeciesNames, birdQuery, fmtConf, localDateStr,
         buildAudioUrl, buildSpeciesLinks, shortModel,
-        useFilterPeriod, useFilterConfidence, useFilterSpecies, buildWhereClause } = BIRDASH;
+        useFilterPeriod, useFilterConfidence, useFilterSpecies, buildWhereClause,
+        fetchAndDecodeAudio, drawSpectrogramFromPcm, cleanAudioPipeline, encodeWav } = BIRDASH;
 
 const PAGE_SIZE = 12;
 
@@ -786,7 +621,8 @@ const app = createApp({
       }
 
       try {
-        const { duration, pcm, sr } = await fetchAndDraw(url, canvas);
+        const { duration, pcm, sr } = await fetchAndDecodeAudio(url);
+        drawSpectrogramFromPcm(pcm, sr, canvas);
         _pcmStore[rec.uid] = { pcm, sr };                          // stocker le PCM
         if (!rec.durationStr) rec.durationStr = formatDuration(duration);
       } catch(e) {
@@ -814,14 +650,14 @@ const app = createApp({
         // Appliquer le clean
         await new Promise(r => setTimeout(r, 20)); // cède le thread → spinner
         try {
-          const cleaned = recCleanPipeline(pcmData.pcm, pcmData.sr, cs.strength);
+          const cleaned = cleanAudioPipeline(pcmData.pcm, pcmData.sr, cs.strength);
           if (canvas) {
             // Redessiner spectrogramme nettoyé
             drawCleanSpectro(cleaned, pcmData.sr, canvas);
           }
           // Créer blob WAV pour la lecture
           if (_cleanBlobs[rec.uid]) URL.revokeObjectURL(_cleanBlobs[rec.uid]);
-          _cleanBlobs[rec.uid] = URL.createObjectURL(encodeWavRec(cleaned, pcmData.sr));
+          _cleanBlobs[rec.uid] = URL.createObjectURL(encodeWav(cleaned, pcmData.sr));
         } catch(e) {
           console.error('[clean]', e);
           cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, mode: false, processing: false } };
@@ -847,50 +683,19 @@ const app = createApp({
 
       await new Promise(r => setTimeout(r, 20));
       try {
-        const cleaned = recCleanPipeline(pcmData.pcm, pcmData.sr, cs.strength);
+        const cleaned = cleanAudioPipeline(pcmData.pcm, pcmData.sr, cs.strength);
         const canvas  = spectroCanvases[rec.uid];
         if (canvas) drawCleanSpectro(cleaned, pcmData.sr, canvas);
         if (_cleanBlobs[rec.uid]) URL.revokeObjectURL(_cleanBlobs[rec.uid]);
-        _cleanBlobs[rec.uid] = URL.createObjectURL(encodeWavRec(cleaned, pcmData.sr));
+        _cleanBlobs[rec.uid] = URL.createObjectURL(encodeWav(cleaned, pcmData.sr));
       } catch(e) { console.error('[clean]', e); }
 
       cleanState.value = { ...cleanState.value, [rec.uid]: { ...cs, processing: false } };
     }
 
-    // Redessiner spectrogramme depuis PCM (copie de fetchAndDraw sans fetch)
+    // Redessiner spectrogramme nettoyé
     function drawCleanSpectro(pcm, sr, canvas) {
-      const FFT=512, HOP=128, HALF=FFT/2;
-      const maxHz=12000, maxBin=Math.min(HALF,Math.floor(maxHz/sr*FFT));
-      const hann=new Float32Array(FFT);
-      for (let i=0;i<FFT;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT-1));
-      const frames=[];
-      for (let off=0;off+FFT<=pcm.length;off+=HOP) {
-        const re=new Float32Array(FFT),im=new Float32Array(FFT);
-        for (let i=0;i<FFT;i++) re[i]=pcm[off+i]*hann[i];
-        _fftR(re,im);
-        const mag=new Float32Array(maxBin);
-        for (let i=1;i<maxBin;i++) mag[i]=20*Math.log10(Math.sqrt(re[i]*re[i]+im[i]*im[i])/HALF+1e-9);
-        frames.push(mag);
-      }
-      const all=[]; frames.forEach(f=>f.forEach(v=>all.push(v))); all.sort((a,b)=>a-b);
-      const lo=all[Math.floor(all.length*.05)]??-80;
-      const hi=all[Math.floor(all.length*.995)]??-10;
-      const rng=hi-lo||1;
-      const W=canvas.width, H=canvas.height;
-      canvas.width=W;
-      const ctx=canvas.getContext('2d');
-      const img=ctx.createImageData(W,H); const d=img.data;
-      for (let px=0;px<W;px++) {
-        const frame=frames[Math.min(Math.floor(px/W*frames.length),frames.length-1)];
-        for (let py=0;py<H;py++) {
-          const bin=Math.floor((H-1-py)/H*maxBin);
-          const v=Math.max(0,Math.min(1,(frame[bin]-lo)/rng));
-          const ci=Math.min(255,Math.floor(v*255))*3;
-          const pi=(py*W+px)*4;
-          d[pi]=COLOR_LUT[ci];d[pi+1]=COLOR_LUT[ci+1];d[pi+2]=COLOR_LUT[ci+2];d[pi+3]=255;
-        }
-      }
-      ctx.putImageData(img,0,0);
+      drawSpectrogramFromPcm(pcm, sr, canvas);
     }
 
     // ── File info ────────────────────────────────────────────────────
@@ -945,9 +750,23 @@ const app = createApp({
 
     watch([sortBy], () => { page.value = 1; });
 
+    // ── Keyboard shortcuts ──────────────────────────────────────────
+    function _onKeydown(e) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        const recs = pagedRecs.value;
+        if (!recs.length) return;
+        const active = recs.find(r => r.uid === activeUid.value) || recs[0];
+        togglePlay(active);
+      }
+    }
+
     // ── Lifecycle ──────────────────────────────────────────────────
-    onMounted(loadData);
+    onMounted(() => { document.addEventListener('keydown', _onKeydown); loadData(); });
     onUnmounted(() => {
+      document.removeEventListener('keydown', _onKeydown);
       stopAudio();
       Object.values(_cleanBlobs).forEach(u => URL.revokeObjectURL(u));
     });

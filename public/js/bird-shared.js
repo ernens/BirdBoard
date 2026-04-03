@@ -454,12 +454,12 @@
    * @param {Float32Array} pcm — mono audio samples
    * @param {number} sr — sample rate
    * @param {HTMLCanvasElement} canvas — target canvas
-   * @param {object} [opts] — { fftSize:1024, maxHz:12000 }
+   * @param {object} [opts] — { fftSize:512, hopSize:128, maxHz:12000 }
    */
   function renderSpectrogram(pcm, sr, canvas, opts) {
     opts = opts || {};
-    const FFT  = opts.fftSize || 1024;
-    const HOP  = FFT / 2;
+    const FFT  = opts.fftSize || 512;
+    const HOP  = opts.hopSize || (FFT / 4);
     const HALF = FFT / 2;
     const maxHz  = opts.maxHz || 12000;
     const maxBin = Math.min(HALF, Math.floor(maxHz / sr * FFT));
@@ -502,6 +502,93 @@
     ctx.putImageData(img, 0, 0);
   }
 
+  // ── DSP Pipeline ────────────────────────────────────────────────────────
+
+  /** Fetch + decode audio URL to PCM. */
+  async function fetchAndDecodeAudio(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const arrBuf = await resp.arrayBuffer();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await ctx.decodeAudioData(arrBuf);
+    await ctx.close();
+    return { pcm: buf.getChannelData(0).slice(), sr: buf.sampleRate, duration: buf.duration };
+  }
+
+  /** Highpass IIR 1st order — removes wind/traffic below cutHz. */
+  function highpassIIR(pcm, sr, cutHz) {
+    cutHz = cutHz || 850;
+    const alpha = 1 / (1 + 2 * Math.PI * cutHz / sr);
+    const out = new Float32Array(pcm.length);
+    out[0] = pcm[0];
+    for (let i = 1; i < pcm.length; i++) out[i] = alpha * (out[i-1] + pcm[i] - pcm[i-1]);
+    return out;
+  }
+
+  /** Spectral subtraction with OLA reconstruction (phase-preserving). */
+  function spectralSubtract(pcm, strength) {
+    strength = strength ?? 0.8;
+    const FFT = 512, HOP = 128, HALF = FFT / 2;
+    const hann = new Float32Array(FFT);
+    for (let i = 0; i < FFT; i++) hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT - 1));
+    // Pass 1 — analyse
+    const frames = [];
+    for (let off = 0; off + FFT <= pcm.length; off += HOP) {
+      const re = new Float32Array(FFT), im = new Float32Array(FFT);
+      let energy = 0;
+      for (let i = 0; i < FFT; i++) { re[i] = pcm[off + i] * hann[i]; energy += re[i] * re[i]; }
+      fftInPlace(re, im);
+      frames.push({ re, im, energy, off });
+    }
+    // Noise estimation (quietest 15%)
+    const byEnergy = [...frames].sort((a, b) => a.energy - b.energy);
+    const nCount = Math.max(2, Math.floor(frames.length * 0.15));
+    const noiseMag = new Float32Array(HALF);
+    for (let fi = 0; fi < nCount; fi++) {
+      const { re, im } = byEnergy[fi];
+      for (let k = 0; k < HALF; k++) noiseMag[k] += Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+    }
+    for (let k = 0; k < HALF; k++) noiseMag[k] /= nCount;
+    // Pass 2 — spectral modification + IFFT + OLA
+    const out = new Float32Array(pcm.length), norm = new Float32Array(pcm.length);
+    for (const { re, im, off } of frames) {
+      for (let k = 0; k < HALF; k++) {
+        const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+        const scale = mag > 1e-12 ? Math.max(mag - strength * noiseMag[k], 0.05 * mag) / mag : 0;
+        re[k] *= scale; im[k] *= scale;
+      }
+      for (let k = 1; k < HALF; k++) { re[FFT - k] = re[k]; im[FFT - k] = -im[k]; }
+      re[HALF] = 0; im[HALF] = 0;
+      for (let k = 0; k < FFT; k++) im[k] = -im[k];
+      fftInPlace(re, im);
+      for (let i = 0; i < FFT; i++) {
+        const n = off + i;
+        if (n < out.length) { const w = hann[i]; out[n] += (re[i] / FFT) * w; norm[n] += w * w; }
+      }
+    }
+    for (let i = 0; i < out.length; i++) if (norm[i] > 1e-10) out[i] /= norm[i];
+    return out;
+  }
+
+  /** Full cleanup pipeline: highpass → spectral subtraction. */
+  function cleanAudioPipeline(pcm, sr, strength) {
+    return spectralSubtract(highpassIIR(pcm, sr, 850), strength);
+  }
+
+  /** Encode Float32 PCM → WAV mono 16-bit Blob. */
+  function encodeWav(pcm, sr) {
+    const ds = pcm.length * 2, buf = new ArrayBuffer(44 + ds), v = new DataView(buf);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + ds, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, ds, true);
+    for (let i = 0; i < pcm.length; i++)
+      v.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, Math.round(pcm[i] * 32767))), true);
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+
   // ── Export ─────────────────────────────────────────────────────────────
 
   window.BIRDASH_UTILS = {
@@ -534,6 +621,12 @@
     buildColorLUT: buildColorLUT,
     COLOR_LUT: _COLOR_LUT,
     renderSpectrogram: renderSpectrogram,
+    drawSpectrogramFromPcm: renderSpectrogram,
+    fetchAndDecodeAudio: fetchAndDecodeAudio,
+    highpassIIR: highpassIIR,
+    spectralSubtract: spectralSubtract,
+    cleanAudioPipeline: cleanAudioPipeline,
+    encodeWav: encodeWav,
   };
 
 })(BIRD_CONFIG);

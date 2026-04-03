@@ -2626,6 +2626,17 @@
     spinnerHTML:      U.spinnerHTML,
     shortModel:       U.shortModel,
     quickPlaySpecies: U.quickPlaySpecies,
+    // DSP
+    fftInPlace:          U.fftInPlace,
+    buildColorLUT:       U.buildColorLUT,
+    COLOR_LUT:           U.COLOR_LUT,
+    renderSpectrogram:   U.renderSpectrogram,
+    drawSpectrogramFromPcm: U.drawSpectrogramFromPcm,
+    fetchAndDecodeAudio: U.fetchAndDecodeAudio,
+    highpassIIR:         U.highpassIIR,
+    spectralSubtract:    U.spectralSubtract,
+    cleanAudioPipeline:  U.cleanAudioPipeline,
+    encodeWav:           U.encodeWav,
     // Spectrogram modal
     openSpectroModal: openSpectroModal,
     closeSpectroModal: closeSpectroModal,
