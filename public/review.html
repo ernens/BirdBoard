@@ -123,31 +123,53 @@
       </div>
     </div>
 
-    <!-- Delete confirmation modal -->
-    <div v-if="deleteModal.open" class="tl-popup-overlay" @click.self="deleteModal.open=false" role="dialog" aria-modal="true">
+    <!-- Delete confirmation / result modal -->
+    <div v-if="deleteModal.open" class="tl-popup-overlay" @click.self="closeDeleteModal" role="dialog" aria-modal="true">
       <div class="tl-popup" style="max-width:520px;max-height:80vh;overflow-y:auto;">
-        <button class="tl-popup-close" @click="deleteModal.open=false">✕</button>
-        <div style="font-weight:600;font-size:1rem;margin-bottom:.5rem;color:#e53e3e;">
-          🗑 {{t('review_purge_title')}}
-        </div>
-        <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
-          {{t('review_purge_warning')}}
-        </div>
-        <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;">
-          <div v-for="det in deleteModal.items" :key="det.date+det.time+det.sci_name"
-               style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);font-size:.8rem;">
-            <span style="color:var(--text-muted);min-width:70px;">{{det.date}}</span>
-            <span style="color:var(--text-muted);min-width:40px;">{{det.time.slice(0,5)}}</span>
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{spName(det.com_name, det.sci_name)}}</span>
-            <span style="font-size:.7rem;color:var(--text-faint);">{{(det.confidence*100).toFixed(0)}}%</span>
+        <button class="tl-popup-close" @click="closeDeleteModal">✕</button>
+
+        <!-- Before deletion: preview -->
+        <template v-if="!deleteModal.done">
+          <div style="font-weight:600;font-size:1rem;margin-bottom:.5rem;color:#e53e3e;">
+            🗑 {{t('review_purge_title')}}
           </div>
-        </div>
-        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
-          <button class="rv-btn-outline" @click="deleteModal.open=false" style="padding:.4rem 1rem;">{{t('cancel') || 'Annuler'}}</button>
-          <button class="rv-btn rv-btn-no" style="padding:.4rem 1rem;" @click="executeDelete" :disabled="deleteModal.deleting">
-            {{deleteModal.deleting ? '...' : t('review_purge_confirm')}}
-          </button>
-        </div>
+          <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
+            {{t('review_purge_warning')}}
+          </div>
+          <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;">
+            <div v-for="det in deleteModal.items" :key="det.date+det.time+det.sci_name"
+                 style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);font-size:.8rem;">
+              <span style="color:var(--text-muted);min-width:70px;">{{det.date}}</span>
+              <span style="color:var(--text-muted);min-width:40px;">{{det.time.slice(0,5)}}</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{spName(det.com_name, det.sci_name)}}</span>
+              <span style="font-size:.7rem;color:var(--text-faint);">{{(det.confidence*100).toFixed(0)}}%</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+            <button class="rv-btn-outline" @click="closeDeleteModal" style="padding:.4rem 1rem;">{{t('cancel') || 'Annuler'}}</button>
+            <button class="rv-btn rv-btn-no" style="padding:.4rem 1rem;" @click="executeDelete" :disabled="deleteModal.deleting">
+              {{deleteModal.deleting ? '...' : t('review_purge_confirm')}}
+            </button>
+          </div>
+        </template>
+
+        <!-- After deletion: results -->
+        <template v-else>
+          <div style="font-weight:600;font-size:1rem;margin-bottom:.5rem;color:#38a169;">
+            ✓ {{t('review_delete_done')}}
+          </div>
+          <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;">
+            <div v-for="r in deleteModal.results" :key="r.file"
+                 style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);font-size:.8rem;">
+              <span :style="{color: r.ok ? '#38a169' : '#e53e3e'}">{{r.ok ? '✓' : '✗'}}</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{r.name}}</span>
+              <span style="font-size:.7rem;color:var(--text-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;direction:rtl;">{{r.file}}</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="rv-btn rv-btn-ok" @click="closeDeleteModal" style="padding:.4rem 1rem;">OK</button>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -247,7 +269,7 @@ const app = createApp({
     }
 
     // ── Delete modal (shared by "delete selected" and "purge rejected") ──
-    const deleteModal = reactive({ open: false, items: [], deleting: false });
+    const deleteModal = reactive({ open: false, items: [], deleting: false, done: false, results: [] });
 
     function deleteSelected() {
       const items = flagged.value.filter(d => selected.has(detKey(d)));
@@ -258,21 +280,32 @@ const app = createApp({
     function openDeleteModal(items) {
       deleteModal.items = items;
       deleteModal.deleting = false;
+      deleteModal.done = false;
+      deleteModal.results = [];
       deleteModal.open = true;
+    }
+
+    function closeDeleteModal() {
+      deleteModal.open = false;
+      if (deleteModal.done) { selected.clear(); loadFlagged(); }
     }
 
     async function executeDelete() {
       deleteModal.deleting = true;
+      const results = [];
       for (const det of deleteModal.items) {
         try {
-          await fetch(`${API}/detections`, { method:'DELETE', headers:BIRDASH.authHeaders(),
+          const resp = await fetch(`${API}/detections`, { method:'DELETE', headers:BIRDASH.authHeaders(),
             body: JSON.stringify({ date:det.date, time:det.time, comName:det.com_name }) });
-        } catch(e) {}
+          const data = await resp.json();
+          results.push({ name: det.com_name, file: det.file_name, ok: !!data.ok, deleted: data.deleted || 0 });
+        } catch(e) {
+          results.push({ name: det.com_name, file: det.file_name, ok: false, deleted: 0 });
+        }
       }
       deleteModal.deleting = false;
-      deleteModal.open = false;
-      selected.clear();
-      await loadFlagged();
+      deleteModal.results = results;
+      deleteModal.done = true;
     }
 
     onMounted(loadFlagged);
