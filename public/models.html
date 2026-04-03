@@ -37,7 +37,13 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="models" :title="t('nav_models')">
+  <birdash-shell page="stats" :title="t('nav_models')">
+
+    <!-- Tab switcher -->
+    <div class="gallery-tabs">
+      <a href="stats.html" class="gallery-tab">📈 {{t('nav_stats')}}</a>
+      <a href="models.html" class="gallery-tab active">🤖 {{t('nav_models')}}</a>
+    </div>
 
     <!-- Period selector -->
     <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap;">

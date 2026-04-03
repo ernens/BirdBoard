@@ -23,6 +23,12 @@
 <div id="app">
   <birdash-shell page="stats" :title="t('nav_stats')">
 
+    <!-- Tab switcher -->
+    <div class="gallery-tabs">
+      <a href="stats.html" class="gallery-tab active">📈 {{t('nav_stats')}}</a>
+      <a href="models.html" class="gallery-tab">🤖 {{t('nav_models')}}</a>
+    </div>
+
     <div class="det-layout">
 
       <!-- ── Filter panel (sidebar) ─────────────────────────────── -->
