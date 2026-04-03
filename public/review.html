@@ -110,9 +110,12 @@
             </div>
           </div>
 
-          <!-- Audio play -->
+          <!-- Audio play + spectro -->
           <button v-if="det.file_name" class="audio-mini" @click="playAudio(det)" :title="det.file_name">
             {{ playingDet === detKey(det) ? '⏹' : '▶' }}
+          </button>
+          <button v-if="det.file_name" class="audio-mini" @click="openSpectro(det)" title="Spectrogramme" style="font-size:.7rem;">
+            ⛶
           </button>
 
           <!-- Validation actions -->
@@ -276,13 +279,24 @@ const app = createApp({
       _audio.onended = () => { playingDet.value = null; _audio = null; };
     }
 
+    function openSpectro(det) {
+      BIRDASH.openSpectroModal({
+        fileName: det.file_name,
+        speciesName: det.com_name,
+        sciName: det.sci_name,
+        confidence: det.confidence,
+        date: det.date,
+        time: det.time,
+      });
+    }
+
     onMounted(loadFlagged);
 
     return {
       t, spName, fp, flagged, pagedFlagged, totalDets, loading, pageLimit,
       selected, playingDet, reasonGroups,
       detKey, loadFlagged, validate, bulkAction,
-      bulkRejectByReason, toggleSelect, selectAll, playAudio,
+      bulkRejectByReason, toggleSelect, selectAll, playAudio, openSpectro,
       API,
     };
   }
