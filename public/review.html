@@ -67,6 +67,41 @@
       </button>
     </div>
 
+    <!-- Purge rejected -->
+    <div v-if="rejectedCount > 0" style="padding:.5rem 1rem;">
+      <button class="btn-reject" style="font-size:.78rem;padding:.3rem .8rem;" @click="showPurgeModal = true">
+        🗑 {{t('review_purge')}} ({{rejectedCount}})
+      </button>
+    </div>
+
+    <!-- Purge modal -->
+    <div v-if="showPurgeModal" class="tl-popup-overlay" @click.self="showPurgeModal = false" role="dialog" aria-modal="true">
+      <div class="tl-popup" style="max-width:500px;max-height:80vh;overflow-y:auto;">
+        <button class="tl-popup-close" @click="showPurgeModal = false">✕</button>
+        <div style="font-weight:600;font-size:1rem;margin-bottom:.75rem;color:var(--danger);">
+          🗑 {{t('review_purge_title')}}
+        </div>
+        <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
+          {{t('review_purge_warning')}}
+        </div>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;">
+          <div v-for="det in rejectedList" :key="det.date+det.time+det.sci_name"
+               style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);font-size:.8rem;">
+            <span style="color:var(--text-muted);min-width:70px;">{{det.date}}</span>
+            <span style="color:var(--text-muted);min-width:50px;">{{det.time.slice(0,5)}}</span>
+            <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(det.com_name, det.sci_name)}}</span>
+            <span style="font-size:.72rem;color:var(--text-faint);">{{(det.confidence*100).toFixed(0)}}%</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button class="btn btn-secondary" @click="showPurgeModal = false">{{t('cancel') || 'Annuler'}}</button>
+          <button class="btn-reject" style="padding:.4rem 1rem;" @click="executePurge" :disabled="purging">
+            {{purging ? '...' : t('review_purge_confirm')}}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Loading -->
     <div v-if="loading" style="text-align:center;padding:2rem;">
       <div class="spinner"></div>
@@ -279,6 +314,31 @@ const app = createApp({
       _audio.onended = () => { playingDet.value = null; _audio = null; };
     }
 
+    // ── Purge rejected ──────────────────────────────────────────
+    const showPurgeModal = ref(false);
+    const purging = ref(false);
+    const rejectedList = computed(() => flagged.value.filter(d => d.validation === 'rejected'));
+    const rejectedCount = computed(() => rejectedList.value.length);
+
+    async function executePurge() {
+      purging.value = true;
+      let deleted = 0;
+      for (const det of rejectedList.value) {
+        try {
+          const resp = await fetch(`${API}/detections`, {
+            method: 'DELETE',
+            headers: BIRDASH.authHeaders(),
+            body: JSON.stringify({ date: det.date, time: det.time, comName: det.com_name }),
+          });
+          if (resp.ok) deleted++;
+        } catch(e) {}
+      }
+      purging.value = false;
+      showPurgeModal.value = false;
+      // Reload to refresh list
+      await loadFlagged();
+    }
+
     function openSpectro(det) {
       BIRDASH.openSpectroModal({
         fileName: det.file_name,
@@ -297,6 +357,7 @@ const app = createApp({
       selected, playingDet, reasonGroups,
       detKey, loadFlagged, validate, bulkAction,
       bulkRejectByReason, toggleSelect, selectAll, playAudio, openSpectro,
+      showPurgeModal, purging, rejectedList, rejectedCount, executePurge,
       API,
     };
   }
