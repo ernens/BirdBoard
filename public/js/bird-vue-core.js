@@ -1614,8 +1614,11 @@
   function useFavorites() {
     const favorites = ref(U.getFavorites());
 
-    function toggle(comName) {
-      U.toggleFavorite(comName);
+    // Load from DB on first use
+    U.loadFavorites().then(() => { favorites.value = U.getFavorites(); });
+
+    async function toggle(comName, sciName) {
+      await U.toggleFavorite(comName, sciName);
       favorites.value = U.getFavorites();
     }
 

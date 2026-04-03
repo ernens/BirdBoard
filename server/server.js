@@ -444,6 +444,13 @@ dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_sci_name ON detections(Sci_Name)');
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_com ON detections(Date, Com_Name)');
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_conf ON detections(Date, Confidence)');
 
+// ── Favorites table ──────────────────────────────────────────────────────────
+dbWrite.exec(`CREATE TABLE IF NOT EXISTS favorites (
+  com_name TEXT PRIMARY KEY,
+  sci_name TEXT,
+  added_at TEXT DEFAULT (datetime('now'))
+)`);
+
 console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
 // ── Birdash validation database ──────────────────────────────────────────────
@@ -3653,6 +3660,47 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: e.message }));
         }
       })();
+    });
+    return;
+  }
+
+  // ── Route : GET /api/favorites ────────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/favorites') {
+    try {
+      const rows = db.prepare('SELECT com_name, sci_name, added_at FROM favorites ORDER BY added_at DESC').all();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // ── Route : POST /api/favorites ───────────────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/favorites') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { action, com_name, sci_name } = JSON.parse(body);
+        if (!com_name) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'com_name required' }));
+          return;
+        }
+        if (action === 'remove') {
+          dbWrite.prepare('DELETE FROM favorites WHERE com_name=?').run(com_name);
+        } else {
+          dbWrite.prepare('INSERT OR REPLACE INTO favorites (com_name, sci_name) VALUES (?, ?)').run(com_name, sci_name || '');
+        }
+        const rows = db.prepare('SELECT com_name, sci_name, added_at FROM favorites ORDER BY added_at DESC').all();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, favorites: rows }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
     });
     return;
   }

@@ -418,30 +418,57 @@
     'Certhia brachydactyla': { min: 4, max: 9, label: 'Short-toed Treecreeper' },
   };
 
-  // ── Favorites ──────────────────────────────────────────────────────────
+  // ── Favorites (DB-backed, localStorage fallback) ───────────────────────
 
+  let _favCache = null; // [{com_name, sci_name, added_at}]
   const _FAV_KEY = 'birdash_favorites';
 
-  function getFavorites() {
-    try { return JSON.parse(localStorage.getItem(_FAV_KEY)) || []; }
-    catch { return []; }
+  async function loadFavorites() {
+    try {
+      const res = await fetch(BIRD_CONFIG.apiUrl + '/favorites');
+      if (res.ok) {
+        _favCache = await res.json();
+        localStorage.setItem(_FAV_KEY, JSON.stringify(_favCache.map(f => f.com_name)));
+        return _favCache;
+      }
+    } catch(e) {}
+    // Fallback to localStorage
+    try { _favCache = (JSON.parse(localStorage.getItem(_FAV_KEY)) || []).map(n => ({ com_name: n })); }
+    catch { _favCache = []; }
+    return _favCache;
   }
 
-  function setFavorites(list) {
-    localStorage.setItem(_FAV_KEY, JSON.stringify(list));
+  function getFavorites() {
+    if (_favCache) return _favCache.map(f => f.com_name);
+    try { return JSON.parse(localStorage.getItem(_FAV_KEY)) || []; }
+    catch { return []; }
   }
 
   function isFavorite(comName) {
     return getFavorites().includes(comName);
   }
 
-  function toggleFavorite(comName) {
+  async function toggleFavorite(comName, sciName) {
+    const isNowFav = !isFavorite(comName);
+    try {
+      const res = await fetch(BIRD_CONFIG.apiUrl + '/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: isNowFav ? 'add' : 'remove', com_name: comName, sci_name: sciName || '' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        _favCache = data.favorites;
+        localStorage.setItem(_FAV_KEY, JSON.stringify(_favCache.map(f => f.com_name)));
+        return isNowFav;
+      }
+    } catch(e) {}
+    // Fallback: toggle in localStorage
     const favs = getFavorites();
-    const idx = favs.indexOf(comName);
-    if (idx >= 0) favs.splice(idx, 1);
-    else favs.push(comName);
-    setFavorites(favs);
-    return idx < 0; // returns true if now favorite
+    if (isNowFav) favs.push(comName); else favs.splice(favs.indexOf(comName), 1);
+    localStorage.setItem(_FAV_KEY, JSON.stringify(favs));
+    _favCache = favs.map(n => ({ com_name: n }));
+    return isNowFav;
   }
 
   // ── FFT & Spectrogram helpers (shared across pages) ────────────────────
@@ -666,6 +693,7 @@
     ECOLOGICAL_GUILDS: ECOLOGICAL_GUILDS,
     getSpeciesGuild: getSpeciesGuild,
     SPECIES_FREQ_RANGES: SPECIES_FREQ_RANGES,
+    loadFavorites: loadFavorites,
     getFavorites: getFavorites,
     isFavorite: isFavorite,
     toggleFavorite: toggleFavorite,

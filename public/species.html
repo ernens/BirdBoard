@@ -370,7 +370,7 @@ const app = createApp({
     const { playingFile, toggleAudio }= useAudio();
     const { favorites, toggleFavorite: _toggleFav, isFavorite: _isFav } = useFavorites();
     const isFav = computed(() => sp.value.name ? _isFav(sp.value.name) : false);
-    function onToggleFav() { if (sp.value.name) _toggleFav(sp.value.name); }
+    function onToggleFav() { if (sp.value.name) _toggleFav(sp.value.name, sp.value.sci); }
     const { mountChart: mountHourly } = useChart();
     const { mountChart: mountMonthly }= useChart();
     const { mountChart: mount30d }    = useChart();
