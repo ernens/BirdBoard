@@ -39,7 +39,7 @@
         <span class="rv-sep" style="height:24px;"></span>
         <span style="font-size:.78rem;color:var(--text-muted);">🐦</span>
         <button class="tp-nav-btn" @click="lessbirds" :disabled="density <= 0" title="Moins d'oiseaux">−</button>
-        <span style="font-size:.78rem;min-width:20px;text-align:center;">{{densityLabels[density]}}</span>
+        <span style="font-size:.72rem;min-width:40px;text-align:center;color:var(--text-main);">{{t('tl_density_'+density)}}</span>
         <button class="tp-nav-btn" @click="morebirds" :disabled="density >= 5" title="Plus d'oiseaux">+</button>
         <button v-if="density !== 2" class="tp-nav-btn" @click="density = 2; load()" style="font-size:.65rem;" title="Défaut">↺</button>
       </div>
@@ -216,7 +216,6 @@ const app = createApp({
 
     // Bird density control: 0=min, 2=default, 5=all detections
     const density = ref(2);
-    const densityLabels = ['1', '2', '3', '5', '∞', 'ALL'];
     const densityConf =   [0.90, 0.80, 0.70, 0.50, 0.0, 0.0];
     const densityLimits = [3, 5, 8, 15, 999, 999];
     function morebirds() { if (density.value < 5) { density.value++; load(); } }
@@ -778,7 +777,7 @@ const app = createApp({
       popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, typeCounts, filteredEvents,
       formatDate, moonIcon, navigateDay, load,
       viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
-      density, densityLabels, morebirds, lessbirds,
+      density, morebirds, lessbirds,
       scrollRef, innerRef, skyRef, starsRef, densityRef, densityWrapRef,
       navigateTo,
       quickPlay(comName) { quickPlaySpecies(comName); },
