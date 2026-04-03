@@ -255,11 +255,24 @@
             <span v-else style="width:22px;display:inline-block;"></span>
             <div class="det-time">{{fmtDate(d.Date)}}</div>
             <div class="det-time" style="min-width:44px;">{{fmtTime(d.Time)}}</div>
+            <button v-if="!deleteMode" class="det-note-btn" :class="{noted: detNoteMap[d.Date+'T'+d.Time]}"
+                    @click="toggleDetNote(d)" :title="t('personal_notes')">📝</button>
             <div style="flex:1;"></div>
             <span v-if="d.Model" class="model-tag" style="margin-right:.3rem;">{{shortModel(d.Model)}}</span>
             <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')">
               {{fmtConf(d.Confidence)}}
             </span>
+            <div v-if="editingDetNote === d.Date+'T'+d.Time" style="width:100%;margin-top:.3rem;">
+              <textarea v-model="detNoteText" @blur="saveDetNote(d)" rows="2"
+                        :placeholder="t('personal_notes')+'...'"
+                        style="width:100%;box-sizing:border-box;padding:.4rem;font-size:.8rem;
+                               font-family:var(--font-body);line-height:1.4;resize:vertical;
+                               background:var(--bg-deep);color:var(--text-main);border:1px solid var(--border);
+                               border-radius:var(--radius);outline:none;"></textarea>
+              <div v-if="detNoteMap[d.Date+'T'+d.Time]" style="text-align:right;margin-top:.2rem;">
+                <button class="btn-reject" style="font-size:.7rem;padding:.15rem .4rem;" @click="deleteDetNote(d)">{{t('gallery_delete')}}</button>
+              </div>
+            </div>
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.75rem;flex-wrap:wrap;gap:.5rem;">
@@ -425,21 +438,102 @@ const app = createApp({
       return 'dd';
     });
 
-    // Personal notes
+    // Personal notes (DB-backed)
     const personalNote = ref('');
-    function loadPersonalNote(sciName) {
-      if (!sciName) { personalNote.value = ''; return; }
-      personalNote.value = localStorage.getItem('birdash_note_' + sciName) || '';
-    }
-    function savePersonalNote() {
-      const sci = sp.value.sci;
-      if (!sci) return;
-      const val = personalNote.value.trim();
-      if (val) {
-        localStorage.setItem('birdash_note_' + sci, val);
-      } else {
-        localStorage.removeItem('birdash_note_' + sci);
+    const speciesNotes = ref([]); // all notes for current species
+    let _speciesNoteId = null;    // id of the species-level note (date=null)
+
+    async function loadPersonalNote(sciName) {
+      personalNote.value = '';
+      speciesNotes.value = [];
+      _speciesNoteId = null;
+      if (!sp.value.name) return;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/notes?com_name=${encodeURIComponent(sp.value.name)}`);
+        if (!res.ok) return;
+        const rows = await res.json();
+        speciesNotes.value = rows;
+        const global = rows.find(r => !r.date);
+        if (global) { personalNote.value = global.note; _speciesNoteId = global.id; }
+        else { personalNote.value = localStorage.getItem('birdash_note_' + sciName) || ''; }
+      } catch(e) {
+        personalNote.value = localStorage.getItem('birdash_note_' + (sciName || '')) || '';
       }
+    }
+
+    async function savePersonalNote() {
+      const name = sp.value.name;
+      if (!name) return;
+      const val = personalNote.value.trim();
+      if (!val && !_speciesNoteId) return;
+      if (!val && _speciesNoteId) {
+        // Delete
+        try { await fetch(`${BIRD_CONFIG.apiUrl}/notes?id=${_speciesNoteId}`, { method: 'DELETE' }); } catch(e) {}
+        _speciesNoteId = null;
+        return;
+      }
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: _speciesNoteId, com_name: name, sci_name: sp.value.sci, note: val }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          _speciesNoteId = data.id;
+          localStorage.removeItem('birdash_note_' + sp.value.sci); // cleanup old
+        }
+      } catch(e) {
+        // Fallback localStorage
+        localStorage.setItem('birdash_note_' + sp.value.sci, val);
+      }
+    }
+
+    // Detection-level notes
+    const editingDetNote = ref(null);
+    const detNoteText = ref('');
+    const detNoteMap = computed(() => {
+      const m = {};
+      for (const n of speciesNotes.value) {
+        if (n.date) m[n.date + 'T' + (n.time || '')] = n;
+      }
+      return m;
+    });
+
+    function toggleDetNote(d) {
+      const key = d.Date + 'T' + d.Time;
+      if (editingDetNote.value === key) { editingDetNote.value = null; return; }
+      editingDetNote.value = key;
+      const existing = detNoteMap.value[key];
+      detNoteText.value = existing ? existing.note : '';
+    }
+
+    async function saveDetNote(d) {
+      const key = d.Date + 'T' + d.Time;
+      const val = detNoteText.value.trim();
+      const existing = detNoteMap.value[key];
+      if (!val && !existing) { editingDetNote.value = null; return; }
+      if (!val && existing) { await deleteDetNote(d); return; }
+      try {
+        await fetch(`${BIRD_CONFIG.apiUrl}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: existing?.id, com_name: sp.value.name, sci_name: sp.value.sci, date: d.Date, time: d.Time, note: val }),
+        });
+        await loadPersonalNote(sp.value.sci);
+      } catch(e) {}
+      editingDetNote.value = null;
+    }
+
+    async function deleteDetNote(d) {
+      const key = d.Date + 'T' + d.Time;
+      const existing = detNoteMap.value[key];
+      if (!existing) return;
+      try {
+        await fetch(`${BIRD_CONFIG.apiUrl}/notes?id=${existing.id}`, { method: 'DELETE' });
+        await loadPersonalNote(sp.value.sci);
+      } catch(e) {}
+      editingDetNote.value = null;
     }
 
     // Chart data refs
@@ -1019,6 +1113,7 @@ const app = createApp({
       mode, speciesList, pickerVal, onPickerChange,
       hasPrevSpecies, hasNextSpecies, prevSpecies, nextSpecies,
       sp, feed, extLinks, speciesInfo, personalNote, savePersonalNote, shareSpecies,
+      speciesNotes, detNoteMap, editingDetNote, detNoteText, toggleDetNote, saveDetNote, deleteDetNote,
       isFav, onToggleFav, phenoData, phenoColor,
       photos, photoIdx, photosLoading, wikiSummary, wikiSummaryAlt, conservation, conservationClass,
       prevPhoto, nextPhoto, photoErr,

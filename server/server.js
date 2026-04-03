@@ -23,6 +23,8 @@ try {
 const https = require('https');
 const SunCalc = require('suncalc');
 
+const JSON_CT = { 'Content-Type': 'application/json' };
+
 // --- Configuration
 const PORT      = process.env.BIRDASH_PORT || 7474;
 const DB_PATH   = process.env.BIRDASH_DB   || path.join(
@@ -450,6 +452,20 @@ dbWrite.exec(`CREATE TABLE IF NOT EXISTS favorites (
   sci_name TEXT,
   added_at TEXT DEFAULT (datetime('now'))
 )`);
+
+// ── Notes table ─────────────────────────────────────────────────────────────
+dbWrite.exec(`CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  com_name TEXT NOT NULL,
+  sci_name TEXT,
+  date TEXT,
+  time TEXT,
+  note TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+)`);
+dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_notes_species ON notes(com_name)');
+dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(com_name, date)');
 
 console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
@@ -3702,6 +3718,60 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+    return;
+  }
+
+  // ── Route : GET /api/notes?com_name=X ─────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/notes') {
+    const comName = new URL(req.url, 'http://localhost').searchParams.get('com_name');
+    if (!comName) { res.writeHead(400, JSON_CT); res.end('{"error":"com_name required"}'); return; }
+    try {
+      const rows = db.prepare('SELECT id, com_name, sci_name, date, time, note, created_at, updated_at FROM notes WHERE com_name=? ORDER BY date IS NULL, date DESC, time DESC').all(comName);
+      res.writeHead(200, JSON_CT);
+      res.end(JSON.stringify(rows));
+    } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
+    return;
+  }
+
+  // ── Route : POST /api/notes ──────────────────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/notes') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { id, com_name, sci_name, date, time, note } = JSON.parse(body);
+        if (!com_name || !note?.trim()) {
+          res.writeHead(400, JSON_CT);
+          res.end('{"error":"com_name and note required"}');
+          return;
+        }
+        let result;
+        if (id) {
+          // Update existing
+          dbWrite.prepare('UPDATE notes SET note=?, updated_at=datetime(\'now\') WHERE id=?').run(note.trim(), id);
+          result = { ok: true, id };
+        } else {
+          // Insert new
+          const info = dbWrite.prepare('INSERT INTO notes (com_name, sci_name, date, time, note) VALUES (?,?,?,?,?)')
+            .run(com_name, sci_name || '', date || null, time || null, note.trim());
+          result = { ok: true, id: info.lastInsertRowid };
+        }
+        res.writeHead(200, JSON_CT);
+        res.end(JSON.stringify(result));
+      } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
+  // ── Route : DELETE /api/notes?id=X ───────────────────────────────────────
+  if (req.method === 'DELETE' && pathname === '/api/notes') {
+    const id = new URL(req.url, 'http://localhost').searchParams.get('id');
+    if (!id) { res.writeHead(400, JSON_CT); res.end('{"error":"id required"}'); return; }
+    try {
+      dbWrite.prepare('DELETE FROM notes WHERE id=?').run(id);
+      res.writeHead(200, JSON_CT);
+      res.end('{"ok":true}');
+    } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
     return;
   }
 
