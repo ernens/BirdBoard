@@ -927,6 +927,11 @@ a:hover { opacity: .85; }
 }
 .tl-blink {
   animation: tl-blink-anim 1.2s ease-in-out 10;
+  z-index: 20 !important;
+}
+.tl-blink .tl-marker-photo {
+  transform: scale(1.6);
+  filter: drop-shadow(0 0 6px currentColor);
 }
 @keyframes tl-blink-anim {
   0%, 100% { opacity: 1; }
