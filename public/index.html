@@ -85,13 +85,8 @@
     <!-- ═══ What's New — 3-level editorial module ═══ -->
     <div v-if="whatsNew.loaded" class="wn-section" style="margin-bottom:1rem;">
 
-      <!-- ── Sun bar: sunrise / sunset ── -->
-      <div v-if="whatsNew.context.dawn_chorus.data" class="wn-sun-bar">
-        <span class="wn-sun-rise">&#9788; {{whatsNew.context.dawn_chorus.data.sunriseTime}}</span>
-        <span class="wn-sun-title">{{t('wn_title')}}</span>
-        <span class="wn-sun-set">{{whatsNew.context.dawn_chorus.data.sunsetTime}} &#9790;</span>
-      </div>
-      <div v-else class="wn-sun-bar">
+      <!-- ── Section title ── -->
+      <div class="wn-sun-bar">
         <span class="wn-sun-title">{{t('wn_title')}}</span>
       </div>
 
