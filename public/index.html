@@ -271,9 +271,6 @@
         <div class="tp-title">
           <span>🕐</span>
           <span>{{t('tl_title')}}</span>
-          <span class="tp-badge" v-if="timelineData.meta">
-            {{timelineData.meta.notableCount}} {{t('tl_notable')}}
-          </span>
         </div>
         <div class="tp-controls" @click.stop>
           <button class="tp-nav-btn" :disabled="!timelineData.navigation?.prevDate" @click="tlNavigateDay(-1)">‹</button>
