@@ -196,6 +196,29 @@
         <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
       </div>
 
+      <!-- ── Phénologie calendaire ─────────────────────────────── -->
+      <div class="card" v-if="phenoData.length">
+        <div class="card-title">{{t('phenology_calendar')}}</div>
+        <div style="overflow-x:auto;">
+          <div v-for="ym in phenoData" :key="ym.key" style="display:flex;align-items:center;gap:2px;margin-bottom:2px;">
+            <span style="width:60px;font-size:.7rem;color:var(--text-muted);text-align:right;padding-right:4px;flex-shrink:0;">{{ym.label}}</span>
+            <span v-for="d in ym.days" :key="d.day"
+                  :title="d.date + (d.count ? ' — ' + d.count + ' det.' : '')"
+                  :style="{
+                    width: '10px', height: '10px', borderRadius: '2px', flexShrink: 0,
+                    background: d.count ? phenoColor(d.count) : 'var(--border)',
+                    opacity: d.future ? 0.2 : 1
+                  }"></span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem;font-size:.7rem;color:var(--text-muted);">
+          <span>0</span>
+          <span v-for="n in [1,2,5,10,20]" :key="n"
+                :style="{width:'10px',height:'10px',borderRadius:'2px',background:phenoColor(n)}"></span>
+          <span>20+</span>
+        </div>
+      </div>
+
       <!-- ── Feed détections récentes ───────────────────────────── -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
@@ -514,6 +537,7 @@ const app = createApp({
           loadConfData(speciesName),
           loadDayHourData(speciesName),
           loadFeed(speciesName),
+          loadPhenoData(speciesName),
         ]);
       } catch(e) { console.error('[species]', e); mode.value='picker'; }
     }
@@ -771,6 +795,42 @@ const app = createApp({
       if (sp.value.name) loadDetail(sp.value.name);
     });
 
+    // ── Phenology calendar ─────────────────────────────────────────
+    const phenoData = ref([]);
+
+    async function loadPhenoData(speciesName) {
+      const rows = await birdQuery(
+        `SELECT Date, COUNT(*) as n FROM detections WHERE Com_Name=? GROUP BY Date ORDER BY Date`, [speciesName]);
+      const counts = {};
+      for (const r of rows) counts[r.Date] = r.n;
+
+      const today = new Date();
+      const months = [];
+      // Show last 12 months
+      for (let m = 11; m >= 0; m--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - m, 1);
+        const year = d.getFullYear(), month = d.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const ms = t('months_short') || ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+        const days = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          const isFuture = new Date(year, month, day) > today;
+          days.push({ day, date: dateStr, count: counts[dateStr] || 0, future: isFuture });
+        }
+        months.push({ key: `${year}-${month}`, label: `${ms[month]} ${year}`, days });
+      }
+      phenoData.value = months;
+    }
+
+    function phenoColor(count) {
+      if (count >= 20) return '#00e676';
+      if (count >= 10) return '#66bb6a';
+      if (count >= 5) return '#fdd835';
+      if (count >= 2) return '#ffb74d';
+      return '#ff8a65';
+    }
+
     // ── Keyboard shortcuts ──────────────────────────────────────────
     function _onKeydown(e) {
       const tag = document.activeElement?.tagName?.toLowerCase();
@@ -924,7 +984,7 @@ const app = createApp({
       mode, speciesList, pickerVal, onPickerChange,
       hasPrevSpecies, hasNextSpecies, prevSpecies, nextSpecies,
       sp, feed, extLinks, speciesInfo, personalNote, savePersonalNote, shareSpecies,
-      isFav, onToggleFav,
+      isFav, onToggleFav, phenoData, phenoColor,
       photos, photoIdx, photosLoading, wikiSummary, wikiSummaryAlt, conservation, conservationClass,
       prevPhoto, nextPhoto, photoErr,
       playingFile, toggleAudio,
