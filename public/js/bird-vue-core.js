@@ -2328,6 +2328,13 @@
       let pcmData = null;
       let sampleRate = 0;
 
+      // Loop selection
+      const loopStart = ref(null); // 0-1 fraction
+      const loopEnd = ref(null);
+      const loopActive = ref(false);
+      let _dragging = false;
+      let _dragStart = 0;
+
       const audioUrl = computed(() => modal.fileName ? U.buildAudioUrl(modal.fileName) : '');
       const downloadName = computed(() => modal.fileName || 'audio.wav');
 
@@ -2406,10 +2413,20 @@
         }
         sourceNode = audioCtx.createBufferSource();
         sourceNode.buffer = audioBuf;
+        sourceNode.loop = loopActive.value;
+        if (loopActive.value && loopStart.value != null && loopEnd.value != null) {
+          sourceNode.loopStart = loopStart.value * audioBuf.duration;
+          sourceNode.loopEnd = loopEnd.value * audioBuf.duration;
+        }
         buildFilterChain();
         sourceNode.connect(hpNode);
 
-        const offset = pausedAt;
+        let offset = pausedAt;
+        if (loopActive.value && loopStart.value != null) {
+          const ls = loopStart.value * audioBuf.duration;
+          const le = loopEnd.value * audioBuf.duration;
+          if (offset < ls || offset >= le) offset = ls;
+        }
         sourceNode.start(0, offset);
         startedAt = audioCtx.currentTime - offset;
         isPlaying.value = true;
@@ -2479,6 +2496,49 @@
         }
       }
 
+      // Loop selection via drag on canvas
+      function onCanvasMousedown(e) {
+        if (!audioBuf) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        _dragStart = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        _dragging = true;
+        loopStart.value = _dragStart;
+        loopEnd.value = _dragStart;
+        loopActive.value = false;
+      }
+
+      function onCanvasMousemove(e) {
+        if (!_dragging || !audioBuf) return;
+        const rect = canvas.value.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        loopStart.value = Math.min(_dragStart, pos);
+        loopEnd.value = Math.max(_dragStart, pos);
+      }
+
+      function onCanvasMouseup(e) {
+        if (!_dragging) return;
+        _dragging = false;
+        if (loopEnd.value - loopStart.value < 0.02) {
+          // Too small = click, treat as seek
+          loopStart.value = null; loopEnd.value = null; loopActive.value = false;
+          seek(e);
+          return;
+        }
+        loopActive.value = true;
+        // Restart playback in loop
+        const wasPlaying = isPlaying.value;
+        if (wasPlaying) stopPlay();
+        pausedAt = loopStart.value * audioBuf.duration;
+        if (wasPlaying) startPlay();
+      }
+
+      function clearLoop() {
+        loopStart.value = null; loopEnd.value = null; loopActive.value = false;
+        if (isPlaying.value && sourceNode) {
+          sourceNode.loop = false;
+        }
+      }
+
       function close() {
         cleanup();
         closeSpectroModal();
@@ -2494,6 +2554,7 @@
         duration.value = '0:00';
         pausedAt = 0;
         filters.gain = 0; filters.highpass = 0; filters.lowpass = 0;
+        loopStart.value = null; loopEnd.value = null; loopActive.value = false;
         cancelAnimationFrame(rafId);
       }
 
@@ -2526,7 +2587,9 @@
         modal, loading, isPlaying, progress, currentTime, duration,
         filters, gainOpts, hpOpts, lpOpts,
         canvas, audioUrl, downloadName,
-        togglePlay, seek, setFilter, close, t
+        loopStart, loopEnd, loopActive,
+        togglePlay, seek, setFilter, close, t,
+        onCanvasMousedown, onCanvasMousemove, onCanvasMouseup, clearLoop
       };
     },
     template: `
@@ -2546,10 +2609,14 @@
       </div>
       <button class="spectro-modal-close" @click="close" aria-label="Close">&times;</button>
     </div>
-    <div class="spectro-modal-canvas-wrap" style="position:relative;">
+    <div class="spectro-modal-canvas-wrap" style="position:relative;user-select:none;"
+         @mousedown="onCanvasMousedown" @mousemove="onCanvasMousemove" @mouseup="onCanvasMouseup">
       <canvas ref="canvas" :width="800" :height="200"></canvas>
       <div v-if="loading" class="spectro-modal-loading">Loading...</div>
       <div v-if="isPlaying" class="spectro-cursor" :style="{left: progress+'%'}"></div>
+      <div v-if="loopStart != null && loopEnd != null && loopEnd > loopStart"
+           class="spectro-loop-zone"
+           :style="{left: (loopStart*100)+'%', width: ((loopEnd-loopStart)*100)+'%'}"></div>
       <div class="spectro-freq-labels">
         <span>12kHz</span><span>9</span><span>6</span><span>3</span><span>0</span>
       </div>
@@ -2564,6 +2631,7 @@
         </div>
         <div class="audio-time">{{currentTime}} / {{duration}}</div>
       </div>
+      <button v-if="loopActive" class="spectro-loop-btn" @click="clearLoop" title="Clear loop">🔁 ✕</button>
       <a :href="audioUrl" :download="downloadName" class="spectro-modal-dl" title="Download">\u2B07</a>
     </div>
     <div class="spectro-modal-filters">

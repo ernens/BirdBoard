@@ -917,6 +917,21 @@ a:hover { opacity: .85; }
   }
 }
 
+/* ── Spectro loop selection ───────────────────────────────────────────────── */
+.spectro-loop-zone {
+  position: absolute; top: 0; bottom: 0; z-index: 3;
+  background: rgba(52, 211, 153, .15);
+  border-left: 2px solid rgba(52, 211, 153, .7);
+  border-right: 2px solid rgba(52, 211, 153, .7);
+  pointer-events: none;
+}
+.spectro-loop-btn {
+  background: rgba(52, 211, 153, .2); border: 1px solid rgba(52, 211, 153, .5);
+  color: #34d399; font-size: .72rem; padding: .2rem .5rem;
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.spectro-loop-btn:hover { background: rgba(52, 211, 153, .35); }
+
 /* ── Gallery tabs ─────────────────────────────────────────────────────────── */
 .gallery-tabs {
   display: flex; gap: .3rem; margin-bottom: 1rem;
