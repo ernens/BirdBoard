@@ -2796,7 +2796,7 @@ const server = http.createServer((req, res) => {
               photoUrl: `/birds/api/photo?sci=${encodeURIComponent(r.Sci_Name)}`,
               photoFallback: '🦉',
               audioFile: r.File_Name,
-              priority: 2,
+              priority: 1,
             });
           }
         }
@@ -2908,7 +2908,7 @@ const server = http.createServer((req, res) => {
             photoUrl: `/birds/api/photo?sci=${encodeURIComponent(r.Sci_Name)}`,
             photoFallback: '🪶',
             audioFile: r.File_Name,
-            priority: 2,
+            priority: 1,
           });
         }
 
@@ -2931,7 +2931,7 @@ const server = http.createServer((req, res) => {
             photoUrl: `/birds/api/photo?sci=${encodeURIComponent(firstDiurnal.Sci_Name)}`,
             photoFallback: '🐦',
             audioFile: firstDiurnal.File_Name,
-            priority: 3,
+            priority: 1,
           });
         }
 
@@ -2953,7 +2953,7 @@ const server = http.createServer((req, res) => {
             photoUrl: `/birds/api/photo?sci=${encodeURIComponent(bestDet.Sci_Name)}`,
             photoFallback: '🎵',
             audioFile: bestDet.File_Name,
-            priority: 3,
+            priority: 1,
           });
         }
 
