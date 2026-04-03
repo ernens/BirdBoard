@@ -83,10 +83,14 @@
       <!-- Moon -->
       <span v-if="data.meta.moonPhase != null" style="display:inline-flex;align-items:center;gap:.3rem;">
         <svg viewBox="0 0 28 28" width="22" height="22" style="flex-shrink:0;">
-          <defs><radialGradient id="mg"><stop offset="0%" stop-color="#fffef0"/><stop offset="80%" stop-color="#fffce0"/><stop offset="100%" stop-color="#f5e6a0"/></radialGradient></defs>
+          <defs>
+            <radialGradient id="mg"><stop offset="0%" stop-color="#fffef0"/><stop offset="80%" stop-color="#fffce0"/><stop offset="100%" stop-color="#f5e6a0"/></radialGradient>
+            <clipPath id="mc"><circle cx="14" cy="14" r="12"/></clipPath>
+          </defs>
           <circle cx="14" cy="14" r="12" fill="url(#mg)" filter="drop-shadow(0 0 3px rgba(255,250,180,.4))"/>
-          <circle :cx="14 + (data.meta.moonPhase < 0.5 ? (data.meta.moonPhase*2 - 1) : (1 - (data.meta.moonPhase-0.5)*2)) * 7.5"
-                  cy="14" r="10.8" fill="#1a1a2e"/>
+          <circle v-if="data.meta.moonIllumination < 0.98"
+                  :cx="14 + (data.meta.moonPhase < 0.25 ? -1 : data.meta.moonPhase < 0.5 ? 1 : data.meta.moonPhase < 0.75 ? -1 : 1) * (1 - data.meta.moonIllumination) * 24"
+                  cy="14" r="12" fill="#1a1a2e" clip-path="url(#mc)"/>
         </svg>
         <span>{{t('wn_moon_'+data.meta.moonPhaseName)}} {{Math.round(data.meta.moonIllumination*100)}}%</span>
       </span>
