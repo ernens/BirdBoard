@@ -3077,18 +3077,18 @@ const server = http.createServer((req, res) => {
         }
 
         // 10. Top species — fill gaps with most-detected species of the day
-        const MAX_BIRD_EVENTS = 12;
+        const MAX_BIRD_EVENTS = Math.max(12, maxEvents * 2);
         if (events.length < MAX_BIRD_EVENTS) {
           try {
             const topRows = db.prepare(`
               SELECT Com_Name, Sci_Name, COUNT(*) as n, MIN(Time) as Time,
                      MAX(Confidence) as Confidence, File_Name
               FROM detections
-              WHERE Date = ? AND Confidence >= 0.7
+              WHERE Date = ? AND Confidence >= ?
               GROUP BY Com_Name
               ORDER BY COUNT(*) DESC
-              LIMIT 12
-            `).all(dateStr);
+              LIMIT ?
+            `).all(dateStr, minConf, MAX_BIRD_EVENTS);
             for (const r of topRows) {
               if (events.length >= MAX_BIRD_EVENTS) break;
               if (events.some(e => e.sciName === r.Sci_Name)) continue;

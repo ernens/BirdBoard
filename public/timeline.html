@@ -40,7 +40,7 @@
         <span style="font-size:.78rem;color:var(--text-muted);">🐦</span>
         <button class="tp-nav-btn" @click="lessbirds" :disabled="density <= 0" title="Moins d'oiseaux">−</button>
         <span style="font-size:.78rem;min-width:20px;text-align:center;">{{densityLabels[density]}}</span>
-        <button class="tp-nav-btn" @click="morebirds" :disabled="density >= 4" title="Plus d'oiseaux">+</button>
+        <button class="tp-nav-btn" @click="morebirds" :disabled="density >= 5" title="Plus d'oiseaux">+</button>
         <button v-if="density !== 2" class="tp-nav-btn" @click="density = 2; load()" style="font-size:.65rem;" title="Défaut">↺</button>
       </div>
     </div>
@@ -189,7 +189,7 @@ function PX_PER_HOUR() {
 function TOTAL_W() { return (_viewEnd - _viewStart) * PX_PER_HOUR(); }
 
 const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
-const { useI18n, useTheme, useNav, navigateTo, photoUrl, quickPlaySpecies, localDateStr } = BIRDASH;
+const { useI18n, useTheme, useNav, navigateTo, photoUrl, quickPlaySpecies, localDateStr, birdQuery } = BIRDASH;
 
 const app = createApp({
   setup() {
@@ -204,12 +204,12 @@ const app = createApp({
     const viewStart = ref(0);
     const viewEnd = ref(24);
 
-    // Bird density control: 0=min, 2=default, 4=max
+    // Bird density control: 0=min, 2=default, 5=all detections
     const density = ref(2);
-    const densityLabels = ['1', '2', '3', '5', '∞'];
-    const densityConf =   [0.90, 0.80, 0.70, 0.50, 0.0];
-    const densityLimits = [3, 5, 8, 15, 999];
-    function morebirds() { if (density.value < 4) { density.value++; load(); } }
+    const densityLabels = ['1', '2', '3', '5', '∞', 'ALL'];
+    const densityConf =   [0.90, 0.80, 0.70, 0.50, 0.0, 0.0];
+    const densityLimits = [3, 5, 8, 15, 999, 999];
+    function morebirds() { if (density.value < 5) { density.value++; load(); } }
     function lessbirds() { if (density.value > 0) { density.value--; load(); } }
     const popupEvent = ref(null);
     const clusterPopup = ref(null);
@@ -654,6 +654,30 @@ const app = createApp({
         if (!r.ok) return;
         const json = await r.json();
         if (!json || json.error) return;
+        // ALL mode: inject individual detections as events
+        if (density.value === 5) {
+          try {
+            const detRows = await birdQuery(
+              `SELECT Com_Name, Sci_Name, Confidence, Time, File_Name
+               FROM detections WHERE Date=? ORDER BY Time ASC`, [selectedDate.value]);
+            const existingKeys = new Set(json.events.map(e => e.sciName + '|' + (e.time || '')));
+            for (const r of detRows) {
+              const h = parseInt(r.Time.substr(0,2)), m = parseInt(r.Time.substr(3,2));
+              const key = r.Sci_Name + '|' + r.Time.substr(0,5);
+              if (existingKeys.has(key)) continue;
+              existingKeys.add(key);
+              json.events.push({
+                id: 'all_' + r.Time.replace(/:/g,'') + '_' + r.Sci_Name.replace(/ /g,'-'),
+                type: 'top_species', time: r.Time.substr(0,5),
+                timeDecimal: h + m/60,
+                commonName: r.Com_Name, sciName: r.Sci_Name,
+                confidence: r.Confidence,
+                tags: [], photoUrl: `/birds/api/photo?sci=${encodeURIComponent(r.Sci_Name)}`,
+                photoFallback: '🐦', audioFile: r.File_Name, priority: 4,
+              });
+            }
+          } catch(e) { console.error('[timeline ALL]', e); }
+        }
         data.value = json;
         window.history.replaceState(null, '', `?date=${selectedDate.value}`);
       } catch(e) {
