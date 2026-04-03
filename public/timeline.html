@@ -51,22 +51,23 @@
       <span><strong>{{data.meta.totalDetections}}</strong> {{t('tl_detections')}}</span>
       <span v-if="data.meta.sunrise">🌅 {{data.meta.sunrise}}</span>
       <span v-if="data.meta.sunset">🌇 {{data.meta.sunset}}</span>
-      <span v-if="data.meta.moonPhase != null" style="display:inline-flex;align-items:center;gap:.3rem;">
-        <svg :viewBox="'0 0 24 24'" width="18" height="18">
-          <circle cx="12" cy="12" r="10" :fill="data.meta.moonPhase < 0.5 ? '#fffce0' : '#fffce0'"/>
-          <circle :cx="12 + (data.meta.moonPhase < 0.5 ? (data.meta.moonPhase*2 - 1) : (1 - (data.meta.moonPhase-0.5)*2)) * 10 * 0.6"
-                  cy="12" :r="8.6"
-                  fill="#1a1a2e"/>
+      <span v-if="data.meta.moonPhase != null" style="display:inline-flex;align-items:center;gap:.25rem;">
+        <svg viewBox="0 0 24 24" width="14" height="14" style="flex-shrink:0;">
+          <circle cx="12" cy="12" r="10" fill="#fffce0"/>
+          <circle :cx="12 + (data.meta.moonPhase < 0.5 ? (data.meta.moonPhase*2 - 1) : (1 - (data.meta.moonPhase-0.5)*2)) * 6"
+                  cy="12" r="8.6" fill="#1a1a2e"/>
         </svg>
-        <span>{{t('wn_moon_'+data.meta.moonPhaseName)}} ({{Math.round(data.meta.moonIllumination*100)}}%)</span>
+        <span>{{Math.round(data.meta.moonIllumination*100)}}%</span>
       </span>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters with badge counts -->
     <div class="tl-filters" v-if="data">
-      <button v-for="tp in eventTypes" :key="tp" class="tl-filter-btn"
-              :class="{active: activeFilters.includes(tp)}" @click="toggleFilter(tp)">
+      <button v-for="tp in eventTypes" :key="tp" v-show="typeCounts[tp]"
+              class="tl-filter-btn" :class="{active: activeFilters.includes(tp)}"
+              @click="toggleFilter(tp)" style="position:relative;">
         {{t('tl_type_'+tp)}}
+        <span class="tl-filter-badge">{{typeCounts[tp]}}</span>
       </button>
     </div>
 
@@ -222,7 +223,7 @@ const app = createApp({
     const popupEvent = ref(null);
     const clusterPopup = ref(null);
     const activeFilters = ref([]);
-    const eventTypes = ['nocturnal','rare','firstyear','firstday','best','out_of_season'];
+    const eventTypes = ['nocturnal','rare','firstyear','firstday','best','out_of_season','species_return','top_species'];
 
     // Drag-to-zoom on density bar or sky canvas
     let _dragActive = false;
@@ -290,10 +291,32 @@ const app = createApp({
     const densityRef = ref(null);
     const densityWrapRef = ref(null);
 
+    const typeCounts = computed(() => {
+      if (!data.value) return {};
+      const counts = {};
+      for (const e of data.value.events) {
+        if (e.isAstro || e.type === 'cluster') continue;
+        counts[e.type] = (counts[e.type] || 0) + 1;
+      }
+      return counts;
+    });
+
     function toggleFilter(type) {
       const idx = activeFilters.value.indexOf(type);
-      if (idx >= 0) activeFilters.value.splice(idx, 1);
-      else activeFilters.value.push(type);
+      if (idx >= 0) {
+        activeFilters.value.splice(idx, 1);
+        // Remove blink
+        if (innerRef.value) innerRef.value.querySelectorAll('.tl-blink').forEach(el => el.classList.remove('tl-blink'));
+      } else {
+        activeFilters.value = [type]; // single filter mode for blink
+        // Blink matching markers
+        if (innerRef.value) {
+          innerRef.value.querySelectorAll('.tl-event-marker').forEach(el => {
+            el.classList.remove('tl-blink');
+            if (el.dataset.type === type) el.classList.add('tl-blink');
+          });
+        }
+      }
     }
 
     const filteredEvents = computed(() => {
@@ -620,6 +643,7 @@ const app = createApp({
         // Label below if marker is in top third, above otherwise
         const labelPos = confBot > (maxBot - (maxBot - minBot) / 3) ? 'below' : 'above';
         el.className = `tl-event-marker ${labelPos}`;
+        el.dataset.type = ev.type;
         el.style.color = color; el.style.left = x + 'px';
         el.style.bottom = confBot + 'px';
         const tagHtml = (ev.tags||[]).map(tag =>
@@ -750,7 +774,7 @@ const app = createApp({
 
     return {
       lang, t, data, loading, selectedDate, todayStr,
-      popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, filteredEvents,
+      popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, typeCounts, filteredEvents,
       formatDate, moonIcon, navigateDay, load,
       viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
       density, densityLabels, morebirds, lessbirds,
