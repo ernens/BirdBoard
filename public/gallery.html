@@ -53,6 +53,15 @@
           <input type="text" class="bird-input gallery-search" v-model="searchQuery"
                  :placeholder="t('search') || 'Search species...'">
         </div>
+        <div class="gallery-filter-group" v-if="newSpeciesSet.size">
+          <button @click="newSpOnly = !newSpOnly; loadGallery()"
+                  style="padding:.2rem .6rem;font-size:.72rem;font-weight:600;border-radius:999px;border:1px solid;cursor:pointer;white-space:nowrap;"
+                  :style="newSpOnly
+                    ? 'background:var(--danger);color:#fff;border-color:var(--danger);'
+                    : 'background:transparent;color:var(--text-muted);border-color:var(--border);'">
+            🆕 {{newSpeciesSet.size}}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -133,6 +142,8 @@ const app = createApp({
     const loading      = ref(false);
     const searchQuery  = ref('');
     const allGroups    = ref([]);
+    const newSpOnly    = ref(false);
+    const newSpeciesSet = ref(new Set());
     const playingUrl   = ref(null);
     let _audio         = null;
 
@@ -148,6 +159,9 @@ const app = createApp({
     async function loadGallery() {
       loading.value = true;
       try {
+        // Load new species for filter
+        const nsRows = await birdQuery(`SELECT Com_Name FROM detections GROUP BY Com_Name HAVING MIN(Date) >= ?`, [fp.dateFrom.value || '2000-01-01']);
+        newSpeciesSet.value = new Set(nsRows.map(r => r.Com_Name));
         const wc = buildWhereClause({
           dateFrom: fp.dateFrom.value,
           dateTo:   fp.dateTo.value,
@@ -198,11 +212,11 @@ const app = createApp({
 
     // ── Filtered groups (search) ─────────────────────────────────────
     const filteredGroups = computed(() => {
-      if (!searchQuery.value) return allGroups.value;
+      let list = allGroups.value;
+      if (newSpOnly.value) list = list.filter(g => newSpeciesSet.value.has(g.name));
       const q = searchQuery.value.toLowerCase();
-      return allGroups.value.filter(g =>
-        g.name.toLowerCase().includes(q) || g.sci.toLowerCase().includes(q)
-      );
+      if (q) list = list.filter(g => g.name.toLowerCase().includes(q) || g.sci.toLowerCase().includes(q));
+      return list;
     });
 
     // ── IntersectionObserver for lazy spectrogram ────────────────────
@@ -312,7 +326,7 @@ const app = createApp({
     return {
       t, lang, theme, spName,
       fp, fc,
-      loading, searchQuery,
+      loading, searchQuery, newSpOnly, newSpeciesSet,
       allGroups, filteredGroups, playingUrl,
       loadGallery, deleteDet,
       togglePlay, confStyle, openModal,

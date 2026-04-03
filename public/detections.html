@@ -48,11 +48,15 @@
             <option v-for="f in taxonomyAllFamilies" :key="f.sci" :value="f.sci">{{f.com}}</option>
           </select>
         </div>
-        <!-- Favorites toggle -->
-        <div>
+        <!-- Favorites + New species toggles -->
+        <div style="display:flex;gap:.8rem;flex-wrap:wrap;">
           <label class="fp-label" style="cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;">
             <input type="checkbox" v-model="favOnly" @change="loadDetections" style="accent-color:var(--accent);">
             ★ {{t('fav_only')}}
+          </label>
+          <label class="fp-label" style="cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;">
+            <input type="checkbox" v-model="newSpOnly" @change="loadDetections" style="accent-color:var(--danger);">
+            🆕 {{t('new_species')}}
           </label>
         </div>
         <!-- Species picker filtered by taxonomy -->
@@ -230,6 +234,8 @@ const app = createApp({
     const { spName } = useSpeciesNames();
     const { favorites, isFavorite } = useFavorites();
     const favOnly = ref(false);
+    const newSpOnly = ref(false);
+    const newSpeciesSet = ref(new Set());
 
     const PS = BIRD_CONFIG.pageSize;
 
@@ -401,6 +407,11 @@ const app = createApp({
       } else if (favOnly.value) {
         wheres.push('1=0'); // no favorites → no results
       }
+      if (newSpOnly.value && newSpeciesSet.value.size) {
+        const nsList = [...newSpeciesSet.value];
+        wheres.push(`Com_Name IN (${nsList.map(()=>'?').join(',')})`);
+        params.push(...nsList);
+      }
       if (fp.dateFrom.value) { wheres.push('Date>=?');       params.push(fp.dateFrom.value); }
       if (fp.dateTo.value)   { wheres.push('Date<=?');       params.push(fp.dateTo.value); }
       if (fc.confidence.value > 0) { wheres.push('Confidence>=?'); params.push(fc.confidence.value); }
@@ -409,7 +420,14 @@ const app = createApp({
 
     async function loadDetections() {
       loading.value = true;
-      spDropdownOpen.value = false; // fermer dropdown à chaque chargement
+      spDropdownOpen.value = false;
+      // Load new species set for filter
+      if (newSpOnly.value && !newSpeciesSet.value.size) {
+        try {
+          const ns = await birdQuery(`SELECT Com_Name FROM detections GROUP BY Com_Name HAVING MIN(Date) >= ?`, [fp.dateFrom.value || '2000-01-01']);
+          newSpeciesSet.value = new Set(ns.map(r => r.Com_Name));
+        } catch(e) {}
+      }
       try {
         const { where, params } = buildWhere();
         if (uniqueMode.value) {
@@ -526,7 +544,7 @@ const app = createApp({
     return {
       lang,t,
       fp,fc,
-      fSpecies,uniqueMode,favOnly,
+      fSpecies,uniqueMode,favOnly,newSpOnly,
       fOrder,fFamily,fGuild,guildOptions,onGuildChange,taxonomyOrders,taxonomyAllFamilies,onOrderChange,onFamilyChange,spSearchInput,
       speciesList,
       spSearch,spDropdownOpen,filteredSpeciesList,allSpeciesSelected,
