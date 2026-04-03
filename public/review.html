@@ -156,7 +156,7 @@ const app = createApp({
     const playingDet = ref(null);
 
     const fp = useFilterPeriod({
-      default: '1d',
+      default: '7d',
       buttons: ['1d', '7d', '30d', '90d', 'all'],
       onChange: loadFlagged,
     });
