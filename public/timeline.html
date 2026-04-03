@@ -81,17 +81,8 @@
         <span>{{data.meta.sunset}}</span>
       </span>
       <!-- Moon -->
-      <span v-if="data.meta.moonPhase != null" style="display:inline-flex;align-items:center;gap:.3rem;">
-        <svg viewBox="0 0 28 28" width="22" height="22" style="flex-shrink:0;">
-          <defs>
-            <radialGradient id="mg"><stop offset="0%" stop-color="#fffef0"/><stop offset="80%" stop-color="#fffce0"/><stop offset="100%" stop-color="#f5e6a0"/></radialGradient>
-            <clipPath id="mc"><circle cx="14" cy="14" r="12"/></clipPath>
-          </defs>
-          <circle cx="14" cy="14" r="12" fill="url(#mg)" filter="drop-shadow(0 0 3px rgba(255,250,180,.4))"/>
-          <circle v-if="data.meta.moonIllumination < 0.98"
-                  :cx="14 + (data.meta.moonPhase < 0.25 ? -1 : data.meta.moonPhase < 0.5 ? 1 : data.meta.moonPhase < 0.75 ? -1 : 1) * (1 - data.meta.moonIllumination) * 24"
-                  cy="14" r="12" fill="#1a1a2e" clip-path="url(#mc)"/>
-        </svg>
+      <span v-if="data.meta.moonPhaseName" style="display:inline-flex;align-items:center;gap:.3rem;">
+        <span style="font-size:1.3rem;line-height:1;">{{moonEmoji(data.meta.moonPhaseName)}}</span>
         <span>{{t('wn_moon_'+data.meta.moonPhaseName)}} {{Math.round(data.meta.moonIllumination*100)}}%</span>
       </span>
     </div>
@@ -371,11 +362,11 @@ const app = createApp({
       return new Date(d + 'T12:00:00').toLocaleDateString(lang.value, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
     }
 
-    function moonIcon(phaseName) {
-      const icons = { new_moon:'\uD83C\uDF11', waxing_crescent:'\uD83C\uDF12', first_quarter:'\uD83C\uDF13',
-        waxing_gibbous:'\uD83C\uDF14', full_moon:'\uD83C\uDF15', waning_gibbous:'\uD83C\uDF16',
-        last_quarter:'\uD83C\uDF17', waning_crescent:'\uD83C\uDF18' };
-      return icons[phaseName] || '\uD83C\uDF15';
+    function moonEmoji(phaseName) {
+      const icons = { new_moon:'🌑', waxing_crescent:'🌒', first_quarter:'🌓',
+        waxing_gibbous:'🌔', full_moon:'🌕', waning_gibbous:'🌖',
+        last_quarter:'🌗', waning_crescent:'🌘' };
+      return icons[phaseName] || '🌕';
     }
 
     // ── Sky rendering (same as prototype, parameterized) ──
@@ -810,7 +801,7 @@ const app = createApp({
     return {
       lang, t, data, loading, selectedDate, todayStr,
       popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, typeCounts, filteredEvents,
-      formatDate, moonIcon, navigateDay, load,
+      formatDate, moonEmoji, navigateDay, load,
       viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
       density, morebirds, lessbirds,
       scrollRef, innerRef, skyRef, starsRef, densityRef, densityWrapRef,
