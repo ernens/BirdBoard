@@ -137,7 +137,7 @@
 const { createApp, ref, reactive, computed, watch, onMounted } = Vue;
 const { useI18n, useTheme, useNav, useFilterPeriod, useSpeciesNames, registerComponents } = BIRDASH;
 const { birdQuery, buildAudioUrl } = BIRDASH_UTILS;
-const API = BIRD_CONFIG.apiBase;
+const API = BIRD_CONFIG.apiUrl;
 
 const app = createApp({
   setup() {
