@@ -917,6 +917,15 @@ a:hover { opacity: .85; }
   }
 }
 
+/* ── Timeline drag selection ──────────────────────────────────────────────── */
+.tl-drag-select {
+  position: absolute; top: 0; bottom: 0; z-index: 5;
+  background: rgba(96, 165, 250, .2);
+  border-left: 2px solid rgba(96, 165, 250, .7);
+  border-right: 2px solid rgba(96, 165, 250, .7);
+  pointer-events: none;
+}
+
 /* ── Spectro loop selection ───────────────────────────────────────────────── */
 .spectro-loop-zone {
   position: absolute; top: 0; bottom: 0; z-index: 3;

@@ -62,23 +62,26 @@
     </div>
 
     <template v-if="data && !loading">
-      <!-- Density bar — click to zoom, double-click to reset -->
+      <!-- Density bar — drag to select zoom range, double-click to reset -->
       <div class="tp-density-label">{{t('tl_density_label')}} <span style="font-size:.7rem;color:var(--text-faint);margin-left:.5rem;">{{t('tl_drag_hint')}}</span></div>
-      <div class="tl-density-zone" ref="densityWrapRef" @click="onDensityClick" @dblclick.prevent="resetZoom">
+      <div class="tl-density-zone" ref="densityWrapRef" @mousedown.prevent="onZoneMousedown" @dblclick.prevent="resetZoom" style="user-select:none;">
         <div style="position:relative;">
-          <canvas ref="densityRef" height="36" style="width:100%;display:block;border-radius:3px;cursor:pointer;"></canvas>
-          <div v-if="viewStart !== 0 || viewEnd !== 24" class="tl-density-view"
-               :style="{left: (viewStart/24*100)+'%', width: ((viewEnd-viewStart)/24*100)+'%'}"></div>
+          <canvas ref="densityRef" height="36" style="width:100%;display:block;border-radius:3px;cursor:crosshair;"></canvas>
+          <div v-if="dragSelect" class="tl-drag-select"
+               :style="{left: dragSelect.left+'%', width: dragSelect.width+'%'}"></div>
         </div>
       </div>
 
-      <!-- Sky timeline -->
-      <div class="tp-scroll" ref="scrollRef" style="margin:0 0 .5rem;">
-        <div class="tp-inner" ref="innerRef">
+      <!-- Sky timeline — also supports drag to zoom -->
+      <div class="tp-scroll" ref="scrollRef" style="margin:0 0 .5rem;position:relative;"
+           @mousedown.prevent="onZoneMousedown" @dblclick.prevent="resetZoom">
+        <div class="tp-inner" ref="innerRef" style="cursor:crosshair;">
           <canvas ref="skyRef" class="tp-sky-canvas"></canvas>
           <canvas ref="starsRef" class="tp-stars-canvas"></canvas>
           <div class="tp-ground" style="height:64px;"></div>
         </div>
+        <div v-if="dragSelect" class="tl-drag-select"
+             :style="{left: dragSelect.left+'%', width: dragSelect.width+'%', top:0, bottom:0}"></div>
       </div>
 
       <!-- Legend -->
@@ -199,32 +202,58 @@ const app = createApp({
     const activeFilters = ref([]);
     const eventTypes = ['nocturnal','rare','firstyear','firstday','best','out_of_season'];
 
-    // Click-to-zoom: click on density bar → zoom to 4h window, dblclick → reset
-    let _clickTimer = null;
-    function onDensityClick(e) {
-      // Delay single click to let dblclick fire first
-      if (_clickTimer) return;
-      _clickTimer = setTimeout(() => {
-        _clickTimer = null;
-        const canvas = densityRef.value;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const pct = (e.clientX - rect.left) / rect.width;
-        const clickHour = pct * 24;
-        // If already zoomed, zoom deeper (halve the window), else start with 4h
-        const currentSpan = viewEnd.value - viewStart.value;
-        const newSpan = currentSpan >= 22 ? 4 : Math.max(1, currentSpan / 2);
-        const newStart = Math.max(0, Math.round((clickHour - newSpan / 2) * 2) / 2);
-        const newEnd = Math.min(24, newStart + newSpan);
-        viewStart.value = newStart;
-        viewEnd.value = newEnd;
-        _viewStart = newStart;
-        _viewEnd = newEnd;
-        render();
-      }, 250);
+    // Drag-to-zoom on density bar or sky canvas
+    let _dragActive = false;
+    let _dragStartPct = 0;
+    const dragSelect = ref(null); // { left, width } in % for overlay
+
+    function pctFromEvent(e, el) {
+      const rect = (el || e.currentTarget).getBoundingClientRect();
+      return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     }
+
+    function onZoneMousedown(e) {
+      _dragActive = true;
+      _dragStartPct = pctFromEvent(e);
+      dragSelect.value = { left: _dragStartPct * 100, width: 0 };
+      // Listen on document for smooth drag outside element
+      document.addEventListener('mousemove', onZoneMousemove);
+      document.addEventListener('mouseup', onZoneMouseup);
+    }
+
+    function onZoneMousemove(e) {
+      if (!_dragActive) return;
+      const el = densityWrapRef.value || scrollRef.value;
+      if (!el) return;
+      const pct = pctFromEvent(e, el);
+      const left = Math.min(_dragStartPct, pct);
+      const right = Math.max(_dragStartPct, pct);
+      dragSelect.value = { left: left * 100, width: (right - left) * 100 };
+    }
+
+    function onZoneMouseup(e) {
+      document.removeEventListener('mousemove', onZoneMousemove);
+      document.removeEventListener('mouseup', onZoneMouseup);
+      if (!_dragActive) return;
+      _dragActive = false;
+      const sel = dragSelect.value;
+      dragSelect.value = null;
+      if (!sel || sel.width < 1) return; // too small = click, ignore
+
+      // Convert % to hours within current view range
+      const span = viewEnd.value - viewStart.value;
+      const newStart = viewStart.value + (sel.left / 100) * span;
+      const newEnd = viewStart.value + ((sel.left + sel.width) / 100) * span;
+      // Minimum 15 minutes
+      if (newEnd - newStart < 0.25) return;
+      viewStart.value = Math.round(newStart * 4) / 4;
+      viewEnd.value = Math.round(newEnd * 4) / 4;
+      _viewStart = viewStart.value;
+      _viewEnd = viewEnd.value;
+      render();
+    }
+
     function resetZoom() {
-      if (_clickTimer) { clearTimeout(_clickTimer); _clickTimer = null; }
       viewStart.value = 0;
       viewEnd.value = 24;
       _viewStart = 0;
@@ -250,6 +279,10 @@ const app = createApp({
       let evts = data.value.events.filter(e => !e.isAstro && e.type !== 'cluster');
       if (activeFilters.value.length > 0) {
         evts = evts.filter(e => activeFilters.value.includes(e.type));
+      }
+      // Filter to zoom range
+      if (viewStart.value > 0 || viewEnd.value < 24) {
+        evts = evts.filter(e => e.timeDecimal >= viewStart.value && e.timeDecimal <= viewEnd.value);
       }
       return evts.sort((a, b) => a.timeDecimal - b.timeDecimal);
     });
@@ -385,10 +418,16 @@ const app = createApp({
       const w = densityWrapRef.value ? densityWrapRef.value.clientWidth : 800;
       canvas.width = w; canvas.height = 36;
       const ctx = canvas.getContext('2d');
-      const sw = w / 48, maxD = Math.max(...density, 1);
-      density.forEach((d, i) => {
+      // Only render slots within the current view range
+      const slotStart = Math.floor(_viewStart * 2);
+      const slotEnd = Math.ceil(_viewEnd * 2);
+      const visibleSlots = slotEnd - slotStart;
+      const sw = w / visibleSlots;
+      const visibleDensity = density.slice(slotStart, slotEnd);
+      const maxD = Math.max(...visibleDensity, 1);
+      visibleDensity.forEach((d, i) => {
         const norm = d / maxD, x = i * sw, h = Math.max(1, norm * 32);
-        const hour = i / 2;
+        const hour = (slotStart + i) / 2;
         let col;
         if (hour < A.civilDawn || hour > A.civilDusk) col = `rgba(129,140,248,${.2+norm*.65})`;
         else if (hour < A.sunrise+.75 || hour > A.sunset-.75) col = `rgba(251,146,60,${.28+norm*.6})`;
@@ -397,12 +436,16 @@ const app = createApp({
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x+1, 36-h, sw-2, h, [2,2,0,0]); ctx.fill(); }
         else { ctx.fillRect(x+1, 36-h, sw-2, h); }
       });
-      // Hour labels on density bar
-      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      // Hour labels adapted to zoom level
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
       ctx.font = '9px sans-serif';
       ctx.textAlign = 'center';
-      for (let h = 0; h <= 24; h += 3) {
-        ctx.fillText(String(h).padStart(2, '0'), h/24*w, 10);
+      const span = _viewEnd - _viewStart;
+      const step = span <= 2 ? 0.25 : span <= 6 ? 0.5 : span <= 12 ? 1 : 3;
+      for (let h = Math.ceil(_viewStart / step) * step; h <= _viewEnd; h += step) {
+        const x = (h - _viewStart) / span * w;
+        const label = String(Math.floor(h)).padStart(2,'0') + ':' + String(Math.round((h%1)*60)).padStart(2,'0');
+        ctx.fillText(label, x, 10);
       }
     }
 
@@ -661,7 +704,7 @@ const app = createApp({
       lang, t, data, loading, selectedDate, todayStr,
       popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, filteredEvents,
       formatDate, moonIcon, navigateDay, load,
-      viewStart, viewEnd, resetZoom, onDensityClick,
+      viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
       scrollRef, innerRef, skyRef, starsRef, densityRef, densityWrapRef,
       navigateTo,
       quickPlay(comName) { quickPlaySpecies(comName); },
