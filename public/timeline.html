@@ -155,6 +155,7 @@
         <div class="tl-popup-actions">
           <button class="tl-popup-btn" @click="quickPlay(popupEvent.commonName)">▶ {{t('tl_listen')}}</button>
           <button class="tl-popup-btn" @click="navigateTo('species.html',{species:popupEvent.commonName})">🔬 {{t('tl_see_species')}}</button>
+          <button class="tl-popup-btn" @click="navigateTo('today.html',{species:popupEvent.commonName,date:selectedDate})">📅 {{t('tl_see_today')}}</button>
         </div>
       </div>
     </div>
