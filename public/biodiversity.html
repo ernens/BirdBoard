@@ -157,6 +157,17 @@
           <div v-if="weather.loading" class="spinner"><div></div><div></div><div></div></div>
           <div v-else-if="weather.error" class="error-msg">{{weather.error}}</div>
           <div v-else class="chart-wrap chart-wrap-tall"><canvas ref="canvasWeather"></canvas></div>
+          <!-- Correlation insights -->
+          <div v-if="weatherCorr" style="margin-top:.75rem;padding:.5rem;background:var(--bg-deep);border-radius:var(--radius);font-size:.82rem;">
+            <div style="font-weight:600;margin-bottom:.4rem;">{{t('weather_correlation')}}</div>
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+              <span>🌡️ {{t('temperature')}} : <strong :style="{color: weatherCorr.temp > 0.3 ? '#5a9e3a' : weatherCorr.temp < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{weatherCorr.temp.toFixed(2)}}</strong></span>
+              <span>🌧️ {{t('precipitation')}} : <strong :style="{color: weatherCorr.precip > 0.3 ? '#5a9e3a' : weatherCorr.precip < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{weatherCorr.precip.toFixed(2)}}</strong></span>
+            </div>
+            <div v-if="weatherCorr.bestConditions" style="margin-top:.4rem;color:var(--text-muted);">
+              {{weatherCorr.bestConditions}}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -196,6 +207,19 @@ const app = createApp({
       onChange: () => loadAll()
     });
     const fc = useFilterConfidence({ onChange: () => loadAll() });
+
+    const weatherCorr = ref(null);
+
+    function pearson(x, y) {
+      const n = x.length;
+      if (n < 5) return 0;
+      let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+      for (let i = 0; i < n; i++) {
+        sx += x[i]; sy += y[i]; sxx += x[i]*x[i]; syy += y[i]*y[i]; sxy += x[i]*y[i];
+      }
+      const d = Math.sqrt((n*sxx - sx*sx) * (n*syy - sy*sy));
+      return d === 0 ? 0 : (n*sxy - sx*sy) / d;
+    }
 
     function resetDefaults() {
       fc.confidence.value = BIRD_CONFIG.defaultConfidence;
@@ -382,6 +406,26 @@ const app = createApp({
           const hi = tempMax[i], lo = tempMin[i];
           return (hi != null && lo != null) ? Math.round((hi + lo) / 2 * 10) / 10 : null;
         });
+
+        // Compute correlations
+        const validIdx = tempData.map((v, i) => v != null ? i : -1).filter(i => i >= 0);
+        const cTemp = validIdx.map(i => tempData[i]);
+        const cDet  = validIdx.map(i => detData[i]);
+        const cPrec = validIdx.map(i => precip[i] || 0);
+        const rTemp = pearson(cTemp, cDet);
+        const rPrec = pearson(cPrec, cDet);
+
+        // Best conditions: top 20% detection days
+        const sorted = validIdx.map(i => ({ det: detData[i], temp: tempData[i], precip: precip[i] || 0 }))
+          .sort((a, b) => b.det - a.det);
+        const top = sorted.slice(0, Math.max(3, Math.floor(sorted.length * 0.2)));
+        let bestText = '';
+        if (top.length >= 3) {
+          const avgT = Math.round(top.reduce((s, d) => s + d.temp, 0) / top.length);
+          const avgP = Math.round(top.reduce((s, d) => s + d.precip, 0) / top.length * 10) / 10;
+          bestText = t('weather_best', { temp: avgT, precip: avgP });
+        }
+        weatherCorr.value = { temp: rTemp, precip: rPrec, bestConditions: bestText };
 
         weather.value = { loading: false, error: null };
         await nextTick();
@@ -691,7 +735,7 @@ const app = createApp({
 
     return {
       lang, t, safeHtml,
-      shannonH, shannonJ, shannonS,
+      shannonH, shannonJ, shannonS, weatherCorr,
       heatmap, monthly, matrix, phenology, weather,
       canvasRichness, canvasPhenology, canvasWeather, elTaxOrders, taxFamilies,
       fp, fc, resetDefaults, loadAll,
