@@ -1058,7 +1058,7 @@
         </div>
 
         <!-- ═══ Notifications — configuration du canal ═══ -->
-        <div class="card">
+        <div class="card" style="grid-column:1/-1;">
           <div class="section-title">🔔 {{t('set_notifications')}}</div>
 
           <!-- Apprise URLs -->
@@ -1429,12 +1429,12 @@
                     — {{bkpSchedule.time}}
                   </div>
                   <div style="font-size:.72rem;color:var(--text-faint);">
-                    {{t('set_backup_next_run')||'Prochain'}}: {{fmtDateTimeFull(bkpSchedule.nextRun)}}
+                    {{t('bkp_next_run')}}: {{fmtDateTimeFull(bkpSchedule.nextRun)}}
                   </div>
                 </div>
               </div>
               <div v-else-if="bkp.schedule === 'manual'" style="font-size:.78rem;color:var(--text-faint);margin-bottom:.5rem;">
-                {{t('set_backup_no_schedule')||'Aucune planification — mode manuel'}}
+                {{t('bkp_no_schedule')}}
               </div>
 
               <!-- Last run info (when not active) -->
@@ -1463,7 +1463,7 @@
               <!-- Backup history -->
               <div v-if="bkpHistory.length" style="margin-top:.8rem;border-top:1px solid var(--border);padding-top:.6rem;">
                 <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:.4rem;">
-                  {{t('set_backup_history')||'Historique'}}
+                  {{t('bkp_history')}}
                 </div>
                 <div v-for="h in bkpHistory" :key="h.startedAt"
                      style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--bg-card2);font-size:.78rem;">
@@ -1804,7 +1804,7 @@ const app = createApp({
         const data = await res.json();
         if (data.ok) {
           bkpProgress.state = 'stopped';
-          bkpProgress.detail = 'Arrêté par l\'utilisateur';
+          bkpProgress.detail = t('bkp_stopped_by_user');
           stopBackupPoll();
           runningBkp.value = false;
           await loadBackupConfig();
@@ -1828,7 +1828,7 @@ const app = createApp({
 
     async function runBackup() {
       runningBkp.value = true;
-      Object.assign(bkpProgress, { state: 'running', percent: 0, step: 'init', detail: 'Démarrage...', startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      Object.assign(bkpProgress, { state: 'running', percent: 0, step: 'init', detail: t('bkp_starting'), startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
       try {
         // Save config first
         await fetch(API + '/backup-config', {
