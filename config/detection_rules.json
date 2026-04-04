@@ -1,7 +1,6 @@
 {
   "auto_flag": true,
   "auto_reject": false,
-
   "rules": {
     "nocturnal_day": {
       "enabled": true,
@@ -20,7 +19,6 @@
         "Caprimulgus europaeus"
       ]
     },
-
     "diurnal_night": {
       "enabled": true,
       "description": "Espèces diurnes détectées en pleine nuit",
@@ -42,33 +40,120 @@
         "Apus apus"
       ]
     },
-
     "out_of_season": {
       "enabled": true,
       "description": "Espèces migratrices détectées hors saison",
       "species_months": {
-        "Apus apus":            [4, 5, 6, 7, 8, 9],
-        "Hirundo rustica":      [3, 4, 5, 6, 7, 8, 9, 10],
-        "Delichon urbicum":     [3, 4, 5, 6, 7, 8, 9, 10],
-        "Cuculus canorus":      [4, 5, 6, 7, 8],
-        "Sylvia atricapilla":   [3, 4, 5, 6, 7, 8, 9, 10],
-        "Sylvia borin":         [4, 5, 6, 7, 8, 9],
-        "Phylloscopus trochilus": [3, 4, 5, 6, 7, 8, 9],
-        "Ficedula hypoleuca":   [4, 5, 6, 7, 8, 9],
-        "Muscicapa striata":    [5, 6, 7, 8, 9],
-        "Luscinia megarhynchos": [4, 5, 6, 7, 8],
-        "Phoenicurus phoenicurus": [3, 4, 5, 6, 7, 8, 9, 10],
-        "Oriolus oriolus":      [4, 5, 6, 7, 8, 9]
+        "Apus apus": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "Hirundo rustica": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "Delichon urbicum": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "Cuculus canorus": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "Sylvia atricapilla": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "Sylvia borin": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "Phylloscopus trochilus": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "Ficedula hypoleuca": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "Muscicapa striata": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "Luscinia megarhynchos": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "Phoenicurus phoenicurus": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "Oriolus oriolus": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
       }
     },
-
     "isolated_low_confidence": {
       "enabled": true,
       "description": "Détection unique dans la journée avec confiance faible",
       "max_confidence": 0.75,
       "max_daily_count": 1
     },
-
     "non_european": {
       "enabled": true,
       "description": "Espèces non présentes en Europe occidentale",
