@@ -11,17 +11,38 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 
 ## Screenshots
 
-| Dashboard | Species Detail |
-|:-:|:-:|
-| ![Dashboard](screenshots/dashboard.png) | ![Species](screenshots/species.png) |
+### Live
+| Dashboard | Today | Spectrogram |
+|:-:|:-:|:-:|
+| ![Dashboard](screenshots/index.png) | ![Today](screenshots/today.png) | ![Spectrogram](screenshots/spectrogram.png) |
 
-| Recordings | Detections |
-|:-:|:-:|
-| ![Recordings](screenshots/recordings.png) | ![Detections](screenshots/detections.png) |
+### History
+| Calendar | Timeline | Detections | Review |
+|:-:|:-:|:-:|:-:|
+| ![Calendar](screenshots/calendar.png) | ![Timeline](screenshots/timeline.png) | ![Detections](screenshots/detections.png) | ![Review](screenshots/review.png) |
 
-| Spectrogram | Statistics |
-|:-:|:-:|
-| ![Spectrogram](screenshots/spectrogram.png) | ![Stats](screenshots/stats.png) |
+### Species
+| Species | Recordings | Gallery | Rarities |
+|:-:|:-:|:-:|:-:|
+| ![Species](screenshots/species.png) | ![Recordings](screenshots/recordings.png) | ![Gallery](screenshots/gallery-best.png) | ![Rarities](screenshots/rarities.png) |
+
+### Insights
+| Weather | Statistics | Analyses | Biodiversity |
+|:-:|:-:|:-:|:-:|
+| ![Weather](screenshots/weather.png) | ![Stats](screenshots/stats.png) | ![Analyses](screenshots/analyses.png) | ![Biodiversity](screenshots/biodiversity.png) |
+
+### Station
+| System Health | Model Monitor | System Data | External |
+|:-:|:-:|:-:|:-:|
+| ![System](screenshots/system.png) | ![Model](screenshots/system-model.png) | ![Data](screenshots/system-data.png) | ![External](screenshots/system-external.png) |
+
+| Detection | Audio | Notifications | Station |
+|:-:|:-:|:-:|:-:|
+| ![Detection](screenshots/settings-detection.png) | ![Audio](screenshots/settings-audio.png) | ![Notifications](screenshots/settings-notif.png) | ![Station](screenshots/settings-station.png) |
+
+| Services | Species | Backup | Terminal |
+|:-:|:-:|:-:|:-:|
+| ![Services](screenshots/settings-services.png) | ![Species](screenshots/settings-species.png) | ![Backup](screenshots/settings-backup.png) | ![Terminal](screenshots/settings-terminal.png) |
 
 ## Architecture
 
