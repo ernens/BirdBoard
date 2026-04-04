@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>BirdStation — Log</title>
+  <meta property="og:title" content="BirdStation — Log">
+  <meta property="og:description" content="Bird detection dashboard — live log">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/birds/img/robin-logo.svg">
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+  <style>
+    .log-kpis { display:flex; gap:.8rem; flex-wrap:wrap; margin-bottom:.75rem; }
+    .log-kpi { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:.5rem .8rem; text-align:center; min-width:80px; }
+    .log-kpi-val { font-size:1.3rem; font-weight:700; }
+    .log-kpi-label { font-size:.68rem; color:var(--text-muted); }
+    .log-filters { display:flex; gap:.3rem; flex-wrap:wrap; margin-bottom:.5rem; }
+    .log-filter { padding:.25rem .6rem; font-size:.72rem; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--text-muted); cursor:pointer; }
+    .log-filter.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .log-wrap { background:var(--bg-deep); border:1px solid var(--border); border-radius:var(--radius); height:calc(100vh - 320px); min-height:300px; overflow-y:auto; font-family:monospace; font-size:.78rem; line-height:1.6; }
+    .log-line { padding:.15rem .6rem; border-bottom:1px solid rgba(255,255,255,.03); display:flex; gap:.5rem; align-items:baseline; }
+    .log-line:hover { background:rgba(255,255,255,.03); }
+    .log-ts { color:var(--text-faint); min-width:60px; flex-shrink:0; }
+    .log-unit { min-width:70px; flex-shrink:0; font-weight:600; font-size:.7rem; }
+    .log-msg { flex:1; min-width:0; word-break:break-word; }
+    .log-cat-detection .log-msg { color:#34d399; }
+    .log-cat-birdweather .log-msg { color:#60a5fa; }
+    .log-cat-error .log-msg { color:#f43f5e; font-weight:600; }
+    .log-cat-api .log-msg { color:var(--text-faint); }
+    .log-cat-cleanup .log-msg { color:#a78bfa; }
+    .log-cat-recording .log-msg { color:#fbbf24; }
+    .log-cat-system .log-msg { color:var(--text-muted); }
+    .log-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .log-cat-detection .log-dot { background:#34d399; }
+    .log-cat-birdweather .log-dot { background:#60a5fa; }
+    .log-cat-error .log-dot { background:#f43f5e; }
+    .log-cat-api .log-dot { background:var(--text-faint); }
+    .log-cat-cleanup .log-dot { background:#a78bfa; }
+    .log-cat-recording .log-dot { background:#fbbf24; }
+    .log-cat-system .log-dot { background:var(--text-muted); }
+    .log-status { display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; }
+    .log-status-dot { width:8px; height:8px; border-radius:50%; background:#34d399; animation: pulse-dot 2s ease infinite; }
+    @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+    .log-status-dot.paused { background:#dd6b20; animation:none; }
+    .log-status-dot.disconnected { background:#e53e3e; animation:none; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="log" :title="t('nav_log')">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+      <div style="display:flex;align-items:center;gap:.8rem;">
+        <h2 style="margin:0;font-size:1.1rem;">📋 {{t('nav_log')}}</h2>
+        <span class="log-status">
+          <span class="log-status-dot" :class="{paused: paused, disconnected: !connected}"></span>
+          {{connected ? (paused ? t('log_paused') : t('log_live')) : t('log_disconnected')}}
+        </span>
+      </div>
+      <div style="display:flex;gap:.4rem;">
+        <button class="rv-btn-outline" @click="paused = !paused">{{paused ? '▶' : '⏸'}} {{paused ? t('log_resume') : t('log_pause')}}</button>
+        <button class="rv-btn-outline" @click="logs = []; counts = {detection:0,birdweather:0,error:0,api:0}">🗑 {{t('log_clear')}}</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="log-kpis">
+      <div class="log-kpi">
+        <div class="log-kpi-val" style="color:#34d399;">{{counts.detection}}</div>
+        <div class="log-kpi-label">{{t('detections')}}</div>
+      </div>
+      <div class="log-kpi">
+        <div class="log-kpi-val" style="color:#60a5fa;">{{counts.birdweather}}</div>
+        <div class="log-kpi-label">BirdWeather</div>
+      </div>
+      <div class="log-kpi">
+        <div class="log-kpi-val" style="color:#f43f5e;">{{counts.error}}</div>
+        <div class="log-kpi-label">{{t('log_errors')}}</div>
+      </div>
+      <div class="log-kpi">
+        <div class="log-kpi-val">{{logs.length}}</div>
+        <div class="log-kpi-label">{{t('log_lines')}}</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="log-filters">
+      <button v-for="f in filterOptions" :key="f.key" class="log-filter" :class="{active: activeFilter === f.key}" @click="activeFilter = activeFilter === f.key ? 'all' : f.key">
+        {{f.label}}
+      </button>
+    </div>
+
+    <!-- Log output -->
+    <div class="log-wrap" ref="logWrap" @scroll="onScroll">
+      <div v-for="(l, i) in filteredLogs" :key="i" class="log-line" :class="'log-cat-'+l.cat">
+        <span class="log-dot"></span>
+        <span class="log-ts">{{l.ts}}</span>
+        <span class="log-unit">{{l.unit}}</span>
+        <span class="log-msg">{{l.msg}}</span>
+      </div>
+      <div v-if="!filteredLogs.length" style="padding:2rem;text-align:center;color:var(--text-faint);">
+        {{connected ? t('log_waiting') : t('log_disconnected')}}
+      </div>
+    </div>
+
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { useI18n, useTheme, useNav, registerComponents } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { t } = useI18n();
+    useTheme(); useNav();
+
+    const logs = ref([]);
+    const paused = ref(false);
+    const connected = ref(false);
+    const activeFilter = ref('all');
+    const logWrap = ref(null);
+    const counts = ref({ detection: 0, birdweather: 0, error: 0, api: 0 });
+    let autoScroll = true;
+    let evtSource = null;
+    const MAX_LINES = 500;
+
+    const filterOptions = computed(() => [
+      { key: 'all', label: t('log_all') },
+      { key: 'detection', label: '🟢 ' + t('detections') },
+      { key: 'birdweather', label: '🔵 BirdWeather' },
+      { key: 'error', label: '🔴 ' + t('log_errors') },
+      { key: 'api', label: '⚙️ API' },
+      { key: 'recording', label: '🎙️ Recording' },
+      { key: 'cleanup', label: '🗑️ Cleanup' },
+    ]);
+
+    const filteredLogs = computed(() => {
+      if (activeFilter.value === 'all') return logs.value;
+      return logs.value.filter(l => l.cat === activeFilter.value);
+    });
+
+    function connect() {
+      if (evtSource) evtSource.close();
+      evtSource = new EventSource(BIRD_CONFIG.apiUrl + '/logs');
+      evtSource.onopen = () => { connected.value = true; };
+      evtSource.onmessage = (e) => {
+        if (paused.value) return;
+        try {
+          const data = JSON.parse(e.data);
+          logs.value.push(data);
+          if (logs.value.length > MAX_LINES) logs.value.splice(0, logs.value.length - MAX_LINES);
+          if (data.cat && counts.value[data.cat] !== undefined) counts.value[data.cat]++;
+          if (autoScroll) nextTick(() => {
+            if (logWrap.value) logWrap.value.scrollTop = logWrap.value.scrollHeight;
+          });
+        } catch(err) {}
+      };
+      evtSource.onerror = () => { connected.value = false; setTimeout(connect, 5000); };
+    }
+
+    function onScroll() {
+      if (!logWrap.value) return;
+      const el = logWrap.value;
+      autoScroll = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+    }
+
+    onMounted(connect);
+    onUnmounted(() => { if (evtSource) evtSource.close(); });
+
+    return {
+      t, logs, paused, connected, activeFilter, logWrap, counts,
+      filterOptions, filteredLogs, onScroll,
+    };
+  }
+});
+registerComponents(app).mount('#app');
+</script>
+</body>
+</html>

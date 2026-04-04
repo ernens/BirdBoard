@@ -2109,6 +2109,54 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Route : GET /api/logs (SSE live stream) ────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/logs') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.write(':\n\n'); // SSE comment to establish connection
+
+    const { spawn } = require('child_process');
+    const journal = spawn('journalctl', [
+      '-u', 'birdengine', '-u', 'birdash', '-u', 'birdengine-recording',
+      '-f', '--no-pager', '-o', 'json', '--since', 'now',
+    ]);
+
+    journal.stdout.on('data', (chunk) => {
+      const lines = chunk.toString().split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        try {
+          const j = JSON.parse(line);
+          const msg = j.MESSAGE || '';
+          if (!msg) continue;
+          const unit = (j._SYSTEMD_UNIT || '').replace('.service', '');
+          const ts = j.__REALTIME_TIMESTAMP
+            ? new Date(parseInt(j.__REALTIME_TIMESTAMP) / 1000).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            : '';
+          // Categorize
+          let cat = 'system';
+          if (/BirdWeather|uploaded/i.test(msg)) cat = 'birdweather';
+          else if (/detection|detect|inference|\d+\.\d+s$/i.test(msg)) cat = 'detection';
+          else if (/error|fail|exception|traceback/i.test(msg)) cat = 'error';
+          else if (/GET |POST |DELETE /i.test(msg)) cat = 'api';
+          else if (/purge|cleanup|removed/i.test(msg)) cat = 'cleanup';
+          else if (/recording|arecord|wav/i.test(msg)) cat = 'recording';
+
+          const data = JSON.stringify({ ts, unit, cat, msg });
+          res.write(`data: ${data}\n\n`);
+        } catch(e) {}
+      }
+    });
+
+    journal.stderr.on('data', () => {});
+    journal.on('close', () => { try { res.end(); } catch(e) {} });
+    req.on('close', () => { try { journal.kill(); } catch(e) {} });
+    return;
+  }
+
   // ── Route : GET /api/services ───────────────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/services') {
     (async () => {

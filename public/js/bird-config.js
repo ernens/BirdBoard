@@ -74,6 +74,7 @@ const BIRD_CONFIG = {
     { section: 'nav_sec_system', icon: '⚙️', items: [
       { id: 'settings',     icon: '⚙️', file: 'settings.html'    },
       { id: 'system',       icon: '🖥️', file: 'system.html'      },
+      { id: 'log',          icon: '📋', file: 'log.html'          },
     ]},
   ],
   // Flat pages array (built from nav sections)
