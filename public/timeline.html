@@ -45,7 +45,6 @@
         <input type="range" v-model.number="confSlider" min="0" max="100" step="5" @change="onSliderChange"
                style="width:120px;accent-color:var(--accent);">
         <span style="font-size:.72rem;min-width:60px;color:var(--text-main);">{{sliderLabel}}</span>
-        <button v-if="confSlider !== 50" class="tp-nav-btn" @click="confSlider = 50; onSliderChange()" style="font-size:.65rem;" title="Défaut">↺</button>
       </div>
     </div>
 
