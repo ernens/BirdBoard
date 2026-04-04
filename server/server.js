@@ -467,6 +467,14 @@ dbWrite.exec(`CREATE TABLE IF NOT EXISTS notes (
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_notes_species ON notes(com_name)');
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(com_name, date)');
 
+dbWrite.exec(`CREATE TABLE IF NOT EXISTS photo_preferences (
+  sci_name TEXT NOT NULL,
+  preferred_idx INTEGER DEFAULT 0,
+  banned_urls TEXT DEFAULT '[]',
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (sci_name)
+)`);
+
 console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
 // ── Birdash validation database ──────────────────────────────────────────────
@@ -3680,6 +3688,66 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: e.message }));
         }
       })();
+    });
+    return;
+  }
+
+  // ── Route : GET /api/photo-pref?sci=X ──────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/photo-pref') {
+    const sci = new URL(req.url, 'http://localhost').searchParams.get('sci');
+    if (!sci) { res.writeHead(400, JSON_CT); res.end('{"error":"sci required"}'); return; }
+    try {
+      const row = db.prepare('SELECT preferred_idx, banned_urls FROM photo_preferences WHERE sci_name=?').get(sci);
+      res.writeHead(200, JSON_CT);
+      res.end(JSON.stringify(row || { preferred_idx: 0, banned_urls: '[]' }));
+    } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
+    return;
+  }
+
+  // ── Route : POST /api/photo-pref ─────────────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/photo-pref') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { sci_name, action, photo_url, preferred_idx } = JSON.parse(body);
+        if (!sci_name) { res.writeHead(400, JSON_CT); res.end('{"error":"sci_name required"}'); return; }
+
+        // Get current prefs
+        let row = db.prepare('SELECT preferred_idx, banned_urls FROM photo_preferences WHERE sci_name=?').get(sci_name);
+        let banned = [];
+        let prefIdx = 0;
+        if (row) {
+          try { banned = JSON.parse(row.banned_urls); } catch {}
+          prefIdx = row.preferred_idx || 0;
+        }
+
+        if (action === 'ban' && photo_url) {
+          if (!banned.includes(photo_url)) banned.push(photo_url);
+        } else if (action === 'unban' && photo_url) {
+          banned = banned.filter(u => u !== photo_url);
+        } else if (action === 'set_preferred' && typeof preferred_idx === 'number') {
+          prefIdx = preferred_idx;
+        } else if (action === 'reset') {
+          banned = [];
+          prefIdx = 0;
+        }
+
+        dbWrite.prepare(`INSERT OR REPLACE INTO photo_preferences (sci_name, preferred_idx, banned_urls, updated_at)
+          VALUES (?, ?, ?, datetime('now'))`).run(sci_name, prefIdx, JSON.stringify(banned));
+
+        // If banning, also delete the cached photo to force re-resolve
+        if (action === 'ban') {
+          const key = photoCacheKey(sci_name);
+          const jpgPath = path.join(PHOTO_CACHE_DIR, key + '.jpg');
+          const metaPath = path.join(PHOTO_CACHE_DIR, key + '.json');
+          try { fs.unlinkSync(jpgPath); } catch {}
+          try { fs.unlinkSync(metaPath); } catch {}
+        }
+
+        res.writeHead(200, JSON_CT);
+        res.end(JSON.stringify({ ok: true, preferred_idx: prefIdx, banned_urls: JSON.stringify(banned) }));
+      } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
     });
     return;
   }

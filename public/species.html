@@ -61,6 +61,10 @@
               {{photoIdx+1}} / {{photos.length}}
             </div>
             <!-- Attribution -->
+            <div v-if="photos.length" style="display:flex;gap:.3rem;justify-content:center;margin:.3rem 0 .2rem;">
+              <button @click.stop="setPreferredPhoto" :title="t('photo_set_preferred')" style="background:var(--card-bg);border:1px solid var(--border);cursor:pointer;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;color:var(--accent);">⭐ {{t('photo_set_preferred')}}</button>
+              <button @click.stop="banCurrentPhoto" :title="t('photo_ban')" style="background:var(--card-bg);border:1px solid var(--border);cursor:pointer;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;color:var(--danger);" v-if="photos.length>1">🚫 {{t('photo_ban')}}</button>
+            </div>
             <div v-if="photos[photoIdx]?.attr" class="sp-photo-attr">
               {{photos[photoIdx].attr}}
             </div>
@@ -1133,13 +1137,41 @@ const app = createApp({
       }
     }
 
+    async function banCurrentPhoto() {
+      if (!photos.value.length || !sp.value.sci) return;
+      const url = photos.value[photoIdx.value]?.url;
+      if (!url) return;
+      try {
+        await fetch(BIRD_CONFIG.apiUrl + '/photo-pref', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sci_name: sp.value.sci, action: 'ban', photo_url: url })
+        });
+        // Remove from local list
+        photos.value = photos.value.filter((_, i) => i !== photoIdx.value);
+        if (photoIdx.value >= photos.value.length) photoIdx.value = Math.max(0, photos.value.length - 1);
+      } catch(e) { console.warn('[photo-ban]', e); }
+    }
+
+    async function setPreferredPhoto() {
+      if (!sp.value.sci) return;
+      try {
+        await fetch(BIRD_CONFIG.apiUrl + '/photo-pref', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sci_name: sp.value.sci, action: 'set_preferred', preferred_idx: photoIdx.value })
+        });
+      } catch(e) { console.warn('[photo-pref]', e); }
+    }
+
+
     return {
       lang, t, spName,
       mode, speciesList, pickerVal, onPickerChange,
       hasPrevSpecies, hasNextSpecies, prevSpecies, nextSpecies,
       sp, feed, extLinks, speciesInfo, personalNote, savePersonalNote, shareSpecies,
       speciesNotes, detNoteMap, editingDetNote, detNoteText, toggleDetNote, saveDetNote, deleteDetNote,
-      isFav, onToggleFav, phenoData, phenoColor,
+      isFav, onToggleFav, banCurrentPhoto, setPreferredPhoto, phenoData, phenoColor,
       photos, photoIdx, photosLoading, wikiSummary, wikiSummaryAlt, conservation, conservationClass,
       prevPhoto, nextPhoto, photoErr,
       playingFile, toggleAudio,
