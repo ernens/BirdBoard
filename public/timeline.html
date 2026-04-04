@@ -90,6 +90,7 @@
 
     <!-- Filters with badge counts -->
     <div class="tl-filters" v-if="data">
+      <span style="font-size:.75rem;color:var(--text-muted);align-self:center;">{{filteredEvents.length}} {{t('tl_detections')}}</span>
       <button v-for="tp in eventTypes" :key="tp" v-show="typeCounts[tp]"
               class="tl-filter-btn" :class="{active: activeFilters.includes(tp)}"
               @click="toggleFilter(tp)" style="position:relative;">
@@ -343,8 +344,19 @@ const app = createApp({
     const typeCounts = computed(() => {
       if (!data.value) return {};
       const counts = {};
+      const vs = viewStart.value, ve = viewEnd.value;
       for (const e of data.value.events) {
-        if (e.isAstro || e.type === 'cluster') continue;
+        if (e.isAstro) continue;
+        // Expand clusters into individual species
+        if (e.type === 'cluster' && e.species) {
+          for (const sp of e.species) {
+            if (sp.timeDecimal != null && (sp.timeDecimal < vs || sp.timeDecimal > ve)) continue;
+            const t = sp.type || 'top_species';
+            counts[t] = (counts[t] || 0) + 1;
+          }
+          continue;
+        }
+        if (e.timeDecimal != null && (e.timeDecimal < vs || e.timeDecimal > ve)) continue;
         counts[e.type] = (counts[e.type] || 0) + 1;
       }
       return counts;
@@ -370,13 +382,23 @@ const app = createApp({
 
     const filteredEvents = computed(() => {
       if (!data.value) return [];
-      let evts = data.value.events.filter(e => !e.isAstro && e.type !== 'cluster');
+      // Flatten: include cluster species as standalone events
+      const all = [];
+      for (const e of data.value.events) {
+        if (e.isAstro) continue;
+        if (e.type === 'cluster' && e.species) {
+          for (const sp of e.species) all.push({ ...sp, timeDecimal: sp.timeDecimal ?? e.timeDecimal });
+        } else {
+          all.push(e);
+        }
+      }
+      let evts = all;
       if (activeFilters.value.length > 0) {
         evts = evts.filter(e => activeFilters.value.includes(e.type));
       }
-      // Filter to zoom range
-      if (viewStart.value > 0 || viewEnd.value < 24) {
-        evts = evts.filter(e => e.timeDecimal >= viewStart.value && e.timeDecimal <= viewEnd.value);
+      const vs = viewStart.value, ve = viewEnd.value;
+      if (vs > 0 || ve < 24) {
+        evts = evts.filter(e => e.timeDecimal >= vs && e.timeDecimal <= ve);
       }
       return evts.sort((a, b) => a.timeDecimal - b.timeDecimal);
     });
