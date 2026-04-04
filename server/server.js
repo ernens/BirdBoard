@@ -145,6 +145,7 @@ function execCmd(cmd, args) {
 // Validation whitelist for settings
 const SETTINGS_VALIDATORS = {
   SITE_NAME:       v => typeof v === 'string' && v.length <= 100,
+  SITE_BRAND:      v => typeof v === 'string' && v.length <= 50,
   LATITUDE:        v => !isNaN(v) && v >= -90 && v <= 90,
   LONGITUDE:       v => !isNaN(v) && v >= -180 && v <= 180,
   MODEL:           v => typeof v === 'string' && /^[a-zA-Z0-9_.\-]+$/.test(v),

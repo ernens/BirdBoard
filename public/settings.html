@@ -415,6 +415,10 @@
         <div class="card">
           <div class="section-title">📍 {{t('set_location')}}</div>
           <div class="set-row">
+            <span class="set-label">{{t('set_site_brand')}} <button class="info-btn" @click="helpKey='site_brand'">i</button></span>
+            <input v-model="conf.SITE_BRAND" class="set-input" placeholder="BirdStation">
+          </div>
+          <div class="set-row">
             <span class="set-label">{{t('set_site_name')}} <button class="info-btn" @click="helpKey='site_name'">i</button></span>
             <input v-model="conf.SITE_NAME" class="set-input">
           </div>
@@ -2205,6 +2209,7 @@ const app = createApp({
             Quand une voix est détectée, tout le segment audio est ignoré (pas d'extraction, pas d'enregistrement en base).`,
           rec: 'Recommandé : <strong>0</strong> en zone rurale, <strong>1</strong> en zone urbaine/résidentielle.'
         },
+        site_brand: { title:'Brand name', body:'Main name displayed in the header above the site name. Default: BirdStation.', rec:'Your project or station brand.' },
         site_name: {
           title: 'Nom du site',
           body: 'Nom affiché dans le header de l\'interface et sur BirdWeather.',

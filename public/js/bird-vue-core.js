@@ -61,7 +61,7 @@
       nav_system:'Monitoring', nav_analyses:'Analyses', nav_models:'Modèles', nav_terminal:'Terminal', nav_spectrogram:'Live', nav_recordings:'Enregistrements', nav_gallery:'Meilleures captures', nav_settings:'Configuration', nav_timeline:'Calendrier', nav_calendar:'Calendrier',
       gallery_title:'Meilleures captures', gallery_tab_best:'Meilleures', gallery_tab_library:'Bibliothèque audio', gallery_delete:'Supprimer', gallery_delete_confirm:'Supprimer cette détection et ses fichiers ?', top_detections_per_species:'meilleures détections',
       // Settings page
-      set_location:'Localisation', set_site_name:'Nom du site', set_latitude:'Latitude', set_longitude:'Longitude',
+      set_location:'Localisation', set_site_name:'Nom du site', set_site_brand:'Nom principal (header)', set_latitude:'Latitude', set_longitude:'Longitude',
       set_model:'Modèle de détection', set_model_choice:'Modèle IA', set_species_freq_thresh:'Seuil fréquence espèces',
       set_analysis:'Analyse', set_params:'Paramètres', set_shared_params:'Paramètres communs', set_confidence:'Confiance', set_birdnet_conf:'Confiance BirdNET', set_perch_conf:'Confiance Perch', set_perch_margin:'Marge Perch (top1-top2)', set_sensitivity:'Sensibilité',
       set_language:'Langue des espèces', set_notifications:'Notifications',
@@ -432,7 +432,7 @@
       nav_biodiversity:'Biodiversity', nav_rarities:'Rarities', nav_stats:'Statistics',
       nav_system:'Monitoring', nav_analyses:'Analysis', nav_models:'Models', nav_terminal:'Terminal', nav_spectrogram:'Live', nav_recordings:'Recordings', nav_gallery:'Best catches', nav_settings:'Configuration', nav_timeline:'Calendar', nav_calendar:'Calendar',
       gallery_title:'Best catches', gallery_tab_best:'Best', gallery_tab_library:'Audio library', gallery_delete:'Delete', gallery_delete_confirm:'Delete this detection and its files?', top_detections_per_species:'top detections',
-      set_location:'Location', set_site_name:'Site name', set_latitude:'Latitude', set_longitude:'Longitude',
+      set_location:'Location', set_site_name:'Site name', set_site_brand:'Brand name (header)', set_latitude:'Latitude', set_longitude:'Longitude',
       set_model:'Detection model', set_model_choice:'AI Model', set_species_freq_thresh:'Species frequency threshold',
       set_analysis:'Analysis', set_params:'Parameters', set_shared_params:'Shared parameters', set_confidence:'Confidence', set_birdnet_conf:'BirdNET confidence', set_perch_conf:'Perch confidence', set_perch_margin:'Perch margin (top1-top2)', set_sensitivity:'Sensitivity',
       set_language:'Species language', set_notifications:'Notifications',
@@ -786,7 +786,7 @@
       nav_biodiversity:'Biodiversität', nav_rarities:'Seltenheiten',
       nav_stats:'Statistiken', nav_system:'Monitoring', nav_analyses:'Analysen', nav_models:'Modelle', nav_terminal:'Terminal', nav_spectrogram:'Live', nav_recordings:'Aufnahmen', nav_gallery:'Beste Aufnahmen', nav_settings:'Konfiguration', nav_timeline:'Kalender', nav_calendar:'Kalender',
       gallery_title:'Beste Aufnahmen', gallery_tab_best:'Beste', gallery_tab_library:'Audiobibliothek', gallery_delete:'Löschen', gallery_delete_confirm:'Diese Erkennung und ihre Dateien löschen?', top_detections_per_species:'beste Erkennungen',
-      set_location:'Standort', set_site_name:'Standortname', set_latitude:'Breitengrad', set_longitude:'Längengrad',
+      set_location:'Standort', set_site_name:'Standortname', set_site_brand:'Markenname (Header)', set_latitude:'Breitengrad', set_longitude:'Längengrad',
       set_model:'Erkennungsmodell', set_model_choice:'KI-Modell', set_species_freq_thresh:'Artenhäufigkeitsschwelle',
       set_analysis:'Analyse', set_params:'Parameter', set_shared_params:'Gemeinsame Parameter', set_confidence:'Konfidenz', set_birdnet_conf:'BirdNET-Konfidenz', set_perch_conf:'Perch-Konfidenz', set_perch_margin:'Perch-Marge (Top1-Top2)', set_sensitivity:'Empfindlichkeit',
       set_language:'Artensprache', set_notifications:'Benachrichtigungen',
@@ -1140,7 +1140,7 @@
       nav_biodiversity:'Biodiversiteit', nav_rarities:'Zeldzaamheden',
       nav_stats:'Statistieken', nav_system:'Monitoring', nav_analyses:'Analyse', nav_models:'Modellen', nav_terminal:'Terminal', nav_spectrogram:'Live', nav_recordings:'Opnames', nav_gallery:'Beste opnames', nav_settings:'Configuratie', nav_timeline:'Kalender', nav_calendar:'Kalender',
       gallery_title:'Beste opnames', gallery_tab_best:'Beste', gallery_tab_library:'Audiobibliotheek', gallery_delete:'Verwijderen', gallery_delete_confirm:'Deze detectie en bijbehorende bestanden verwijderen?', top_detections_per_species:'beste detecties',
-      set_location:'Locatie', set_site_name:'Sitenaam', set_latitude:'Breedtegraad', set_longitude:'Lengtegraad',
+      set_location:'Locatie', set_site_name:'Sitenaam', set_site_brand:'Merknaam (header)', set_latitude:'Breedtegraad', set_longitude:'Lengtegraad',
       set_model:'Detectiemodel', set_model_choice:'AI-model', set_species_freq_thresh:'Soortfrequentiedrempel',
       set_analysis:'Analyse', set_params:'Parameters', set_shared_params:'Gedeelde parameters', set_confidence:'Betrouwbaarheid', set_birdnet_conf:'BirdNET-betrouwbaarheid', set_perch_conf:'Perch-betrouwbaarheid', set_perch_margin:'Perch-marge (top1-top2)', set_sensitivity:'Gevoeligheid',
       set_language:'Soorttaal', set_notifications:'Meldingen',
@@ -1596,18 +1596,19 @@
     // Flat list for backwards compat
     const navItems = computed(() => navSections.value.flatMap(s => s.items));
     const siteName = ref(BIRD_CONFIG.siteName || (BIRD_CONFIG.location && BIRD_CONFIG.location.name) || 'BirdStation');
+    const brandName = ref(BIRD_CONFIG.brandName || 'BirdStation');
 
-    // Load SITE_NAME from settings API (overrides config if set)
+    // Load SITE_NAME + SITE_BRAND from settings API
     fetch(BIRD_CONFIG.apiUrl + '/settings').then(r => r.ok ? r.json() : {}).then(conf => {
       if (conf.SITE_NAME) {
         siteName.value = conf.SITE_NAME;
-        // Update page title
         const pageTitle = document.title.replace(/^[^—]+—/, siteName.value + ' —');
         if (pageTitle !== document.title) document.title = pageTitle;
       }
+      if (conf.SITE_BRAND) brandName.value = conf.SITE_BRAND;
     }).catch(() => {});
 
-    return { navItems, navSections, siteName };
+    return { navItems, navSections, siteName, brandName };
   }
 
   // ── useChart ──────────────────────────────────────────────────────────────
@@ -1990,7 +1991,7 @@
     setup(props) {
       const { lang, t, setLang, langs } = useI18n();
       const { theme, themes, setTheme } = useTheme();
-      const { navItems, navSections, siteName } = useNav(props.page);
+      const { navItems, navSections, siteName, brandName } = useNav(props.page);
       const { toasts } = useToast();
       // Open the section containing the current page by default
       const openSection = ref(
@@ -2190,7 +2191,7 @@
       fetch(`${BIRD_CONFIG.apiUrl}/flagged-detections?dateFrom=${U.daysAgo(7)}&dateTo=${U.localDateStr()}&limit=2000`)
         .then(r => r.json()).then(d => { reviewCount.value = d.total || 0; }).catch(() => {});
 
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts, brandName };
     },
     directives: {
       'click-outside': {
@@ -2206,9 +2207,9 @@
   <a href="#birdash-main" class="skip-link">Aller au contenu</a>
   <header class="app-header" role="banner">
     <div class="header-brand">
-      <img src="img/robin-logo.svg" class="brand-logo" alt="BIRDASH Robin">
+      <img src="img/robin-logo.svg" class="brand-logo" :alt="brandName">
       <div class="brand-text">
-        <span class="brand-name">BIRDASH</span>
+        <span class="brand-name">{{brandName}}</span>
         <span class="brand-sub">{{siteName}}</span>
       </div>
     </div>
