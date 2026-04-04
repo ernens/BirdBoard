@@ -714,11 +714,15 @@ const app = createApp({
       });
     }
 
+    let _lastDate = null;
     async function load() {
       loading.value = true;
-      // Reset zoom on new day
-      viewStart.value = 0; viewEnd.value = 24;
-      _viewStart = 0; _viewEnd = 24;
+      // Reset zoom only on date change
+      if (_lastDate !== selectedDate.value) {
+        viewStart.value = 0; viewEnd.value = 24;
+        _viewStart = 0; _viewEnd = 24;
+        _lastDate = selectedDate.value;
+      }
       try {
         const mc = sliderToConf(confSlider.value);
         const ml = sliderToMax(confSlider.value);
