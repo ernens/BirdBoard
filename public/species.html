@@ -137,28 +137,31 @@
             </div>
           </div>
 
-          <!-- External links -->
-          <div class="ext-links" style="margin-top:.75rem;">
-            <a v-for="l in extLinks" :key="l.label" class="ext-link" :href="l.url" target="_blank" rel="noopener noreferrer">
+          <!-- Description (from Wikipedia) -->
+          <div v-if="wikiSummary" style="margin-top:.75rem;line-height:1.65;color:var(--text-main);font-size:.88rem;max-height:8rem;overflow-y:auto;">
+            {{wikiSummary}}
+          </div>
+
+          <!-- External links (compact) -->
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;align-items:center;">
+            <a v-for="l in extLinks" :key="l.label" class="ext-link" :href="l.url" target="_blank" rel="noopener noreferrer"
+               :title="l.label" style="font-size:.75rem;padding:.2rem .5rem;">
               {{l.icon}} {{l.label}}
             </a>
-            <button class="ext-link" @click="shareSpecies" style="border:none;cursor:pointer;background:var(--card-bg);">
+            <button class="ext-link" @click="shareSpecies" style="border:none;cursor:pointer;background:var(--card-bg);font-size:.75rem;padding:.2rem .5rem;">
               🔗 {{t('share')}}
             </button>
-            <a class="ext-link" :href="'analyses.html?species='+encodeURIComponent(sp.name)" style="font-weight:600;color:var(--accent);">
+            <a class="ext-link" :href="'analyses.html?species='+encodeURIComponent(sp.name)" style="font-weight:600;color:var(--accent);font-size:.75rem;padding:.2rem .5rem;">
               🔬 {{t('analyze_deep')}}
             </a>
           </div>
         </div>
       </div>
 
-      <!-- ── Wikipedia description ──────────────────────────────── -->
-      <div v-if="wikiSummary" class="card">
-        <div class="card-title">📖 {{t('description')}}</div>
-        <p style="line-height:1.7;color:var(--text-main);margin:0;">{{wikiSummary}}</p>
-        <p v-if="wikiSummaryAlt" style="line-height:1.7;color:var(--text-muted);margin:.75rem 0 0 0;font-size:.9rem;">
-          {{wikiSummaryAlt}}
-        </p>
+      <!-- Wikipedia alt description (if multi-language) -->
+      <div v-if="wikiSummaryAlt" class="card">
+        <div class="card-title">📖 {{t('description_en')}}</div>
+        <p style="line-height:1.7;color:var(--text-main);margin:0;">{{wikiSummaryAlt}}</p>
       </div>
 
       <!-- ── Personal notes ─────────────────────────────────────── -->
