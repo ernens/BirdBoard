@@ -8,7 +8,7 @@ Modern vogeldetectie-dashboard en engine voor Raspberry Pi 5. Zelfstandige dual-
 
 ## Kenmerken
 
-- 🤖 **Dual-model inferentie** — BirdNET V2.4 + Perch V2 INT8 parallel
+- 🤖 **Dual-model inferentie** — BirdNET V2.4 + Perch V2 parallel
 - 🌅 **Timeline** — volledig scherm met drag-to-zoom, uniforme dichtheidsslider, SVG-iconen, filter-badges met knippermarkering
 - 📆 **Kalender** — uniforme dagweergave met timeline + soortenlijst + audiospeler
 - 🌦️ **Weer** — correlatieanalyse (Pearson r), prognose, soorten per omstandigheden
@@ -22,7 +22,9 @@ Modern vogeldetectie-dashboard en engine voor Raspberry Pi 5. Zelfstandige dual-
 - 💾 **Backup** — NFS/SMB/SFTP/S3/GDrive/WebDAV
 - 🌍 4 UI-talen (FR/EN/NL/DE) + 36 talen voor soortnamen
 
-## Gekwantiseerd model
+## Geoptimaliseerde Perch V2 Modellen
+
+3 geoptimaliseerde varianten van Google Perch V2 (FP32, FP16, INT8) voor Raspberry Pi:
 
 **[ernensbjorn/perch-v2-int8-tflite](https://huggingface.co/ernensbjorn/perch-v2-int8-tflite)** op HuggingFace
 
@@ -51,7 +53,7 @@ Dashboard: `http://jouw-pi.local/birds/`
 ## Tests
 
 ```bash
-npm test                    # 46 Node.js tests
+npm test                    # 46 Node.js-tests
 cd engine && ../engine/venv/bin/python -m unittest test_engine -v  # 13 Python tests
 ```
 

@@ -17,7 +17,7 @@ Raspberry Pi 5 + SSD
 ├── BirdEngine (Python)
 │   ├── Enregistrement (arecord → WAV 45s)
 │   ├── BirdNET V2.4    (~2s/fichier, primaire)
-│   ├── Perch V2 INT8   (~12s/fichier, secondaire)
+│   ├── Perch V2 FP16   (~2s/fichier, secondaire)
 │   ├── Extraction MP3 + spectrogrammes
 │   ├── Upload BirdWeather
 │   └── Notifications intelligentes (ntfy.sh)
@@ -37,7 +37,7 @@ Raspberry Pi 5 + SSD
 ## Fonctionnalites
 
 ### Moteur de detection (BirdEngine)
-- 🤖 **Inference dual-modele** — BirdNET V2.4 (rapide, ~2s) + Perch V2 INT8 (precis, ~12s) en parallele
+- 🤖 **Inference dual-modele** — BirdNET V2.4 (rapide, ~2s) + Perch V2 (precis, ~2s) en parallele
 - 🎙️ **Enregistrement local** — interface USB via ALSA avec gain configurable
 - 🎚️ **Normalisation adaptative** — gain logiciel automatique selon le bruit ambiant, protection clipping, gel activite, mode observateur
 - 🔇 **Filtres audio** — passe-haut + passe-bas (bandpass), reduction de bruit spectrale (gating stationnaire), normalisation RMS
@@ -87,13 +87,19 @@ Raspberry Pi 5 + SSD
 - 🎨 5 themes (Foret, Nuit, Papier, Ocean, Crepuscule)
 - 🌍 4 langues UI (FR/EN/NL/DE) + 36 langues pour les noms d'especes
 
-## Modele quantifie
+## Modeles Perch V2 optimises
 
-Nous publions le premier modele **Perch V2 INT8** quantifie pour le deploiement edge :
+Nous publions **3 variantes optimisees de Perch V2** converties depuis le SavedModel officiel Google :
 
 **[ernensbjorn/perch-v2-int8-tflite](https://huggingface.co/ernensbjorn/perch-v2-int8-tflite)** sur HuggingFace
 
-~30% plus rapide sur Raspberry Pi 5 avec couverture identique (14 795 classes).
+| Modele | Taille | Vitesse (Pi 5) | Qualite | Ideal pour |
+|--------|--------|----------------|---------|------------|
+| `perch_v2_original.tflite` | 409 MB | 435 ms | reference | Reference |
+| `perch_v2_fp16.tflite` | 205 MB | 384 ms | top-1 100% | **Pi 5** |
+| `perch_v2_dynint8.tflite` | 105 MB | 299 ms | top-1 93% | **Pi 4** |
+
+Benchmark sur 20 enregistrements reels de 20 especes, 4 threads.
 
 ## Materiel
 

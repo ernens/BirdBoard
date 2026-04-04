@@ -8,7 +8,7 @@ Modernes Vogelerkennungs-Dashboard und Engine fur Raspberry Pi 5. Eigenstandige 
 
 ## Funktionen
 
-- 🤖 **Dual-Modell-Inferenz** — BirdNET V2.4 + Perch V2 INT8 parallel
+- 🤖 **Dual-Modell-Inferenz** — BirdNET V2.4 + Perch V2 parallel
 - 🌅 **Timeline** — Ganzseitige Timeline mit Drag-to-Zoom, einheitlicher Dichte-Slider, SVG-Icons, Filter-Badges mit Blink
 - 📆 **Kalender** — Vereinigte Tagesansicht mit Timeline + Artenliste + Audioplayer
 - 🌦️ **Wetter** — Korrelationsanalyse (Pearson r), Prognose, Arten nach Bedingungen
@@ -22,7 +22,9 @@ Modernes Vogelerkennungs-Dashboard und Engine fur Raspberry Pi 5. Eigenstandige 
 - 💾 **Backup** — NFS/SMB/SFTP/S3/GDrive/WebDAV
 - 🌍 4 UI-Sprachen (FR/EN/NL/DE) + 36 Sprachen fur Artnamen
 
-## Quantisiertes Modell
+## Optimierte Perch V2 Modelle
+
+3 optimierte Varianten von Google Perch V2 (FP32, FP16, INT8) fur Raspberry Pi:
 
 **[ernensbjorn/perch-v2-int8-tflite](https://huggingface.co/ernensbjorn/perch-v2-int8-tflite)** auf HuggingFace
 

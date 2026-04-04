@@ -32,7 +32,7 @@ Raspberry Pi 5 + SSD
 ├── BirdEngine (Python)
 │   ├── Recording service (arecord → WAV 45s)
 │   ├── BirdNET V2.4    (~2s/file, primary)
-│   ├── Perch V2 INT8   (~12s/file, secondary)
+│   ├── Perch V2 FP16   (~2s/file, secondary)
 │   ├── MP3 extraction + spectrograms
 │   ├── BirdWeather upload
 │   └── Smart notifications (ntfy.sh)
@@ -52,7 +52,7 @@ Raspberry Pi 5 + SSD
 ## Features
 
 ### Detection Engine (BirdEngine)
-- 🤖 **Dual-model inference** — BirdNET V2.4 (fast, ~2s) + Perch V2 INT8 (precise, ~12s) in parallel
+- 🤖 **Dual-model inference** — BirdNET V2.4 (fast, ~2s) + Perch V2 (precise, ~2s) in parallel
 - 🎙️ **Local recording** — any USB audio interface via ALSA with configurable gain
 - 🎚️ **Adaptive noise normalization** — automatic software gain based on ambient noise, with clip guard, activity hold, and observer mode
 - 🔇 **Audio filters** — configurable highpass + lowpass (bandpass), spectral noise reduction (stationary gating), RMS normalization
@@ -112,13 +112,19 @@ Raspberry Pi 5 + SSD
 - 🎨 5 themes (Forest, Night, Paper, Ocean, Dusk)
 - 🌍 4 UI languages (FR/EN/NL/DE) + 36 languages for species names
 
-## Quantized Model
+## Optimized Perch V2 Models
 
-We publish the first **Perch V2 INT8** quantized model for edge deployment:
+We publish **3 optimized Perch V2 TFLite models** for edge deployment, converted from the official Google SavedModel:
 
 **[ernensbjorn/perch-v2-int8-tflite](https://huggingface.co/ernensbjorn/perch-v2-int8-tflite)** on HuggingFace
 
-~30% faster on Raspberry Pi 5 with identical species coverage (14,795 classes).
+| Model | Size | Speed (Pi 5) | Quality | Best for |
+|-------|------|-------------|---------|----------|
+| `perch_v2_original.tflite` | 409 MB | 435 ms | baseline | Reference |
+| `perch_v2_fp16.tflite` | 205 MB | 384 ms | top-1 100% | **Pi 5** |
+| `perch_v2_dynint8.tflite` | 105 MB | 299 ms | top-1 93% | **Pi 4** |
+
+Benchmarked on 20 real bird recordings from 20 species, 4 threads.
 
 ## Hardware
 
@@ -170,7 +176,7 @@ Your dashboard will be available at `http://yourpi.local/birds/`
 | 4 | Directory structure (audio, models, BirdSongs) |
 | 5 | Database bootstrap (birds.db + birdash.db with full schema) |
 | 6 | Configuration files (birdnet.conf, engine config, ALSA, Caddy) |
-| 7 | Model download (Perch V2 INT8 from HuggingFace) |
+| 7 | Model download (Perch V2 FP16 from HuggingFace) |
 | 8 | Systemd services (engine, recording, dashboard, terminal) |
 | 9 | Caddy reverse proxy |
 | 10 | Cron jobs (audio cleanup) |
@@ -222,7 +228,7 @@ birdash/
 │   ├── config.toml                # Engine configuration
 │   ├── record.sh                  # Audio capture (arecord)
 │   ├── purge_audio.sh             # Disk space management
-│   ├── quantize_perch_mac.py      # Perch V2 INT8 quantization script
+│   ├── convert_from_saved_model.py # Perch V2 optimization script
 │   ├── birdengine.service         # systemd: detection engine
 │   ├── birdengine-recording.service # systemd: audio capture
 │   ├── ttyd.service               # systemd: web terminal
