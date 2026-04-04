@@ -171,6 +171,7 @@ const SETTINGS_VALIDATORS = {
   NOTIFY_RARE_SPECIES: v => v == 0 || v == 1,
   NOTIFY_RARE_THRESHOLD: v => !isNaN(v) && v >= 1 && v <= 1000,
   NOTIFY_FIRST_SEASON: v => v == 0 || v == 1,
+  NOTIFY_FAVORITES:    v => v == 0 || v == 1,
   NOTIFY_SEASON_DAYS: v => !isNaN(v) && v >= 7 && v <= 365,
   AUDIO_RETENTION_DAYS: v => !isNaN(v) && v >= 7 && v <= 365,
   NOTIFY_ENABLED: v => v == 0 || v == 1,
@@ -1983,7 +1984,7 @@ const server = http.createServer((req, res) => {
           const errors = [];
           for (const [key, val] of Object.entries(updates)) {
             // Skip keys without a validator (pass-through from conf, not editable)
-            if (!SETTINGS_VALIDATORS[key]) continue;
+            if (!SETTINGS_VALIDATORS[key]) { if (key !== '__v_skip' && !key.startsWith('_')) console.warn('[settings] Unknown key ignored:', key); continue; }
             if (!SETTINGS_VALIDATORS[key](val)) {
               errors.push(`Invalid value for ${key}: ${val}`);
               continue;
