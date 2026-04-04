@@ -1968,6 +1968,8 @@ const app = createApp({
         const data = await res.json();
         if (data.ok) {
           saveMsg.value = t('set_saved');
+          // Update header immediately
+          BIRDASH.updateSiteIdentity(conf.SITE_NAME, conf.SITE_BRAND);
           if (data.warnings) saveMsg.value += ' (' + data.warnings.join(', ') + ')';
         } else {
           saveMsg.value = data.error || 'Error';

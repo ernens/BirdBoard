@@ -1559,6 +1559,38 @@
     return { theme: _theme, themes: THEMES, setTheme };
   }
 
+  // ── Global site identity (shared across all useNav calls) ────────────────
+  const _siteName  = ref('BirdStation');
+  const _brandName = ref('BirdStation');
+  let _siteIdentityLoaded = false;
+
+  function _loadSiteIdentity() {
+    if (_siteIdentityLoaded) return;
+    _siteIdentityLoaded = true;
+    // Init from config
+    _siteName.value = BIRD_CONFIG.siteName || (BIRD_CONFIG.location && BIRD_CONFIG.location.name) || 'BirdStation';
+    _brandName.value = BIRD_CONFIG.brandName || 'BirdStation';
+    // Override from API
+    fetch(BIRD_CONFIG.apiUrl + '/settings').then(r => r.ok ? r.json() : {}).then(conf => {
+      if (conf.SITE_NAME) {
+        _siteName.value = conf.SITE_NAME;
+        const pageTitle = document.title.replace(/^[^—]+—/, _siteName.value + ' —');
+        if (pageTitle !== document.title) document.title = pageTitle;
+      }
+      if (conf.SITE_BRAND) _brandName.value = conf.SITE_BRAND;
+    }).catch(() => {});
+  }
+
+  // Update site identity (called from settings page after save)
+  function updateSiteIdentity(name, brand) {
+    if (name != null) {
+      _siteName.value = name;
+      const pageTitle = document.title.replace(/^[^—]+—/, name + ' —');
+      if (pageTitle !== document.title) document.title = pageTitle;
+    }
+    if (brand != null) _brandName.value = brand;
+  }
+
   // ── useNav ────────────────────────────────────────────────────────────────
   const NAV_KEYS = {
     index:        'nav_overview',
@@ -1595,20 +1627,8 @@
     );
     // Flat list for backwards compat
     const navItems = computed(() => navSections.value.flatMap(s => s.items));
-    const siteName = ref(BIRD_CONFIG.siteName || (BIRD_CONFIG.location && BIRD_CONFIG.location.name) || 'BirdStation');
-    const brandName = ref(BIRD_CONFIG.brandName || 'BirdStation');
-
-    // Load SITE_NAME + SITE_BRAND from settings API
-    fetch(BIRD_CONFIG.apiUrl + '/settings').then(r => r.ok ? r.json() : {}).then(conf => {
-      if (conf.SITE_NAME) {
-        siteName.value = conf.SITE_NAME;
-        const pageTitle = document.title.replace(/^[^—]+—/, siteName.value + ' —');
-        if (pageTitle !== document.title) document.title = pageTitle;
-      }
-      if (conf.SITE_BRAND) brandName.value = conf.SITE_BRAND;
-    }).catch(() => {});
-
-    return { navItems, navSections, siteName, brandName };
+    _loadSiteIdentity();
+    return { navItems, navSections, siteName: _siteName, brandName: _brandName };
   }
 
   // ── useChart ──────────────────────────────────────────────────────────────
@@ -2886,7 +2906,7 @@
   // ── Export global ─────────────────────────────────────────────────────────
   window.BIRDASH = {
     // Vue composables
-    useI18n, useTheme, useNav, useChart, useAudio, useFavorites, useSpeciesNames, useToast, exportChart,
+    useI18n, useTheme, useNav, useChart, useAudio, useFavorites, useSpeciesNames, useToast, updateSiteIdentity, exportChart,
     // Filter composables
     useFilterPeriod, useFilterConfidence, useFilterSpecies, buildWhereClause,
     // Vue components
