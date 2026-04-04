@@ -44,7 +44,7 @@
         <span style="font-size:.72rem;color:var(--text-muted);">🐦 {{t('tl_density_label_short')}}</span>
         <input type="range" v-model.number="confSlider" min="0" max="100" step="2" @change="onSliderChange"
                style="width:360px;accent-color:var(--accent);">
-        <span style="font-size:.72rem;min-width:60px;color:var(--text-main);">{{sliderLabel}}</span>
+        <span style="font-size:.72rem;min-width:90px;color:var(--text-main);">{{sliderLabel}} · ≥{{Math.round(sliderToConf(confSlider)*100)}}%</span>
       </div>
     </div>
 
