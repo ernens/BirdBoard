@@ -252,10 +252,13 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
           <div class="card-title" style="margin:0;">{{t('recent_detections')}}</div>
-          <button class="sp-edit-btn" :class="{active:deleteMode}" @click="deleteMode=!deleteMode"
-                  :title="t('del_manage')">
-            {{deleteMode ? '✕' : '🗑'}}
-          </button>
+          <div style="display:flex;gap:.3rem;">
+            <button class="sp-edit-btn" @click="openManageDets" :title="t('del_manage')">🗑 {{t('del_manage')}}</button>
+            <button class="sp-edit-btn" :class="{active:deleteMode}" @click="deleteMode=!deleteMode"
+                    style="font-size:.7rem;">
+              {{deleteMode ? '✕' : '✏️'}}
+            </button>
+          </div>
         </div>
         <div v-if="!feed.length" class="error-msg">{{t('no_data')}}</div>
         <div v-else>
@@ -378,6 +381,56 @@
       </div>
 
     </div>
+
+    <!-- ── Manage detections modal ─────────────────────────────── -->
+    <div v-if="manageDets.open" class="tl-popup-overlay" @click.self="manageDets.open=false" role="dialog" aria-modal="true">
+      <div class="tl-popup" style="max-width:650px;max-height:85vh;display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <div style="font-weight:600;font-size:1rem;">🗑 {{t('del_manage')}} — {{sp.name}} ({{manageDets.items.length}})</div>
+          <button class="tl-popup-close" @click="manageDets.open=false">✕</button>
+        </div>
+
+        <!-- Select all + delete selected -->
+        <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
+          <button class="rv-btn-outline" @click="manageSelectAll">
+            {{manageDets.selected.size === manageDets.items.length ? t('review_deselect') : t('review_select_all')}}
+          </button>
+          <button v-if="manageDets.selected.size" class="rv-btn rv-btn-no" @click="manageDeleteSelected">
+            🗑 {{t('review_purge_confirm')}} ({{manageDets.selected.size}})
+          </button>
+          <span style="flex:1;"></span>
+          <span style="font-size:.72rem;color:var(--text-muted);">{{manageDets.selected.size}} / {{manageDets.items.length}}</span>
+        </div>
+
+        <!-- Detection list -->
+        <div style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
+          <div v-for="d in manageDets.items" :key="d.Date+d.Time"
+               style="display:flex;align-items:center;gap:.5rem;padding:.45rem .6rem;border-bottom:1px solid var(--border);font-size:.82rem;">
+            <input type="checkbox" :checked="manageDets.selected.has(d.Date+'|'+d.Time)"
+                   @change="manageToggle(d)">
+            <span style="color:var(--text-muted);min-width:70px;">{{d.Date}}</span>
+            <span style="min-width:40px;font-family:monospace;">{{fmtTime(d.Time)}}</span>
+            <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')"
+                  style="font-size:.7rem;">{{fmtConf(d.Confidence)}}</span>
+            <span style="font-size:.7rem;color:var(--text-faint);">{{d.Model ? shortModel(d.Model) : ''}}</span>
+            <span style="flex:1;"></span>
+            <button v-if="d.File_Name" class="rv-mini" @click="toggleAudio(d.File_Name)">{{playingFile===d.File_Name?'⏹':'▶'}}</button>
+            <button v-if="d.File_Name" class="rv-mini" @click="openManageSpectro(d)">⛶</button>
+          </div>
+        </div>
+
+        <!-- Delete result -->
+        <div v-if="manageDets.result" style="margin-top:.5rem;padding:.5rem;background:var(--bg-deep);border-radius:var(--radius);">
+          <div style="font-weight:600;color:#38a169;margin-bottom:.3rem;">✓ {{t('review_delete_done')}}</div>
+          <div v-for="r in manageDets.result" :key="r.file" style="font-size:.75rem;display:flex;gap:.3rem;">
+            <span :style="{color:r.ok?'#38a169':'#e53e3e'}">{{r.ok?'✓':'✗'}}</span>
+            <span>{{r.name}}</span>
+            <span style="color:var(--text-faint);">{{r.file}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </birdash-shell>
 </div>
 
@@ -1045,6 +1098,68 @@ const app = createApp({
       deleteResult.value    = null;
     }
 
+    // ── Manage detections modal ─────────────────────────────────
+    const manageDets = ref({ open: false, items: [], selected: new Set(), result: null });
+
+    async function openManageDets() {
+      try {
+        const rows = await birdQuery(
+          `SELECT Date, Time, Confidence, File_Name, Model FROM detections WHERE Com_Name=? ORDER BY Date DESC, Time DESC`,
+          [sp.value.name]);
+        manageDets.value = { open: true, items: rows, selected: new Set(), result: null };
+      } catch(e) { console.error('openManageDets:', e); }
+    }
+
+    function manageToggle(d) {
+      const key = d.Date + '|' + d.Time;
+      const s = new Set(manageDets.value.selected);
+      s.has(key) ? s.delete(key) : s.add(key);
+      manageDets.value = { ...manageDets.value, selected: s };
+    }
+
+    function manageSelectAll() {
+      const items = manageDets.value.items;
+      const s = manageDets.value.selected;
+      if (s.size === items.length) {
+        manageDets.value = { ...manageDets.value, selected: new Set() };
+      } else {
+        manageDets.value = { ...manageDets.value, selected: new Set(items.map(d => d.Date + '|' + d.Time)) };
+      }
+    }
+
+    async function manageDeleteSelected() {
+      const items = manageDets.value.items.filter(d => manageDets.value.selected.has(d.Date + '|' + d.Time));
+      if (!items.length) return;
+      if (!confirm(`${t('review_purge_confirm')} ${items.length} ?`)) return;
+      const results = [];
+      for (const d of items) {
+        try {
+          const resp = await fetch(`${BIRD_CONFIG.apiUrl}/detections`, {
+            method: 'DELETE', headers: authHeaders(),
+            body: JSON.stringify({ date: d.Date, time: d.Time, comName: sp.value.name }),
+          });
+          const data = await resp.json();
+          results.push({ name: sp.value.name, file: d.File_Name, ok: !!data.ok });
+        } catch(e) { results.push({ name: sp.value.name, file: d.File_Name, ok: false }); }
+      }
+      manageDets.value.result = results;
+      // Reload species data
+      await loadDetail(sp.value.name);
+      // Reload list
+      const rows = await birdQuery(
+        `SELECT Date, Time, Confidence, File_Name, Model FROM detections WHERE Com_Name=? ORDER BY Date DESC, Time DESC`,
+        [sp.value.name]);
+      manageDets.value.items = rows;
+      manageDets.value.selected = new Set();
+    }
+
+    function openManageSpectro(d) {
+      BIRDASH.openSpectroModal({
+        fileName: d.File_Name, speciesName: sp.value.name, sciName: sp.value.sci,
+        confidence: d.Confidence, date: d.Date, time: d.Time,
+      });
+    }
+
     async function confirmDeleteOne(d) {
       const msg = t('del_one_confirm', {
         date: fmtDate(d.Date), time: fmtTime(d.Time), conf: fmtConf(d.Confidence)
@@ -1181,6 +1296,7 @@ const app = createApp({
       deleteMode, showBulkModal, bulkConfirmName, bulkDeleting, deleteError,
       deleteResult, deleteToast, bulkTargetName, bulkTargetCount,
       openBulkModal, closeBulkModal, confirmDeleteOne, executeBulkDelete,
+      manageDets, openManageDets, manageToggle, manageSelectAll, manageDeleteSelected, openManageSpectro, shortModel,
     };
   }
 });
