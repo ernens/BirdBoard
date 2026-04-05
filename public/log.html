@@ -163,7 +163,7 @@ const app = createApp({
           if (autoScroll) nextTick(() => {
             if (logWrap.value) logWrap.value.scrollTop = logWrap.value.scrollHeight;
           });
-        } catch(err) {}
+        } catch(err) { console.error(err); }
       };
       evtSource.onerror = () => { connected.value = false; setTimeout(connect, 5000); };
     }

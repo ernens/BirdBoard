@@ -597,7 +597,7 @@ const app = createApp({
             wind: Math.round((daily.windspeed_10m_max || [])[0] || 0),
           };
         }
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     async function loadAll() {
@@ -628,7 +628,7 @@ const app = createApp({
           lastHour: lh?lh.n.toLocaleString():'0',
           rareToday: rares&&rares[0]?String(rares[0].n):'0'
         };
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     async function loadLastDet() {
@@ -782,20 +782,20 @@ const app = createApp({
           r.photoUrl = r.Sci_Name ? photoUrl(r.Sci_Name) : null;
         });
         rareSpeciesToday.value = rows;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     async function load7dData() {
       try {
         const rows = await birdQuery(`SELECT Date, COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp FROM detections WHERE Date>=? AND Date<=? GROUP BY Date ORDER BY Date ASC`,[daysAgo(6),today]);
         data7d.value = rows;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
     async function loadTopData() {
       try {
         const rows = await birdQuery(`SELECT Com_Name, Sci_Name, COUNT(*) as n FROM detections WHERE Date>=? AND Confidence>=? GROUP BY Com_Name, Sci_Name ORDER BY n DESC LIMIT ?`,[daysAgo(6),CONF,BIRD_CONFIG.topSpeciesCount]);
         dataTop.value = rows;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
     async function loadHourlyData() {
       try {
@@ -803,7 +803,7 @@ const app = createApp({
         const vals=Array(24).fill(0);
         rows.forEach(r=>{vals[r.h]=r.n;});
         dataHourly.value = vals;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     watch([data7d, lang], async () => {

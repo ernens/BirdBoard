@@ -3875,6 +3875,7 @@ const server = http.createServer((req, res) => {
 
   // ── Route : POST /api/favorites ───────────────────────────────────────────
   if (req.method === 'POST' && pathname === '/api/favorites') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3894,8 +3895,9 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, favorites: rows }));
       } catch(e) {
+        console.error('[favorites]', e.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.end(JSON.stringify({ error: 'Internal error' }));
       }
     });
     return;
@@ -3909,12 +3911,13 @@ const server = http.createServer((req, res) => {
       const rows = db.prepare('SELECT id, com_name, sci_name, date, time, note, created_at, updated_at FROM notes WHERE com_name=? ORDER BY date IS NULL, date DESC, time DESC').all(comName);
       res.writeHead(200, JSON_CT);
       res.end(JSON.stringify(rows));
-    } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
+    } catch(e) { console.error('[notes]', e.message); res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: 'Internal error' })); }
     return;
   }
 
   // ── Route : POST /api/notes ──────────────────────────────────────────────
   if (req.method === 'POST' && pathname === '/api/notes') {
+    if (!requireAuth(req, res)) return;
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -3938,20 +3941,21 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(200, JSON_CT);
         res.end(JSON.stringify(result));
-      } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
+      } catch(e) { console.error('[notes]', e.message); res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: 'Internal error' })); }
     });
     return;
   }
 
   // ── Route : DELETE /api/notes?id=X ───────────────────────────────────────
   if (req.method === 'DELETE' && pathname === '/api/notes') {
+    if (!requireAuth(req, res)) return;
     const id = new URL(req.url, 'http://localhost').searchParams.get('id');
     if (!id) { res.writeHead(400, JSON_CT); res.end('{"error":"id required"}'); return; }
     try {
       dbWrite.prepare('DELETE FROM notes WHERE id=?').run(id);
       res.writeHead(200, JSON_CT);
       res.end('{"ok":true}');
-    } catch(e) { res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: e.message })); }
+    } catch(e) { console.error('[notes]', e.message); res.writeHead(500, JSON_CT); res.end(JSON.stringify({ error: 'Internal error' })); }
     return;
   }
 
@@ -3971,6 +3975,11 @@ const server = http.createServer((req, res) => {
 
         const stmt = db.prepare(sql);
         const rows = stmt.all(...params);
+        if (rows.length > 10000) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Too many rows (max 10000)' }));
+          return;
+        }
 
         // Extrait les noms de colonnes depuis la première ligne
         const columns = rows.length > 0 ? Object.keys(rows[0]) : [];

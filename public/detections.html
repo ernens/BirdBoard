@@ -377,7 +377,7 @@ const app = createApp({
       try {
         const r = await birdQuery(`SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC`);
         speciesList.value = r.map(x => x.Com_Name);
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     function buildWhere() {
@@ -434,7 +434,7 @@ const app = createApp({
         try {
           const ns = await birdQuery(`SELECT Com_Name FROM detections GROUP BY Com_Name HAVING MIN(Date) >= ?`, [fp.dateFrom.value || '2000-01-01']);
           newSpeciesSet.value = new Set(ns.map(r => r.Com_Name));
-        } catch(e) {}
+        } catch(e) { console.error(e); }
       }
       try {
         const { where, params } = buildWhere();

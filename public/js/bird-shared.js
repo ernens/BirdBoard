@@ -461,7 +461,7 @@
     try {
       const res = await fetch(BIRD_CONFIG.apiUrl + '/favorites', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: isNowFav ? 'add' : 'remove', com_name: comName, sci_name: sciName || '' }),
       });
       if (res.ok) {

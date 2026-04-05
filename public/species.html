@@ -535,14 +535,14 @@ const app = createApp({
       if (!val && !_speciesNoteId) return;
       if (!val && _speciesNoteId) {
         // Delete
-        try { await fetch(`${BIRD_CONFIG.apiUrl}/notes?id=${_speciesNoteId}`, { method: 'DELETE' }); } catch(e) {}
+        try { await fetch(`${BIRD_CONFIG.apiUrl}/notes?id=${_speciesNoteId}`, { method: 'DELETE', headers: authHeaders() }); } catch(e) { console.error(e); }
         _speciesNoteId = null;
         return;
       }
       try {
         const res = await fetch(`${BIRD_CONFIG.apiUrl}/notes`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({ id: _speciesNoteId, com_name: name, sci_name: sp.value.sci, note: val }),
         });
         if (res.ok) {
@@ -584,7 +584,7 @@ const app = createApp({
       try {
         await fetch(`${BIRD_CONFIG.apiUrl}/notes`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({ id: existing?.id, com_name: sp.value.name, sci_name: sp.value.sci, date: d.Date, time: d.Time, note: val }),
         });
         await loadPersonalNote(sp.value.sci);
@@ -597,9 +597,9 @@ const app = createApp({
       const existing = detNoteMap.value[key];
       if (!existing) return;
       try {
-        await fetch(`${BIRD_CONFIG.apiUrl}/notes?id=${existing.id}`, { method: 'DELETE' });
+        await fetch(`${BIRD_CONFIG.apiUrl}/notes?id=${existing.id}`, { method: 'DELETE', headers: authHeaders() });
         await loadPersonalNote(sp.value.sci);
-      } catch(e) {}
+      } catch(e) { console.error(e); }
       editingDetNote.value = null;
     }
 

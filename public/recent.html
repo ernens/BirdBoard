@@ -672,7 +672,7 @@ const app = createApp({
         const vals = Array(24).fill(0);
         rows.forEach(r => { vals[r.h] = r.n; });
         hourlyData.value = vals;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     async function selectSpecies(sp) {

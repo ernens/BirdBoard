@@ -359,7 +359,7 @@ const app = createApp({
            FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC`,
           [from, fp.dateTo.value || localDateStr(), fc.confidence.value]);
         richnessData.value = rows;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     async function loadHeatmap() {

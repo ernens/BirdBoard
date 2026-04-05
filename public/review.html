@@ -24,6 +24,9 @@
     .rv-row { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
     .rv-card { background:var(--bg-card); border:1px solid var(--border); border-radius:.6rem; padding:.7rem .8rem; margin-bottom:.4rem; transition:opacity .3s; }
     .rv-card.rejected { opacity:.35; }
+    .rv-card { transition: opacity .3s, border-left-color .3s, background-color .3s; }
+    .rv-card.just-validated { animation: flashSuccess .6s ease-out; }
+    @keyframes flashSuccess { 0% { background-color: rgba(56,161,105,.2); } 100% { background-color: transparent; } }
     .rv-card.confirmed { border-left:3px solid var(--accent); }
     .rv-card.doubtful { border-left:3px solid #dd6b20; }
     .rv-actions { display:flex; gap:.25rem; }
@@ -111,12 +114,12 @@
               <span v-for="r in det.reasons" :key="r" class="rv-badge">{{r}}</span>
             </div>
           </div>
-          <button v-if="det.file_name" class="rv-mini" @click="playAudio(det)">{{playingDet===detKey(det)?'⏹':'▶'}}</button>
-          <button v-if="det.file_name" class="rv-mini" @click="openSpectro(det)" title="Spectrogramme">⛶</button>
+          <button v-if="det.file_name" class="rv-mini" @click="playAudio(det)" :aria-label="playingDet===detKey(det)?'Stop':'Play'">{{playingDet===detKey(det)?'⏹':'▶'}}</button>
+          <button v-if="det.file_name" class="rv-mini" @click="openSpectro(det)" title="Spectrogramme" aria-label="Spectrogramme">⛶</button>
           <div class="rv-actions">
-            <button class="rv-btn rv-btn-ok" @click="validate(det,'confirmed')" :disabled="det.validation==='confirmed'">✓</button>
-            <button class="rv-btn rv-btn-maybe" @click="validate(det,'doubtful')" :disabled="det.validation==='doubtful'">?</button>
-            <button class="rv-btn rv-btn-no" @click="validate(det,'rejected')" :disabled="det.validation==='rejected'">✗</button>
+            <button class="rv-btn rv-btn-ok" @click="validate(det,'confirmed')" :disabled="det.validation==='confirmed' || validatingKey===detKey(det)">✓</button>
+            <button class="rv-btn rv-btn-maybe" @click="validate(det,'doubtful')" :disabled="det.validation==='doubtful' || validatingKey===detKey(det)">?</button>
+            <button class="rv-btn rv-btn-no" @click="validate(det,'rejected')" :disabled="det.validation==='rejected' || validatingKey===detKey(det)">✗</button>
           </div>
         </div>
       </div>
@@ -200,6 +203,7 @@ const app = createApp({
     const selected = reactive(new Set());
     let _audio = null;
     const playingDet = ref(null);
+    const validatingKey = ref(null);
     const fp = useFilterPeriod({ default: '7d', buttons: ['1d','7d','30d','90d','all'], onChange: loadFlagged });
 
     function detKey(d) { return `${d.date}|${d.time}|${d.sci_name}`; }
@@ -227,9 +231,11 @@ const app = createApp({
     }
 
     async function validate(det, status) {
+      if (validatingKey.value) return;
+      validatingKey.value = detKey(det);
       const labels = { confirmed: t('review_confirmed_msg'), rejected: t('review_rejected_msg'), doubtful: t('review_doubtful_msg') };
       try {
-        const resp = await fetch(`${API}/bulk-validate`, { method:'POST', headers:{'Content-Type':'application/json'},
+        const resp = await fetch(`${API}/bulk-validate`, { method:'POST', headers:BIRDASH.authHeaders(),
           body: JSON.stringify({ detections:[{date:det.date,time:det.time,sci_name:det.sci_name}], status }) });
         if (!resp.ok) throw new Error(resp.statusText);
         det.validation = status; window.dispatchEvent(new Event('birdash:review-changed'));
@@ -237,6 +243,8 @@ const app = createApp({
       } catch(e) {
         console.error('validate:', e);
         window.dispatchEvent(new CustomEvent('birdash:error', {detail: t('review_action_error') + ': ' + e.message}));
+      } finally {
+        validatingKey.value = null;
       }
     }
 
@@ -246,7 +254,7 @@ const app = createApp({
       const labels = { confirmed: t('review_confirm'), rejected: t('review_reject'), doubtful: '?' };
       if (!confirm(`${labels[status] || status} ${dets.length} ?`)) return;
       try {
-        const resp = await fetch(`${API}/bulk-validate`, { method:'POST', headers:{'Content-Type':'application/json'},
+        const resp = await fetch(`${API}/bulk-validate`, { method:'POST', headers:BIRDASH.authHeaders(),
           body: JSON.stringify({ detections: dets.map(d => ({date:d.date,time:d.time,sci_name:d.sci_name})), status }) });
         if (!resp.ok) throw new Error(resp.statusText);
         for (const d of dets) d.validation = status;
@@ -262,7 +270,7 @@ const app = createApp({
       const matching = flagged.value.filter(d => d.reasons.includes(reason) && d.validation==='unreviewed');
       if (!matching.length || !confirm(`${t('review_reject')} ${matching.length} "${reason}" ?`)) return;
       try {
-        const resp = await fetch(`${API}/bulk-validate`, { method:'POST', headers:{'Content-Type':'application/json'},
+        const resp = await fetch(`${API}/bulk-validate`, { method:'POST', headers:BIRDASH.authHeaders(),
           body: JSON.stringify({ detections: matching.map(d => ({date:d.date,time:d.time,sci_name:d.sci_name})), status:'rejected' }) });
         if (!resp.ok) throw new Error(resp.statusText);
         for (const d of matching) d.validation = 'rejected'; window.dispatchEvent(new Event('birdash:review-changed'));
@@ -340,7 +348,7 @@ const app = createApp({
       flagged, pagedFlagged, loading, pageLimit, selected, playingDet,
       unreviewed, rejectedList, rejectedCount, confirmedCount, reasonGroups,
       delOpen, delItems, delDeleting, delDone, delResults,
-      detKey, loadFlagged, validate, bulkAction, bulkRejectByReason,
+      detKey, loadFlagged, validate, bulkAction, bulkRejectByReason, validatingKey,
       toggleSelect, selectAll, playAudio, openSpectro,
       deleteSelected, openDeleteModal, closeDeleteModal, executeDelete,
     };

@@ -11,6 +11,9 @@
       .kpi-grid-6 { grid-template-columns: repeat(2, 1fr); }
     }
 
+    /* ── Timeline inside grid — remove margin, grid handles gap ──── */
+    .grid-2 > .timeline-panel { margin: 0; }
+
     /* ── Right column stack (today + 7d charts + rare) ────────────── */
     .idx-right-stack {
       display: flex; flex-direction: column; gap: 1rem;

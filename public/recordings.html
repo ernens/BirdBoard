@@ -453,7 +453,7 @@ const app = createApp({
                    || taxon?.default_photo?.url;
           if (url) { rec.imgUrl = url; return; }
         }
-      } catch(e) {}
+      } catch(e) { console.error(e); }
 
       // 2. Wikipedia direct
       try {
@@ -466,7 +466,7 @@ const app = createApp({
           const url  = data.thumbnail?.source;
           if (url) { rec.imgUrl = url; return; }
         }
-      } catch(e) {}
+      } catch(e) { console.error(e); }
 
       rec.imgUrl = null; // placeholder
     }
@@ -585,7 +585,7 @@ const app = createApp({
       if (_audio) { _audio.pause(); _audio = null; }
       if (_rafProg) { cancelAnimationFrame(_rafProg); _rafProg = null; }
       if (_audioCtx) {
-        try { _audioCtx.close(); } catch(e) {}
+        try { _audioCtx.close(); } catch(e) { console.error(e); }
         _audioCtx = null; _sourceNode = null; _gainNode = null; _hpNode = null; _lpNode = null;
       }
       playingUid.value = null;

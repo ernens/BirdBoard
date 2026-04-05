@@ -650,7 +650,7 @@ const app = createApp({
         if (!r.ok) return;
         const d = await r.json();
         if (d && !d.error) tlData.value = d;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     watch(tlData, async () => {
@@ -751,7 +751,7 @@ const app = createApp({
         const vals = Array(24).fill(0);
         rows.forEach(r => { vals[r.h] = r.n; });
         hourlyData.value = vals;
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
 
     async function selectSpecies(sp) {
