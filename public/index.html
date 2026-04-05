@@ -163,6 +163,11 @@
             </div>
           </div>
         </div>
+        <!-- Top 10 espèces du jour -->
+        <div class="card" style="margin-top:.75rem;">
+          <div class="card-title">{{t('top_species')}}</div>
+          <div class="chart-wrap"><canvas ref="canvasTop"></canvas></div>
+        </div>
       </div>
     </div>
 
@@ -412,11 +417,6 @@
 
     </div>
 
-    <!-- Top espèces -->
-    <div class="card">
-      <div class="card-title">{{t('top_species')}}</div>
-      <div class="chart-wrap chart-wrap-tall"><canvas ref="canvasTop"></canvas></div>
-    </div>
 
     <!-- Journal du jour -->
     <div class="card">
