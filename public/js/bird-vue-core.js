@@ -2346,7 +2346,7 @@
     <div v-for="t in toasts" :key="t.id" :style="{padding:'.5rem 1rem',borderRadius:'8px',fontSize:'.82rem',boxShadow:'0 2px 12px rgba(0,0,0,.3)',color:'#fff',background:t.type==='error'?'var(--danger,#e53935)':t.type==='success'?'var(--accent,#4caf50)':'var(--warning,#ff9800)'}">{{t.msg}}</div>
   </div>
   <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
-    <a href="index.html" class="mob-nav-item" :class="{active: currentPage==='index'}"><span class="mob-nav-icon">🏠</span>{{t('nav_overview')}}</a>
+    <a href="today.html" class="mob-nav-item" :class="{active: currentPage==='today'}"><span class="mob-nav-icon">📅</span>{{t('nav_today')}}</a>
     <a href="calendar.html" class="mob-nav-item" :class="{active: currentPage==='calendar'}"><span class="mob-nav-icon">📆</span>{{t('nav_calendar')}}</a>
     <a href="species.html" class="mob-nav-item" :class="{active: currentPage==='species'}"><span class="mob-nav-icon">🦜</span>{{t('nav_species')}}</a>
     <a href="weather.html" class="mob-nav-item" :class="{active: currentPage==='weather'}"><span class="mob-nav-icon">📊</span>{{t('nav_sec_insights')}}</a>

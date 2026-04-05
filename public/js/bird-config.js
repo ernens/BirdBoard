@@ -49,11 +49,11 @@ const BIRD_CONFIG = {
   // Navigation (grouped by user intent)
   nav: [
     { section: 'nav_sec_realtime', icon: '🔴', items: [
-      { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
       { id: 'today',        icon: '📅', file: 'today.html'        },
+      { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
     ]},
     { section: 'nav_sec_history', icon: '🗓️', items: [
-      { id: 'index',        icon: '🏠', file: 'index.html'        },
+      { id: 'overview',     icon: '🏠', file: 'overview.html'     },
       { id: 'calendar',     icon: '📆', file: 'calendar.html'     },
       { id: 'detections',   icon: '📋', file: 'detections.html'   },
       { id: 'review',       icon: '✅', file: 'review.html'       },
