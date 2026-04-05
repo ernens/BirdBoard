@@ -1841,7 +1841,7 @@
 
     function periodToDates(key) {
       const today = U.localDateStr();
-      if (key === 'all') return { from: '', to: today };
+      if (key === 'all') return { from: '1900-01-01', to: today };
       const days = PERIOD_DAYS[key];
       return { from: days != null ? U.daysAgo(days) : '', to: today };
     }
