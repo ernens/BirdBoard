@@ -182,7 +182,11 @@ function getAlertThresholds() {
   return t;
 }
 
-async function sendAlert(type, title, body) {
+// Expose to module level
+  _getAlertThresholds = getAlertThresholds;
+  _getAlertStatus = () => ({ _alertLastSent, ALERT_COOLDOWN, ALERT_CHECK_INTERVAL });
+
+  async function sendAlert(type, title, body) {
   const now = Date.now();
   const cooldown = type.startsWith('bird_') ? ALERT_BIRD_COOLDOWN : ALERT_COOLDOWN;
   if (_alertLastSent[type] && (now - _alertLastSent[type]) < cooldown) return;
@@ -389,7 +393,7 @@ async function checkBirdAlerts() {
 
 // Start monitoring loop after 30s (let services stabilize)
 let _birdAlertTick = 0;
-let _alertIntervalId = null;
+
 setTimeout(() => {
   console.log('[BIRDASH] System alerts monitoring started (every 60s, bird alerts every 15min)');
   _alertIntervalId = setInterval(() => {
@@ -405,8 +409,18 @@ setTimeout(() => {
 
 }
 
+let _alertIntervalId = null;
+
+// Bridge: exposed after startAlerts() is called
+let _getAlertThresholds = () => ({});
+let _getAlertStatus = () => ({ _alertLastSent: {}, ALERT_COOLDOWN: 600000, ALERT_CHECK_INTERVAL: 60000 });
+
 function stopAlerts() {
   if (_alertIntervalId) { clearInterval(_alertIntervalId); _alertIntervalId = null; }
 }
 
-module.exports = { startAlerts, stopAlerts };
+module.exports = {
+  startAlerts, stopAlerts,
+  getAlertThresholds: () => _getAlertThresholds(),
+  getAlertStatus: () => _getAlertStatus(),
+};

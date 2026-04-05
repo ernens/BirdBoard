@@ -783,7 +783,61 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Route : GET /api/audio/devices ──────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/audio/devices') {
+    (async () => {
+      try {
+        const { stdout } = await new Promise((resolve, reject) => {
+          require('child_process').exec('arecord -l 2>/dev/null', (err, stdout, stderr) => {
+            resolve({ stdout: stdout || '', stderr });
+          });
+        });
+        const devices = [];
+        const lines = stdout.split('\n');
+        for (const line of lines) {
+          const m = line.match(/^card (\d+): (\w+) \[(.+?)\], device (\d+): (.+)/);
+          if (m) {
+            const id = `hw:${m[1]},${m[3 + 1]}`;
+            const name = m[3];
+            const isUsb = /usb|rode|ai.?micro|scarlett|behringer|zoom|tascam|presonus/i.test(name);
+            let channels = 2, rates = [];
+            try {
+              const { stdout: info } = await new Promise((resolve, reject) => {
+                require('child_process').exec(
+                  `arecord -D ${id} --dump-hw-params -d 0 2>&1 || true`,
+                  { timeout: 3000 },
+                  (err, stdout) => resolve({ stdout: stdout || '' })
+                );
+              });
+              const chMatch = info.match(/CHANNELS\s*:.*?(\d+)/s);
+              if (chMatch) channels = parseInt(chMatch[1]);
+              const rateMatch = info.match(/RATE\s*:\s*(\d+)/);
+              if (rateMatch) rates.push(parseInt(rateMatch[1]));
+            } catch {}
+            const cardName = m[2];
+            const dsnoop_id = `dsnoop:CARD=${cardName},DEV=${m[4]}`;
+            devices.push({
+              id: dsnoop_id,
+              hw_id: id,
+              name,
+              alsa_card: parseInt(m[1]),
+              alsa_device: parseInt(m[4]),
+              channels,
+              sample_rates: rates.length ? rates : [48000],
+              usb_audio: isUsb,
+            });
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ devices }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return true;
+  }
 
   return false;
 }
