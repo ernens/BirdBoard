@@ -383,7 +383,7 @@
     </div>
 
     <!-- ── Manage detections modal ─────────────────────────────── -->
-    <div v-if="manageDets.open" class="tl-popup-overlay" @click.self="manageDets.open=false" role="dialog" aria-modal="true">
+    <div v-if="manageDets.open" class="tl-popup-overlay" @click.self="manageDets.open=false" @keydown.escape="manageDets.open=false" role="dialog" aria-modal="true">
       <div class="tl-popup" style="max-width:650px;max-height:85vh;display:flex;flex-direction:column;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
           <div style="font-weight:600;font-size:1rem;">🗑 {{t('del_manage')}} — {{sp.name}} ({{manageDets.items.length}})</div>

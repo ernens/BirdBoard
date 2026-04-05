@@ -159,7 +159,7 @@
     </template>
 
     <!-- Popup -->
-    <div class="tl-popup-overlay" v-if="popupEvent" @click.self="popupEvent = null">
+    <div class="tl-popup-overlay" v-if="popupEvent" @click.self="popupEvent = null" @keydown.escape="popupEvent = null" role="dialog" aria-modal="true">
       <div class="tl-popup">
         <button class="tl-popup-close" @click="popupEvent = null">✕</button>
         <div class="tl-popup-header">
@@ -192,7 +192,7 @@
     </div>
 
     <!-- Cluster popup -->
-    <div class="tl-popup-overlay" v-if="clusterPopup" @click.self="clusterPopup = null">
+    <div class="tl-popup-overlay" v-if="clusterPopup" @click.self="clusterPopup = null" @keydown.escape="clusterPopup = null" role="dialog" aria-modal="true">
       <div class="tl-popup" style="max-width:360px;">
         <button class="tl-popup-close" @click="clusterPopup = null">✕</button>
         <div style="font-weight:600;margin-bottom:.75rem;">🕐 {{clusterPopup.time}} — {{clusterPopup.count}} {{t('tl_detections')}}</div>

@@ -146,7 +146,56 @@
     else if (lang === 'en') wikiLang = 'en';
     else if (lang === 'fr') wikiLang = 'fr';
     else if (lang) wikiLang = lang;
-    return {
+    // ── Confirm dialog (replaces native confirm()) ─────────────────────
+  function confirmDialog(message, { okLabel = 'OK', cancelLabel, danger = false } = {}) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'tl-popup-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);';
+      const box = document.createElement('div');
+      box.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius,.6rem);padding:1.2rem 1.5rem;max-width:400px;width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.3);';
+      box.setAttribute('role', 'alertdialog');
+      box.setAttribute('aria-modal', 'true');
+      const msg = document.createElement('div');
+      msg.style.cssText = 'font-size:.9rem;margin-bottom:1rem;line-height:1.4;white-space:pre-line;';
+      msg.textContent = message;
+      const btns = document.createElement('div');
+      btns.style.cssText = 'display:flex;gap:.5rem;justify-content:flex-end;';
+      const cancel = document.createElement('button');
+      cancel.textContent = cancelLabel || 'Annuler';
+      cancel.style.cssText = 'padding:.4rem 1rem;border-radius:.3rem;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-muted);cursor:pointer;font-size:.82rem;';
+      const ok = document.createElement('button');
+      ok.textContent = okLabel;
+      ok.style.cssText = 'padding:.4rem 1rem;border-radius:.3rem;border:none;color:#fff;cursor:pointer;font-size:.82rem;font-weight:600;background:' + (danger ? '#e53e3e' : 'var(--accent)') + ';';
+      btns.append(cancel, ok);
+      box.append(msg, btns);
+      overlay.append(box);
+      document.body.append(overlay);
+      ok.focus();
+      function cleanup(result) { overlay.remove(); resolve(result); }
+      ok.addEventListener('click', () => cleanup(true));
+      cancel.addEventListener('click', () => cleanup(false));
+      overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(false); });
+      overlay.addEventListener('keydown', e => { if (e.key === 'Escape') cleanup(false); });
+    });
+  }
+
+  // ── Focus trap for modals (A11Y) ──────────────────────────────────────
+  function trapFocus(el) {
+    const focusable = el.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    first.focus();
+    function handler(e) {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+      else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
+    }
+    el.addEventListener('keydown', handler);
+    return () => el.removeEventListener('keydown', handler);
+  }
+
+  return {
       xenocanto:   { url: 'https://xeno-canto.org/explore?query=' + sci,           label: 'Xeno-canto',  icon: '\uD83C\uDFB5' },
       ebird:       { url: 'https://ebird.org/search?q=' + sci,                     label: 'eBird',        icon: '\uD83C\uDF0D' },
       wikipedia:   { url: 'https://' + wikiLang + '.wikipedia.org/wiki/' + sciWiki, label: 'Wikipedia',    icon: '\uD83D\uDCD6' },
@@ -694,6 +743,8 @@
     safeHtml: safeHtml,
     authHeaders: authHeaders,
     spinnerHTML: spinnerHTML,
+    trapFocus: trapFocus,
+    confirmDialog: confirmDialog,
     shortModel: shortModel,
     loadTaxonomy: loadTaxonomy,
     getTaxonomy: getTaxonomy,

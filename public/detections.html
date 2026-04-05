@@ -556,7 +556,7 @@ const app = createApp({
 
     async function deleteDet(d) {
       const name = spName(d.Com_Name, d.Sci_Name);
-      if (!confirm(`${t('gallery_delete_confirm')}\n\n${name} — ${fmtDate(d.Date)} ${fmtTime(d.Time)}`)) return;
+      if (!await BIRDASH_UTILS.confirmDialog(`${t('gallery_delete_confirm')}\n\n${name} — ${fmtDate(d.Date)} ${fmtTime(d.Time)}`, { okLabel: t('gallery_delete_confirm'), danger: true })) return;
       try {
         const resp = await fetch(BIRD_CONFIG.apiUrl + '/detections', {
           method: 'DELETE', headers: BIRDASH.authHeaders(),

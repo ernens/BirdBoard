@@ -345,7 +345,7 @@
     </div>
 
     <!-- Popup timeline -->
-    <div class="tl-popup-overlay" v-if="tlPopupEvent" @click="tlClosePopup($event)">
+    <div class="tl-popup-overlay" v-if="tlPopupEvent" @click="tlClosePopup($event)" @keydown.escape="tlPopupEvent = null" role="dialog" aria-modal="true">
       <div class="tl-popup">
         <button class="tl-popup-close" @click="tlClosePopup()">✕</button>
         <div class="tl-popup-header">
@@ -374,7 +374,7 @@
     </div>
 
     <!-- Cluster popup -->
-    <div class="tl-popup-overlay" v-if="tlClusterPopup" @click.self="tlClusterPopup = null">
+    <div class="tl-popup-overlay" v-if="tlClusterPopup" @click.self="tlClusterPopup = null" @keydown.escape="tlClusterPopup = null" role="dialog" aria-modal="true">
       <div class="tl-popup" style="max-width:360px;">
         <button class="tl-popup-close" @click="tlClusterPopup = null">✕</button>
         <div style="font-weight:600;margin-bottom:.75rem;">🕐 {{tlClusterPopup.time}} — {{tlClusterPopup.count}} {{t('tl_detections')}}</div>

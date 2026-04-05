@@ -300,7 +300,7 @@ const app = createApp({
     // ── Delete detection ──────────────────────────────────────────
     async function deleteDet(group, det, detIdx) {
       const name = spName(group.name, group.sci);
-      if (!confirm(`${t('gallery_delete_confirm') || 'Delete this detection?'}\n\n${name} — ${det.date} ${det.timeShort} (${Math.round(det.conf*100)}%)`)) return;
+      if (!await BIRDASH_UTILS.confirmDialog(`${t('gallery_delete_confirm') || 'Delete this detection?'}\n\n${name} — ${det.date} ${det.timeShort} (${Math.round(det.conf*100)}%)`, { okLabel: t('gallery_delete_confirm'), danger: true })) return;
       try {
         const resp = await fetch(BIRD_CONFIG.apiUrl + '/detections', {
           method: 'DELETE',

@@ -131,7 +131,7 @@
     </div>
 
     <!-- Delete confirmation / result modal -->
-    <div v-if="delOpen" class="tl-popup-overlay" @click.self="closeDeleteModal" role="dialog" aria-modal="true">
+    <div v-if="delOpen" class="tl-popup-overlay" @click.self="closeDeleteModal" @keydown.escape="closeDeleteModal" role="dialog" aria-modal="true">
       <div class="tl-popup" style="max-width:520px;max-height:80vh;overflow-y:auto;">
         <button class="tl-popup-close" @click="closeDeleteModal">✕</button>
 

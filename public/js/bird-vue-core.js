@@ -34,7 +34,8 @@
     time: ''
   });
 
-  function openSpectroModal(opts) {
+  let _spectroFocusTrap = null;
+    function openSpectroModal(opts) {
     Object.assign(_spectroModal, { open: true, ...opts });
   }
   function closeSpectroModal() {
@@ -2662,6 +2663,7 @@
       }
 
       function close() {
+      if (_spectroFocusTrap) { _spectroFocusTrap(); _spectroFocusTrap = null; }
         cleanup();
         closeSpectroModal();
       }
@@ -2715,7 +2717,7 @@
       };
     },
     template: `
-<div v-if="modal.open" class="spectro-modal-overlay" @click.self="close" role="dialog" aria-modal="true" :aria-label="modal.speciesName">
+<div v-if="modal.open" class="spectro-modal-overlay" @click.self="close" @keydown.escape="close" role="dialog" aria-modal="true" :aria-label="modal.speciesName">
   <div class="spectro-modal">
     <div class="spectro-modal-header">
       <div>
