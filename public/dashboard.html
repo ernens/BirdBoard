@@ -582,6 +582,15 @@ BIRDASH.ready.then(() => {
       const keyEvents=ref([]); let tickId=0;
       const enginePulse=ref(false), detPulse=ref(false), detEnter=ref(false);
       let logSource=null;
+      let _refreshTimer = null;
+      function debouncedRefresh() {
+        if (_refreshTimer) clearTimeout(_refreshTimer);
+        _refreshTimer = setTimeout(() => {
+          fetchLatestDetection();
+          setTimeout(fetchKpis, 200);
+          setTimeout(fetchRecentSpecies, 400);
+        }, 2000);
+      }
       function simplifyMsg(msg, cat) {
         // Detection: "[BirdNET...] Done: 3 detections in 0.2s" → "BirdNET: 3 détections (0.2s)"
         let m;
@@ -630,7 +639,7 @@ BIRDASH.ready.then(() => {
               animatePipeline('detection');
               setTimeout(()=>{enginePulse.value=false;},2000);
               setTimeout(()=>{detPulse.value=false;},2200);
-              fetchLatestDetection(); fetchKpis();
+              debouncedRefresh();
             }
           }catch(e){}
         };
@@ -699,8 +708,8 @@ BIRDASH.ready.then(() => {
         connectMic();connectLogs();
         await fetchStatus(); fetchLatestDetection();
         setTimeout(fetchKpis,300); setTimeout(fetchRecentSpecies,600);
-        sIv=setInterval(fetchStatus,30000);kIv=setInterval(fetchKpis,15000);
-        dIv=setInterval(fetchLatestDetection,12000);spIv=setInterval(fetchRecentSpecies,20000);
+        sIv=setInterval(fetchStatus,60000);kIv=setInterval(fetchKpis,30000);
+        dIv=setInterval(fetchLatestDetection,30000);spIv=setInterval(fetchRecentSpecies,45000);
       });
       onUnmounted(()=>{if(micSource)micSource.close();if(logSource)logSource.close();clearInterval(sIv);clearInterval(kIv);clearInterval(dIv);clearInterval(spIv);});
 
