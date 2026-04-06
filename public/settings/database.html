@@ -1,0 +1,78 @@
+
+        <!-- Tables list -->
+        <div class="card">
+          <div class="section-title" style="display:flex;align-items:center;gap:.8rem;">
+            <span>Tables</span>
+            <button class="btn-outline" style="font-size:.72rem;" @click="dbLoadTables">Rafraîchir</button>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            <button v-for="tbl in dbTables" :key="tbl.name"
+                    class="btn-outline" :class="{'btn-accent': dbSelectedTable === tbl.name}"
+                    style="font-size:.75rem;padding:.25rem .5rem;"
+                    @click="dbSelectTable(tbl.name)">
+              {{tbl.name}} <span style="opacity:.5;">({{tbl.count}})</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Schema -->
+        <div v-if="dbSchema.length" class="card">
+          <div class="section-title">Schema : {{dbSelectedTable}}</div>
+          <table style="width:100%;font-size:.78rem;border-collapse:collapse;">
+            <tr style="border-bottom:2px solid var(--border);">
+              <th style="text-align:left;padding:.3rem .5rem;">#</th>
+              <th style="text-align:left;padding:.3rem .5rem;">Colonne</th>
+              <th style="text-align:left;padding:.3rem .5rem;">Type</th>
+            </tr>
+            <tr v-for="(col, i) in dbSchema" :key="i" style="border-bottom:1px solid var(--border);">
+              <td style="padding:.3rem .5rem;opacity:.5;">{{col.cid}}</td>
+              <td style="padding:.3rem .5rem;font-weight:600;">{{col.name}}</td>
+              <td style="padding:.3rem .5rem;font-family:monospace;font-size:.72rem;">{{col.type}}</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- SQL Editor -->
+        <div class="card">
+          <div class="section-title">{{t('db_query')}}</div>
+          <textarea v-model="dbSql" rows="4"
+                    style="width:100%;font-family:monospace;font-size:.82rem;padding:.5rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg-deep);color:var(--text-main);resize:vertical;"
+                    placeholder="SELECT * FROM detections ORDER BY Date DESC, Time DESC LIMIT 20"
+                    @keydown.ctrl.enter="dbExec"
+                    @keydown.meta.enter="dbExec"></textarea>
+          <div v-if="dbSqlWarning" style="margin-top:.4rem;padding:.4rem .6rem;border-radius:.3rem;background:rgba(229,62,62,.1);border:1px solid rgba(229,62,62,.3);font-size:.78rem;color:var(--danger);">
+            {{dbSqlWarning}}
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+            <button class="btn-accent" @click="dbExec" :disabled="dbLoading || !!dbSqlWarning" style="font-size:.82rem;">
+              {{dbLoading ? 'Exécution...' : 'Exécuter'}} <span style="opacity:.5;font-size:.72rem;">(Ctrl+Enter)</span>
+            </button>
+            <span style="font-size:.7rem;opacity:.4;">{{t('db_readonly')}}</span>
+            <span v-if="dbError" style="color:var(--danger);font-size:.78rem;margin-left:.5rem;">{{dbError}}</span>
+            <span v-else-if="dbRows.length" style="font-size:.78rem;opacity:.6;margin-left:.5rem;">
+              {{dbRows.length}} ligne{{dbRows.length > 1 ? 's' : ''}} ({{dbExecTime}}ms)
+            </span>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div v-if="dbColumns.length" class="card" style="overflow-x:auto;">
+          <table style="width:100%;font-size:.75rem;border-collapse:collapse;white-space:nowrap;">
+            <tr style="border-bottom:2px solid var(--border);background:var(--bg-card2);">
+              <th v-for="col in dbColumns" :key="col"
+                  style="text-align:left;padding:.35rem .5rem;font-size:.7rem;text-transform:uppercase;opacity:.7;position:sticky;top:0;background:var(--bg-card2);">
+                {{col}}
+              </th>
+            </tr>
+            <tr v-for="(row, i) in dbRows" :key="i"
+                style="border-bottom:1px solid var(--border);"
+                :style="{background: i % 2 === 0 ? 'transparent' : 'var(--bg-card2)'}">
+              <td v-for="col in dbColumns" :key="col"
+                  style="padding:.3rem .5rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"
+                  :title="String(row[col])">
+                {{row[col]}}
+              </td>
+            </tr>
+          </table>
+        </div>
+

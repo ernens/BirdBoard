@@ -1,0 +1,405 @@
+
+        <!-- Status banner -->
+        <div class="card" style="display:flex;align-items:center;gap:1rem;padding:.8rem 1.2rem;">
+          <span style="font-size:1.4em;">{{ audioConf.device_name ? '🟢' : '🔴' }}</span>
+          <div style="flex:1;">
+            <strong>{{ audioConf.device_name || 'Aucun périphérique sélectionné' }}</strong>
+            <div style="font-size:.82em;opacity:.7;">
+              Profil : <strong>{{ audioConf.profile_name }}</strong>
+              &nbsp;|&nbsp; Canaux : {{ audioConf.input_channels }}
+              &nbsp;|&nbsp; Capture : {{ audioConf.capture_sample_rate }} Hz → 32000 Hz
+              <span v-if="audioConf.cal_date"> &nbsp;|&nbsp; Calibré le {{ audioConf.cal_date?.split('T')[0] }}</span>
+              <span v-else style="color:var(--warning);"> &nbsp;|&nbsp; Non calibré</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div style="display:flex;gap:.25rem;margin-bottom:1rem;">
+          <button v-for="st in audioSubTabs" :key="st.id"
+                  class="set-tab-btn" :class="{active: audioSubTab === st.id}"
+                  @click="audioSubTab = st.id"
+                  style="font-size:.78em;padding:.4rem .7rem;">
+            <span>{{st.icon}}</span> <span>{{st.labelKey ? t(st.labelKey) : st.label}}</span>
+          </button>
+        </div>
+
+        <!-- ── Sub-tab: Périphérique ── -->
+        <div v-if="audioSubTab==='device'">
+          <div class="card">
+            <div class="section-title">{{t('audio_detected')}}
+              <button class="btn-outline" @click="loadAudioDevices" style="margin-left:.5rem;font-size:.75em;">Rafraîchir</button>
+            </div>
+            <div v-if="audioDevices.length === 0" style="padding:1rem;color:var(--text-muted);">
+              {{t('audio_no_device')}}<br>
+              <code style="font-size:.8em;">arecord -l</code> pour diagnostiquer.
+            </div>
+            <div v-for="d in audioDevices" :key="d.id"
+                 class="model-card" :class="{ active: audioConf.device_id === d.id }"
+                 @click="selectAudioDevice(d)"
+                 style="cursor:pointer;margin-bottom:.5rem;">
+              <div style="display:flex;align-items:center;gap:.5rem;">
+                <span class="model-name">{{ d.name }}</span>
+                <span v-if="d.usb_audio" class="model-badge badge-recommended">USB</span>
+              </div>
+              <div style="font-size:.82em;opacity:.7;">
+                ID: {{ d.id }} &nbsp;|&nbsp; Canaux: {{ d.channels }} &nbsp;|&nbsp; {{ d.sample_rates.join(', ') }} Hz
+              </div>
+            </div>
+          </div>
+
+          <div class="card" v-if="audioConf.device_id">
+            <div class="section-title">{{t('audio_wiring')}}</div>
+            <div style="display:flex;flex-direction:column;gap:.5rem;">
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+                <input type="radio" v-model.number="audioConf.input_channels" :value="1"> {{t('audio_1ch')}}
+              </label>
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+                <input type="radio" v-model.number="audioConf.input_channels" :value="2"> {{t('audio_2ch')}}
+              </label>
+            </div>
+            <div style="margin-top:.8rem;font-size:.82em;opacity:.6;">
+              {{t('audio_sr_note')}}
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sub-tab: Profil & Paramètres ── -->
+        <div v-if="audioSubTab==='profile'">
+          <div class="card">
+            <div class="section-title">{{t('audio_profile')}}</div>
+            <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+              <select v-model="audioConf.profile_name" @change="activateAudioProfile(audioConf.profile_name)"
+                      style="padding:.4rem .6rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.9em;">
+                <option v-for="(p, name) in audioProfiles" :key="name" :value="name">{{ name }}</option>
+              </select>
+              <button class="btn-outline" @click="duplicateAudioProfile" style="font-size:.78em;">{{t('audio_duplicate')}}</button>
+              <button class="btn-outline" @click="deleteAudioProfile" style="font-size:.78em;"
+                      :disabled="audioProfiles[audioConf.profile_name]?.builtin">{{t('audio_delete')}}</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_strategy')}}</div>
+            <div v-if="audioConf.input_channels < 2" style="opacity:.6;font-size:.85em;">
+              {{t('audio_strategy_2ch')}}
+            </div>
+            <div v-else style="display:flex;flex-direction:column;gap:.5rem;">
+              <label v-for="s in channelStrategies" :key="s.id"
+                     style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;">
+                <input type="radio" v-model="audioConf.channel_strategy" :value="s.id" style="margin-top:3px;">
+                <div>
+                  <strong>{{ s.label }}</strong>
+                  <div style="font-size:.82em;opacity:.7;">{{ s.desc }}</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_highpass')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.highpass_enabled"> {{t('audio_enabled')}}
+              </label>
+              <div v-if="audioConf.highpass_enabled" style="flex:1;">
+                <input type="range" v-model.number="audioConf.highpass_cutoff_hz" min="50" max="300" step="10"
+                       style="width:100%;">
+                <div style="display:flex;justify-content:space-between;font-size:.78em;opacity:.6;">
+                  <span>50 Hz</span>
+                  <strong>{{ audioConf.highpass_cutoff_hz }} Hz</strong>
+                  <span>300 Hz</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="audioConf.highpass_enabled" style="display:flex;gap:.4rem;margin-top:.5rem;">
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=80">{{t('audio_calm')}} (80)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=150">{{t('audio_road')}} (150)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.highpass_cutoff_hz=200">{{t('audio_urban')}} (200)</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_lowpass')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.lowpass_enabled"> {{t('audio_enabled')}}
+              </label>
+              <div v-if="audioConf.lowpass_enabled" style="flex:1;">
+                <input type="range" v-model.number="audioConf.lowpass_cutoff_hz" min="4000" max="15000" step="500"
+                       style="width:100%;">
+                <div style="display:flex;justify-content:space-between;font-size:.78em;opacity:.6;">
+                  <span>4 kHz</span>
+                  <strong>{{ (audioConf.lowpass_cutoff_hz / 1000).toFixed(1) }} kHz</strong>
+                  <span>15 kHz</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="audioConf.lowpass_enabled" style="display:flex;gap:.4rem;margin-top:.5rem;">
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.lowpass_cutoff_hz=8000">{{t('audio_lp_birds')}} (8k)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.lowpass_cutoff_hz=10000">{{t('audio_lp_wide')}} (10k)</button>
+              <button class="btn-outline" style="font-size:.72em;" @click="audioConf.lowpass_cutoff_hz=12000">{{t('audio_lp_full')}} (12k)</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_denoise')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.denoise_enabled"> {{t('audio_enabled')}}
+              </label>
+            </div>
+            <div v-if="audioConf.denoise_enabled" style="margin-top:.5rem;">
+              <div style="font-size:.82em;opacity:.7;margin-bottom:.5rem;">{{t('audio_denoise_desc')}}</div>
+              <input type="range" v-model.number="audioConf.denoise_strength" min="0.1" max="1.0" step="0.05"
+                     style="width:100%;">
+              <div style="display:flex;justify-content:space-between;font-size:.78em;opacity:.6;">
+                <span>{{t('audio_denoise_light')}}</span>
+                <strong>{{ audioConf.denoise_strength.toFixed(2) }}</strong>
+                <span>{{t('audio_denoise_strong')}}</span>
+              </div>
+              <div v-if="audioConf.denoise_strength > 0.8" style="color:var(--warning);font-size:.8em;margin-top:.3rem;">
+                {{t('audio_denoise_warn')}}
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_overlap') || 'Chevauchement des fenêtres'}}</div>
+            <input type="range" v-model.number="audioConf.hop_size_s" min="1.0" max="5.0" step="0.5"
+                   style="width:100%;">
+            <div style="display:flex;justify-content:space-between;font-size:.82em;">
+              <span>80% (1s)</span>
+              <strong>{{ Math.round((1 - audioConf.hop_size_s / 5) * 100) }}% ({{ audioConf.hop_size_s }}s)</strong>
+              <span>0% (5s)</span>
+            </div>
+            <div v-if="audioConf.hop_size_s < 2" style="color:var(--warning);font-size:.8em;margin-top:.3rem;">
+              {{t('audio_cpu_warn')}}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_rms')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+                <input type="checkbox" v-model="audioConf.rms_normalize"> {{t('audio_enabled')}}
+              </label>
+              <div v-if="audioConf.rms_normalize" style="flex:1;">
+                <input type="range" v-model.number="audioConf.rms_target" min="0.01" max="0.20" step="0.01"
+                       style="width:100%;">
+                <div style="text-align:center;font-size:.82em;">
+                  {{t('audio_target')}} : <strong>{{ audioConf.rms_target }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+            <button class="btn-outline" @click="runFilterPreview" :disabled="filterPreviewing">
+              {{filterPreviewing ? t('fp_recording') : t('fp_preview')}}
+            </button>
+          </div>
+
+          <div v-if="filterPreview" class="card" style="margin-top:.8rem;">
+            <div class="section-title">{{t('fp_title')}}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+              <div>
+                <div style="font-size:.78em;font-weight:600;text-align:center;margin-bottom:.3rem;">{{t('fp_before')}}</div>
+                <img :src="filterPreview.before" style="width:100%;border-radius:.3rem;border:1px solid var(--border);">
+              </div>
+              <div>
+                <div style="font-size:.78em;font-weight:600;text-align:center;margin-bottom:.3rem;">{{t('fp_after')}}</div>
+                <img :src="filterPreview.after" style="width:100%;border-radius:.3rem;border:1px solid var(--border);">
+              </div>
+            </div>
+            <div style="font-size:.72em;opacity:.5;margin-top:.3rem;text-align:center;">{{t('fp_hint')}}</div>
+          </div>
+          <div v-if="filterPreviewErr" style="color:var(--warning);font-size:.82em;margin-top:.5rem;">{{filterPreviewErr}}</div>
+        </div>
+
+        <!-- ── Sub-tab: Calibration ── -->
+        <div v-if="audioSubTab==='calibration'">
+          <div class="card">
+            <div class="section-title">{{t('cal_title')}}</div>
+            <div v-if="audioConf.input_channels < 2" style="opacity:.6;padding:1rem;">
+              {{t('cal_need_2ch')}}
+            </div>
+            <div v-else>
+              <div v-if="audioConf.cal_date" style="margin-bottom:1rem;">
+                <div>{{t('audio_last_cal')}} : <strong>{{ audioConf.cal_date?.split('T')[0] }}</strong></div>
+                <div style="font-size:.85em;opacity:.7;">
+                  CH0: gain ×{{ audioConf.cal_gain_ch0 }} &nbsp;|&nbsp; CH1: gain ×{{ audioConf.cal_gain_ch1 }}
+                </div>
+                <div v-if="calExpired" style="color:var(--warning);font-size:.85em;margin-top:.3rem;">
+                  {{t('cal_expired')}}
+                </div>
+              </div>
+              <div v-else style="color:var(--warning);margin-bottom:1rem;">
+                {{t('cal_not_done')}}
+              </div>
+
+              <div v-if="!calRunning && !calResult">
+                <p style="font-size:.85em;opacity:.8;margin-bottom:.8rem;">
+                  Placez les deux microphones côte à côte (< 5 cm d'écart), orientés dans la même direction.
+                  Assurez-vous qu'aucun bruit fort n'est présent. La capture dure 10 secondes.
+                </p>
+                <button class="btn-accent" @click="startCalibration">{{t('cal_start')}}</button>
+              </div>
+
+              <div v-if="calRunning" style="text-align:center;padding:1rem;">
+                <div class="spinner" style="margin:0 auto .5rem;"></div>
+                <div>{{t('cal_capturing')}}</div>
+              </div>
+
+              <div v-if="calResult" class="card" style="background:var(--bg-card2);">
+                <table style="width:100%;font-size:.85em;margin-bottom:.8rem;">
+                  <tr><th>Canal</th><th>RMS mesuré</th><th>Gain compensatoire</th></tr>
+                  <tr>
+                    <td>{{t('audio_ch0')}}</td>
+                    <td>{{ calResult.rms_ch0_db }} dBFS</td>
+                    <td>×{{ calResult.gain_ch0 }}</td>
+                  </tr>
+                  <tr>
+                    <td>{{t('audio_ch1')}}</td>
+                    <td>{{ calResult.rms_ch1_db }} dBFS</td>
+                    <td>×{{ calResult.gain_ch1 }}</td>
+                  </tr>
+                </table>
+                <div :style="{ color: calResult.status === 'warning' ? 'var(--warning)' : 'var(--accent)' }">
+                  {{ calResult.message }}
+                </div>
+                <div style="display:flex;gap:.5rem;margin-top:.8rem;">
+                  <button class="btn-accent" @click="applyCalibration">{{t('cal_apply')}}</button>
+                  <button class="btn-outline" @click="calResult=null">{{t('cal_retry')}}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sub-tab: Adaptive Gain ── -->
+        <div v-if="audioSubTab==='adaptive'">
+          <div class="card">
+            <div class="section-title">{{t('ag_title')}}</div>
+            <p style="font-size:.78rem;opacity:.7;margin:0 0 .8rem 0;">{{t('ag_desc')}}</p>
+
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="agConf.enabled"> {{t('ag_enabled')}}
+            </label></div>
+
+            <div v-if="agConf.enabled">
+              <div class="set-row"><label class="set-check">
+                <input type="checkbox" v-model="agConf.observer_only"> {{t('ag_observer')}}
+              </label></div>
+
+              <div class="set-row">
+                <span class="set-label">{{t('ag_mode')}}</span>
+                <select v-model="agConf.mode" style="padding:.3rem;border-radius:.3rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);">
+                  <option value="conservative">{{t('ag_conservative')}}</option>
+                  <option value="balanced">{{t('ag_balanced')}}</option>
+                  <option value="night">{{t('ag_night')}}</option>
+                </select>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.5rem 0;">
+                <div class="set-row"><span class="set-label">{{t('ag_min')}}</span>
+                  <input type="number" v-model.number="agConf.min_db" min="-24" max="0" step="1" style="width:60px;" class="set-input"> dB</div>
+                <div class="set-row"><span class="set-label">{{t('ag_max')}}</span>
+                  <input type="number" v-model.number="agConf.max_db" min="0" max="24" step="1" style="width:60px;" class="set-input"> dB</div>
+                <div class="set-row"><span class="set-label">{{t('ag_target')}}</span>
+                  <input type="number" v-model.number="agConf.target_floor_dbfs" min="-80" max="-10" step="1" style="width:60px;" class="set-input"> dBFS</div>
+                <div class="set-row"><span class="set-label">{{t('ag_clip_guard')}}</span>
+                  <input type="number" v-model.number="agConf.clip_guard_dbfs" min="-12" max="0" step="0.5" style="width:60px;" class="set-input"> dBFS</div>
+                <div class="set-row"><span class="set-label">{{t('ag_interval')}}</span>
+                  <input type="number" v-model.number="agConf.update_interval_s" min="2" max="120" step="1" style="width:60px;" class="set-input"> s</div>
+                <div class="set-row"><span class="set-label">{{t('ag_hold')}}</span>
+                  <input type="number" v-model.number="agConf.activity_hold_s" min="0" max="120" step="1" style="width:60px;" class="set-input"> s</div>
+              </div>
+
+              <details style="margin:.6rem 0 0 0;">
+                <summary style="cursor:pointer;font-size:.78rem;font-weight:600;opacity:.8;">{{t('ag_advanced')}}</summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.5rem 0;">
+                  <div class="set-row"><span class="set-label">{{t('ag_step_up')}}</span>
+                    <input type="number" v-model.number="agConf.step_up_db" min="0.1" max="6" step="0.1" style="width:60px;" class="set-input"> dB</div>
+                  <div class="set-row"><span class="set-label">{{t('ag_step_down')}}</span>
+                    <input type="number" v-model.number="agConf.step_down_db" min="0.1" max="6" step="0.1" style="width:60px;" class="set-input"> dB</div>
+                  <div class="set-row"><span class="set-label">{{t('ag_history')}}</span>
+                    <input type="number" v-model.number="agConf.history_s" min="5" max="300" step="5" style="width:60px;" class="set-input"> s</div>
+                  <div class="set-row"><span class="set-label">{{t('ag_noise_pct')}}</span>
+                    <input type="number" v-model.number="agConf.noise_percentile" min="1" max="50" step="1" style="width:60px;" class="set-input"> %</div>
+                </div>
+              </details>
+
+            </div>
+          </div>
+
+          <!-- Live state display -->
+          <div class="card" v-if="agConf.enabled">
+            <div class="section-title">{{t('ag_state')}}
+              <button class="btn-outline" style="font-size:.72rem;margin-left:.5rem;" @click="loadAgState">{{t('db_refresh')}}</button>
+            </div>
+            <div v-if="agState" style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;font-size:.82rem;">
+              <div>{{t('ag_noise_floor')}} : <strong>{{agState.noise_floor_dbfs ?? '—'}} dBFS</strong></div>
+              <div>{{t('ag_activity')}} : <strong>{{agState.activity_dbfs ?? '—'}} dBFS</strong></div>
+              <div>{{t('ag_peak')}} : <strong :style="{color: agState.peak_dbfs > -3 ? 'var(--danger)' : 'inherit'}">{{agState.peak_dbfs ?? '—'}} dBFS</strong></div>
+              <div>{{t('ag_recommended')}} : <strong style="color:var(--accent);">{{agState.recommended_gain_db ?? 0}} dB</strong></div>
+              <div>{{t('ag_current_gain')}} : <strong>{{agState.current_gain_db ?? 0}} dB</strong></div>
+              <div>{{t('ag_reason')}} : <strong>{{t('ag_' + (agState.reason || 'init')) || agState.reason}}</strong></div>
+            </div>
+            <div v-else style="font-size:.82em;opacity:.5;">{{t('ag_not_enough')}}</div>
+          </div>
+        </div>
+
+        <!-- ── Sub-tab: Monitoring ── -->
+        <div v-if="audioSubTab==='monitoring'">
+          <div class="card">
+            <div class="section-title">{{t('audio_levels')}}
+              <button class="btn-outline" style="margin-left:.5rem;font-size:.75em;"
+                      @click="audioMonitoring ? stopMonitor() : startMonitor()">
+                {{ audioMonitoring ? t('audio_stop') : t('audio_start') }}
+              </button>
+            </div>
+            <div v-if="!audioMonitoring" style="opacity:.6;padding:1rem;text-align:center;">
+              {{t('audio_click_start')}}
+            </div>
+            <div v-else style="display:flex;gap:2rem;justify-content:center;padding:1rem;">
+              <div v-for="ch in (audioConf.input_channels === 2 ? [0,1] : [0])" :key="ch"
+                   style="text-align:center;">
+                <div style="font-size:.8em;opacity:.7;margin-bottom:.3rem;">CH{{ ch }}</div>
+                <div style="width:40px;height:200px;background:var(--bg-card2);border-radius:4px;position:relative;overflow:hidden;margin:0 auto;">
+                  <div :style="{
+                    position:'absolute', bottom:0, left:0, right:0,
+                    height: Math.max(0, Math.min(100, (60 + monitorLevels['ch'+ch+'_rms_db']) / 60 * 100)) + '%',
+                    background: monitorLevels['clipping_ch'+ch] ? '#e53e3e' :
+                                monitorLevels['ch'+ch+'_rms_db'] > -12 ? '#dd6b20' :
+                                monitorLevels['ch'+ch+'_rms_db'] > -18 ? '#38a169' : '#4299e1',
+                    transition: 'height .3s, background .3s',
+                    borderRadius: '0 0 4px 4px'
+                  }"></div>
+                  <!-- comfort zone markers -->
+                  <div style="position:absolute;left:0;right:0;bottom:70%;border-top:1px dashed rgba(56,161,105,.5);"></div>
+                  <div style="position:absolute;left:0;right:0;bottom:80%;border-top:1px dashed rgba(56,161,105,.5);"></div>
+                </div>
+                <div style="font-size:.78em;margin-top:.3rem;">
+                  {{ monitorLevels['ch'+ch+'_rms_db']?.toFixed(1) || '-60' }} dB
+                </div>
+                <div v-if="monitorLevels['clipping_ch'+ch]"
+                     style="color:#e53e3e;font-size:.7em;font-weight:bold;">CLIP</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">{{t('audio_test')}}</div>
+            <div style="display:flex;align-items:center;gap:.8rem;">
+              <button class="btn-accent" @click="testAudio" :disabled="audioTesting">
+                {{ audioTesting ? '...' : t('audio_test_btn') }}
+              </button>
+            </div>
+            <div v-if="audioTestImg" style="margin-top:.8rem;">
+              <img :src="audioTestImg" style="width:100%;border-radius:6px;border:1px solid var(--border);"
+                   alt="Spectrogram test">
+            </div>
+          </div>
+        </div>
+

@@ -1,0 +1,151 @@
+
+      <!-- ═══ Model Selection ═══ -->
+      <div class="card">
+        <div class="section-title">🤖 {{t('set_model')}} <button class="info-btn" @click="helpKey='model'">i</button></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.8rem;">
+          <div v-for="m in models" :key="m"
+               class="model-card" :class="{ active: conf.MODEL === m }"
+               @click="conf.MODEL = m">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;">
+              <span class="model-name">{{ modelLabel(m) }}</span>
+              <span v-if="m === 'BirdNET_GLOBAL_6K_V2.4_Model_FP16'" class="model-badge badge-recommended">6.5K · 25 MB</span>
+              <span v-else-if="m.includes('MData_Model_V2')" class="model-badge badge-recommended">6.5K + geo V2</span>
+              <span v-else-if="m.includes('MData_Model')" class="model-badge badge-recommended">6.5K + geo</span>
+              <span v-else-if="m === 'BirdNET_6K_GLOBAL_MODEL'" class="model-badge badge-experimental">legacy</span>
+              <span v-else-if="m === 'perch_v2_dynint8'" class="model-badge badge-advanced">15K · 105 MB</span>
+              <span v-else-if="m === 'perch_v2_fp16'" class="model-badge badge-recommended">15K · 205 MB</span>
+              <span v-else-if="m === 'perch_v2_original'" class="model-badge badge-advanced">15K · 409 MB</span>
+              <span v-else-if="m.includes('Perch') || m.includes('perch')" class="model-badge badge-advanced">15K</span>
+              <span v-else-if="m.includes('Go')" class="model-badge badge-experimental">exp.</span>
+              <span v-if="m === 'perch_v2_fp16'" class="model-badge badge-recommended" style="font-size:.65rem;">Pi 5</span>
+              <span v-if="m === 'perch_v2_dynint8'" class="model-badge badge-recommended" style="font-size:.65rem;">Pi 4</span>
+            </div>
+            <div class="model-desc">{{ modelDescription(m) }}</div>
+          </div>
+        </div>
+        <!-- Dual-model config -->
+        <div style="margin-top:.8rem;padding:.8rem 1rem;border-radius:8px;background:var(--bg-card2);border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.5rem;">
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-weight:600;">
+              <input type="checkbox"
+                     :checked="conf.DUAL_MODEL_ENABLED == 1"
+                     @change="conf.DUAL_MODEL_ENABLED = $event.target.checked ? 1 : 0">
+              {{t('dual_model')}}
+            </label>
+            <span style="font-size:1.1em;">⚡</span>
+            <span style="font-size:.82em;opacity:.6;">{{t('dual_desc')}}</span>
+          </div>
+
+          <div v-if="conf.DUAL_MODEL_ENABLED == 1">
+            <div style="font-size:.85em;margin-bottom:.5rem;">{{t('secondary_model')}} :</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.6rem;">
+              <div v-for="m in secondaryModelOptions" :key="m"
+                   class="model-card" :class="{ active: conf.SECONDARY_MODEL === m }"
+                   @click="conf.SECONDARY_MODEL = m"
+                   style="padding:.6rem;">
+                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;">
+                  <span class="model-name" style="font-size:.9rem;">{{ modelLabel(m) }}</span>
+                  <span v-if="m === 'perch_v2_dynint8'" class="model-badge badge-advanced" style="font-size:.65rem;">15K · 105 MB</span>
+                  <span v-else-if="m === 'perch_v2_fp16'" class="model-badge badge-recommended" style="font-size:.65rem;">15K · 205 MB</span>
+                  <span v-else-if="m === 'perch_v2_original'" class="model-badge badge-advanced" style="font-size:.65rem;">15K · 409 MB</span>
+                  <span v-else-if="m.includes('perch') || m.includes('Perch')" class="model-badge badge-advanced" style="font-size:.65rem;">15K</span>
+                  <span v-else-if="m === 'BirdNET_6K_GLOBAL_MODEL'" class="model-badge badge-experimental" style="font-size:.65rem;">legacy</span>
+                  <span v-else-if="m.includes('BirdNET')" class="model-badge badge-recommended" style="font-size:.65rem;">6.5K</span>
+                </div>
+                <div class="model-desc" style="font-size:.75rem;">{{ modelDescription(m) }}</div>
+              </div>
+            </div>
+
+            <!-- Live status -->
+            <div v-if="analysisStatus && analysisStatus.secondaryModel"
+                 style="margin-top:.6rem;font-size:.82em;color:var(--accent);display:flex;align-items:center;gap:.4rem;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;"></span>
+              {{ modelLabel(analysisStatus.secondaryModel) }} {{t('dual_status_active')}}
+              — {{t('dual_status_primary')}} : ~{{ analysisStatus.inferenceTime?.toFixed(1) || '?' }}s
+              | {{t('dual_status_secondary')}} : ~{{ analysisStatus.secondaryInferenceTime?.toFixed(1) || '?' }}s
+            </div>
+            <div v-else-if="conf.DUAL_MODEL_ENABLED == 1"
+                 style="margin-top:.5rem;font-size:.82em;color:var(--text-muted);">
+              {{t('dual_wait')}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+
+        <!-- ═══ BirdNET Parameters ═══ -->
+        <div class="card">
+          <div class="section-title">🐦 BirdNET {{t('set_params')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_birdnet_conf')}} <button class="info-btn" @click="helpKey='birdnet_confidence'">i</button></span>
+            <span class="set-range-val">{{conf.BIRDNET_CONFIDENCE || conf.CONFIDENCE || 0.65}}</span>
+            <input v-model="conf.BIRDNET_CONFIDENCE" type="range" min="0.30" max="0.95" step="0.05" class="set-range">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_sensitivity')}} <button class="info-btn" @click="helpKey='sensitivity'">i</button></span>
+            <span class="set-range-val">{{conf.SENSITIVITY}}</span>
+            <input v-model="conf.SENSITIVITY" type="range" min="0.5" max="1.5" step="0.05" class="set-range">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_overlap')}} <button class="info-btn" @click="helpKey='overlap'">i</button></span>
+            <span class="set-range-val">{{conf.OVERLAP}}</span>
+            <input v-model="conf.OVERLAP" type="range" min="0" max="2.9" step="0.1" class="set-range">
+          </div>
+        </div>
+
+        <!-- ═══ Perch Parameters ═══ -->
+        <div class="card" v-if="conf.DUAL_MODEL_ENABLED == 1 || (conf.MODEL && conf.MODEL.includes('perch'))">
+          <div class="section-title">🔬 Perch V2 {{t('set_params')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_perch_conf')}} <button class="info-btn" @click="helpKey='perch_confidence'">i</button></span>
+            <span class="set-range-val">{{conf.PERCH_CONFIDENCE || 0.25}}</span>
+            <input v-model="conf.PERCH_CONFIDENCE" type="range" min="0.05" max="0.50" step="0.01" class="set-range">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_perch_margin')}} <button class="info-btn" @click="helpKey='perch_margin'">i</button></span>
+            <span class="set-range-val">{{conf.PERCH_MIN_MARGIN || 0.10}}</span>
+            <input v-model="conf.PERCH_MIN_MARGIN" type="range" min="0" max="0.20" step="0.01" class="set-range">
+          </div>
+        </div>
+
+        <!-- ═══ Shared Parameters ═══ -->
+        <div class="card">
+          <div class="section-title">🌍 {{t('set_shared_params')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_species_freq_thresh')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
+            <span class="set-range-val">{{conf.SF_THRESH}}</span>
+            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range">
+          </div>
+        </div>
+
+        <!-- ═══ Recording ═══ -->
+        <div class="card">
+          <div class="section-title">🎙️ {{t('set_recording')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_rec_length')}} <button class="info-btn" @click="helpKey='rec_length'">i</button></span>
+            <input v-model="conf.RECORDING_LENGTH" type="number" min="6" max="120" class="set-input">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_extraction_length')}} <button class="info-btn" @click="helpKey='extraction_length'">i</button></span>
+            <input v-model="conf.EXTRACTION_LENGTH" type="number" min="3" max="30" class="set-input" placeholder="6">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_audio_format')}} <button class="info-btn" @click="helpKey='audio_format'">i</button></span>
+            <select v-model="conf.AUDIOFMT" class="set-select">
+              <option value="mp3">MP3</option>
+              <option value="wav">WAV</option>
+              <option value="flac">FLAC</option>
+              <option value="ogg">OGG</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_channels')}} <button class="info-btn" @click="helpKey='channels'">i</button></span>
+            <select v-model="conf.CHANNELS" class="set-select">
+              <option value="1">Mono</option>
+              <option value="2">Stereo</option>
+            </select>
+          </div>
+        </div>
+
+      </div><!-- /settings-grid -->

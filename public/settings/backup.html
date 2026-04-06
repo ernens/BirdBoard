@@ -1,0 +1,331 @@
+
+      <!-- ═══ Backup Configuration ═══ -->
+      <div class="card" style="margin-top:1.2rem;">
+        <div class="section-title">💾 {{t('set_backup')}} <button class="info-btn" @click="helpKey='backup'">i</button></div>
+
+        <div class="settings-grid">
+
+          <!-- Destination -->
+          <div>
+            <div style="font-weight:600;margin-bottom:.6rem;">{{t('set_backup_dest')}}</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;">
+              <div v-for="d in backupDests" :key="d.value"
+                   class="model-card" style="padding:.55rem .7rem;"
+                   :class="{ active: bkp.destination === d.value }"
+                   @click="bkp.destination = d.value">
+                <div style="display:flex;align-items:center;gap:.4rem;">
+                  <span style="font-size:1.1rem;">{{d.icon}}</span>
+                  <span style="font-weight:600;font-size:.85rem;">{{t(d.labelKey)}}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic fields per destination -->
+            <div style="margin-top:.8rem;">
+
+              <!-- Local / USB -->
+              <template v-if="bkp.destination === 'local'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_path')}}</span>
+                  <input v-model="bkp.local.path" class="set-input" style="width:220px;" placeholder="/mnt/backup">
+                </div>
+              </template>
+
+              <!-- SMB/CIFS -->
+              <template v-if="bkp.destination === 'smb'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_host')}}</span>
+                  <input v-model="bkp.smb.host" class="set-input" placeholder="192.168.1.100">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_share')}}</span>
+                  <input v-model="bkp.smb.share" class="set-input" placeholder="backups">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_user')}}</span>
+                  <input v-model="bkp.smb.user" class="set-input" placeholder="user">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_pass')}}</span>
+                  <input v-model="bkp.smb.pass" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.smb.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+              <!-- NFS -->
+              <template v-if="bkp.destination === 'nfs'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_host')}}</span>
+                  <input v-model="bkp.nfs.host" class="set-input" placeholder="192.168.1.100">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">Export</span>
+                  <input v-model="bkp.nfs.exportPath" class="set-input" style="width:220px;" placeholder="/volume1/backups">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.nfs.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+              <!-- SFTP -->
+              <template v-if="bkp.destination === 'sftp'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_host')}}</span>
+                  <input v-model="bkp.sftp.host" class="set-input" placeholder="backup.example.com">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_port')}}</span>
+                  <input v-model="bkp.sftp.port" type="number" class="set-input" style="width:80px;" placeholder="22">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_user')}}</span>
+                  <input v-model="bkp.sftp.user" class="set-input" placeholder="user">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_pass')}}</span>
+                  <input v-model="bkp.sftp.pass" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.sftp.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+              <!-- S3 -->
+              <template v-if="bkp.destination === 's3'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_bucket')}}</span>
+                  <input v-model="bkp.s3.bucket" class="set-input" placeholder="my-birdash-backups">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_region')}}</span>
+                  <input v-model="bkp.s3.region" class="set-input" placeholder="eu-west-1">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_access_key')}}</span>
+                  <input v-model="bkp.s3.accessKey" class="set-input" placeholder="AKIA...">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_secret_key')}}</span>
+                  <input v-model="bkp.s3.secretKey" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.s3.remotePath" class="set-input" style="width:220px;" placeholder="birdash-backup">
+                </div>
+              </template>
+
+              <!-- Google Drive -->
+              <template v-if="bkp.destination === 'gdrive'">
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_gdrive_folder')}}</span>
+                  <input v-model="bkp.gdrive.folderId" class="set-input" style="width:260px;" placeholder="1A2B3C...">
+                </div>
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:.3rem;">
+                  Requires <code>rclone</code> configured with Google Drive.
+                </div>
+              </template>
+
+              <!-- WebDAV -->
+              <template v-if="bkp.destination === 'webdav'">
+                <div class="set-row">
+                  <span class="set-label">URL</span>
+                  <input v-model="bkp.webdav.url" class="set-input" style="width:260px;" placeholder="https://cloud.example.com/remote.php/dav">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_user')}}</span>
+                  <input v-model="bkp.webdav.user" class="set-input" placeholder="user">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_pass')}}</span>
+                  <input v-model="bkp.webdav.pass" type="password" class="set-input" placeholder="••••••">
+                </div>
+                <div class="set-row">
+                  <span class="set-label">{{t('set_backup_remote_path')}}</span>
+                  <input v-model="bkp.webdav.remotePath" class="set-input" style="width:220px;" placeholder="/birdash-backup">
+                </div>
+              </template>
+
+            </div>
+          </div>
+
+          <!-- Content + Schedule -->
+          <div>
+            <div style="font-weight:600;margin-bottom:.6rem;">{{t('set_backup_content')}}</div>
+
+            <div style="display:flex;flex-direction:column;gap:.3rem;">
+              <label class="set-check" @change="toggleBackupContent('all')">
+                <input type="checkbox" :checked="bkp.content.includes('all')">
+                <span>{{t('set_backup_content_all')}}</span>
+              </label>
+              <label class="set-check" @change="toggleBackupContent('db')">
+                <input type="checkbox" :checked="bkp.content.includes('all') || bkp.content.includes('db')" :disabled="bkp.content.includes('all')">
+                <span>🗄️ {{t('set_backup_content_db')}} <span style="font-size:.75rem;color:var(--text-faint);">birds.db</span></span>
+              </label>
+              <label class="set-check" @change="toggleBackupContent('audio')">
+                <input type="checkbox" :checked="bkp.content.includes('all') || bkp.content.includes('audio')" :disabled="bkp.content.includes('all')">
+                <span>🎵 {{t('set_backup_content_audio')}} <span style="font-size:.75rem;color:var(--text-faint);">BirdSongs/</span></span>
+              </label>
+              <label class="set-check" @change="toggleBackupContent('config')">
+                <input type="checkbox" :checked="bkp.content.includes('all') || bkp.content.includes('config')" :disabled="bkp.content.includes('all')">
+                <span>⚙️ {{t('set_backup_content_config')}} <span style="font-size:.75rem;color:var(--text-faint);">birdnet.conf, lists…</span></span>
+              </label>
+            </div>
+
+            <!-- Schedule -->
+            <div style="font-weight:600;margin-top:1.2rem;margin-bottom:.6rem;">{{t('set_backup_schedule')}}</div>
+            <div class="set-row">
+              <span class="set-label">{{t('set_backup_schedule')}}</span>
+              <select v-model="bkp.schedule" class="set-select" style="width:140px;">
+                <option value="manual">{{t('set_backup_schedule_manual')}}</option>
+                <option value="daily">{{t('set_backup_schedule_daily')}}</option>
+                <option value="weekly">{{t('set_backup_schedule_weekly')}}</option>
+              </select>
+            </div>
+            <div v-if="bkp.schedule !== 'manual'" class="set-row">
+              <span class="set-label">{{t('set_backup_schedule_time')}}</span>
+              <input v-model="bkp.scheduleTime" type="time" class="set-input" style="width:110px;">
+            </div>
+            <div class="set-row">
+              <span class="set-label">{{t('set_backup_retention')}}</span>
+              <input v-model="bkp.retention" type="number" min="1" max="365" class="set-input" style="width:80px;">
+            </div>
+
+            <!-- Status & Actions -->
+            <div style="margin-top:1rem;padding:.7rem;background:var(--bg-deep);border-radius:8px;">
+
+              <!-- Live progress (visible when running or paused) -->
+              <div v-if="bkpProgress.state === 'running' || bkpProgress.state === 'paused'" style="margin-bottom:.7rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                  <span class="bkp-state-badge" :class="bkpProgress.state === 'paused' ? 'bkp-paused' : 'bkp-running'">
+                    {{bkpProgress.state === 'paused' ? t('set_backup_state_paused') : t('set_backup_state_running')}}
+                  </span>
+                  <span style="font-size:.78rem;color:var(--text-muted);flex:1;">{{bkpProgress.detail}}</span>
+                  <!-- Pause / Resume -->
+                  <button class="svc-btn" @click="pauseBackup" :title="bkpProgress.state === 'paused' ? t('set_backup_resume') : t('set_backup_pause')"
+                          style="font-size:.9rem;padding:.2rem .5rem;min-width:32px;">
+                    {{bkpProgress.state === 'paused' ? '▶' : '⏸'}}
+                  </button>
+                  <!-- Stop -->
+                  <button class="svc-btn" @click="stopBackup" :title="t('set_backup_stop')"
+                          style="font-size:.9rem;padding:.2rem .5rem;min-width:32px;color:var(--danger);">
+                    ⏹
+                  </button>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <div class="health-bar" style="height:10px;flex:1;">
+                    <div class="health-fill" :class="bkpProgress.state === 'paused' ? '' : 'bar-ok'"
+                         :style="{width: bkpProgress.percent + '%', transition:'width .8s ease',
+                                  background: bkpProgress.state === 'paused' ? 'var(--warning,#c8a84b)' : undefined}"></div>
+                  </div>
+                  <span style="font-size:.78rem;font-family:monospace;min-width:32px;text-align:right;">{{bkpProgress.percent}}%</span>
+                </div>
+                <div style="font-size:.72rem;color:var(--text-faint);margin-top:.25rem;">
+                  {{t('set_backup_step')}}: {{bkpStepLabel(bkpProgress.step)}}
+                  <span v-if="bkpProgress.startedAt"> — {{t('set_backup_started')}} {{bkpElapsed}}</span>
+                </div>
+                <!-- Disk info -->
+                <div v-if="bkpProgress.backupSize || bkpProgress.diskFree" style="display:flex;flex-wrap:wrap;gap:.8rem;margin-top:.5rem;font-size:.75rem;color:var(--text-muted);">
+                  <span v-if="bkpProgress.backupSize">{{t('set_backup_transferred')}}: <strong style="color:var(--text-main);">{{fmtSize(bkpProgress.backupSize)}}</strong></span>
+                  <span v-if="bkpProgress.diskFree">{{t('set_backup_disk_free')}}: <strong style="color:var(--text-main);">{{fmtSize(bkpProgress.diskFree)}}</strong></span>
+                  <span v-if="bkpProgress.diskTotal">/ {{fmtSize(bkpProgress.diskTotal)}}</span>
+                </div>
+              </div>
+
+              <!-- State badges for non-running states -->
+              <div v-else-if="bkpProgress.state === 'completed'" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+                <span class="bkp-state-badge bkp-completed">{{t('set_backup_state_completed')}}</span>
+                <span style="font-size:.78rem;color:var(--text-muted);">{{bkpProgress.detail || t('set_backup_success')}}</span>
+              </div>
+              <div v-else-if="bkpProgress.state === 'failed'" style="margin-bottom:.5rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <span class="bkp-state-badge bkp-failed">{{t('set_backup_state_failed')}}</span>
+                  <span style="font-size:.78rem;color:var(--text-muted);">{{bkpProgress.detail}}</span>
+                </div>
+                <div v-if="bkpProgress.percent > 0" style="display:flex;align-items:center;gap:.5rem;margin-top:.3rem;">
+                  <div class="health-bar" style="height:8px;flex:1;">
+                    <div class="health-fill bar-danger" :style="{width: bkpProgress.percent + '%'}"></div>
+                  </div>
+                  <span style="font-size:.72rem;font-family:monospace;color:var(--danger);">{{bkpProgress.percent}}%</span>
+                </div>
+              </div>
+              <div v-else-if="bkpProgress.state === 'stopped'" style="margin-bottom:.5rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <span class="bkp-state-badge bkp-stopped">{{t('set_backup_state_stopped')}}</span>
+                  <span style="font-size:.78rem;color:var(--text-muted);">{{t('bkp_stopped_by_user')}}</span>
+                </div>
+                <div v-if="bkpProgress.percent > 0" style="display:flex;align-items:center;gap:.5rem;margin-top:.3rem;">
+                  <div class="health-bar" style="height:8px;flex:1;">
+                    <div class="health-fill" style="background:var(--warning);" :style="{width: bkpProgress.percent + '%'}"></div>
+                  </div>
+                  <span style="font-size:.72rem;font-family:monospace;color:var(--warning);">{{bkpProgress.percent}}%</span>
+                </div>
+              </div>
+
+              <!-- Schedule info -->
+              <div v-if="bkpSchedule" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.45rem .65rem;background:var(--bg-card2);border-radius:6px;">
+                <span style="font-size:1rem;">⏰</span>
+                <div style="flex:1;font-size:.8rem;">
+                  <div style="color:var(--text-main);">
+                    {{bkpSchedule.type === 'daily' ? t('set_backup_schedule_daily') : t('set_backup_schedule_weekly')}}
+                    — {{bkpSchedule.time}}
+                  </div>
+                  <div style="font-size:.72rem;color:var(--text-faint);">
+                    {{t('bkp_next_run')}}: {{fmtDateTimeFull(bkpSchedule.nextRun)}}
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="bkp.schedule === 'manual'" style="font-size:.78rem;color:var(--text-faint);margin-bottom:.5rem;">
+                {{t('bkp_no_schedule')}}
+              </div>
+
+              <!-- Last run info (when not active) -->
+              <div v-if="bkpProgress.state !== 'running' && bkpProgress.state !== 'paused'" style="font-size:.82rem;color:var(--text-muted);margin-bottom:.5rem;">
+                {{t('set_backup_last_status')}}:
+                <span v-if="!bkp.lastRun" style="color:var(--text-faint);">{{t('set_backup_never')}}</span>
+                <span v-else>
+                  <span :style="{color: bkp.lastStatus === 'success' ? 'var(--accent)' : 'var(--danger)'}">
+                    {{bkp.lastStatus === 'success' ? t('set_backup_success') : t('set_backup_failed')}}
+                  </span>
+                  — {{bkp.lastRun}}
+                </span>
+              </div>
+
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                <button class="btn-outline" @click="saveBackupConfig" :disabled="savingBkp" style="font-size:.85rem;">
+                  {{savingBkp ? '...' : t('set_backup_save')}}
+                </button>
+                <button class="btn-save" @click="runBackup"
+                        :disabled="bkpProgress.state === 'running' || bkpProgress.state === 'paused'"
+                        style="font-size:.85rem;padding:.5rem 1.2rem;">
+                  {{(bkpProgress.state === 'running' || bkpProgress.state === 'paused') ? t('set_backup_running') : t('set_backup_run_now')}}
+                </button>
+              </div>
+
+              <!-- Backup history -->
+              <div v-if="bkpHistory.length" style="margin-top:.8rem;border-top:1px solid var(--border);padding-top:.6rem;">
+                <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:.4rem;">
+                  {{t('bkp_history')}}
+                </div>
+                <div v-for="h in bkpHistory" :key="h.startedAt"
+                     style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--bg-card2);font-size:.78rem;">
+                  <span :style="{color: h.status==='success' ? 'var(--accent)' : 'var(--danger)', fontSize:'.9rem'}">
+                    {{h.status === 'success' ? '✓' : '✗'}}
+                  </span>
+                  <span style="color:var(--text-main);min-width:120px;">{{fmtDateTimeFull(h.startedAt)}}</span>
+                  <span style="color:var(--text-faint);font-size:.72rem;">{{h.steps}}</span>
+                  <span style="margin-left:auto;font-family:monospace;color:var(--text-muted);">{{h.size}}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div><!-- /settings-grid -->
+      </div>
+

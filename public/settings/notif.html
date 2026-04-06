@@ -1,0 +1,142 @@
+
+        <!-- ═══ Global toggle + Apprise URL ═══ -->
+        <div class="card">
+          <div class="section-title" style="display:flex;align-items:center;gap:.8rem;">
+            <span>{{t('notif_channel')}}</span>
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.82rem;font-weight:normal;margin-left:auto;">
+              <input type="checkbox"
+                     :checked="notifGlobalEnabled"
+                     @change="toggleNotifGlobal($event.target.checked)">
+              <span :style="{color: notifGlobalEnabled ? 'var(--accent)' : 'var(--text-muted)'}">
+                {{ notifGlobalEnabled ? t('notif_on') : t('notif_off') }}
+              </span>
+            </label>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;">
+            <span style="font-size:.82em;white-space:nowrap;">Apprise URL :</span>
+            <input type="text" v-model="appriseUrls" style="flex:1;padding:.3rem .5rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.82em;font-family:monospace;">
+            <button class="btn-outline" @click="testApprise" :disabled="testingApprise" style="font-size:.75em;">
+              {{ testingApprise ? '...' : t('notif_test') }}
+            </button>
+          </div>
+          <div v-if="appriseMsg" style="font-size:.78em;margin-top:.3rem;" :style="{color: appriseErr ? 'var(--danger)' : 'var(--accent)'}">{{ appriseMsg }}</div>
+          <p style="font-size:.72rem;color:var(--text-muted);margin:.3rem 0 0 0;">
+            Ex: <code>ntfy://ntfy.sh/my-topic</code>, <code>tgram://bottoken/chatid</code>, <code>discord://webhook</code>
+          </p>
+        </div>
+
+        <!-- ═══ Notifications oiseaux ═══ -->
+        <div class="card">
+          <div class="section-title">{{t('notif_bird_alerts')}}</div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.NOTIFY_RARE_SPECIES" true-value="1" false-value="0">
+            <span>🦅 <strong>{{t('notif_rare')}}</strong> — {{t('notif_rare_desc')}}</span>
+          </label></div>
+          <div v-if="conf.NOTIFY_RARE_SPECIES == 1" style="margin-left:1.5rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;">
+            <span style="font-size:.82em;">{{t('audio_threshold')}} :</span>
+            <input type="number" v-model.number="conf.NOTIFY_RARE_THRESHOLD" min="1" max="100" step="1"
+                   style="width:60px;font-size:.82em;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.78em;color:var(--text-muted);">{{t('audio_max_det')}}</span>
+          </div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.NOTIFY_FIRST_SEASON" true-value="1" false-value="0">
+            <span>🌱 <strong>{{t('notif_season')}}</strong> — {{t('notif_season_desc')}}</span>
+          </label></div>
+          <div v-if="conf.NOTIFY_FIRST_SEASON == 1" style="margin-left:1.5rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;">
+            <span style="font-size:.82em;">{{t('notif_season_days_label')}} :</span>
+            <input type="number" v-model.number="conf.NOTIFY_SEASON_DAYS" min="7" max="365" step="1"
+                   style="width:60px;font-size:.82em;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.78em;color:var(--text-muted);">{{t('unit_days')}}</span>
+          </div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES" true-value="1" false-value="0">
+            <span>🆕 {{t('notif_new')}}</span>
+          </label></div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY" true-value="1" false-value="0">
+            <span>📅 {{t('notif_daily')}} <span style="color:var(--warning);font-size:.78em;">({{t('notif_daily_warn')}})</span></span>
+          </label></div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.NOTIFY_FAVORITES" true-value="1" false-value="0">
+            <span>⭐ <strong>{{t('notif_favorites')}}</strong> — {{t('notif_favorites_desc')}}</span>
+          </label></div>
+
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_NOTIFY_EACH_DETECTION" true-value="1" false-value="0">
+            <span>📢 {{t('notif_each')}} <span style="color:var(--danger);font-size:.78em;">({{t('notif_each_warn')}})</span></span>
+          </label></div>
+
+          <div style="margin-top:.6rem;border-top:1px solid var(--border);padding-top:.6rem;">
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.alert_influx" true-value="1" false-value="0">
+              <span>📈 {{t('set_alert_influx')}}</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.alert_missing" true-value="1" false-value="0">
+              <span>🔍 {{t('set_alert_missing')}}</span>
+            </label></div>
+            <div class="set-row"><label class="set-check">
+              <input type="checkbox" v-model="alertThresholds.alert_rare_visitor" true-value="1" false-value="0">
+              <span>🦅 {{t('set_alert_rare_visitor')}}</span>
+            </label></div>
+          </div>
+        </div>
+
+        <!-- ═══ {{t('notif_sys_alerts') || 'Alertes système'}} ═══ -->
+        <div class="card">
+          <div class="section-title">{{t('notif_sys_alerts')}}</div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_temp" true-value="1" false-value="0">
+              <span>🌡️ {{t('set_alert_temp_warn')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.temp_warn" min="40" max="90" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">°C</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_temp_crit" true-value="1" false-value="0">
+              <span>🔥 {{t('set_alert_temp_crit')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.temp_crit" min="50" max="100" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">°C</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_disk" true-value="1" false-value="0">
+              <span>💾 {{t('set_alert_disk_warn')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.disk_warn" min="50" max="99" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">%</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_ram" true-value="1" false-value="0">
+              <span>🧠 {{t('set_alert_ram_warn')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.ram_warn" min="50" max="99" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">%</span>
+          </div>
+          <div class="set-row" style="gap:.4rem;">
+            <label class="set-check" style="flex:1;"><input type="checkbox" v-model="alertThresholds.alert_no_det" true-value="1" false-value="0">
+              <span>🔇 {{t('set_alert_no_det')}}</span></label>
+            <input type="number" v-model.number="alertThresholds.no_detection_hours" min="1" max="48" step="1"
+                   style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
+            <span style="font-size:.72rem;color:var(--text-faint);">h</span>
+          </div>
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="alertThresholds.service_down" true-value="1" false-value="0">
+            <span>⚠️ {{t('set_alert_svc_down')}}</span>
+          </label></div>
+        </div>
+
+        <!-- ═══ {{t('notif_report')}} hebdomadaire ═══ -->
+        <div class="card">
+          <div class="section-title">{{t('notif_report')}}</div>
+          <div class="set-row"><label class="set-check">
+            <input type="checkbox" v-model="conf.APPRISE_WEEKLY_REPORT" true-value="1" false-value="0">
+            <span>📊 {{t('notif_report')}}</span>
+          </label></div>
+        </div>
+

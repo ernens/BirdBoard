@@ -1,0 +1,26 @@
+
+      <div class="card">
+        <div class="section-title">📋 {{t('species_tab')}} <button class="info-btn" @click="helpKey='species_lists'">i</button></div>
+        <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem 0;">
+          {{t('species_desc')}}
+          {{t('species_include_desc')}}
+          {{t('species_exclude_desc')}}
+        </p>
+        <div class="settings-grid">
+          <div>
+            <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_include_list')}}</div>
+            <p style="font-size:.72rem;color:var(--text-muted);margin:0 0 .4rem 0;">
+              {{t('species_include_desc')}}
+            </p>
+            <textarea v-model="includeList" class="set-textarea" rows="12" :placeholder="'Pica pica\nTurdus merula\nPhylloscopus collybita\n...'"></textarea>
+          </div>
+          <div>
+            <div style="font-weight:600;margin-bottom:.4rem;">{{t('set_exclude_list')}}</div>
+            <p style="font-size:.72rem;color:var(--text-muted);margin:0 0 .4rem 0;">
+              {{t('species_exclude_desc')}}
+            </p>
+            <textarea v-model="excludeList" class="set-textarea" rows="12" :placeholder="'Homo sapiens\nCanis lupus familiaris\n...'"></textarea>
+          </div>
+        </div>
+      </div>
+

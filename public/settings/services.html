@@ -1,0 +1,93 @@
+      <div class="settings-grid">
+
+        <!-- ═══ Disk Management ═══ -->
+        <div class="card">
+          <div class="section-title">💾 {{t('set_disk_mgmt')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_full_disk')}} <button class="info-btn" @click="helpKey='full_disk'">i</button></span>
+            <select v-model="conf.FULL_DISK" class="set-select" style="width:120px;">
+              <option value="purge">Purge</option>
+              <option value="keep">Keep</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_purge_threshold')}} <button class="info-btn" @click="helpKey='purge_threshold'">i</button></span>
+            <span class="set-range-val">{{conf.PURGE_THRESHOLD}}%</span>
+            <input v-model="conf.PURGE_THRESHOLD" type="range" min="50" max="99" step="1" class="set-range" :aria-label="t('set_purge_threshold')">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('retention_days')}}</span>
+            <span class="set-range-val">{{conf.AUDIO_RETENTION_DAYS}} j</span>
+            <input v-model="conf.AUDIO_RETENTION_DAYS" type="range" min="7" max="365" step="1" class="set-range">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_max_files')}} <button class="info-btn" @click="helpKey='max_files'">i</button></span>
+            <input v-model="conf.MAX_FILES_SPECIES" type="number" min="0" class="set-input" style="width:80px;">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_privacy_threshold')}} <button class="info-btn" @click="helpKey='privacy'">i</button></span>
+            <select v-model="conf.PRIVACY_THRESHOLD" class="set-select" style="width:80px;">
+              <option value="0">0 (off)</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ═══ Notifications — configuration du canal ═══ -->
+        <div class="card" style="grid-column:1/-1;">
+          <div class="section-title">🔔 {{t('set_notifications')}}</div>
+
+          <!-- Apprise URLs -->
+          <div class="set-row" style="flex-direction:column;align-items:stretch;">
+            <label class="set-label" style="margin-bottom:.3rem;">{{t('set_notif_urls')}}</label>
+            <textarea v-model="appriseUrls" rows="3"
+                      style="width:100%;box-sizing:border-box;font-family:monospace;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.4rem .5rem;resize:vertical;"
+                      placeholder="ntfy://ntfy.sh/my-birds&#10;tgram://bottoken/chatid&#10;mailto://user:pass@gmail.com"></textarea>
+            <div style="font-size:.68rem;color:var(--text-faint);margin-top:.25rem;line-height:1.5;">
+              {{t('set_notif_urls_help')}}<br>
+              <code style="color:var(--accent);">ntfy://ntfy.sh/my-topic</code> ·
+              <code style="color:var(--accent);">tgram://bottoken/chatid</code> ·
+              <code style="color:var(--accent);">discord://webhook_id/webhook_token</code><br>
+              <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:.68rem;">Apprise Wiki — 80+ services</a>
+            </div>
+            <div v-if="!appriseUrls.trim()" style="margin-top:.4rem;padding:.3rem .5rem;background:rgba(251,191,36,.1);border-left:3px solid var(--amber);border-radius:3px;font-size:.72rem;color:var(--amber);">
+              {{t('set_notif_no_urls')}}
+            </div>
+            <div style="display:flex;gap:.5rem;margin-top:.4rem;">
+              <button class="btn btn-secondary" style="font-size:.75rem;padding:.25rem .6rem;" @click="testApprise" :disabled="testingApprise || !appriseUrls.trim()">
+                {{testingApprise ? t('set_notif_testing') : '🔔 ' + t('set_notif_test')}}
+              </button>
+              <span v-if="appriseMsg" style="font-size:.72rem;align-self:center;" :style="{color:appriseErr?'var(--danger)':'var(--accent)'}">{{appriseMsg}}</span>
+            </div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:.8rem 0;">
+
+          <!-- Title & Body templates -->
+          <div class="set-row" style="flex-direction:column;align-items:stretch;">
+            <label class="set-label" style="margin-bottom:.2rem;">{{t('set_notif_title')}}</label>
+            <input type="text" v-model="conf.APPRISE_NOTIFICATION_TITLE"
+                   style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;">
+          </div>
+          <div class="set-row" style="flex-direction:column;align-items:stretch;margin-top:.4rem;">
+            <label class="set-label" style="margin-bottom:.2rem;">{{t('set_notif_body')}}</label>
+            <input type="text" v-model="conf.APPRISE_NOTIFICATION_BODY"
+                   placeholder="A $comname ($sciname) was detected with confidence $confidence"
+                   style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;">
+            <div style="font-size:.68rem;color:var(--text-faint);margin-top:.2rem;">
+              {{t('set_notif_body_help')}}
+            </div>
+          </div>
+          <div class="set-row" style="margin-top:.5rem;">
+            <label class="set-label" style="flex:1;">{{t('set_notif_cooldown')}}</label>
+            <input type="number" v-model="conf.APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES" min="0" max="86400" step="1"
+                   style="width:80px;font-size:.8rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.3rem .5rem;text-align:right;">
+          </div>
+        </div>
+
+      </div><!-- /settings-grid (system) -->
+
+        <!-- Notifications moved to dedicated tab -->
+

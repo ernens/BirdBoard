@@ -1,0 +1,55 @@
+      <div class="settings-grid">
+
+        <!-- ═══ Location ═══ -->
+        <div class="card">
+          <div class="section-title">📍 {{t('set_location')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_site_brand')}} <button class="info-btn" @click="helpKey='site_brand'">i</button></span>
+            <input v-model="conf.SITE_BRAND" class="set-input" placeholder="BirdStation">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_site_name')}} <button class="info-btn" @click="helpKey='site_name'">i</button></span>
+            <input v-model="conf.SITE_NAME" class="set-input">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_latitude')}} <button class="info-btn" @click="helpKey='latitude'">i</button></span>
+            <input v-model="conf.LATITUDE" type="number" step="0.0001" class="set-input" style="width:120px;">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_longitude')}} <button class="info-btn" @click="helpKey='longitude'">i</button></span>
+            <input v-model="conf.LONGITUDE" type="number" step="0.0001" class="set-input" style="width:120px;">
+          </div>
+        </div>
+
+        <!-- ═══ Language & Images ═══ -->
+        <div class="card">
+          <div class="section-title">🌍 {{t('set_language')}}</div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_language')}} <button class="info-btn" @click="helpKey='database_lang'">i</button></span>
+            <select v-model="conf.DATABASE_LANG" class="set-select">
+              <option v-for="l in languages" :key="l" :value="l">{{l}}</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_image_provider')}} <button class="info-btn" @click="helpKey='image_provider'">i</button></span>
+            <select v-model="conf.IMAGE_PROVIDER" class="set-select" style="width:140px;">
+              <option value="WIKIPEDIA">Wikipedia</option>
+              <option value="FLICKR">Flickr</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ═══ BirdWeather ═══ -->
+        <div class="card">
+          <div class="section-title">🌤️ {{t('set_birdweather')}}</div>
+          <div class="set-row">
+            <span class="set-label">Station ID <button class="info-btn" @click="helpKey='birdweather'">i</button></span>
+            <input v-model="conf.BIRDWEATHER_ID" class="set-input" placeholder="empty = disabled">
+          </div>
+          <div class="set-row">
+            <span class="set-label">{{t('set_rtsp_stream')}} <button class="info-btn" @click="helpKey='rtsp'">i</button></span>
+            <input v-model="conf.RTSP_STREAM" class="set-input" style="width:240px;" placeholder="rtsp://...">
+          </div>
+        </div>
+
+      </div><!-- /settings-grid -->
