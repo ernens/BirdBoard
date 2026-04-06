@@ -1062,5 +1062,7 @@
   "dash_key_events": "Wichtige Ereignisse",
   "dash_recent_species": "Arten des Tages",
   "dash_evt_analyzing": "Analyse lauft...",
-  "dash_evt_recording": "Aufnahme lauft..."
+  "dash_evt_recording": "Aufnahme lauft...",
+  "dash_consensus_agree": "Konsens",
+  "dash_consensus_disagree": "Abweichung"
 }

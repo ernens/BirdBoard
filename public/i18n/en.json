@@ -1062,5 +1062,7 @@
   "dash_key_events": "Key events",
   "dash_recent_species": "Today's species",
   "dash_evt_analyzing": "Analyzing audio...",
-  "dash_evt_recording": "Recording..."
+  "dash_evt_recording": "Recording...",
+  "dash_consensus_agree": "Agreement",
+  "dash_consensus_disagree": "Disagreement"
 }

@@ -191,6 +191,19 @@
     .bf-icon-perch { background: rgba(38,166,154,.15); color: #26a69a; }
     .bf-core-name { font-size: .72rem; font-weight: 700; margin-top: .1rem; }
     .bf-core-time { font-size: .62rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .bf-core-species {
+      font-size: .68rem; font-weight: 600; margin-top: .25rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 100%; animation: bfSpecIn .4s cubic-bezier(.22,1,.36,1);
+    }
+    @keyframes bfSpecIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+    .bf-core-conf {
+      font-size: .75rem; font-weight: 800; font-variant-numeric: tabular-nums;
+      margin-top: .1rem; transition: color .3s;
+    }
+    .bf-core-conf.high{color:#4caf50} .bf-core-conf.mid{color:#ff9800} .bf-core-conf.low{color:#e53935}
+    .bf-core-idle { font-size: .7rem; color: var(--text-muted); margin-top: .25rem; }
+    .bf-fusion.diverge { color:#ff9800; background:rgba(255,152,0,.08); border:1px solid rgba(255,152,0,.2); }
     .bf-fusion {
       display: flex; align-items: center; justify-content: center; gap: .3rem;
       padding: .25rem; border-radius: 6px;
@@ -388,17 +401,23 @@
               <div class="bf-core birdnet" :class="{firing:enginePulse}">
                 <div class="bf-core-icon bf-icon-bn">BN</div>
                 <div class="bf-core-name">{{status.model ? status.modelLabel : '…'}}</div>
-                <div class="bf-core-time">{{status.inferenceTime?status.inferenceTime+'s':'\u2014'}}</div>
+                <div class="bf-core-time">{{bnLive.time ? bnLive.time+'s' : (status.inferenceTime?status.inferenceTime+'s':'\u2014')}}</div>
+                <div v-if="bnLive.species" class="bf-core-species">{{bnLive.species}}</div>
+                <div v-if="bnLive.species" class="bf-core-conf" :class="confClass(bnLive.conf/100)">{{bnLive.conf.toFixed(0)}}%</div>
+                <div v-if="!bnLive.species && bnLive.detections===0" class="bf-core-idle">—</div>
               </div>
               <div v-if="status.secondaryModel" class="bf-core perch" :class="{firing:enginePulse}">
                 <div class="bf-core-icon bf-icon-perch">P2</div>
                 <div class="bf-core-name">{{status.secModelLabel}}</div>
-                <div class="bf-core-time">{{status.secondaryInferenceTime?status.secondaryInferenceTime+'s':'\u2014'}}</div>
+                <div class="bf-core-time">{{p2Live.time ? p2Live.time+'s' : (status.secondaryInferenceTime?status.secondaryInferenceTime+'s':'\u2014')}}</div>
+                <div v-if="p2Live.species" class="bf-core-species">{{p2Live.species}}</div>
+                <div v-if="p2Live.species" class="bf-core-conf" :class="confClass(p2Live.conf/100)">{{p2Live.conf.toFixed(0)}}%</div>
+                <div v-if="!p2Live.species && p2Live.detections===0" class="bf-core-idle">—</div>
               </div>
             </div>
-            <div v-if="status.model" class="bf-fusion" :class="{consensus:status.secondaryModel}">
+            <div v-if="status.model" class="bf-fusion" :class="{consensus: status.secondaryModel && bnLive.species && p2Live.species && bnLive.species===p2Live.species, diverge: status.secondaryModel && bnLive.species && p2Live.species && bnLive.species!==p2Live.species}">
               <span class="bf-fusion-bar"></span>
-              {{status.secondaryModel?t('dash_dual_consensus'):t('dash_single_model')}}
+              {{!status.secondaryModel ? t('dash_single_model') : (bnLive.species && p2Live.species && bnLive.species===p2Live.species) ? t('dash_consensus_agree') : (bnLive.species && p2Live.species && bnLive.species!==p2Live.species) ? t('dash_consensus_disagree') : t('dash_dual_consensus')}}
               <span class="bf-fusion-bar"></span>
             </div>
 
@@ -513,6 +532,10 @@ BIRDASH.ready.then(() => {
       const { spName } = useSpeciesNames();
 
       // ── Mic SSE ────────────────────────────────────────────
+      // Per-model live state from SSE
+      const bnLive = ref({ species: '', conf: 0, detections: 0, time: null });
+      const p2Live = ref({ species: '', conf: 0, detections: 0, time: null });
+
       const micDb = ref('-\u221E'), micActive = ref(false), micBars = ref(Array(18).fill(2));
       let micSource = null, micTimeout = null;
       function connectMic() {
@@ -616,9 +639,28 @@ BIRDASH.ready.then(() => {
         logSource.onmessage = (e)=>{
           try {
             const d=JSON.parse(e.data);
-            // Track species name from any message before filtering
-            let _sp = d.msg.match(/^\s*(?:\[[^\]]*\]\s*)?(.+?)\s*[—–-]\s*(.+?)\s*\(([\d.]+)%\)/);
-            if (_sp) _lastSpecies = _sp[1] + " (" + parseFloat(_sp[3]).toFixed(0) + "%)"; 
+            // Track per-model species + stats from SSE
+            let _sp, _dm;
+            // Species line: "[BirdNET...] Espèce — Sci (87%)" or "[perch...] Espèce — Sci (87%)"
+            _sp = d.msg.match(/\[([^\]]+)\]\s+(.+?)\s*[—–-]\s*(.+?)\s*\(([\d.]+)%\)/);
+            if (_sp) {
+              const model = _sp[1], species = _sp[2], conf = parseFloat(_sp[4]);
+              _lastSpecies = species + " (" + conf.toFixed(0) + "%)";
+              if (/birdnet/i.test(model)) { bnLive.value = { ...bnLive.value, species, conf }; }
+              else if (/perch/i.test(model)) { p2Live.value = { ...p2Live.value, species, conf }; }
+            }
+            // BirdNET Done line: "[BirdNET...] Done: 1 detections in 0.2s"
+            _dm = d.msg.match(/\[(BirdNET[^\]]*)\] Done: (\d+) detections? in ([\d.]+)s/);
+            if (_dm) {
+              bnLive.value = { ...bnLive.value, detections: parseInt(_dm[2]), time: parseFloat(_dm[3]) };
+              if (parseInt(_dm[2]) === 0) bnLive.value = { ...bnLive.value, species: '', conf: 0 };
+            }
+            // Perch Done line: "[perch_v2...] file.wav: 1 detections in 0.5s"
+            _dm = d.msg.match(/\[(perch[^\]]*)\].*?\.wav: (\d+) detections? in ([\d.]+)s/i);
+            if (_dm) {
+              p2Live.value = { ...p2Live.value, detections: parseInt(_dm[2]), time: parseFloat(_dm[3]) };
+              if (parseInt(_dm[2]) === 0) p2Live.value = { ...p2Live.value, species: '', conf: 0 };
+            } 
             if(d.cat==="api"||d.cat==="cleanup"||d.cat==="system")return;
             if(/GET |POST |DELETE |api\//i.test(d.msg))return;
             if(EVT_CLASS[d.cat]){
@@ -713,7 +755,7 @@ BIRDASH.ready.then(() => {
       return {
         t,spName,micDb,micActive,micBars,
         conn1Active,conn1Fire,conn2Active,conn2Fire,
-        status,enginePulse,detPulse,detEnter,
+        status,enginePulse,detPulse,detEnter,bnLive,p2Live,
         pipeStages,pipelineDotClass,pipeFillPct,
         lastDet,detStatus,detStatusLabel,confClass,photoUrl,
         kpi,kpiBump,keyEvents,recentSpecies,fmtLag,

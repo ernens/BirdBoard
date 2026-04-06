@@ -1062,5 +1062,7 @@
   "dash_key_events": "Belangrijke gebeurtenissen",
   "dash_recent_species": "Soorten van vandaag",
   "dash_evt_analyzing": "Analyse bezig...",
-  "dash_evt_recording": "Opname bezig..."
+  "dash_evt_recording": "Opname bezig...",
+  "dash_consensus_agree": "Consensus",
+  "dash_consensus_disagree": "Afwijking"
 }
