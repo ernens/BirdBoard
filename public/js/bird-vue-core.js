@@ -74,7 +74,7 @@
   "nav_recordings": "Enregistrements",
   "nav_gallery": "Meilleures captures",
   "nav_settings": "Configuration",
-  "nav_timeline": "Calendrier",
+  "nav_timeline": "Chronologie",
   "nav_calendar": "Calendrier",
   "nav_log": "Log live",
   "log_live": "En direct",
@@ -1190,8 +1190,9 @@
 
   // ── useNav ────────────────────────────────────────────────────────────────
   const NAV_KEYS = {
-    index:        'nav_overview',
+    overview:     'nav_overview',
     today:        'nav_today',
+    calendar:     'nav_calendar',
     timeline:     'tl_title',
     recent:       'nav_recent',
     detections:   'nav_detections',
@@ -1207,6 +1208,9 @@
     recordings:   'nav_recordings',
     settings:     'nav_settings',
     system:       'nav_system',
+    favorites:    'nav_favorites',
+    weather:      'nav_weather',
+    log:          'nav_log',
   };
 
   function useNav(pageId) {
@@ -2045,8 +2049,8 @@
     <a href="today.html" class="mob-nav-item" :class="{active: currentPage==='today'}"><span class="mob-nav-icon">📅</span>{{t('nav_today')}}</a>
     <a href="calendar.html" class="mob-nav-item" :class="{active: currentPage==='calendar'}"><span class="mob-nav-icon">📆</span>{{t('nav_calendar')}}</a>
     <a href="species.html" class="mob-nav-item" :class="{active: currentPage==='species'}"><span class="mob-nav-icon">🦜</span>{{t('nav_species')}}</a>
-    <a href="weather.html" class="mob-nav-item" :class="{active: currentPage==='weather'}"><span class="mob-nav-icon">📊</span>{{t('nav_sec_insights')}}</a>
-    <a href="settings.html" class="mob-nav-item" :class="{active: currentPage==='settings'}"><span class="mob-nav-icon">⚙️</span>{{t('nav_sec_system')}}</a>
+    <a href="weather.html" class="mob-nav-item" :class="{active: currentPage==='weather'}"><span class="mob-nav-icon">🌦️</span>{{t('nav_weather')}}</a>
+    <a href="settings.html" class="mob-nav-item" :class="{active: currentPage==='settings'}"><span class="mob-nav-icon">⚙️</span>{{t('nav_settings')}}</a>
   </nav>
 </div>`
   };
