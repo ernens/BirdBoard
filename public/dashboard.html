@@ -643,7 +643,7 @@ BIRDASH.ready.then(() => {
             // Track per-model species + stats from SSE
             let _sp, _dm;
             // Species line: "[BirdNET...] Espèce — Sci (87%)" or "[perch...] Espèce — Sci (87%)"
-            _sp = d.msg.match(/\[([^\]]+)\]\s+(.+?)\s*[—–-]\s*(.+?)\s*\(([\d.]+)%\)/);
+            _sp = d.msg.match(/\[((?:BirdNET|perch)[^\]]*)\]\s+(.+?)\s*[—–-]\s*(.+?)\s*\(([\d.]+)%\)/i);
             if (_sp) {
               const model = _sp[1], species = _sp[2], conf = parseFloat(_sp[4]);
               _lastSpecies = species + " (" + conf.toFixed(0) + "%)";
@@ -651,7 +651,7 @@ BIRDASH.ready.then(() => {
               else if (/perch/i.test(model)) { p2Live.value = { ...p2Live.value, species, conf }; }
             }
             // BirdNET Done line: "[BirdNET...] Done: 1 detections in 0.2s"
-            _dm = d.msg.match(/\[(BirdNET[^\]]*)\] Done: (\d+) detections? in ([\d.]+)s/);
+            _dm = d.msg.match(/\[(BirdNET[^\]]*)\]\s*Done:\s*(\d+) detections? in ([\d.]+)s/);
             if (_dm) {
               bnLive.value = { ...bnLive.value, detections: parseInt(_dm[2]), time: parseFloat(_dm[3]) };
             }
