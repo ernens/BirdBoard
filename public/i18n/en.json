@@ -1058,5 +1058,7 @@
   "dash_sys_sensitivity": "Sensitivity",
   "dash_sys_lag": "Lag",
   "dash_sys_backlog": "Backlog",
-  "dash_sys_rec_len": "Rec. length"
+  "dash_sys_rec_len": "Rec. length",
+  "dash_key_events": "Key events",
+  "dash_recent_species": "Today's species"
 }

@@ -1058,5 +1058,7 @@
   "dash_sys_sensitivity": "Sensibilite",
   "dash_sys_lag": "Retard",
   "dash_sys_backlog": "File attente",
-  "dash_sys_rec_len": "Duree enreg."
+  "dash_sys_rec_len": "Duree enreg.",
+  "dash_key_events": "Evenements cles",
+  "dash_recent_species": "Especes du jour"
 }

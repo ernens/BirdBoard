@@ -22,610 +22,425 @@
   <script src="js/bird-shared.js"></script>
   <script src="js/bird-vue-core.js"></script>
   <style>
-    /* ── Baseline tagline ───────────────────────────────────────── */
-    .bf-baseline {
-      text-align: center;
-      margin-bottom: 1.5rem;
-      color: var(--text-muted);
-      font-size: .82rem;
-      letter-spacing: .02em;
-    }
+    .bf-baseline{text-align:center;margin-bottom:1.25rem;color:var(--text-muted);font-size:.8rem;letter-spacing:.02em}
 
-    /* ── Hero: asymmetric 4-column layout ───────────────────────── */
+    /* ════ HERO: 2-row asymmetric grid ══════════════════════════ */
     .bf-hero {
       display: grid;
-      grid-template-columns: 1fr 1fr 1.3fr 1.7fr;
+      grid-template-columns: 1fr 1.2fr 1.8fr;
+      grid-template-rows: auto auto;
       gap: .85rem;
       margin-bottom: 1.25rem;
-      position: relative;
     }
+    /* Detection card spans full right column height */
+    .bf-hero .bf-det-node { grid-column: 3; grid-row: 1 / 3; }
 
-    /* ── Node base ──────────────────────────────────────────────── */
+    /* ── Node base ─────────────────────────────────────────────── */
     .bf-node {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 1rem;
+      padding: 1rem 1.1rem;
       position: relative;
       overflow: hidden;
-      transition: border-color .4s ease, box-shadow .4s ease;
+      transition: border-color .5s ease, box-shadow .5s ease;
     }
     .bf-node.pulse {
       border-color: var(--accent);
-      box-shadow: 0 0 20px -4px rgba(var(--accent-rgb, 90,158,58), .3);
+      box-shadow: 0 0 24px -4px rgba(var(--accent-rgb,90,158,58),.35);
+    }
+    .bf-node-hdr {
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--text-muted); margin-bottom: .5rem;
+      display: flex; align-items: center; gap: .4rem;
     }
 
-    /* ── Node header ────────────────────────────────────────────── */
-    .bf-node-hdr {
-      font-size: .68rem;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--text-muted);
-      margin-bottom: .6rem;
-      display: flex;
-      align-items: center;
-      gap: .4rem;
-    }
+    /* ── Status dot ────────────────────────────────────────────── */
     .bf-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
+      width: 7px; height: 7px; border-radius: 50%;
       background: var(--text-muted);
       transition: background .4s, box-shadow .4s;
-      flex-shrink: 0;
     }
     .bf-dot.live {
       background: #4caf50;
       box-shadow: 0 0 6px #4caf50;
       animation: bfDotPulse 2.5s ease-in-out infinite;
     }
-    .bf-dot.warn {
-      background: #ff9800;
-      box-shadow: 0 0 6px rgba(255,152,0,.4);
-    }
+    .bf-dot.warn { background: #ff9800; box-shadow: 0 0 5px rgba(255,152,0,.4); }
     @keyframes bfDotPulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 6px #4caf50; }
-      50% { opacity: .5; box-shadow: 0 0 2px #4caf50; }
+      0%,100%{opacity:1;box-shadow:0 0 6px #4caf50}
+      50%{opacity:.45;box-shadow:0 0 2px #4caf50}
     }
 
-    /* ── Flow arrows between nodes (desktop) ────────────────────── */
-    .bf-hero .bf-node:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      right: -.52rem;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 0; height: 0;
-      border-top: 5px solid transparent;
-      border-bottom: 5px solid transparent;
-      border-left: 6px solid var(--border);
-      z-index: 2;
-      transition: border-left-color .4s;
+    /* ── Flow arrows (desktop) ─────────────────────────────────── */
+    .bf-hero .bf-node:not(.bf-det-node):not(:nth-child(3)):not(:nth-child(4))::after {
+      content:''; position:absolute; right:-.5rem; top:50%; transform:translateY(-50%);
+      border:5px solid transparent; border-left:6px solid var(--border); z-index:2;
+      transition:border-left-color .4s;
     }
-    .bf-hero .bf-node.pulse::after {
-      border-left-color: var(--accent);
-    }
+    .bf-hero .bf-node.pulse::after { border-left-color: var(--accent); }
 
-    /* ════════════════════════════════════════════════════════════
-       1. MIC NODE
-       ════════════════════════════════════════════════════════════ */
+    /* ════ 1. MIC — breathing ambient glow ═════════════════════ */
+    .bf-node.bf-mic { overflow: visible; }
+    .bf-mic-glow {
+      position: absolute; inset: -8px; border-radius: 20px;
+      background: radial-gradient(ellipse at center, rgba(var(--accent-rgb,90,158,58),.12) 0%, transparent 70%);
+      opacity: 0; transition: opacity .6s ease; pointer-events: none; z-index: -1;
+    }
+    .bf-mic.pulse .bf-mic-glow { opacity: 1; }
     .bf-mic-bars {
-      display: flex;
-      align-items: flex-end;
-      gap: 2px;
-      height: 40px;
-      margin: .4rem 0;
+      display: flex; align-items: flex-end; gap: 2px;
+      height: 52px; margin: .4rem 0;
     }
     .bf-mic-bar {
-      flex: 1;
-      border-radius: 2px 2px 0 0;
-      min-height: 2px;
-      transition: height .2s ease-out, background .3s;
-      background: var(--accent, #5a9e3a);
-      opacity: .55;
+      flex: 1; border-radius: 2px 2px 0 0; min-height: 2px;
+      transition: height .15s ease-out, background .2s, opacity .2s;
+      background: var(--accent, #5a9e3a); opacity: .45;
     }
-    .bf-mic-bar.hot {
-      opacity: 1;
-      background: #66bb6a;
-    }
+    .bf-mic-bar.hot { opacity: 1; background: #66bb6a; }
     .bf-mic-val {
-      font-size: 1.6rem;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
+      font-size: 1.6rem; font-weight: 800;
+      font-variant-numeric: tabular-nums; line-height: 1;
     }
-    .bf-mic-val span {
-      font-size: .65rem;
-      font-weight: 400;
-      color: var(--text-muted);
-    }
-    .bf-mic-status {
-      font-size: .7rem;
-      margin-top: .2rem;
-      color: var(--text-muted);
-      transition: color .3s;
-    }
+    .bf-mic-val span { font-size: .6rem; font-weight: 400; color: var(--text-muted); }
+    .bf-mic-status { font-size: .68rem; margin-top: .15rem; color: var(--text-muted); transition: color .3s; }
     .bf-mic-status.on { color: #4caf50; }
 
-    /* ════════════════════════════════════════════════════════════
-       2. PIPELINE NODE — mini flow stages
-       ════════════════════════════════════════════════════════════ */
+    /* ════ 2. PIPELINE — animated flow line ════════════════════ */
     .bf-pipe-stages {
-      display: flex;
-      align-items: center;
-      gap: 0;
-      margin: .5rem 0 .6rem;
-      position: relative;
+      display: flex; align-items: center; gap: 0;
+      margin: .5rem 0 .65rem; position: relative;
     }
-    .bf-pipe-stage {
-      flex: 1;
-      text-align: center;
-      position: relative;
-      z-index: 1;
-    }
+    .bf-pipe-stage { flex: 1; text-align: center; position: relative; z-index: 1; }
     .bf-pipe-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: var(--border);
-      margin: 0 auto .2rem;
-      transition: background .4s, box-shadow .4s, transform .3s;
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--border); margin: 0 auto .2rem;
+      transition: background .4s, box-shadow .4s, transform .35s cubic-bezier(.34,1.56,.64,1);
     }
     .bf-pipe-dot.active {
       background: var(--accent, #5a9e3a);
-      box-shadow: 0 0 8px rgba(var(--accent-rgb, 90,158,58), .5);
-      transform: scale(1.3);
+      box-shadow: 0 0 10px rgba(var(--accent-rgb,90,158,58),.6);
+      transform: scale(1.4);
     }
-    .bf-pipe-dot.warn {
-      background: #ff9800;
-      box-shadow: 0 0 8px rgba(255,152,0,.4);
+    .bf-pipe-dot.warn { background: #ff9800; box-shadow: 0 0 8px rgba(255,152,0,.4); }
+    .bf-pipe-lbl { font-size: .56rem; color: var(--text-muted); letter-spacing: .02em; }
+    .bf-pipe-track {
+      position: absolute; top: 5px; left: 12%; right: 12%;
+      height: 3px; background: var(--border); z-index: 0;
+      border-radius: 2px; overflow: hidden;
     }
-    .bf-pipe-lbl {
-      font-size: .58rem;
-      color: var(--text-muted);
-      letter-spacing: .02em;
+    .bf-pipe-fill {
+      height: 100%; width: 0; border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent,#5a9e3a), #66bb6a);
+      transition: width .8s cubic-bezier(.22,1,.36,1);
     }
-    .bf-pipe-line {
-      position: absolute;
-      top: 5px;
-      left: 10%;
-      right: 10%;
-      height: 2px;
-      background: var(--border);
-      z-index: 0;
-    }
-    .bf-pipe-stats {
-      display: flex;
-      gap: .5rem;
-      flex-wrap: wrap;
-    }
-    .bf-pipe-stat {
-      flex: 1;
-      min-width: 60px;
-      text-align: center;
-    }
+    .bf-pipe-stats { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .bf-pipe-stat { flex: 1; min-width: 55px; text-align: center; }
     .bf-pipe-num {
-      font-size: 1.1rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      line-height: 1.1;
+      font-size: 1.05rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; line-height: 1.1;
     }
     .bf-pipe-num.warn-val { color: #ff9800; }
-    .bf-pipe-label {
-      font-size: .62rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
+    .bf-pipe-label { font-size: .58rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
 
-    /* ════════════════════════════════════════════════════════════
-       3. DUAL AI NODE — twin cores with fusion
-       ════════════════════════════════════════════════════════════ */
-    .bf-cores {
-      display: flex;
-      gap: .5rem;
-      margin-bottom: .5rem;
-    }
+    /* ════ 3. DUAL AI — branded twin cores ═════════════════════ */
+    .bf-cores { display: flex; gap: .5rem; margin-bottom: .45rem; }
     .bf-core {
-      flex: 1;
-      background: var(--bg-card2, rgba(0,0,0,.06));
-      border: 1px solid transparent;
-      border-radius: 10px;
-      padding: .55rem .6rem;
-      text-align: center;
-      transition: border-color .4s, background .4s, box-shadow .4s;
+      flex: 1; border: 1.5px solid transparent; border-radius: 10px;
+      padding: .5rem .55rem; text-align: center;
+      transition: border-color .4s, background .4s, box-shadow .5s;
     }
-    .bf-core.active {
-      border-color: rgba(var(--accent-rgb, 90,158,58), .4);
-      background: rgba(var(--accent-rgb, 90,158,58), .08);
+    /* BirdNET = blue identity */
+    .bf-core.birdnet {
+      background: rgba(66,165,245,.06);
+      border-color: rgba(66,165,245,.25);
     }
-    .bf-core.firing {
-      border-color: var(--accent);
-      box-shadow: 0 0 12px -2px rgba(var(--accent-rgb, 90,158,58), .35);
+    .bf-core.birdnet.firing {
+      border-color: #42a5f5;
+      box-shadow: 0 0 14px -3px rgba(66,165,245,.4);
     }
-    .bf-core-icon {
-      font-size: 1.4rem;
-      line-height: 1;
-      margin-bottom: .2rem;
+    /* Perch = teal/green identity */
+    .bf-core.perch {
+      background: rgba(38,166,154,.06);
+      border-color: rgba(38,166,154,.25);
     }
-    .bf-core-name {
-      font-size: .72rem;
-      font-weight: 700;
-      line-height: 1.2;
+    .bf-core.perch.firing {
+      border-color: #26a69a;
+      box-shadow: 0 0 14px -3px rgba(38,166,154,.4);
     }
+    .bf-core-icon { font-size: 1.5rem; line-height: 1; margin-bottom: .15rem; }
+    .bf-core-name { font-size: .72rem; font-weight: 700; line-height: 1.2; }
     .bf-core-time {
-      font-size: .65rem;
-      color: var(--text-muted);
-      font-variant-numeric: tabular-nums;
-      margin-top: .1rem;
+      font-size: .62rem; color: var(--text-muted);
+      font-variant-numeric: tabular-nums; margin-top: .1rem;
     }
+    /* Fusion node between cores */
     .bf-fusion {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: .4rem;
-      padding: .3rem;
-      border-radius: 6px;
-      font-size: .68rem;
-      font-weight: 600;
-      color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; gap: .35rem;
+      padding: .3rem .5rem; border-radius: 8px;
+      font-size: .66rem; font-weight: 600; color: var(--text-muted);
       background: var(--bg-card2, rgba(0,0,0,.04));
-      transition: color .3s, background .3s;
+      transition: all .4s;
     }
     .bf-fusion.consensus {
-      color: #4caf50;
-      background: rgba(76,175,80,.08);
+      color: #26a69a;
+      background: rgba(38,166,154,.08);
+      border: 1px solid rgba(38,166,154,.2);
     }
-    .bf-fusion-line {
-      width: 20px; height: 2px;
-      background: var(--border);
-      border-radius: 1px;
-      transition: background .3s;
+    .bf-fusion-bar {
+      width: 18px; height: 2px; border-radius: 1px;
+      background: var(--border); transition: background .4s;
     }
-    .bf-fusion.consensus .bf-fusion-line {
-      background: #4caf50;
-    }
-    .bf-conf-row {
-      font-size: .65rem;
-      color: var(--text-muted);
-      margin-top: .35rem;
-      text-align: center;
-    }
+    .bf-fusion.consensus .bf-fusion-bar { background: #26a69a; }
+    .bf-conf-row { font-size: .62rem; color: var(--text-muted); margin-top: .3rem; text-align: center; }
 
-    /* ════════════════════════════════════════════════════════════
-       4. LATEST DETECTION NODE — dominant card
-       ════════════════════════════════════════════════════════════ */
-    .bf-node.bf-det-node {
-      padding: .85rem 1rem;
+    /* ════ 4. LATEST DETECTION — hero card ═════════════════════ */
+    .bf-det-node {
+      display: flex; flex-direction: column;
     }
+    .bf-det-node .bf-node-hdr { margin-bottom: .6rem; }
     .bf-det {
-      display: flex;
-      gap: .85rem;
-      align-items: stretch;
+      flex: 1; display: flex; gap: 1rem; align-items: center;
     }
-    .bf-det-photo-wrap {
-      position: relative;
-      flex-shrink: 0;
-    }
+    .bf-det-photo-wrap { position: relative; flex-shrink: 0; }
     .bf-det-photo {
-      width: 96px; height: 96px;
-      border-radius: 12px;
-      object-fit: cover;
-      background: var(--bg-card2);
-      display: block;
-      transition: transform .3s ease;
+      width: 130px; height: 130px; border-radius: 14px;
+      object-fit: cover; background: var(--bg-card2); display: block;
+      transition: transform .4s cubic-bezier(.34,1.56,.64,1), box-shadow .4s;
     }
     .bf-det-node.pulse .bf-det-photo {
-      transform: scale(1.03);
+      transform: scale(1.04);
+      box-shadow: 0 4px 20px rgba(0,0,0,.15);
+    }
+    /* New detection entrance */
+    .bf-det-enter {
+      animation: bfDetEnter .6s cubic-bezier(.22,1,.36,1);
+    }
+    @keyframes bfDetEnter {
+      from { opacity: 0; transform: scale(.9) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
     }
     .bf-det-conf-ring {
-      position: absolute;
-      bottom: -4px; right: -4px;
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      background: var(--card-bg);
-      border: 2px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: .7rem;
-      font-weight: 800;
+      position: absolute; bottom: -5px; right: -5px;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--card-bg); border: 2.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 800;
       font-variant-numeric: tabular-nums;
-      transition: border-color .3s, color .3s;
+      transition: border-color .3s, color .3s, transform .3s;
     }
+    .bf-det-node.pulse .bf-det-conf-ring { transform: scale(1.1); }
     .bf-det-conf-ring.high { border-color: #4caf50; color: #4caf50; }
     .bf-det-conf-ring.mid  { border-color: #ff9800; color: #ff9800; }
     .bf-det-conf-ring.low  { border-color: #e53935; color: #e53935; }
-
     .bf-det-info {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
     }
     .bf-det-name {
-      font-weight: 800;
-      font-size: 1.05rem;
-      line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-weight: 800; font-size: 1.15rem; line-height: 1.2;
+      margin-bottom: .1rem;
     }
-    .bf-det-sci {
-      font-size: .72rem;
-      color: var(--text-muted);
-      font-style: italic;
-      margin-bottom: .35rem;
-    }
-    .bf-det-row {
-      display: flex;
-      align-items: center;
-      gap: .4rem;
-      flex-wrap: wrap;
-      font-size: .72rem;
-    }
+    .bf-det-sci { font-size: .75rem; color: var(--text-muted); font-style: italic; margin-bottom: .4rem; }
+    .bf-det-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .75rem; }
     .bf-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: .15rem .5rem;
-      border-radius: 5px;
-      font-weight: 700;
-      font-size: .65rem;
-      text-transform: uppercase;
-      letter-spacing: .04em;
+      display: inline-flex; padding: .18rem .55rem; border-radius: 5px;
+      font-weight: 700; font-size: .65rem; text-transform: uppercase; letter-spacing: .04em;
     }
     .bf-badge.accepted { background: rgba(76,175,80,.14); color: #4caf50; }
     .bf-badge.review   { background: rgba(255,152,0,.14); color: #ff9800; }
-    .bf-badge.rejected { background: rgba(229,57,53,.14); color: #e53935; }
-    .bf-det-model {
-      font-size: .65rem;
-      color: var(--text-muted);
-      margin-top: .2rem;
-    }
+    .bf-det-model { font-size: .65rem; color: var(--text-muted); margin-top: .25rem; }
     .bf-det-empty {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 80px;
-      color: var(--text-muted);
-      font-size: .82rem;
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: .85rem;
     }
 
-    /* ════════════════════════════════════════════════════════════
-       KPIs — compact, colored, richer
-       ════════════════════════════════════════════════════════════ */
-    .bf-kpis {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: .75rem;
-      margin-bottom: 1.25rem;
-    }
+    /* ════ KPIs — compact strip ════════════════════════════════ */
+    .bf-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: .65rem; margin-bottom: 1.25rem; }
     .bf-kpi {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: .6rem .75rem;
-      display: flex;
-      align-items: center;
-      gap: .6rem;
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: .55rem .7rem; display: flex; align-items: center; gap: .55rem;
     }
     .bf-kpi-icon {
-      font-size: 1.3rem;
-      flex-shrink: 0;
-      width: 32px; height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      background: var(--bg-card2, rgba(0,0,0,.05));
+      font-size: 1.2rem; flex-shrink: 0; width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px; background: var(--bg-card2, rgba(0,0,0,.05));
     }
     .bf-kpi-body { flex: 1; min-width: 0; }
     .bf-kpi-val {
-      font-size: 1.4rem;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-      transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+      font-size: 1.35rem; font-weight: 800;
+      font-variant-numeric: tabular-nums; line-height: 1;
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1);
     }
-    .bf-kpi-val.bump { transform: scale(1.2); }
-    .bf-kpi-label {
-      font-size: .62rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      line-height: 1.3;
-    }
-    .bf-kpi-sub {
-      font-size: .6rem;
-      color: var(--text-muted);
-      margin-top: .1rem;
-    }
+    .bf-kpi-val.bump { transform: scale(1.25); }
+    .bf-kpi-label { font-size: .6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+    .bf-kpi-sub { font-size: .58rem; color: var(--text-muted); }
 
-    /* ════════════════════════════════════════════════════════════
-       BOTTOM ROW: ticker + system status side by side
-       ════════════════════════════════════════════════════════════ */
+    /* ════ BOTTOM: key events + recent species + system ════════ */
     .bf-bottom {
       display: grid;
-      grid-template-columns: 1fr 280px;
+      grid-template-columns: 1fr 1fr 240px;
       gap: .85rem;
       margin-bottom: 1rem;
     }
 
-    /* ── Ticker ──────────────────────────────────────────────── */
-    .bf-ticker {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: .5rem;
-      max-height: 150px;
-      overflow-y: auto;
+    /* ── Key events (curated) ──────────────────────────────────── */
+    .bf-events {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: .55rem .65rem;
+      max-height: 220px; overflow-y: auto;
     }
-    .bf-ticker-hdr {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: .2rem .4rem .3rem;
+    .bf-events-hdr {
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin-bottom: .4rem;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    .bf-ticker-title {
-      font-size: .68rem;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--text-muted);
+    .bf-evt {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .35rem .4rem; border-radius: 6px;
+      animation: bfEvtIn .4s cubic-bezier(.22,1,.36,1);
+      margin-bottom: .2rem;
     }
-    .bf-tick {
-      display: flex;
-      align-items: center;
-      gap: .4rem;
-      padding: .25rem .4rem;
-      font-size: .75rem;
-      border-radius: 5px;
-      animation: bfTickIn .35s cubic-bezier(.22,1,.36,1);
-      border-left: 3px solid transparent;
+    @keyframes bfEvtIn { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+    .bf-evt-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; flex-shrink: 0;
     }
-    @keyframes bfTickIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .bf-tick-cat-detection { border-left-color: #4caf50; }
-    .bf-tick-cat-recording { border-left-color: #42a5f5; }
-    .bf-tick-cat-birdweather { border-left-color: #7e57c2; }
-    .bf-tick-cat-error { border-left-color: #e53935; background: rgba(229,57,53,.05); }
-    .bf-tick-cat-cleanup { border-left-color: var(--text-muted); opacity: .6; }
-    .bf-tick-cat-system { border-left-color: var(--text-muted); opacity: .7; }
+    .bf-evt-icon.det { background: rgba(76,175,80,.1); }
+    .bf-evt-icon.bw  { background: rgba(126,87,194,.1); }
+    .bf-evt-icon.err { background: rgba(229,57,53,.1); }
+    .bf-evt-icon.rec { background: rgba(66,165,245,.1); }
+    .bf-evt-body { flex: 1; min-width: 0; }
+    .bf-evt-msg { font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bf-evt-time { font-size: .6rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-    .bf-tick-time {
-      font-size: .64rem;
-      color: var(--text-muted);
-      font-variant-numeric: tabular-nums;
-      min-width: 3.2rem;
-      flex-shrink: 0;
+    /* ── Recent species strip ──────────────────────────────────── */
+    .bf-species {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: .55rem .65rem;
+      max-height: 220px; overflow-y: auto;
     }
-    .bf-tick-icon { font-size: .8rem; flex-shrink: 0; }
-    .bf-tick-msg {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .bf-species-hdr {
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin-bottom: .5rem;
+    }
+    .bf-sp-list { display: flex; flex-direction: column; gap: .35rem; }
+    .bf-sp-item {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .2rem; border-radius: 8px;
+      transition: background .15s;
+      text-decoration: none; color: var(--text);
+    }
+    .bf-sp-item:hover { background: var(--bg-card2, rgba(0,0,0,.04)); }
+    .bf-sp-img {
+      width: 36px; height: 36px; border-radius: 8px;
+      object-fit: cover; background: var(--bg-card2); flex-shrink: 0;
+    }
+    .bf-sp-name { font-size: .78rem; font-weight: 600; }
+    .bf-sp-count { font-size: .65rem; color: var(--text-muted); }
+    .bf-sp-badge {
+      margin-left: auto; font-size: .7rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; color: var(--accent);
     }
 
-    /* ── System sidebar card ──────────────────────────────────── */
+    /* ── System sidebar ────────────────────────────────────────── */
     .bf-sys {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: .6rem .75rem;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: .55rem .65rem;
     }
     .bf-sys-title {
-      font-size: .68rem;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--text-muted);
-      margin-bottom: .5rem;
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin-bottom: .5rem;
     }
     .bf-sys-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: .25rem 0;
-      font-size: .75rem;
-      border-bottom: 1px solid var(--bg-card2, rgba(0,0,0,.04));
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .25rem 0; font-size: .73rem;
+      border-bottom: 1px solid var(--bg-card2, rgba(0,0,0,.03));
     }
     .bf-sys-row:last-child { border-bottom: none; }
     .bf-sys-label { color: var(--text-muted); }
-    .bf-sys-val {
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
+    .bf-sys-val { font-weight: 600; font-variant-numeric: tabular-nums; }
     .bf-sys-val.ok { color: #4caf50; }
     .bf-sys-val.delayed { color: #ff9800; }
 
-    /* ── Quick nav ──────────────────────────────────────────── */
+    /* ── Quick nav ──────────────────────────────────────────────── */
     .bf-quick {
-      display: flex;
-      gap: .6rem;
-      margin-top: 1.25rem;
-      justify-content: center;
-      flex-wrap: wrap;
+      display: flex; gap: .6rem; margin-top: 1.25rem;
+      justify-content: center; flex-wrap: wrap;
     }
     .bf-quick a {
-      display: inline-flex;
-      align-items: center;
-      gap: .3rem;
-      padding: .4rem .85rem;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      text-decoration: none;
-      color: var(--text);
-      font-size: .78rem;
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .4rem .85rem; background: var(--card-bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      text-decoration: none; color: var(--text); font-size: .78rem;
       transition: border-color .2s, background .2s, transform .15s;
     }
     .bf-quick a:hover {
       border-color: var(--accent);
-      background: rgba(var(--accent-rgb, 90,158,58), .06);
+      background: rgba(var(--accent-rgb,90,158,58),.06);
       transform: translateY(-1px);
     }
 
-    /* ════════════════════════════════════════════════════════════
-       RESPONSIVE
-       ════════════════════════════════════════════════════════════ */
-    @media (max-width: 1000px) {
-      .bf-hero { grid-template-columns: 1fr 1fr; }
-      .bf-hero .bf-node:nth-child(2)::after { display: none; }
-      .bf-bottom { grid-template-columns: 1fr; }
+    /* ════ RESPONSIVE ═══════════════════════════════════════════ */
+    @media (max-width:1000px) {
+      .bf-hero { grid-template-columns:1fr 1fr; grid-template-rows:auto; }
+      .bf-hero .bf-det-node { grid-column:1/3; grid-row:auto; }
+      .bf-hero .bf-node:not(.bf-det-node)::after { display:none; }
+      .bf-bottom { grid-template-columns:1fr 1fr; }
+      .bf-bottom .bf-sys { grid-column:1/3; }
     }
-    @media (max-width: 640px) {
-      .bf-hero { grid-template-columns: 1fr; }
-      .bf-hero .bf-node::after { display: none; }
-      .bf-kpis { grid-template-columns: 1fr 1fr; }
+    @media (max-width:640px) {
+      .bf-hero { grid-template-columns:1fr; }
+      .bf-hero .bf-det-node { grid-column:1; }
+      .bf-kpis { grid-template-columns:1fr 1fr; }
+      .bf-bottom { grid-template-columns:1fr; }
+      .bf-bottom .bf-sys { grid-column:auto; }
+      .bf-det-photo { width:100px; height:100px; }
     }
   </style>
 </head>
 <body>
 <div id="app">
   <birdash-shell page="dashboard" :title="t('dash_title')">
-
     <p class="bf-baseline">{{t('dash_baseline')}}</p>
 
-    <!-- ════ HERO: 4 asymmetric nodes ════════════════════════ -->
+    <!-- ════ HERO ═══════════════════════════════════════════════ -->
     <div class="bf-hero">
 
-      <!-- ── 1. MIC (compact) ──────────────────────────────── -->
-      <div class="bf-node" :class="{pulse: micActive}">
+      <!-- 1. MIC -->
+      <div class="bf-node bf-mic" :class="{pulse: micActive}">
+        <div class="bf-mic-glow"></div>
         <div class="bf-node-hdr">
-          <span class="bf-dot" :class="micActive ? 'live' : ''"></span>
+          <span class="bf-dot" :class="micActive?'live':''"></span>
           {{t('dash_listening')}}
         </div>
         <div class="bf-mic-bars">
-          <div v-for="(h, i) in micBars" :key="i"
-               class="bf-mic-bar" :class="{hot: h > 65}"
-               :style="{height: h + '%'}"></div>
+          <div v-for="(h,i) in micBars" :key="i" class="bf-mic-bar" :class="{hot:h>65}" :style="{height:h+'%'}"></div>
         </div>
         <div class="bf-mic-val">{{micDb}} <span>dB</span></div>
-        <div class="bf-mic-status" :class="{on: micActive}">
-          {{micActive ? t('dash_mic_active') : t('dash_mic_idle')}}
-        </div>
+        <div class="bf-mic-status" :class="{on:micActive}">{{micActive?t('dash_mic_active'):t('dash_mic_idle')}}</div>
       </div>
 
-      <!-- ── 2. PIPELINE (mini flow stages) ────────────────── -->
-      <div class="bf-node" :class="{pulse: enginePulse}">
+      <!-- 2. PIPELINE -->
+      <div class="bf-node" :class="{pulse:enginePulse}">
         <div class="bf-node-hdr">
           <span class="bf-dot" :class="pipelineDotClass"></span>
           {{t('dash_pipeline')}}
         </div>
         <div class="bf-pipe-stages">
-          <div class="bf-pipe-line"></div>
-          <div class="bf-pipe-stage" v-for="(s, i) in pipeStages" :key="i">
-            <div class="bf-pipe-dot" :class="{active: s.on, warn: s.warn}"></div>
+          <div class="bf-pipe-track"><div class="bf-pipe-fill" :style="{width:pipeFillPct+'%'}"></div></div>
+          <div class="bf-pipe-stage" v-for="(s,i) in pipeStages" :key="i">
+            <div class="bf-pipe-dot" :class="{active:s.on,warn:s.warn}"></div>
             <div class="bf-pipe-lbl">{{s.label}}</div>
           </div>
         </div>
         <div class="bf-pipe-stats">
           <div class="bf-pipe-stat">
-            <div class="bf-pipe-num" :class="{'warn-val': status.backlog > 5}">{{status.backlog}}</div>
+            <div class="bf-pipe-num" :class="{'warn-val':status.backlog>5}">{{status.backlog}}</div>
             <div class="bf-pipe-label">{{t('dash_backlog')}}</div>
           </div>
           <div class="bf-pipe-stat">
-            <div class="bf-pipe-num" :class="{'warn-val': status.lagSecs > 60}">{{fmtLag(status.lagSecs)}}</div>
+            <div class="bf-pipe-num" :class="{'warn-val':status.lagSecs>60}">{{fmtLag(status.lagSecs)}}</div>
             <div class="bf-pipe-label">{{t('dash_lag')}}</div>
           </div>
           <div class="bf-pipe-stat">
@@ -635,53 +450,51 @@
         </div>
       </div>
 
-      <!-- ── 3. DUAL AI (twin cores + fusion) ──────────────── -->
-      <div class="bf-node" :class="{pulse: enginePulse}">
+      <!-- 3. DUAL AI -->
+      <div class="bf-node" :class="{pulse:enginePulse}">
         <div class="bf-node-hdr">
           <span class="bf-dot live"></span>
           {{t('dash_dual_ai')}}
         </div>
         <div class="bf-cores">
-          <div class="bf-core active" :class="{firing: enginePulse}">
+          <div class="bf-core birdnet" :class="{firing:enginePulse}">
             <div class="bf-core-icon">🧠</div>
             <div class="bf-core-name">{{status.modelLabel}}</div>
-            <div class="bf-core-time" v-if="status.inferenceTime">{{status.inferenceTime}}s</div>
-            <div class="bf-core-time" v-else>—</div>
+            <div class="bf-core-time">{{status.inferenceTime ? status.inferenceTime+'s' : '\u2014'}}</div>
           </div>
-          <div v-if="status.secondaryModel" class="bf-core active" :class="{firing: enginePulse}">
+          <div v-if="status.secondaryModel" class="bf-core perch" :class="{firing:enginePulse}">
             <div class="bf-core-icon">🧬</div>
             <div class="bf-core-name">{{status.secModelLabel}}</div>
-            <div class="bf-core-time" v-if="status.secondaryInferenceTime">{{status.secondaryInferenceTime}}s</div>
-            <div class="bf-core-time" v-else>—</div>
+            <div class="bf-core-time">{{status.secondaryInferenceTime ? status.secondaryInferenceTime+'s' : '\u2014'}}</div>
           </div>
         </div>
-        <div class="bf-fusion" :class="{consensus: status.secondaryModel}">
-          <span class="bf-fusion-line"></span>
-          <span>{{status.secondaryModel ? t('dash_dual_consensus') : t('dash_single_model')}}</span>
-          <span class="bf-fusion-line"></span>
+        <div class="bf-fusion" :class="{consensus:status.secondaryModel}">
+          <span class="bf-fusion-bar"></span>
+          <span>{{status.secondaryModel?t('dash_dual_consensus'):t('dash_single_model')}}</span>
+          <span class="bf-fusion-bar"></span>
         </div>
-        <div class="bf-conf-row">
-          {{t('dash_confidence_thresh')}}: <strong>{{(status.confidence * 100).toFixed(0)}}%</strong>
-        </div>
+        <div class="bf-conf-row">{{t('dash_confidence_thresh')}}: <strong>{{(status.confidence*100).toFixed(0)}}%</strong></div>
       </div>
 
-      <!-- ── 4. LATEST DETECTION (dominant) ────────────────── -->
-      <div class="bf-node bf-det-node" :class="{pulse: detPulse}">
+      <!-- 4. DUAL AI (row 2) — also on left side -->
+      <!-- We put pipeline stats here to fill row 2 under mic -->
+
+      <!-- 4. DETECTION — spans right column, both rows -->
+      <div class="bf-node bf-det-node" :class="{pulse:detPulse}">
         <div class="bf-node-hdr">
-          <span class="bf-dot" :class="lastDet ? 'live' : ''"></span>
+          <span class="bf-dot" :class="lastDet?'live':''"></span>
           {{t('dash_latest')}}
         </div>
-        <div v-if="lastDet" class="bf-det">
+        <div v-if="lastDet" class="bf-det" :class="{['bf-det-enter']:detEnter}">
           <div class="bf-det-photo-wrap">
-            <img class="bf-det-photo"
-                 :src="photoUrl(lastDet.sciName)" :alt="lastDet.comName"
-                 @error="e => e.target.src='img/robin-logo.svg'">
+            <img class="bf-det-photo" :src="photoUrl(lastDet.sciName)" :alt="lastDet.comName"
+                 @error="e=>e.target.src='img/robin-logo.svg'">
             <div class="bf-det-conf-ring" :class="confClass(lastDet.confidence)">
-              {{(lastDet.confidence * 100).toFixed(0)}}
+              {{(lastDet.confidence*100).toFixed(0)}}
             </div>
           </div>
           <div class="bf-det-info">
-            <div class="bf-det-name">{{spName(lastDet.comName, lastDet.sciName)}}</div>
+            <div class="bf-det-name">{{spName(lastDet.comName,lastDet.sciName)}}</div>
             <div class="bf-det-sci">{{lastDet.sciName}}</div>
             <div class="bf-det-row">
               <span>{{lastDet.time}}</span>
@@ -694,26 +507,26 @@
       </div>
     </div>
 
-    <!-- ════ KPIs ════════════════════════════════════════════ -->
+    <!-- ════ KPIs ═══════════════════════════════════════════════ -->
     <div class="bf-kpis">
       <div class="bf-kpi">
         <div class="bf-kpi-icon">🐦</div>
         <div class="bf-kpi-body">
-          <div class="bf-kpi-val" :class="{bump: kpiBump.total}">{{kpi.total}}</div>
+          <div class="bf-kpi-val" :class="{bump:kpiBump.total}">{{kpi.total}}</div>
           <div class="bf-kpi-label">{{t('dash_kpi_detections')}}</div>
         </div>
       </div>
       <div class="bf-kpi">
         <div class="bf-kpi-icon">🦜</div>
         <div class="bf-kpi-body">
-          <div class="bf-kpi-val" :class="{bump: kpiBump.species}">{{kpi.species}}</div>
+          <div class="bf-kpi-val" :class="{bump:kpiBump.species}">{{kpi.species}}</div>
           <div class="bf-kpi-label">{{t('dash_kpi_species')}}</div>
         </div>
       </div>
       <div class="bf-kpi">
-        <div class="bf-kpi-icon" :style="kpi.review > 0 ? 'background:rgba(255,152,0,.12)' : ''">✅</div>
+        <div class="bf-kpi-icon" :style="kpi.review>0?'background:rgba(255,152,0,.12)':''">✅</div>
         <div class="bf-kpi-body">
-          <div class="bf-kpi-val" :style="kpi.review > 0 ? 'color:#ff9800' : ''">{{kpi.review}}</div>
+          <div class="bf-kpi-val" :style="kpi.review>0?'color:#ff9800':''">{{kpi.review}}</div>
           <div class="bf-kpi-label">{{t('dash_kpi_review')}}</div>
         </div>
       </div>
@@ -727,26 +540,45 @@
       </div>
     </div>
 
-    <!-- ════ BOTTOM ROW: ticker + system ═════════════════════ -->
+    <!-- ════ BOTTOM: key events + recent species + system ═══════ -->
     <div class="bf-bottom">
-      <!-- Ticker -->
-      <div class="bf-ticker">
-        <div class="bf-ticker-hdr">
-          <span class="bf-ticker-title">{{t('dash_activity')}}</span>
-          <span style="font-size:.62rem;color:var(--text-muted)">{{ticker.length}} {{t('dash_events')}}</span>
+      <!-- Key events (curated from SSE) -->
+      <div class="bf-events">
+        <div class="bf-events-hdr">
+          <span>{{t('dash_key_events')}}</span>
+          <span style="font-size:.6rem">{{keyEvents.length}}</span>
         </div>
-        <div v-if="ticker.length === 0" style="padding:.75rem;text-align:center;color:var(--text-muted);font-size:.78rem;">
+        <div v-if="keyEvents.length===0" style="padding:.5rem;text-align:center;color:var(--text-muted);font-size:.78rem">
           {{t('dash_waiting')}}
         </div>
-        <div v-for="ev in ticker" :key="ev.id"
-             class="bf-tick" :class="'bf-tick-cat-' + ev.cat">
-          <span class="bf-tick-time">{{ev.ts}}</span>
-          <span class="bf-tick-icon">{{ev.icon}}</span>
-          <span class="bf-tick-msg">{{ev.msg}}</span>
+        <div v-for="ev in keyEvents" :key="ev.id" class="bf-evt">
+          <div class="bf-evt-icon" :class="ev.iconClass">{{ev.icon}}</div>
+          <div class="bf-evt-body">
+            <div class="bf-evt-msg">{{ev.msg}}</div>
+            <div class="bf-evt-time">{{ev.ts}}</div>
+          </div>
         </div>
       </div>
 
-      <!-- System status sidebar -->
+      <!-- Recent species today -->
+      <div class="bf-species">
+        <div class="bf-species-hdr">{{t('dash_recent_species')}}</div>
+        <div v-if="recentSpecies.length===0" style="padding:.5rem;text-align:center;color:var(--text-muted);font-size:.78rem">—</div>
+        <div class="bf-sp-list">
+          <a v-for="sp in recentSpecies" :key="sp.sciName"
+             class="bf-sp-item" :href="'species.html?species='+encodeURIComponent(sp.comName)">
+            <img class="bf-sp-img" :src="photoUrl(sp.sciName)" :alt="sp.comName"
+                 @error="e=>e.target.src='img/robin-logo.svg'">
+            <div>
+              <div class="bf-sp-name">{{spName(sp.comName,sp.sciName)}}</div>
+              <div class="bf-sp-count">{{sp.lastTime}}</div>
+            </div>
+            <span class="bf-sp-badge">{{sp.count}}</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- System status -->
       <div class="bf-sys">
         <div class="bf-sys-title">{{t('dash_sys_title')}}</div>
         <div class="bf-sys-row">
@@ -763,11 +595,11 @@
         </div>
         <div class="bf-sys-row">
           <span class="bf-sys-label">{{t('dash_sys_lag')}}</span>
-          <span class="bf-sys-val" :class="status.lagSecs > 60 ? 'delayed' : 'ok'">{{fmtLag(status.lagSecs)}}</span>
+          <span class="bf-sys-val" :class="status.lagSecs>60?'delayed':'ok'">{{fmtLag(status.lagSecs)}}</span>
         </div>
         <div class="bf-sys-row">
           <span class="bf-sys-label">{{t('dash_sys_backlog')}}</span>
-          <span class="bf-sys-val" :class="status.backlog > 5 ? 'delayed' : 'ok'">{{status.backlog}}</span>
+          <span class="bf-sys-val" :class="status.backlog>5?'delayed':'ok'">{{status.backlog}}</span>
         </div>
         <div class="bf-sys-row">
           <span class="bf-sys-label">{{t('dash_sys_rec_len')}}</span>
@@ -776,7 +608,7 @@
       </div>
     </div>
 
-    <!-- ════ Quick nav ═══════════════════════════════════════ -->
+    <!-- ════ Quick nav ═════════════════════════════════════════── -->
     <div class="bf-quick">
       <a href="spectrogram.html">📡 {{t('nav_spectrogram')}}</a>
       <a href="today.html">📅 {{t('nav_today')}}</a>
@@ -784,31 +616,23 @@
       <a href="review.html">✅ {{t('nav_review')}}</a>
       <a href="system.html">🖥️ {{t('nav_system')}}</a>
     </div>
-
   </birdash-shell>
 </div>
 
 <script>
 BIRDASH.ready.then(() => {
-  const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
-  const { useI18n, useNav, useSpeciesNames, registerComponents } = BIRDASH;
+  const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+  const { useI18n, useSpeciesNames, registerComponents } = BIRDASH;
   const U = BIRDASH_UTILS;
   const API = BIRD_CONFIG.apiUrl;
 
   const MODEL_SHORT = {
-    'BirdNET_GLOBAL_6K_V2.4_Model_FP16': 'BirdNET V2.4',
-    'BirdNET_6K_GLOBAL_MODEL': 'BirdNET V1',
-    'Perch_v2': 'Perch V2',
-    'perch_v2_original': 'Perch V2',
-    'perch_v2_fp16': 'Perch V2 FP16',
-    'perch_v2_dynint8': 'Perch V2 INT8',
-    'perch_v2_int8': 'Perch V2 INT8',
-    'BirdNET-Go_classifier_20250916': 'BirdNET-Go',
-  };
-
-  const TICK_ICONS = {
-    detection: '🐦', recording: '🎤', birdweather: '🌐',
-    error: '⚠️', cleanup: '🧹', system: '⚙️',
+    'BirdNET_GLOBAL_6K_V2.4_Model_FP16':'BirdNET V2.4',
+    'BirdNET_6K_GLOBAL_MODEL':'BirdNET V1',
+    'Perch_v2':'Perch V2','perch_v2_original':'Perch V2',
+    'perch_v2_fp16':'Perch V2 FP16','perch_v2_dynint8':'Perch V2 INT8',
+    'perch_v2_int8':'Perch V2 INT8',
+    'BirdNET-Go_classifier_20250916':'BirdNET-Go',
   };
 
   const app = createApp({
@@ -819,9 +643,8 @@ BIRDASH.ready.then(() => {
       // ── Mic SSE ────────────────────────────────────────────
       const micDb = ref('-\u221E');
       const micActive = ref(false);
-      const micBars = ref(Array(14).fill(2));
-      let micSource = null;
-      let micTimeout = null;
+      const micBars = ref(Array(16).fill(2));
+      let micSource = null, micTimeout = null;
 
       function connectMic() {
         micSource = new EventSource(API + '/audio/monitor');
@@ -832,25 +655,23 @@ BIRDASH.ready.then(() => {
             micDb.value = db > -55 ? db.toFixed(0) : '-\u221E';
             micActive.value = db > -55;
             const pct = Math.max(2, Math.min(100, ((db + 60) / 50) * 100));
-            const bars = [...micBars.value];
-            bars.shift();
-            bars.push(pct);
+            const bars = [...micBars.value]; bars.shift(); bars.push(pct);
             micBars.value = bars;
             clearTimeout(micTimeout);
             micTimeout = setTimeout(() => { micActive.value = false; }, 3000);
           } catch(e) {}
         };
         micSource.onerror = () => {
-          micActive.value = false;
-          micSource.close();
+          micActive.value = false; micSource.close();
           setTimeout(connectMic, 10000);
         };
       }
 
-      // ── Pipeline stages (computed from status + events) ────
+      // ── Pipeline ───────────────────────────────────────────
       const pipeStageRec = ref(false);
       const pipeStageInfer = ref(false);
       const pipeStageStore = ref(false);
+      const pipeFillPct = ref(0);
 
       const pipeStages = computed(() => [
         { label: t('dash_stage_listen'), on: micActive.value, warn: false },
@@ -858,70 +679,83 @@ BIRDASH.ready.then(() => {
         { label: t('dash_stage_analyze'), on: pipeStageInfer.value, warn: status.value.backlog > 5 },
         { label: t('dash_stage_store'), on: pipeStageStore.value, warn: false },
       ]);
-
       const pipelineDotClass = computed(() => {
         if (status.value.backlog > 5) return 'warn';
         if (status.value.backlog > 0 || pipeStageRec.value || pipeStageInfer.value) return 'live';
         return '';
       });
 
+      function animatePipeline(stage) {
+        if (stage === 'recording') {
+          pipeFillPct.value = 33;
+          pipeStageRec.value = true;
+          setTimeout(() => { pipeStageRec.value = false; }, 2500);
+          setTimeout(() => { pipeFillPct.value = 0; }, 3000);
+        }
+        if (stage === 'detection') {
+          pipeFillPct.value = 66;
+          pipeStageInfer.value = true;
+          setTimeout(() => { pipeFillPct.value = 100; pipeStageStore.value = true; }, 400);
+          setTimeout(() => { pipeStageInfer.value = false; }, 2500);
+          setTimeout(() => { pipeStageStore.value = false; pipeFillPct.value = 0; }, 3200);
+        }
+      }
+
       // ── Logs SSE ───────────────────────────────────────────
-      const ticker = ref([]);
+      const keyEvents = ref([]);
       let tickId = 0;
       const enginePulse = ref(false);
       const detPulse = ref(false);
+      const detEnter = ref(false);
       let logSource = null;
+
+      const EVT_ICONS = { detection: '🐦', recording: '🎤', birdweather: '🌐', error: '⚠️' };
+      const EVT_CLASS = { detection: 'det', recording: 'rec', birdweather: 'bw', error: 'err' };
 
       function connectLogs() {
         logSource = new EventSource(API + '/logs');
         logSource.onmessage = (e) => {
           try {
             const d = JSON.parse(e.data);
-            if (d.cat === 'api') return;
+            if (d.cat === 'api' || d.cat === 'cleanup' || d.cat === 'system') return;
 
-            tickId++;
-            ticker.value.unshift({
-              id: tickId, ts: d.ts, cat: d.cat, msg: d.msg,
-              icon: TICK_ICONS[d.cat] || '📋',
-            });
-            if (ticker.value.length > 25) ticker.value.length = 25;
+            // Key events only: detection, recording, birdweather, error
+            if (EVT_ICONS[d.cat]) {
+              tickId++;
+              keyEvents.value.unshift({
+                id: tickId, ts: d.ts, cat: d.cat, msg: d.msg,
+                icon: EVT_ICONS[d.cat], iconClass: EVT_CLASS[d.cat],
+              });
+              if (keyEvents.value.length > 20) keyEvents.value.length = 20;
+            }
 
-            // Pipeline stage animations from real events
             if (d.cat === 'recording') {
-              pipeStageRec.value = true;
               enginePulse.value = true;
-              setTimeout(() => { pipeStageRec.value = false; }, 2000);
-              setTimeout(() => { enginePulse.value = false; }, 1200);
+              animatePipeline('recording');
+              setTimeout(() => { enginePulse.value = false; }, 1500);
             }
             if (d.cat === 'detection') {
-              pipeStageInfer.value = true;
-              pipeStageStore.value = true;
               enginePulse.value = true;
               detPulse.value = true;
-              setTimeout(() => { pipeStageInfer.value = false; }, 2000);
-              setTimeout(() => { pipeStageStore.value = false; }, 2500);
-              setTimeout(() => { enginePulse.value = false; }, 1500);
-              setTimeout(() => { detPulse.value = false; }, 1800);
+              animatePipeline('detection');
+              setTimeout(() => { enginePulse.value = false; }, 2000);
+              setTimeout(() => { detPulse.value = false; }, 2200);
               fetchLatestDetection();
               fetchKpis();
             }
           } catch(e) {}
         };
-        logSource.onerror = () => {
-          logSource.close();
-          setTimeout(connectLogs, 10000);
-        };
+        logSource.onerror = () => { logSource.close(); setTimeout(connectLogs, 10000); };
       }
 
       // ── Analysis status ────────────────────────────────────
       const status = ref({
-        model: '', secondaryModel: null,
-        modelLabel: '...', secModelLabel: '',
-        backlog: 0, lagSecs: 0,
-        inferenceTime: null, secondaryInferenceTime: null,
-        confidence: 0.7, sensitivity: 1.0, recordingLength: 45,
+        model:'', secondaryModel:null,
+        modelLabel:'...', secModelLabel:'',
+        backlog:0, lagSecs:0,
+        inferenceTime:null, secondaryInferenceTime:null,
+        confidence:0.7, sensitivity:1.0, recordingLength:45,
       });
-
       async function fetchStatus() {
         try {
           const r = await fetch(API + '/analysis-status');
@@ -935,146 +769,116 @@ BIRDASH.ready.then(() => {
       // ── Latest detection ───────────────────────────────────
       const lastDet = ref(null);
       let lastDetKey = '';
-
       async function fetchLatestDetection() {
         try {
           const r = await fetch(API + '/query', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
-              sql: 'SELECT Date, Time, Sci_Name, Com_Name, Confidence, Model, File_Name FROM detections ORDER BY Date DESC, Time DESC LIMIT 1'
+              sql:'SELECT Date,Time,Sci_Name,Com_Name,Confidence,Model,File_Name FROM detections ORDER BY Date DESC,Time DESC LIMIT 1'
             })
           });
           const d = await r.json();
           if (d.rows && d.rows.length > 0) {
             const row = d.rows[0];
-            const key = row[0] + row[1] + row[3];
-            if (key !== lastDetKey) {
-              lastDetKey = key;
-              detPulse.value = true;
-              setTimeout(() => { detPulse.value = false; }, 1800);
-            }
+            const key = row[0]+row[1]+row[3];
+            const isNew = key !== lastDetKey;
+            lastDetKey = key;
             lastDet.value = {
-              date: row[0], time: row[1], sciName: row[2], comName: row[3],
-              confidence: row[4], model: row[5], fileName: row[6],
-              modelShort: MODEL_SHORT[row[5]] || row[5],
+              date:row[0],time:row[1],sciName:row[2],comName:row[3],
+              confidence:row[4],model:row[5],fileName:row[6],
+              modelShort:MODEL_SHORT[row[5]]||row[5],
             };
+            if (isNew) {
+              detEnter.value = false;
+              await nextTick();
+              detEnter.value = true;
+              detPulse.value = true;
+              setTimeout(() => { detPulse.value = false; }, 2200);
+              setTimeout(() => { detEnter.value = false; }, 700);
+            }
           }
         } catch(e) {}
       }
 
-      function detStatus(det) {
-        if (!det) return '';
-        return det.confidence >= status.value.confidence ? 'accepted' : 'review';
-      }
-      function detStatusLabel(det) {
-        if (!det) return '';
-        return det.confidence >= status.value.confidence ? t('dash_accepted') : t('dash_review');
-      }
-      function confClass(conf) {
-        if (conf >= 0.7) return 'high';
-        if (conf >= 0.4) return 'mid';
-        return 'low';
-      }
-      function photoUrl(sciName) {
-        return API + '/photo?sci=' + encodeURIComponent(sciName);
+      function detStatus(det) { return det && det.confidence >= status.value.confidence ? 'accepted' : 'review'; }
+      function detStatusLabel(det) { return det && det.confidence >= status.value.confidence ? t('dash_accepted') : t('dash_review'); }
+      function confClass(c) { return c >= 0.7 ? 'high' : c >= 0.4 ? 'mid' : 'low'; }
+      function photoUrl(sci) { return API + '/photo?sci=' + encodeURIComponent(sci); }
+
+      // ── Recent species today ───────────────────────────────
+      const recentSpecies = ref([]);
+      async function fetchRecentSpecies() {
+        try {
+          const today = new Date().toISOString().slice(0,10);
+          const r = await fetch(API + '/query', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              sql: 'SELECT Com_Name, Sci_Name, COUNT(*) as cnt, MAX(Time) as lt FROM detections WHERE Date=? GROUP BY Sci_Name ORDER BY lt DESC LIMIT 8',
+              params: [today]
+            })
+          });
+          const d = await r.json();
+          recentSpecies.value = (d.rows||[]).map(row => ({
+            comName:row[0], sciName:row[1], count:row[2], lastTime:row[3],
+          }));
+        } catch(e) {}
       }
 
       // ── KPIs ───────────────────────────────────────────────
-      const kpi = ref({ total: 0, species: 0, review: 0, healthLabel: '...', healthStyle: '', healthDetail: '' });
-      const kpiBump = ref({ total: false, species: false });
+      const kpi = ref({ total:0, species:0, review:0, healthLabel:'...', healthStyle:'', healthDetail:'' });
+      const kpiBump = ref({ total:false, species:false });
       let prevTotal = -1;
-
       async function fetchKpis() {
         try {
-          const today = new Date().toISOString().slice(0, 10);
+          const today = new Date().toISOString().slice(0,10);
           const [statsR, reviewR] = await Promise.all([
-            fetch(API + '/query', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sql: 'SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species FROM detections WHERE Date = ?',
-                params: [today]
-              })
-            }),
-            fetch(API + '/flagged-detections?dateFrom=1900-01-01&dateTo=' + today + '&limit=1'),
+            fetch(API+'/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql:'SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species FROM detections WHERE Date=?',params:[today]})}),
+            fetch(API+'/flagged-detections?dateFrom=1900-01-01&dateTo='+today+'&limit=1'),
           ]);
-
           const stats = await statsR.json();
           const review = await reviewR.json();
           const anlys = status.value;
-
-          const newTotal = stats.rows?.[0]?.[0] || 0;
-          const newSpecies = stats.rows?.[0]?.[1] || 0;
-
-          if (prevTotal >= 0 && newTotal > prevTotal) {
-            kpiBump.value.total = true;
-            setTimeout(() => { kpiBump.value.total = false; }, 500);
-          }
-          if (prevTotal >= 0 && newSpecies > kpi.value.species) {
-            kpiBump.value.species = true;
-            setTimeout(() => { kpiBump.value.species = false; }, 500);
-          }
+          const newTotal = stats.rows?.[0]?.[0]||0;
+          const newSpecies = stats.rows?.[0]?.[1]||0;
+          if (prevTotal>=0 && newTotal>prevTotal) { kpiBump.value.total=true; setTimeout(()=>{kpiBump.value.total=false;},500); }
+          if (prevTotal>=0 && newSpecies>kpi.value.species) { kpiBump.value.species=true; setTimeout(()=>{kpiBump.value.species=false;},500); }
           prevTotal = newTotal;
-
-          let healthLabel, healthStyle, healthDetail;
-          if (anlys.lagSecs > 300) {
-            healthLabel = t('dash_health_delayed');
-            healthStyle = 'color:#ff9800';
-            healthDetail = t('dash_lag') + ': ' + fmtLag(anlys.lagSecs);
-          } else if (anlys.lagSecs > 60) {
-            healthLabel = t('dash_health_catching');
-            healthStyle = 'color:#ff9800';
-            healthDetail = t('dash_lag') + ': ' + fmtLag(anlys.lagSecs);
-          } else {
-            healthLabel = t('dash_health_ok');
-            healthStyle = 'color:#4caf50';
-            healthDetail = anlys.backlog > 0 ? (anlys.backlog + ' ' + t('dash_backlog')) : '';
-          }
-
-          kpi.value = { total: newTotal, species: newSpecies, review: review.total || 0, healthLabel, healthStyle, healthDetail };
+          let healthLabel,healthStyle,healthDetail;
+          if (anlys.lagSecs>300){healthLabel=t('dash_health_delayed');healthStyle='color:#ff9800';healthDetail=t('dash_lag')+': '+fmtLag(anlys.lagSecs);}
+          else if(anlys.lagSecs>60){healthLabel=t('dash_health_catching');healthStyle='color:#ff9800';healthDetail=t('dash_lag')+': '+fmtLag(anlys.lagSecs);}
+          else{healthLabel=t('dash_health_ok');healthStyle='color:#4caf50';healthDetail=anlys.backlog>0?(anlys.backlog+' '+t('dash_backlog')):'';}
+          kpi.value={total:newTotal,species:newSpecies,review:review.total||0,healthLabel,healthStyle,healthDetail};
         } catch(e) {}
       }
-
-      function fmtLag(secs) {
-        if (!secs || secs <= 0) return '0s';
-        if (secs < 60) return secs + 's';
-        if (secs < 3600) return Math.floor(secs / 60) + 'min';
-        return Math.floor(secs / 3600) + 'h';
-      }
+      function fmtLag(s){if(!s||s<=0)return'0s';if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'min';return Math.floor(s/3600)+'h';}
 
       // ── Lifecycle ──────────────────────────────────────────
-      let statusIv, kpiIv, detIv;
-      onMounted(async () => {
-        connectMic();
-        connectLogs();
-        // Stagger initial API calls to avoid parallel request conflicts
+      let statusIv,kpiIv,detIv,spIv;
+      onMounted(async()=>{
+        connectMic(); connectLogs();
         await fetchStatus();
         fetchLatestDetection();
-        setTimeout(fetchKpis, 300);
-        statusIv = setInterval(fetchStatus, 30000);
-        kpiIv = setInterval(fetchKpis, 15000);
-        detIv = setInterval(fetchLatestDetection, 12000);
+        setTimeout(fetchKpis,300);
+        setTimeout(fetchRecentSpecies,600);
+        statusIv=setInterval(fetchStatus,30000);
+        kpiIv=setInterval(fetchKpis,15000);
+        detIv=setInterval(fetchLatestDetection,12000);
+        spIv=setInterval(fetchRecentSpecies,20000);
       });
-      onUnmounted(() => {
-        if (micSource) micSource.close();
-        if (logSource) logSource.close();
-        clearInterval(statusIv);
-        clearInterval(kpiIv);
-        clearInterval(detIv);
+      onUnmounted(()=>{
+        if(micSource)micSource.close(); if(logSource)logSource.close();
+        clearInterval(statusIv);clearInterval(kpiIv);clearInterval(detIv);clearInterval(spIv);
       });
 
       return {
-        t, spName,
-        micDb, micActive, micBars,
-        status, enginePulse, detPulse,
-        pipeStages, pipelineDotClass,
-        lastDet, detStatus, detStatusLabel, confClass, photoUrl,
-        kpi, kpiBump, ticker, fmtLag,
+        t,spName,micDb,micActive,micBars,
+        status,enginePulse,detPulse,detEnter,
+        pipeStages,pipelineDotClass,pipeFillPct,
+        lastDet,detStatus,detStatusLabel,confClass,photoUrl,
+        kpi,kpiBump,keyEvents,recentSpecies,fmtLag,
       };
     }
   });
-
   registerComponents(app).mount('#app');
 });
 </script>

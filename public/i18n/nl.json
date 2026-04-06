@@ -1058,5 +1058,7 @@
   "dash_sys_sensitivity": "Gevoeligheid",
   "dash_sys_lag": "Vertraging",
   "dash_sys_backlog": "Wachtrij",
-  "dash_sys_rec_len": "Opnameduur"
+  "dash_sys_rec_len": "Opnameduur",
+  "dash_key_events": "Belangrijke gebeurtenissen",
+  "dash_recent_species": "Soorten van vandaag"
 }

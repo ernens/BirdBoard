@@ -1058,5 +1058,7 @@
   "dash_sys_sensitivity": "Empfindlichkeit",
   "dash_sys_lag": "Verzogerung",
   "dash_sys_backlog": "Warteschlange",
-  "dash_sys_rec_len": "Aufnahmedauer"
+  "dash_sys_rec_len": "Aufnahmedauer",
+  "dash_key_events": "Wichtige Ereignisse",
+  "dash_recent_species": "Arten des Tages"
 }
