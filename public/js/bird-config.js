@@ -48,13 +48,18 @@ const BIRD_CONFIG = {
 
   // Navigation (grouped by user intent)
   nav: [
-    { section: 'nav_sec_realtime', icon: '🔴', items: [
+    { section: 'nav_sec_home', icon: '🏠', items: [
+      { id: 'overview',     icon: '📊', file: 'overview.html'     },
       { id: 'today',        icon: '📅', file: 'today.html'        },
+      { id: 'recent',       icon: '🕐', file: 'recent.html'       },
+    ]},
+    { section: 'nav_sec_realtime', icon: '🔴', items: [
       { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
+      { id: 'log',          icon: '📋', file: 'log.html'          },
     ]},
     { section: 'nav_sec_history', icon: '🗓️', items: [
-      { id: 'overview',     icon: '🏠', file: 'overview.html'     },
       { id: 'calendar',     icon: '📆', file: 'calendar.html'     },
+      { id: 'timeline',     icon: '🌅', file: 'timeline.html'     },
       { id: 'detections',   icon: '📋', file: 'detections.html'   },
       { id: 'review',       icon: '✅', file: 'review.html'       },
     ]},
@@ -62,19 +67,19 @@ const BIRD_CONFIG = {
       { id: 'species',      icon: '🔍', file: 'species.html'      },
       { id: 'rarities',     icon: '💎', file: 'rarities.html'     },
       { id: 'gallery',      icon: '🏆', file: 'gallery.html'      },
+      { id: 'recordings',   icon: '🎵', file: 'recordings.html'   },
       { id: 'favorites',    icon: '⭐', file: 'favorites.html'    },
     ]},
-    { section: 'nav_sec_insights', icon: '📊', items: [
+    { section: 'nav_sec_indicators', icon: '📈', items: [
       { id: 'weather',      icon: '🌦️', file: 'weather.html'     },
       { id: 'stats',        icon: '📈', file: 'stats.html'        },
       { id: 'analyses',     icon: '🔬', file: 'analyses.html'     },
       { id: 'biodiversity', icon: '🌿', file: 'biodiversity.html' },
-      { id: 'timeline',     icon: '🌅', file: 'timeline.html'     },
+      { id: 'models',       icon: '🤖', file: 'models.html'       },
     ]},
     { section: 'nav_sec_system', icon: '⚙️', items: [
       { id: 'settings',     icon: '⚙️', file: 'settings.html'    },
       { id: 'system',       icon: '🖥️', file: 'system.html'      },
-      { id: 'log',          icon: '📋', file: 'log.html'          },
     ]},
   ],
   // Flat pages array (built from nav sections)

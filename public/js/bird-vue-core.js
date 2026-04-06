@@ -54,6 +54,8 @@
   "nav_sec_history": "Historique",
   "nav_sec_species": "Espèces",
   "nav_sec_insights": "Analyses",
+  "nav_sec_home": "Accueil",
+  "nav_sec_indicators": "Indicateurs",
   "nav_sec_system": "Station",
   "nav_sec_observe": "Observer",
   "nav_sec_explore": "Explorer",
