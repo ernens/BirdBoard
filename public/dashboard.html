@@ -18,6 +18,7 @@
   <script src="js/birdash-local.js" onerror=""></script>
   <script src="js/bird-config.js"></script>
   <script src="js/bird-shared.js"></script>
+  <script src="js/bird-queries.js"></script>
   <script src="js/bird-vue-core.js"></script>
   <style>
     .bf-baseline{text-align:center;margin-bottom:1rem;color:var(--text-muted);font-size:.78rem;letter-spacing:.02em}
@@ -518,6 +519,7 @@ BIRDASH.ready.then(() => {
   const { useI18n, useSpeciesNames, registerComponents } = BIRDASH;
   const U = BIRDASH_UTILS;
   const API = BIRD_CONFIG.apiUrl;
+  const Q = BIRDASH_QUERIES;
 
   const MODEL_SHORT = {
     'BirdNET_GLOBAL_6K_V2.4_Model_FP16':'BirdNET V2.4','BirdNET_6K_GLOBAL_MODEL':'BirdNET V1',
@@ -692,10 +694,9 @@ BIRDASH.ready.then(() => {
       const lastDet=ref(null); let lastDetKey='';
       async function fetchLatestDetection(){
         try{
-          const r=await fetch(API+'/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql:'SELECT Date,Time,Sci_Name,Com_Name,Confidence,Model,File_Name FROM detections WHERE Confidence>=? ORDER BY Date DESC,Time DESC LIMIT 1',params:[BIRD_CONFIG.defaultConfidence]})});
-          const d=await r.json();
-          if(d.rows&&d.rows.length>0){
-            const row=d.rows[0],key=row[0]+row[1]+row[3],isNew=key!==lastDetKey;
+          const rows=await U.birdQuery(...Q.latestDetections(1));
+          if(rows.length>0){
+            const r=rows[0],row=[r.Date,r.Time,r.Sci_Name,r.Com_Name,r.Confidence,r.Model,r.File_Name],key=row[0]+row[1]+row[3],isNew=key!==lastDetKey;
             lastDetKey=key;
             lastDet.value={date:row[0],time:row[1],sciName:row[2],comName:row[3],confidence:row[4],model:row[5],fileName:row[6],modelShort:MODEL_SHORT[row[5]]||row[5]};
             if(isNew){detEnter.value=false;await nextTick();detEnter.value=true;detPulse.value=true;setTimeout(()=>{detPulse.value=false;},2200);setTimeout(()=>{detEnter.value=false;},700);}
@@ -711,9 +712,8 @@ BIRDASH.ready.then(() => {
       const recentSpecies=ref([]);
       async function fetchRecentSpecies(){
         try{const today=new Date().toISOString().slice(0,10);
-        const r=await fetch(API+'/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql:'SELECT Com_Name,Sci_Name,COUNT(*)as cnt,MAX(Time)as lt FROM detections WHERE Date=? AND Confidence>=? GROUP BY Sci_Name ORDER BY lt DESC LIMIT 8',params:[today,BIRD_CONFIG.defaultConfidence]})});
-        const d=await r.json();
-        recentSpecies.value=(d.rows||[]).map(row=>({comName:row[0],sciName:row[1],count:row[2],lastTime:row[3]}));
+        const rows=await U.birdQuery(...Q.speciesByDate(today,8));
+        recentSpecies.value=rows.map(r=>({comName:r.Com_Name,sciName:r.Sci_Name,count:r.n,lastTime:r.last_time}));
         }catch(e){}
       }
 
