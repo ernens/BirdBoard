@@ -11,6 +11,17 @@ All notable changes to BirdStation are documented here.
   - Route modules use `handle(req, res, pathname, ctx)` pattern with dependency injection
 - All 141 tests pass unchanged
 
+### Performance
+- **i18n extraction** — translations moved from inline JS to `/i18n/*.json` (4 files, loaded async)
+  - `bird-vue-core.js`: 218 KB → 62 KB (-72%)
+  - Pages await `BIRDASH.ready` before mounting
+- **SW cache v100** — precache updated with i18n files
+
+### Code quality
+- **`useAudioPlayer()` composable** — shared audio player with rAF progress, seeking, optional Web Audio filters
+  - Migrated calendar, recent, today pages — removes ~150 lines of duplicated code
+- **SEC-05** — Service Worker registration errors now logged instead of silently swallowed
+
 ## [1.0.0] — 2026-04-04
 
 First public release. Complete bird detection dashboard for Raspberry Pi.
