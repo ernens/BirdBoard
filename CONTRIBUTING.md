@@ -107,6 +107,7 @@ birdash/
 │   ├── models.html            # Model comparison
 │   ├── js/
 │   │   ├── bird-config.js     # Central configuration
+│   │   ├── bird-queries.js   # Shared SQL query library
 │   │   ├── bird-shared.js     # Shared utilities (no Vue dependency)
 │   │   ├── bird-vue-core.js   # Vue 3 composables, i18n, components
 │   │   └── birdash-local.js   # Local config overrides (not versioned)
@@ -177,6 +178,7 @@ Browser                    Raspberry Pi
 |------|---------|-------|
 | `bird-config.js` | Configuration | Overridable via `birdash-local.js` |
 | `bird-shared.js` | Pure utilities | No Vue dependency — framework-agnostic |
+| `bird-queries.js` | SQL query library | 51 parameterized queries with `Q.buildWhere()` helper — confidence filter auto-applied |
 | `bird-vue-core.js` | Vue composables + i18n | Contains all translations inline |
 | `bird-pages.css` | Page-specific styles | Organized by page with comments |
 | `server/server.js` | HTTP entry point | Middleware, security, route delegations (208 lines) |

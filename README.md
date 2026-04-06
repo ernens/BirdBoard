@@ -274,6 +274,7 @@ birdash/
 │   ├── rarities.html               # Rare species tracker
 │   ├── js/
 │   │   ├── bird-config.js         # Navigation, API config
+│   │   ├── bird-queries.js        # Shared SQL query library (51 queries)
 │   │   ├── bird-shared.js         # Utilities, DSP, favorites, notes API
 │   │   ├── bird-vue-core.js       # Vue composables, i18n (4 langs), shell
 │   │   └── bird-timeline.js       # Timeline rendering (sky, stars, markers)
@@ -320,6 +321,7 @@ birdash/
 
 - Rate limiting: 120 req/min per IP
 - Strict SQL validation (read-only, parameterized)
+- Centralized SQL query library (`bird-queries.js`) — 51 parameterized queries with automatic confidence filtering
 - Security headers (CSP, X-Frame-Options, Referrer-Policy)
 - CORS restricted to localhost
 - SRI on CDN scripts

@@ -32,6 +32,16 @@ All notable changes to BirdStation are documented here.
 - **Homogenized 9 page titles** — 9 English `<title>` tags translated to French
 - **Cross-navigation** between settings and system pages (link tabs)
 
+### SQL Query Library
+- **`bird-queries.js`** — 51 centralized SQL queries covering all pages
+  - Automatic confidence filtering via `BIRD_CONFIG.defaultConfidence`
+  - `Q.buildWhere()` helper for parameterized WHERE clauses (replaces inline SQL string building)
+  - Fixes SQL injection risk in stats.html (dates were inlined in SQL)
+  - 27 queries migrated across 10 pages; 16 pages include the script
+  - Organized by domain: general, dashboard, species, detections, temporal, overview, stats, biodiversity, analyses, gallery, rarities
+- **Confidence filter harmonized** — dashboard was counting all detections (27 species) while other pages filtered at 70% (16 species); now consistent
+- **Settings save fix** — birdnet.conf cache (60s TTL) was not invalidated after write; settings appeared to not save
+
 ### Bug Fixes
 - **Rate limiting** — reduced dashboard polling from ~18 to ~8 req/min, debounced SSE-triggered refreshes
 - **Perch V2 inference time** — regex was case-sensitive, never matched lowercase `perch_v2`
