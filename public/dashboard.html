@@ -63,7 +63,7 @@
     /* ── Zone 1: MIC (narrow left) ─────────────────────────────── */
     .bf-zone-mic {
       width: 160px; flex-shrink: 0;
-      border-radius: 14px 0 0 14px;
+      border-radius: 14px 0 0 14px; border-right: none;
       display: flex; flex-direction: column;
       overflow: visible;
     }
@@ -234,7 +234,7 @@
     /* ── Zone 3: DETECTION (generous right) ─────────────────────── */
     .bf-zone-det {
       width: 320px; flex-shrink: 0;
-      border-radius: 0 14px 14px 0;
+      border-radius: 0 14px 14px 0; border-left: none;
       display: flex; flex-direction: column;
     }
     .bf-det-main {
@@ -376,13 +376,7 @@
         <div class="bf-mic-sub" :class="{on:micActive}">{{micActive?t('dash_mic_active'):t('dash_mic_idle')}}</div>
       </div>
 
-      <!-- ── CONNECTOR 1 ──────────────────────────────────────── -->
-      <div class="bf-conn" :class="{active:conn1Active}">
-        <div class="bf-conn-track">
-          <div class="bf-conn-pulse" :class="{fire:conn1Fire}" @animationend="conn1Fire=false"></div>
-        </div>
-        <span class="bf-conn-arrow">▸</span>
-      </div>
+
 
       <!-- ── ZONE 2: ENGINE (pipeline + dual AI unified) ──────── -->
       <div class="bf-zone bf-zone-engine" :class="{pulse:enginePulse}">
@@ -426,13 +420,7 @@
         </div>
       </div>
 
-      <!-- ── CONNECTOR 2 ──────────────────────────────────────── -->
-      <div class="bf-conn" :class="{active:conn2Active}">
-        <div class="bf-conn-track">
-          <div class="bf-conn-pulse" :class="{fire:conn2Fire}" @animationend="conn2Fire=false"></div>
-        </div>
-        <span class="bf-conn-arrow">▸</span>
-      </div>
+
 
       <!-- ── ZONE 3: DETECTION ────────────────────────────────── -->
       <div class="bf-zone bf-zone-det" :class="{pulse:detPulse}">
