@@ -186,7 +186,9 @@
     .bf-core.birdnet.firing { border-color:#42a5f5; box-shadow:0 0 16px -3px rgba(66,165,245,.45); }
     .bf-core.perch { background:rgba(38,166,154,.06); border-color:rgba(38,166,154,.25); }
     .bf-core.perch.firing { border-color:#26a69a; box-shadow:0 0 16px -3px rgba(38,166,154,.45); }
-    .bf-core-icon { font-size: 1.6rem; line-height: 1; }
+    .bf-core-icon { font-size: 1rem; line-height: 1; font-weight: 800; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0 auto .1rem; }
+    .bf-icon-bn { background: rgba(66,165,245,.15); color: #42a5f5; }
+    .bf-icon-perch { background: rgba(38,166,154,.15); color: #26a69a; }
     .bf-core-name { font-size: .72rem; font-weight: 700; margin-top: .1rem; }
     .bf-core-time { font-size: .62rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
     .bf-fusion {
@@ -385,12 +387,12 @@
           <div class="bf-ai-panel">
             <div class="bf-cores">
               <div class="bf-core birdnet" :class="{firing:enginePulse}">
-                <div class="bf-core-icon">🧠</div>
+                <div class="bf-core-icon bf-icon-bn">BN</div>
                 <div class="bf-core-name">{{status.model ? status.modelLabel : '…'}}</div>
                 <div class="bf-core-time">{{status.inferenceTime?status.inferenceTime+'s':'\u2014'}}</div>
               </div>
               <div v-if="status.secondaryModel" class="bf-core perch" :class="{firing:enginePulse}">
-                <div class="bf-core-icon">🧬</div>
+                <div class="bf-core-icon bf-icon-perch">P2</div>
                 <div class="bf-core-name">{{status.secModelLabel}}</div>
                 <div class="bf-core-time">{{status.secondaryInferenceTime?status.secondaryInferenceTime+'s':'\u2014'}}</div>
               </div>
@@ -624,6 +626,7 @@ BIRDASH.ready.then(() => {
           try {
             const d=JSON.parse(e.data);
             if(d.cat==='api'||d.cat==='cleanup'||d.cat==='system')return;
+            if(/GET |POST |DELETE |api\//i.test(d.msg))return;
             if(EVT_CLASS[d.cat]){
               tickId++;
               keyEvents.value.unshift({id:tickId,ts:d.ts,msg:simplifyMsg(d.msg,d.cat),dotClass:EVT_CLASS[d.cat]});
@@ -648,7 +651,7 @@ BIRDASH.ready.then(() => {
 
       // ── Status ─────────────────────────────────────────────
       const status=ref({model:'',secondaryModel:null,modelLabel:'...',secModelLabel:'',backlog:0,lagSecs:0,inferenceTime:null,secondaryInferenceTime:null,confidence:.7,sensitivity:1,recordingLength:45});
-      async function fetchStatus(){try{const r=await fetch(API+'/analysis-status');const d=await r.json();d.modelLabel=MODEL_SHORT[d.model]||d.model;d.secModelLabel=d.secondaryModel?(MODEL_SHORT[d.secondaryModel]||d.secondaryModel):'';status.value=d;}catch(e){}}
+      async function fetchStatus(){try{const r=await fetch(API+'/analysis-status');const d=await r.json();d.modelLabel=MODEL_SHORT[d.model]||d.model;d.secModelLabel=d.secondaryModel?(MODEL_SHORT[d.secondaryModel]||d.secondaryModel):'';Object.assign(status.value,d);}catch(e){}}
 
       // ── Latest detection ───────────────────────────────────
       const lastDet=ref(null); let lastDetKey='';

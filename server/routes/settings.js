@@ -207,10 +207,10 @@ function handle(req, res, pathname, ctx) {
             : '';
           // Categorize
           let cat = 'system';
-          if (/BirdWeather|uploaded/i.test(msg)) cat = 'birdweather';
+          if (/GET |POST |DELETE /i.test(msg)) cat = 'api';
+          else if (/BirdWeather|uploaded/i.test(msg)) cat = 'birdweather';
           else if (/detection|detect|inference|\d+\.\d+s$/i.test(msg)) cat = 'detection';
           else if (/error|fail|exception|traceback/i.test(msg)) cat = 'error';
-          else if (/GET |POST |DELETE /i.test(msg)) cat = 'api';
           else if (/purge|cleanup|removed/i.test(msg)) cat = 'cleanup';
           else if (/recording|arecord|wav/i.test(msg)) cat = 'recording';
 
