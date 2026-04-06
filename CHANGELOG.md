@@ -20,6 +20,9 @@ All notable changes to BirdStation are documented here.
 ### Code quality
 - **`useAudioPlayer()` composable** — shared audio player with rAF progress, seeking, optional Web Audio filters
   - Migrated calendar, recent, today pages — removes ~150 lines of duplicated code
+- **Lazy-loaded settings tabs** — settings.html split into 9 tab fragments (2872→1594 lines, -45%)
+  - Tabs loaded on first activation via `defineAsyncComponent` + fetch
+  - `provide`/`inject` shares reactive state, `keep-alive` caches DOM
 - **SEC-05** — Service Worker registration errors now logged instead of silently swallowed
 
 ## [1.0.0] — 2026-04-04
