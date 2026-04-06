@@ -988,7 +988,7 @@ BIRDASH.ready.then(() => {
       async function fetchKpis() {
         try {
           const today = new Date().toISOString().slice(0, 10);
-          const [statsR, reviewR, statusR] = await Promise.all([
+          const [statsR, reviewR] = await Promise.all([
             fetch(API + '/query', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -998,12 +998,11 @@ BIRDASH.ready.then(() => {
               })
             }),
             fetch(API + '/flagged-detections?dateFrom=1900-01-01&dateTo=' + today + '&limit=1'),
-            fetch(API + '/analysis-status'),
           ]);
 
           const stats = await statsR.json();
           const review = await reviewR.json();
-          const anlys = await statusR.json();
+          const anlys = status.value;
 
           const newTotal = stats.rows?.[0]?.[0] || 0;
           const newSpecies = stats.rows?.[0]?.[1] || 0;
@@ -1046,12 +1045,13 @@ BIRDASH.ready.then(() => {
 
       // ── Lifecycle ──────────────────────────────────────────
       let statusIv, kpiIv, detIv;
-      onMounted(() => {
+      onMounted(async () => {
         connectMic();
         connectLogs();
-        fetchStatus();
+        // Stagger initial API calls to avoid parallel request conflicts
+        await fetchStatus();
         fetchLatestDetection();
-        fetchKpis();
+        setTimeout(fetchKpis, 300);
         statusIv = setInterval(fetchStatus, 30000);
         kpiIv = setInterval(fetchKpis, 15000);
         detIv = setInterval(fetchLatestDetection, 12000);
