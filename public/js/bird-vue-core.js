@@ -79,6 +79,7 @@
   "nav_timeline": "Chronologie",
   "nav_calendar": "Calendrier",
   "nav_log": "Log live",
+  "nav_more": "Plus",
   "log_live": "En direct",
   "log_paused": "En pause",
   "log_disconnected": "Déconnecté",
@@ -1917,7 +1918,10 @@
       refreshReviewCount();
       window.addEventListener('birdash:review-changed', refreshReviewCount);
 
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts, brandName, refreshReviewCount };
+      const drawerOpen = ref(false);
+      function toggleDrawer() { drawerOpen.value = !drawerOpen.value; }
+      function drawerNavClick(si) { navSectionClick(si); }
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick };
     },
     directives: {
       'click-outside': {
@@ -2048,12 +2052,35 @@
     <div v-for="t in toasts" :key="t.id" :style="{padding:'.5rem 1rem',borderRadius:'8px',fontSize:'.82rem',boxShadow:'0 2px 12px rgba(0,0,0,.3)',color:'#fff',background:t.type==='error'?'var(--danger,#e53935)':t.type==='success'?'var(--accent,#4caf50)':'var(--warning,#ff9800)'}">{{t.msg}}</div>
   </div>
   <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <a href="overview.html" class="mob-nav-item" :class="{active: currentPage==='overview'}"><span class="mob-nav-icon">🏠</span>{{t('nav_overview')}}</a>
     <a href="today.html" class="mob-nav-item" :class="{active: currentPage==='today'}"><span class="mob-nav-icon">📅</span>{{t('nav_today')}}</a>
-    <a href="calendar.html" class="mob-nav-item" :class="{active: currentPage==='calendar'}"><span class="mob-nav-icon">📆</span>{{t('nav_calendar')}}</a>
     <a href="species.html" class="mob-nav-item" :class="{active: currentPage==='species'}"><span class="mob-nav-icon">🦜</span>{{t('nav_species')}}</a>
-    <a href="weather.html" class="mob-nav-item" :class="{active: currentPage==='weather'}"><span class="mob-nav-icon">🌦️</span>{{t('nav_weather')}}</a>
-    <a href="settings.html" class="mob-nav-item" :class="{active: currentPage==='settings'}"><span class="mob-nav-icon">⚙️</span>{{t('nav_settings')}}</a>
+    <a href="stats.html" class="mob-nav-item" :class="{active: currentPage==='stats'}"><span class="mob-nav-icon">📈</span>{{t('nav_stats')}}</a>
+    <button class="mob-nav-item" :class="{active: drawerOpen}" @click="toggleDrawer"><span class="mob-nav-icon">☰</span>{{t('nav_more')}}</button>
   </nav>
+  <transition name="drawer">
+    <div v-if="drawerOpen" class="mob-drawer-overlay" @click.self="drawerOpen=false">
+      <nav class="mob-drawer" aria-label="Full navigation">
+        <div class="mob-drawer-header">
+          <span class="mob-drawer-brand">{{brandName}}</span>
+          <button class="mob-drawer-close" @click="drawerOpen=false" aria-label="Close">✕</button>
+        </div>
+        <div v-for="(sec, si) in navSections" :key="si" class="mob-drawer-section">
+          <button class="mob-drawer-sec-btn" @click="drawerNavClick(si)">
+            <span>{{sec.icon}} {{sec.section}}</span>
+            <svg :class="{rotated: openSection===si}" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div v-if="openSection===si" class="mob-drawer-pages">
+            <a v-for="p in sec.items" :key="p.id" :href="p.file"
+               class="mob-drawer-link" :class="{active: p.active}">
+              <span>{{p.icon}} {{p.label}}</span>
+              <span v-if="p.id==='review' && reviewCount > 0" class="nav-badge">{{reviewCount}}</span>
+            </a>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </transition>
 </div>`
   };
 
