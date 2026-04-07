@@ -77,6 +77,7 @@ const BIRD_CONFIG = {
       { id: 'analyses',     icon: '🔬', file: 'analyses.html'     },
       { id: 'biodiversity', icon: '🌿', file: 'biodiversity.html' },
       { id: 'models',       icon: '🤖', file: 'models.html'       },
+      { id: 'phenology',    icon: '📅', file: 'phenology.html'    },
     ]},
     { section: 'nav_sec_system', icon: '⚙️', items: [
       { id: 'settings',     icon: '⚙️', file: 'settings.html'    },

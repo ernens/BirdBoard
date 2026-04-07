@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <title>BirdStation — Phénologie</title>
+  <meta property="og:title" content="BirdStation — Phénologie observée">
+  <meta property="og:description" content="Calendrier phénologique observé par la station">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/birds/img/robin-logo.svg">
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-queries.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+  <style>
+    .ph-hero { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+    .ph-photo { width: 110px; height: 110px; border-radius: 12px; object-fit: cover; background: var(--bg-card2); flex-shrink: 0; }
+    .ph-title { font-size: 1.4rem; font-weight: 800; line-height: 1.2; }
+    .ph-sci { font-size: .85rem; color: var(--text-muted); font-style: italic; margin-top: .15rem; }
+    .ph-meta { display: flex; gap: 1rem; margin-top: .5rem; font-size: .82rem; color: var(--text-muted); flex-wrap: wrap; }
+    .ph-meta strong { color: var(--text-main); font-variant-numeric: tabular-nums; }
+
+    .ph-controls {
+      display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;
+      padding: .6rem .85rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1rem;
+    }
+    .ph-mode-group { display: flex; gap: .25rem; }
+    .ph-mode-btn {
+      padding: .35rem .8rem; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); font-size: .78rem; cursor: pointer;
+      transition: all .15s;
+    }
+    .ph-mode-btn:hover { color: var(--text-main); border-color: var(--accent); }
+    .ph-mode-btn.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      font-weight: 600;
+    }
+    .ph-year-select {
+      padding: .35rem .55rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg-card2);
+      color: var(--text-main); font-size: .78rem;
+      font-family: inherit;
+    }
+    .ph-species-search {
+      flex: 1; min-width: 180px;
+      padding: .35rem .65rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg-card2);
+      color: var(--text-main); font-size: .82rem;
+      font-family: inherit; outline: none;
+    }
+    .ph-species-search:focus { border-color: var(--accent); }
+
+    /* ── Weekly ribbon ─────────────────────────────────────────── */
+    .ph-ribbon-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .ph-ribbon-title {
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--text-muted); margin-bottom: .65rem;
+    }
+    .ph-months {
+      display: grid; grid-template-columns: repeat(12, 1fr); gap: 0;
+      font-size: .68rem; color: var(--text-muted); margin-bottom: .35rem;
+      text-align: center;
+    }
+    .ph-ribbon {
+      display: grid; grid-template-columns: repeat(53, 1fr); gap: 2px;
+      position: relative;
+    }
+    .ph-cell {
+      aspect-ratio: 1;
+      background: var(--border);
+      border-radius: 2px;
+      transition: transform .15s, box-shadow .15s;
+      cursor: default;
+    }
+    .ph-cell:hover {
+      transform: scale(1.6);
+      box-shadow: 0 0 0 1px var(--accent), 0 2px 8px rgba(0,0,0,.3);
+      z-index: 5;
+    }
+    .ph-cell.future { opacity: .15; }
+    .ph-cell.now { box-shadow: 0 0 0 2px var(--accent); }
+    .ph-legend {
+      display: flex; align-items: center; gap: .5rem;
+      margin-top: .8rem; font-size: .72rem; color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .ph-legend-cell {
+      width: 14px; height: 14px; border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* ── Phases panel ──────────────────────────────────────────── */
+    .ph-phases {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
+    .ph-phase-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .75rem .9rem;
+      border-left: 3px solid var(--accent);
+    }
+    .ph-phase-card.warn { border-left-color: #ff9800; }
+    .ph-phase-card.info { border-left-color: #42a5f5; }
+    .ph-phase-icon { font-size: 1.1rem; margin-right: .35rem; }
+    .ph-phase-label {
+      font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin-bottom: .25rem;
+    }
+    .ph-phase-value {
+      font-size: .95rem; font-weight: 700; line-height: 1.3;
+    }
+    .ph-phase-sub {
+      font-size: .72rem; color: var(--text-muted); margin-top: .15rem;
+    }
+
+    /* ── Disclaimer ────────────────────────────────────────────── */
+    .ph-disclaimer {
+      font-size: .72rem; color: var(--text-muted); font-style: italic;
+      padding: .65rem .85rem;
+      background: var(--bg-card2);
+      border-left: 3px solid var(--text-muted);
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+
+    .ph-empty {
+      text-align: center; padding: 3rem 1rem;
+      color: var(--text-muted); font-size: .9rem;
+    }
+    .ph-empty-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: .5rem; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="phenology" :title="t('phenology_title')">
+
+    <!-- ── Species search bar ─────────────────────────────────── -->
+    <div class="ph-controls">
+      <input type="text" v-model="speciesSearch"
+             :placeholder="t('pheno_pick_species')"
+             class="ph-species-search"
+             list="ph-species-list"
+             @change="onSpeciesPicked">
+      <datalist id="ph-species-list">
+        <option v-for="sp in allSpecies" :key="sp.Com_Name" :value="sp.Com_Name"></option>
+      </datalist>
+      <select v-if="availableYears.length" v-model="selectedYear" @change="reloadData" class="ph-year-select">
+        <option v-for="y in availableYears" :key="y" :value="y">{{y}}</option>
+      </select>
+      <div v-if="currentSpecies" class="ph-mode-group">
+        <button class="ph-mode-btn" :class="{active: viewMode==='presence'}" @click="viewMode='presence'">{{t('pheno_view_presence')}}</button>
+        <button class="ph-mode-btn" :class="{active: viewMode==='abundance'}" @click="viewMode='abundance'">{{t('pheno_view_abundance')}}</button>
+        <button class="ph-mode-btn" :class="{active: viewMode==='hourly'}" @click="viewMode='hourly'">{{t('pheno_view_hourly')}}</button>
+      </div>
+    </div>
+
+    <!-- ── Empty state ────────────────────────────────────────── -->
+    <div v-if="!currentSpecies" class="ph-empty">
+      <div class="ph-empty-title">{{t('pheno_pick_species_title')}}</div>
+      <div>{{t('pheno_pick_species_sub')}}</div>
+    </div>
+
+    <!-- ── Hero (species info) ────────────────────────────────── -->
+    <template v-else-if="loaded">
+      <div class="ph-hero">
+        <img class="ph-photo" :src="photoUrl(sciName)" :alt="currentSpecies"
+             @error="e=>e.target.src='img/robin-logo.svg'">
+        <div>
+          <div class="ph-title">{{spName(currentSpecies, sciName)}}</div>
+          <div class="ph-sci">{{sciName}}</div>
+          <div class="ph-meta">
+            <span><strong>{{stats.total}}</strong> {{t('detections')}}</span>
+            <span v-if="stats.first_date"><strong>{{fmtDate(stats.first_date)}}</strong> → <strong>{{fmtDate(stats.last_date)}}</strong></span>
+            <span v-if="stats.activeWeeks"><strong>{{stats.activeWeeks}}</strong> {{t('pheno_active_weeks')}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Weekly ribbon ────────────────────────────────────── -->
+      <div class="ph-ribbon-wrap">
+        <div class="ph-ribbon-title">{{t('pheno_weekly_ribbon')}} — {{selectedYear}}</div>
+        <div class="ph-months">
+          <span>Jan</span><span>Fév</span><span>Mar</span><span>Avr</span>
+          <span>Mai</span><span>Juin</span><span>Juil</span><span>Août</span>
+          <span>Sep</span><span>Oct</span><span>Nov</span><span>Déc</span>
+        </div>
+        <div class="ph-ribbon">
+          <div v-for="cell in ribbonCells" :key="cell.week"
+               class="ph-cell" :class="{future: cell.future, now: cell.isCurrent}"
+               :style="{background: cell.color}"
+               :title="cell.tooltip"></div>
+        </div>
+        <div class="ph-legend">
+          <span v-if="viewMode==='presence'">
+            <span class="ph-legend-cell" :style="{background: 'var(--border)'}"></span> {{t('pheno_legend_absent')}}
+            &nbsp;
+            <span class="ph-legend-cell" :style="{background: '#4caf50'}"></span> {{t('pheno_legend_present')}}
+          </span>
+          <span v-else-if="viewMode==='abundance'">
+            <span class="ph-legend-cell" :style="{background: 'var(--border)'}"></span> 0
+            <span class="ph-legend-cell" :style="{background: phenoColor(1)}"></span> 1-5
+            <span class="ph-legend-cell" :style="{background: phenoColor(8)}"></span> 6-20
+            <span class="ph-legend-cell" :style="{background: phenoColor(30)}"></span> 21-50
+            <span class="ph-legend-cell" :style="{background: phenoColor(80)}"></span> 50+
+          </span>
+          <span v-else-if="viewMode==='hourly'">
+            <span class="ph-legend-cell" :style="{background: '#1a237e'}"></span> {{t('pheno_legend_night')}} (0-4h)
+            <span class="ph-legend-cell" :style="{background: '#fbc02d'}"></span> {{t('pheno_legend_dawn')}} (4-8h)
+            <span class="ph-legend-cell" :style="{background: '#4caf50'}"></span> {{t('pheno_legend_day')}} (8-18h)
+            <span class="ph-legend-cell" :style="{background: '#ff7043'}"></span> {{t('pheno_legend_dusk')}} (18-22h)
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Inferred phases ──────────────────────────────────── -->
+      <div v-if="phases.length" class="ph-phases">
+        <div v-for="ph in phases" :key="ph.id" class="ph-phase-card" :class="ph.kind">
+          <div class="ph-phase-label"><span class="ph-phase-icon">{{ph.icon}}</span>{{ph.label}}</div>
+          <div class="ph-phase-value">{{ph.value}}</div>
+          <div v-if="ph.sub" class="ph-phase-sub">{{ph.sub}}</div>
+        </div>
+      </div>
+
+      <!-- ── Honest disclaimer ────────────────────────────────── -->
+      <div class="ph-disclaimer">
+        ⚠ {{t('pheno_disclaimer')}}
+      </div>
+    </template>
+
+    <div v-else style="text-align:center;padding:2rem;color:var(--text-muted);">{{t('loading')}}…</div>
+
+  </birdash-shell>
+</div>
+
+<script>
+BIRDASH.ready.then(() => {
+  const { createApp, ref, computed, onMounted, watch } = Vue;
+  const { useI18n, useSpeciesNames, registerComponents,
+          birdQuery, fmtDate, photoUrl } = BIRDASH;
+  const Q = BIRDASH_QUERIES;
+
+  const app = createApp({
+    setup() {
+      const { t } = useI18n();
+      const { spName } = useSpeciesNames();
+
+      // ── State ────────────────────────────────────────────────
+      const allSpecies     = ref([]);
+      const speciesSearch  = ref('');
+      const currentSpecies = ref('');
+      const sciName        = ref('');
+      const availableYears = ref([]);
+      const selectedYear   = ref(new Date().getFullYear());
+      const viewMode       = ref('presence');
+      const loaded         = ref(false);
+
+      const weeklyData = ref([]);
+      const hourlyData = ref([]);
+      const stats      = ref({ total: 0, first_date: null, last_date: null, activeWeeks: 0 });
+
+      // ── Read URL param ───────────────────────────────────────
+      const url = new URL(window.location.href);
+      const initialSpecies = url.searchParams.get('species');
+
+      // ── Load species list ────────────────────────────────────
+      async function loadSpeciesList() {
+        try {
+          const rows = await birdQuery(...Q.allSpeciesNames());
+          allSpecies.value = rows;
+          if (initialSpecies) {
+            const match = rows.find(r => r.Com_Name === initialSpecies);
+            if (match) {
+              speciesSearch.value = match.Com_Name;
+              await selectSpecies(match.Com_Name, match.Sci_Name);
+            }
+          }
+        } catch(e) { console.error('loadSpeciesList:', e); }
+      }
+
+      // ── Select a species ─────────────────────────────────────
+      async function selectSpecies(name, sci) {
+        currentSpecies.value = name;
+        sciName.value = sci || (allSpecies.value.find(s => s.Com_Name === name)?.Sci_Name || '');
+        loaded.value = false;
+
+        // Load available years
+        try {
+          const years = await birdQuery(...Q.phenologyYears(name));
+          availableYears.value = years.map(y => y.year);
+          if (availableYears.value.length && !availableYears.value.includes(selectedYear.value)) {
+            selectedYear.value = availableYears.value[0];
+          }
+        } catch(e) {}
+
+        await reloadData();
+
+        // Update URL
+        const u = new URL(window.location.href);
+        u.searchParams.set('species', name);
+        history.replaceState(null, '', u.toString());
+      }
+
+      function onSpeciesPicked() {
+        const name = speciesSearch.value.trim();
+        if (!name) return;
+        const match = allSpecies.value.find(r => r.Com_Name === name);
+        if (match) selectSpecies(match.Com_Name, match.Sci_Name);
+      }
+
+      // ── Load weekly + hourly data for current species/year ───
+      async function reloadData() {
+        if (!currentSpecies.value) return;
+        try {
+          const [weekly, hourly, statsRow] = await Promise.all([
+            birdQuery(...Q.phenologyWeekly(currentSpecies.value, selectedYear.value)),
+            birdQuery(...Q.phenologyHourlyByWeek(currentSpecies.value, selectedYear.value)),
+            birdQuery(...Q.phenologyFirstLast(currentSpecies.value, selectedYear.value)),
+          ]);
+          weeklyData.value = weekly;
+          hourlyData.value = hourly;
+          const s = statsRow[0] || {};
+          stats.value = {
+            total: s.total || 0,
+            first_date: s.first_date,
+            last_date: s.last_date,
+            activeWeeks: weekly.length,
+          };
+          loaded.value = true;
+        } catch(e) { console.error('reloadData:', e); loaded.value = true; }
+      }
+
+      // ── Color scale (abundance / heatmap) ────────────────────
+      function phenoColor(n) {
+        if (!n || n <= 0) return 'var(--border)';
+        if (n <= 5)  return '#aed581';
+        if (n <= 20) return '#7cb342';
+        if (n <= 50) return '#558b2f';
+        return '#33691e';
+      }
+      function hourColor(h) {
+        if (h == null) return 'var(--border)';
+        if (h < 4)  return '#1a237e';
+        if (h < 8)  return '#fbc02d';
+        if (h < 18) return '#4caf50';
+        if (h < 22) return '#ff7043';
+        return '#1a237e';
+      }
+
+      // ── Build ribbon cells (53 weeks) ────────────────────────
+      const ribbonCells = computed(() => {
+        const weekMap = {};
+        for (const w of weeklyData.value) weekMap[w.week] = w.n;
+        const hourMap = {};
+        for (const h of hourlyData.value) hourMap[h.week] = h.avg_hour;
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentWeek = isoWeekOfYear(now);
+        const isCurrentYear = parseInt(selectedYear.value) === currentYear;
+
+        const cells = [];
+        for (let w = 0; w <= 52; w++) {
+          const n = weekMap[w] || 0;
+          const avgHour = hourMap[w];
+          let color = 'var(--border)';
+          if (viewMode.value === 'presence') {
+            color = n > 0 ? '#4caf50' : 'var(--border)';
+          } else if (viewMode.value === 'abundance') {
+            color = phenoColor(n);
+          } else if (viewMode.value === 'hourly') {
+            color = n > 0 ? hourColor(avgHour) : 'var(--border)';
+          }
+
+          const future = isCurrentYear && w > currentWeek;
+          const isCurrent = isCurrentYear && w === currentWeek;
+
+          let tooltip = 'Sem. ' + w;
+          if (n > 0) tooltip += ' — ' + n + ' détection' + (n>1?'s':'');
+          if (avgHour != null && viewMode.value === 'hourly') tooltip += ' · ~' + avgHour + 'h';
+
+          cells.push({ week: w, n, color, future, isCurrent, tooltip });
+        }
+        return cells;
+      });
+
+      function isoWeekOfYear(d) {
+        const onejan = new Date(d.getFullYear(), 0, 1);
+        return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+      }
+
+      // ── Inferred phases (computed from observed data) ────────
+      const phases = computed(() => {
+        if (!weeklyData.value.length) return [];
+        const out = [];
+        const counts = weeklyData.value.map(w => w.n);
+        const total = counts.reduce((s, n) => s + n, 0);
+        const max = Math.max(...counts);
+        const weeks = weeklyData.value.map(w => w.week);
+        const minWeek = Math.min(...weeks);
+        const maxWeek = Math.max(...weeks);
+
+        // Active period (first to last week with any detection)
+        out.push({
+          id: 'active', kind: '', icon: '📅',
+          label: t('pheno_phase_active'),
+          value: 'Sem. ' + minWeek + ' → Sem. ' + maxWeek,
+          sub: weeks.length + ' / 53 ' + t('pheno_active_weeks_sub'),
+        });
+
+        // First / last observation
+        if (stats.value.first_date) {
+          out.push({
+            id: 'first', kind: 'info', icon: '🛬',
+            label: t('pheno_first_obs'),
+            value: fmtDate(stats.value.first_date),
+          });
+          out.push({
+            id: 'last', kind: 'info', icon: '🛫',
+            label: t('pheno_last_obs'),
+            value: fmtDate(stats.value.last_date),
+          });
+        }
+
+        // Peak weeks (top quartile)
+        if (max > 1) {
+          const sorted = [...counts].sort((a, b) => b - a);
+          const q1 = sorted[Math.floor(sorted.length * 0.25)] || max;
+          const peakWeeks = weeklyData.value.filter(w => w.n >= q1).map(w => w.week);
+          if (peakWeeks.length) {
+            const pk1 = Math.min(...peakWeeks);
+            const pk2 = Math.max(...peakWeeks);
+            out.push({
+              id: 'peak', kind: '', icon: '📈',
+              label: t('pheno_phase_peak'),
+              value: 'Sem. ' + pk1 + ' → Sem. ' + pk2,
+              sub: peakWeeks.length + ' ' + t('pheno_peak_weeks_sub'),
+            });
+          }
+        }
+
+        // Dawn chorus dominance (>70% detections in 4-8h)
+        if (hourlyData.value.length) {
+          const dawnWeeks = hourlyData.value.filter(h => h.n > 2 && h.dawn_n / h.n > 0.7);
+          if (dawnWeeks.length >= 3) {
+            const dw = dawnWeeks.map(w => w.week);
+            out.push({
+              id: 'dawn', kind: '', icon: '🎵',
+              label: t('pheno_phase_dawn_chorus'),
+              value: 'Sem. ' + Math.min(...dw) + ' → Sem. ' + Math.max(...dw),
+              sub: t('pheno_dawn_chorus_sub'),
+            });
+          }
+        }
+
+        // Continuous absence > 4 weeks → likely migrant
+        const presentSet = new Set(weeks);
+        let maxGap = 0;
+        for (let i = 1; i < 53; i++) {
+          let gap = 0;
+          while (i + gap < 53 && !presentSet.has(i + gap)) gap++;
+          if (gap > maxGap) maxGap = gap;
+          i += gap;
+        }
+        if (maxGap >= 4) {
+          out.push({
+            id: 'migrant', kind: 'warn', icon: '🌍',
+            label: t('pheno_migrant_likely'),
+            value: maxGap + ' ' + t('pheno_gap_weeks_sub'),
+            sub: t('pheno_migrant_sub'),
+          });
+        } else if (weeks.length >= 40) {
+          out.push({
+            id: 'resident', kind: 'info', icon: '🏠',
+            label: t('pheno_resident_likely'),
+            value: weeks.length + ' / 53 ' + t('pheno_active_weeks_sub'),
+          });
+        }
+
+        return out;
+      });
+
+      onMounted(loadSpeciesList);
+
+      return {
+        t, spName, fmtDate, photoUrl, phenoColor,
+        allSpecies, speciesSearch, onSpeciesPicked,
+        currentSpecies, sciName, availableYears, selectedYear,
+        viewMode, loaded, stats, ribbonCells, phases,
+        reloadData,
+      };
+    }
+  });
+  registerComponents(app).mount('#app');
+});
+</script>
+</body>
+</html>

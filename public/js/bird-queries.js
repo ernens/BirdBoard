@@ -337,6 +337,50 @@
     },
 
     // ═══════════════════════════════════════════════════════════
+    //  PHENOLOGY (observed, derived from detections only)
+    // ═══════════════════════════════════════════════════════════
+
+    /** Distinct years where the species was observed — phenology page */
+    phenologyYears(comName, c) {
+      return [
+        "SELECT DISTINCT CAST(strftime('%Y', Date) AS INTEGER) as year FROM detections WHERE Com_Name=? AND Confidence>=? ORDER BY year DESC",
+        [comName, c || C()]
+      ];
+    },
+
+    /** Weekly detection count for a given year — phenology presence/abundance modes */
+    phenologyWeekly(comName, year, c) {
+      return [
+        "SELECT CAST(strftime('%W', Date) AS INTEGER) as week, COUNT(*) as n FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND Confidence>=? GROUP BY week ORDER BY week",
+        [comName, String(year), c || C()]
+      ];
+    },
+
+    /** Average hour of detection per week — phenology hourly mode + dawn chorus inference */
+    phenologyHourlyByWeek(comName, year, c) {
+      return [
+        "SELECT CAST(strftime('%W', Date) AS INTEGER) as week, ROUND(AVG(CAST(SUBSTR(Time,1,2) AS REAL)),1) as avg_hour, SUM(CASE WHEN CAST(SUBSTR(Time,1,2) AS INTEGER) BETWEEN 4 AND 8 THEN 1 ELSE 0 END) as dawn_n, COUNT(*) as n FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND Confidence>=? GROUP BY week ORDER BY week",
+        [comName, String(year), c || C()]
+      ];
+    },
+
+    /** First and last observation dates for a year — phenology arrival/departure */
+    phenologyFirstLast(comName, year, c) {
+      return [
+        "SELECT MIN(Date) as first_date, MAX(Date) as last_date, COUNT(*) as total FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND Confidence>=?",
+        [comName, String(year), c || C()]
+      ];
+    },
+
+    /** Multi-year weekly counts for the same species — phenology multi-year overlay */
+    phenologyMultiYear(comName, c) {
+      return [
+        "SELECT CAST(strftime('%Y', Date) AS INTEGER) as year, CAST(strftime('%W', Date) AS INTEGER) as week, COUNT(*) as n FROM detections WHERE Com_Name=? AND Confidence>=? GROUP BY year, week ORDER BY year, week",
+        [comName, c || C()]
+      ];
+    },
+
+    // ═══════════════════════════════════════════════════════════
     //  BIODIVERSITY
     // ═══════════════════════════════════════════════════════════
 
