@@ -69,7 +69,7 @@
       <button v-for="tab in tabs" :key="tab.id"
               class="sys-tab-btn" :class="{active: activeTab === tab.id}"
               @click="switchTab(tab.id)">
-        <span class="sys-tab-icon">{{tab.icon}}</span>
+        <span class="sys-tab-icon"><bird-icon :name="tab.icon" :size="16" /></span>
         <span class="sys-tab-label">{{tab.label || t(tab.labelKey)}}</span>
       </button>
     </div>
@@ -1004,12 +1004,12 @@ const app = createApp({
 
     // ── Tab system ────────────────────────────────────────────────
     const tabs = computed(() => [
-      { id: 'health',    icon: '\u{1F4E1}', label: t('sys_tab_health') },
-      { id: 'model',     icon: '\u{1F9E0}', label: t('sys_tab_model') },
-      { id: 'data',      icon: '\u{1F4CA}', label: t('sys_tab_data') },
-      { id: 'external',  icon: '\u{1F30D}', label: t('sys_tab_external') },
-      { id: 'terminal',  icon: '\u{2328}',  label: t('nav_terminal'), href: 'settings.html#terminal' },
-      { id: 'config',    icon: '\u{2699}',  label: t('nav_settings'), href: 'settings.html' },
+      { id: 'health',    icon: 'activity',   label: t('sys_tab_health') },
+      { id: 'model',     icon: 'cpu',        label: t('sys_tab_model') },
+      { id: 'data',      icon: 'database',   label: t('sys_tab_data') },
+      { id: 'external',  icon: 'globe',      label: t('sys_tab_external') },
+      { id: 'terminal',  icon: 'terminal',   label: t('nav_terminal'), href: 'settings.html#terminal' },
+      { id: 'config',    icon: 'settings',   label: t('nav_settings'), href: 'settings.html' },
     ]);
 
     const validTabs = ['health', 'model', 'data', 'external'];

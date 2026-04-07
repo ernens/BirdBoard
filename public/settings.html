@@ -147,7 +147,7 @@
         <button v-for="tab in tabs" :key="tab.id"
                 class="set-tab-btn" :class="{active: activeTab === tab.id}"
                 @click="switchTab(tab.id)">
-          <span class="set-tab-icon">{{tab.icon}}</span>
+          <span class="set-tab-icon"><bird-icon :name="tab.icon" :size="16" /></span>
           <span class="set-tab-label">{{tab.label || t(tab.labelKey)}}</span>
         </button>
       </div>
@@ -188,16 +188,16 @@ const app = createApp({
 
     // ── Tab navigation ──────────────────────────────────────────
     const tabs = [
-      { id: 'detection', icon: '🤖', labelKey: 'set_tab_detection' },
-      { id: 'audio',     icon: '🎙️', labelKey: 'set_tab_audio' },
-      { id: 'notif',     icon: '🔔', labelKey: 'set_tab_notif' },
-      { id: 'station',   icon: '📍', labelKey: 'set_tab_station' },
-      { id: 'services',  icon: '🔧', labelKey: 'set_tab_services' },
-      { id: 'species',   icon: '📋', labelKey: 'set_tab_species' },
-      { id: 'backup',    icon: '💾', labelKey: 'set_tab_backup' },
-      { id: 'database',  icon: '🗄️', labelKey: 'set_tab_database' },
-      { id: 'terminal',  icon: '💻', labelKey: 'set_tab_terminal' },
-        { id: 'monitoring', icon: '🖥️', labelKey: 'nav_system', href: 'system.html' },
+      { id: 'detection', icon: 'cpu', labelKey: 'set_tab_detection' },
+      { id: 'audio',     icon: 'mic', labelKey: 'set_tab_audio' },
+      { id: 'notif',     icon: 'bell', labelKey: 'set_tab_notif' },
+      { id: 'station',   icon: 'map-pin', labelKey: 'set_tab_station' },
+      { id: 'services',  icon: 'wrench', labelKey: 'set_tab_services' },
+      { id: 'species',   icon: 'list', labelKey: 'set_tab_species' },
+      { id: 'backup',    icon: 'save', labelKey: 'set_tab_backup' },
+      { id: 'database',  icon: 'database', labelKey: 'set_tab_database' },
+      { id: 'terminal',  icon: 'terminal', labelKey: 'set_tab_terminal' },
+        { id: 'monitoring', icon: 'monitor', labelKey: 'nav_system', href: 'system.html' },
     ];
     const hashTab = location.hash.slice(1);
     const localTabs = ['detection', 'audio', 'notif', 'station', 'services', 'species', 'backup', 'database', 'terminal'];
@@ -348,11 +348,11 @@ const app = createApp({
     let _bkpPollTimer = null;
 
     const backupDests = [
-      { value: 'local', icon: '💿', labelKey: 'set_backup_dest_local' },
-      { value: 'smb', icon: '🖥️', labelKey: 'set_backup_dest_smb' },
-      { value: 'nfs', icon: '📁', labelKey: 'set_backup_dest_nfs' },
-      { value: 'sftp', icon: '🔐', labelKey: 'set_backup_dest_sftp' },
-      { value: 's3', icon: '☁️', labelKey: 'set_backup_dest_s3' },
+      { value: 'local', icon: 'disc', labelKey: 'set_backup_dest_local' },
+      { value: 'smb', icon: 'monitor', labelKey: 'set_backup_dest_smb' },
+      { value: 'nfs', icon: 'folder', labelKey: 'set_backup_dest_nfs' },
+      { value: 'sftp', icon: 'lock', labelKey: 'set_backup_dest_sftp' },
+      { value: 's3', icon: 'cloud', labelKey: 'set_backup_dest_s3' },
       { value: 'gdrive', icon: '📎', labelKey: 'set_backup_dest_gdrive' },
       { value: 'webdav', icon: '🌐', labelKey: 'set_backup_dest_webdav' },
     ];

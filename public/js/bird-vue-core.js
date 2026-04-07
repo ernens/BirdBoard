@@ -2298,14 +2298,14 @@
               class="nav-section-btn"
               :class="{active: openSection === si, 'has-active-page': sec.items.some(p => p.active)}"
               @click="navSectionClick(si)">
-        <span class="nav-section-icon">{{sec.icon}}</span>
+        <span class="nav-section-icon"><bird-icon :name="sec.icon" :size="16" /></span>
         {{sec.section}}
       </button>
     </div>
     <div v-if="openSection >= 0 && navSections[openSection]" class="nav-pages">
       <a v-for="p in navSections[openSection].items" :key="p.id" :href="p.file"
          class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
-        <span class="nav-icon" aria-hidden="true">{{p.icon}}</span>
+        <span class="nav-icon" aria-hidden="true"><bird-icon :name="p.icon" :size="16" /></span>
         <span class="nav-label">{{p.label}}</span>
         <span v-if="p.id==='review' && reviewCount > 0" class="nav-badge">{{reviewCount}}</span>
       </a>
@@ -2353,13 +2353,13 @@
         </div>
         <div v-for="(sec, si) in navSections" :key="si" class="mob-drawer-section">
           <button class="mob-drawer-sec-btn" @click="drawerNavClick(si)">
-            <span>{{sec.icon}} {{sec.section}}</span>
+            <span><bird-icon :name="sec.icon" :size="16" /> {{sec.section}}</span>
             <svg :class="{rotated: openSection===si}" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
           </button>
           <div v-if="openSection===si" class="mob-drawer-pages">
             <a v-for="p in sec.items" :key="p.id" :href="p.file"
                class="mob-drawer-link" :class="{active: p.active}">
-              <span>{{p.icon}} {{p.label}}</span>
+              <span><bird-icon :name="p.icon" :size="16" /> {{p.label}}</span>
               <span v-if="p.id==='review' && reviewCount > 0" class="nav-badge">{{reviewCount}}</span>
             </a>
           </div>

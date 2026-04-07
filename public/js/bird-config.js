@@ -48,40 +48,40 @@ const BIRD_CONFIG = {
 
   // Navigation (grouped by user intent)
   nav: [
-    { section: 'nav_sec_home', icon: '🏠', items: [
-      { id: 'dashboard',   icon: '⚡', file: 'dashboard.html'   },
-      { id: 'overview',     icon: '📊', file: 'overview.html'     },
-      { id: 'today',        icon: '📅', file: 'today.html'        },
-      { id: 'recent',       icon: '🕐', file: 'recent.html'       },
+    { section: 'nav_sec_home', icon: 'home', items: [
+      { id: 'dashboard',   icon: 'zap', file: 'dashboard.html'   },
+      { id: 'overview',     icon: 'layout-dashboard', file: 'overview.html'     },
+      { id: 'today',        icon: 'calendar-days', file: 'today.html'        },
+      { id: 'recent',       icon: 'clock', file: 'recent.html'       },
     ]},
-    { section: 'nav_sec_realtime', icon: '🔴', items: [
-      { id: 'spectrogram',  icon: '📡', file: 'spectrogram.html'  },
-      { id: 'log',          icon: '📋', file: 'log.html'          },
+    { section: 'nav_sec_realtime', icon: 'circle-dot', items: [
+      { id: 'spectrogram',  icon: 'radio', file: 'spectrogram.html'  },
+      { id: 'log',          icon: 'scroll-text', file: 'log.html'          },
     ]},
-    { section: 'nav_sec_history', icon: '🗓️', items: [
-      { id: 'calendar',     icon: '📆', file: 'calendar.html'     },
-      { id: 'timeline',     icon: '🌅', file: 'timeline.html'     },
-      { id: 'detections',   icon: '📋', file: 'detections.html'   },
-      { id: 'review',       icon: '✅', file: 'review.html'       },
+    { section: 'nav_sec_history', icon: 'history', items: [
+      { id: 'calendar',     icon: 'calendar', file: 'calendar.html'     },
+      { id: 'timeline',     icon: 'sunrise', file: 'timeline.html'     },
+      { id: 'detections',   icon: 'list', file: 'detections.html'   },
+      { id: 'review',       icon: 'check-circle', file: 'review.html'       },
     ]},
-    { section: 'nav_sec_species', icon: '🦜', items: [
-      { id: 'species',      icon: '🔍', file: 'species.html'      },
-      { id: 'rarities',     icon: '💎', file: 'rarities.html'     },
-      { id: 'gallery',      icon: '🏆', file: 'gallery.html'      },
-      { id: 'recordings',   icon: '🎵', file: 'recordings.html'   },
-      { id: 'favorites',    icon: '⭐', file: 'favorites.html'    },
+    { section: 'nav_sec_species', icon: 'bird', items: [
+      { id: 'species',      icon: 'search', file: 'species.html'      },
+      { id: 'rarities',     icon: 'gem', file: 'rarities.html'     },
+      { id: 'gallery',      icon: 'trophy', file: 'gallery.html'      },
+      { id: 'recordings',   icon: 'music', file: 'recordings.html'   },
+      { id: 'favorites',    icon: 'star', file: 'favorites.html'    },
     ]},
-    { section: 'nav_sec_indicators', icon: '📈', items: [
-      { id: 'weather',      icon: '🌦️', file: 'weather.html'     },
-      { id: 'stats',        icon: '📈', file: 'stats.html'        },
-      { id: 'analyses',     icon: '🔬', file: 'analyses.html'     },
-      { id: 'biodiversity', icon: '🌿', file: 'biodiversity.html' },
-      { id: 'models',       icon: '🤖', file: 'models.html'       },
-      { id: 'phenology',    icon: '📅', file: 'phenology.html'    },
+    { section: 'nav_sec_indicators', icon: 'trending-up', items: [
+      { id: 'weather',      icon: 'cloud-sun', file: 'weather.html'     },
+      { id: 'stats',        icon: 'trending-up', file: 'stats.html'        },
+      { id: 'analyses',     icon: 'microscope', file: 'analyses.html'     },
+      { id: 'biodiversity', icon: 'leaf', file: 'biodiversity.html' },
+      { id: 'models',       icon: 'cpu', file: 'models.html'       },
+      { id: 'phenology',    icon: 'calendar-days', file: 'phenology.html'    },
     ]},
-    { section: 'nav_sec_system', icon: '⚙️', items: [
-      { id: 'settings',     icon: '⚙️', file: 'settings.html'    },
-      { id: 'system',       icon: '🖥️', file: 'system.html'      },
+    { section: 'nav_sec_system', icon: 'settings', items: [
+      { id: 'settings',     icon: 'settings', file: 'settings.html'    },
+      { id: 'system',       icon: 'monitor', file: 'system.html'      },
     ]},
   ],
   // Flat pages array (built from nav sections)
