@@ -223,13 +223,14 @@
       <!-- ── Phénologie calendaire ─────────────────────────────── -->
       <div class="card" v-if="phenoData.length">
         <div class="card-title">{{t('phenology_calendar')}}</div>
-        <div style="overflow-x:auto;">
-          <div v-for="ym in phenoData" :key="ym.key" style="display:flex;align-items:center;gap:2px;margin-bottom:2px;">
-            <span style="width:60px;font-size:.7rem;color:var(--text-muted);text-align:right;padding-right:4px;flex-shrink:0;">{{ym.label}}</span>
+        <div>
+          <div v-for="ym in phenoData" :key="ym.key" style="display:grid;grid-template-columns:60px repeat(31,1fr);gap:2px;align-items:center;margin-bottom:2px;">
+            <span style="font-size:.7rem;color:var(--text-muted);text-align:right;padding-right:4px;">{{ym.label}}</span>
             <span v-for="d in ym.days" :key="d.day"
                   :title="d.date + (d.count ? ' — ' + d.count + ' det.' : '')"
                   :style="{
-                    width: '10px', height: '10px', borderRadius: '2px', flexShrink: 0,
+                    aspectRatio: '1',
+                    borderRadius: '2px',
                     background: d.count ? phenoColor(d.count) : 'var(--border)',
                     opacity: d.future ? 0.2 : 1
                   }"></span>
