@@ -509,12 +509,7 @@ BIRDASH.ready.then(() => {
   const API = BIRD_CONFIG.apiUrl;
   const Q = BIRDASH_QUERIES;
 
-  const MODEL_SHORT = {
-    'BirdNET_GLOBAL_6K_V2.4_Model_FP16':'BirdNET V2.4','BirdNET_6K_GLOBAL_MODEL':'BirdNET V1',
-    'Perch_v2':'Perch V2','perch_v2_original':'Perch V2','perch_v2_fp16':'Perch V2 FP16',
-    'perch_v2_dynint8':'Perch V2 INT8','perch_v2_int8':'Perch V2 INT8',
-    'BirdNET-Go_classifier_20250916':'BirdNET-Go',
-  };
+  const MODEL_SHORT = BIRDASH.MODEL_LABELS;
   const EVT_CLASS = {detection:'det',recording:'rec',birdweather:'bw',error:'err'};
 
   const app = createApp({
