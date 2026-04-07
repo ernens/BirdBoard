@@ -435,6 +435,7 @@ let _cleanBlobUrl = null; // Blob URL à révoquer lors du changement
 
 const app = createApp({
   setup() {
+    const Q = BIRDASH_QUERIES;
     const { lang, t, setLang, langs } = useI18n();
     const { theme, themes, setTheme } = useTheme();
     const { navItems, siteName } = useNav('calendar');
