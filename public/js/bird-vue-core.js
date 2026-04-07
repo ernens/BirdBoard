@@ -2016,7 +2016,7 @@
       const drawerOpen = ref(false);
       function toggleDrawer() { drawerOpen.value = !drawerOpen.value; }
       function drawerNavClick(si) { navSectionClick(si); }
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, dismissUpdate, updateNotesHtml };
     },
     directives: {
       'click-outside': {
