@@ -2,6 +2,111 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.2.0] — 2026-04-07
+
+### New Pages
+- **Phenology calendar** (`phenology.html`) — observed phenology per species
+  - 3 view modes: Presence / Abundance / Hourly activity
+  - 53-week ribbon visualization filling card width
+  - Inferred phases from local detections only:
+    - Active period (first → last week with detections)
+    - Peak abundance (top quartile weeks)
+    - Dawn chorus dominance (>70% detections in 4-8h)
+    - First / last observation dates
+    - Migrant probability (continuous absence > 4 weeks)
+    - Resident probability (≥40 active weeks)
+  - Honest disclaimer: phases inferred from station data, not biological reference
+  - Accessible via Indicators nav section + species page action card
+  - URL parameter `?species=X` for direct linking
+  - 5 new SQL queries in `bird-queries.js`
+
+### Lucide Icon System
+- New `bird-icons.js` (98 Lucide SVG icons, ISC license)
+- New `<bird-icon name="..." :size="18">` Vue component
+  - Inline SVG via template ref + onMounted innerHTML (proper SVG namespace)
+  - Color via `currentColor`, size via prop
+- Migrated 280+ emoji icons to Lucide across all 23 pages:
+  - Main navigation (6 sections, 24 items)
+  - Mobile bottom nav + drawer
+  - Settings tabs (10) + System tabs (6) + backup destinations (5)
+  - Dashboard Bird Flow (KPIs, quick nav, zones)
+  - Action cards (Phenology + Deep Analysis on species.html)
+  - Phenology phase cards
+- Kept as emoji intentionally:
+  - Unicode symbols ✓ ✕ ✗ ★ ☆ ⚠ ⚙
+  - Moon phases 🌕🌑🌒…🌘 (timeline astronomical)
+  - Weather emojis ☀🌦🌧💨🌬 (color-coded, semantic)
+  - 🍓 Raspberry Pi indicator
+
+### Unified Notification Bell
+- Single notification center grouped by severity (replaces separate update button)
+  - 🔴 **Critical**: GitHub update available, pipeline blocked (backlog > 20 + lag > 5 min)
+  - 🟠 **Warning**: review queue pending, pipeline slow (backlog > 5 or lag > 60s)
+  - 🟢 **Birds**: existing /api/whats-new alerts (out_of_season, activity_spike,
+    species_return, first_of_year, species_streak, seasonal_peak)
+- Bell badge color reflects highest severity present
+- Number = total unseen across all categories
+- "Seen" state tracked per category in localStorage
+- Auto-refresh: critical/warning every 5 min, birds every 10 min
+- Items grouped in 3 collapsible sections with colored left border
+
+### Update Notification System
+- New `/api/version-check` route — polls GitHub Releases once per 24h
+- Server-side cache (1 GitHub call per Pi per day, no rate limit issues)
+- Update modal in header with formatted release notes (markdown → HTML)
+- "How to update" guide with manual git pull commands
+- Dismissed version stored in localStorage
+
+### Action Cards (species page)
+- 🔬 Deep Analysis and 📅 Phenology buttons promoted from ext-link list to
+  prominent action cards inside the species info panel
+- Card layout: large icon, title, sub-text, hover lift, arrow indicator
+- Distinct visual identity from external links (Wikipedia, eBird, etc.)
+
+### SQL Query Library Expansion
+- 5 new phenology queries: `phenologyYears`, `phenologyWeekly`,
+  `phenologyHourlyByWeek`, `phenologyFirstLast`, `phenologyMultiYear`
+- Total: 56 centralized queries (was 51)
+- All apply `BIRD_CONFIG.defaultConfidence` automatically
+
+### Bug Fixes
+- **Critical**: `<bird-icon />` self-closing broke text rendering — Vue 3 only
+  supports self-closing in pre-compiled SFC templates, not DOM templates parsed
+  by the browser. Following content was eaten as a child of the component.
+  Fixed 152 occurrences across 31 files.
+- Latest detection now picks max confidence across both AI models (BirdNET +
+  Perch) using SQLite bare-column MAX trick
+- Bell + nav badge undercount: `flagged-detections` was queried with limit=1
+  which only processed 1 detection. Now uses last 7 days + limit=2000 (matches
+  review.html default)
+- eBird notable observations broken after server modularization: `EBIRD_API_KEY`
+  / `EBIRD_REGION` / `BW_STATION_ID` weren't in route context
+- BirdWeather events now show species name + confidence (tracked from SSE
+  species lines that were filtered out before reaching the parser)
+- Settings save: `birdnet.conf` cache (60s TTL) wasn't invalidated after write
+- CSS variable `--card-bg` doesn't exist (correct name is `--bg-card`) — bell
+  panel and dashboard zones were transparent
+- Per-model species in dashboard: regex was matching timestamp brackets
+  (`[11:50:35]`) instead of model name brackets (`[perch_v2_original]`)
+- Phenology calendar now fills full card width (CSS grid + aspect-ratio)
+- Inline phenology calendar removed from species.html (replaced by dedicated
+  phenology.html page)
+- Detection card photo enlarged (120 → 170px) with confidence ring (38 → 46px)
+- Inference time `⚡` icon centered in dual AI cards
+- Pipeline + Dual AI: removed BN/P2 text icons, replaced with top accent bar
+  + colored model name (BirdNET blue / Perch teal)
+- Removed all biloute references (old Pi4 retired) — engine.py, config.toml,
+  backup.js: -209 lines of dead code
+- Dashboard model labels now use shared `BIRDASH.MODEL_LABELS` (consistent
+  variant names: Perch V2 FP32, FP16, INT8)
+- Pipeline progress bar centered on dot row instead of crossing through dots
+- Connector arrows between Mic/Engine/Detection removed (zones now share
+  continuous borders)
+
+### i18n
+- 28+ new keys per language (FR/EN/DE/NL) for phenology, bell, update modal,
+  action cards
+
 ## [1.1.0] — 2026-04-06
 
 ### Bird Flow — Live Pipeline Dashboard

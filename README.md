@@ -108,6 +108,7 @@ Raspberry Pi 5 + SSD
 - 📈 Statistics and rankings with model comparison tab
 - 🔬 Advanced analyses (polar charts, heatmaps, time series, narrative)
 - 🧬 Biodiversity — Shannon index, taxonomy breakdown, phenology
+- 📅 **Phenology calendar** — observed annual cycle per species (presence/abundance/hourly modes), inferred phases (active period, peak abundance, dawn chorus, migrant detection), 53-week ribbon visualization
 
 **Station**
 - 📋 **Live log** — real-time streaming dashboard (SSE) with color-coded categories, filters, KPIs (detections/BirdWeather/errors), pause/resume, auto-scroll
@@ -297,6 +298,7 @@ birdash/
 │   ├── stats.html                 # Statistics + model comparison tab
 │   ├── analyses.html              # Per-species deep analysis
 │   ├── biodiversity.html          # Shannon index, taxonomy, phenology
+│   ├── phenology.html              # Observed phenology calendar (per species)
 │   ├── spectrogram.html           # Live spectrogram + clip playback
 │   ├── settings.html              # Full settings (9 tabs)
 │   ├── system.html                # System health + terminal
@@ -308,7 +310,8 @@ birdash/
 │   ├── rarities.html               # Rare species tracker
 │   ├── js/
 │   │   ├── bird-config.js         # Navigation, API config
-│   │   ├── bird-queries.js        # Shared SQL query library (51 queries)
+│   │   ├── bird-queries.js        # Shared SQL query library (56 queries)
+│   │   ├── bird-icons.js          # Lucide icon set (98 SVG icons)
 │   │   ├── bird-shared.js         # Utilities, DSP, favorites, notes API
 │   │   ├── bird-vue-core.js       # Vue composables, i18n (4 langs), shell
 │   │   └── bird-timeline.js       # Timeline rendering (sky, stars, markers)
@@ -355,7 +358,8 @@ birdash/
 
 - Rate limiting: 120 req/min per IP
 - Strict SQL validation (read-only, parameterized)
-- Centralized SQL query library (`bird-queries.js`) — 51 parameterized queries with automatic confidence filtering
+- Centralized SQL query library (`bird-queries.js`) — 56 parameterized queries with automatic confidence filtering
+- Lucide icon system (`bird-icons.js` + `<bird-icon>` component) — 98 modern SVG icons replacing emojis across the UI
 - Security headers (CSP, X-Frame-Options, Referrer-Policy)
 - CORS restricted to localhost
 - SRI on CDN scripts
