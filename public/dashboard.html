@@ -222,10 +222,10 @@
     .bf-core.birdnet .bf-core-name { color: #42a5f5; }
     .bf-core.perch .bf-core-name { color: #26a69a; }
     .bf-core-time {
-      font-size: .65rem; color: var(--text-muted);
+      font-size: .68rem; color: var(--text-muted);
       font-variant-numeric: tabular-nums;
-      display: inline-flex; align-items: center; gap: .2rem;
-      margin-top: .15rem;
+      display: flex; align-items: center; justify-content: center; gap: .25rem;
+      margin-top: .25rem;
     }
     .bf-core-time::before { content: '⚡'; font-size: .7rem; opacity: .8; }
     .bf-core-species {
@@ -274,13 +274,15 @@
       display: flex; flex-direction: column;
     }
     .bf-det-main {
-      flex: 1; display: flex; gap: .85rem; align-items: center;
+      flex: 1; display: flex; gap: 1.1rem; align-items: center;
+      padding: .25rem 0;
     }
     .bf-det-photo-wrap { position: relative; flex-shrink: 0; }
     .bf-det-photo {
-      width: 120px; height: 120px; border-radius: 14px;
+      width: 170px; height: 170px; border-radius: 16px;
       object-fit: cover; background: var(--bg-card2); display: block;
       transition: transform .5s cubic-bezier(.34,1.56,.64,1), box-shadow .4s;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
     }
     .bf-zone-det.pulse .bf-det-photo {
       transform: scale(1.05);
@@ -289,25 +291,36 @@
     .bf-det-enter { animation: bfDetIn .6s cubic-bezier(.22,1,.36,1); }
     @keyframes bfDetIn { from{opacity:0;transform:scale(.88) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
     .bf-det-conf {
-      position: absolute; bottom: -5px; right: -5px;
-      width: 38px; height: 38px; border-radius: 50%;
-      background: var(--card-bg); border: 2.5px solid var(--border);
+      position: absolute; bottom: -6px; right: -6px;
+      width: 46px; height: 46px; border-radius: 50%;
+      background: var(--card-bg); border: 3px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      font-size: .72rem; font-weight: 800; font-variant-numeric: tabular-nums;
+      font-size: .85rem; font-weight: 800; font-variant-numeric: tabular-nums;
       transition: border-color .3s, color .3s, transform .3s;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
     .bf-zone-det.pulse .bf-det-conf { transform: scale(1.1); }
     .bf-det-conf.high{border-color:#4caf50;color:#4caf50}
     .bf-det-conf.mid{border-color:#ff9800;color:#ff9800}
     .bf-det-conf.low{border-color:#e53935;color:#e53935}
-    .bf-det-info { flex:1; min-width:0; }
-    .bf-det-name { font-weight:800; font-size:1.15rem; line-height:1.2; margin-bottom:.1rem; }
-    .bf-det-sci { font-size:.72rem; color:var(--text-muted); font-style:italic; margin-bottom:.3rem; }
-    .bf-det-row { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; font-size:.73rem; }
+    .bf-det-info {
+      flex:1; min-width:0;
+      display: flex; flex-direction: column; justify-content: center;
+      gap: .15rem;
+    }
+    .bf-det-name {
+      font-weight:800; font-size:1.3rem; line-height:1.15;
+      margin-bottom:.05rem; letter-spacing:-.01em;
+    }
+    .bf-det-sci {
+      font-size:.78rem; color:var(--text-muted); font-style:italic;
+      margin-bottom:.55rem;
+    }
+    .bf-det-row { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; font-size:.78rem; }
     .bf-badge { display:inline-flex; padding:.15rem .5rem; border-radius:5px; font-weight:700; font-size:.64rem; text-transform:uppercase; }
     .bf-badge.accepted{background:rgba(76,175,80,.14);color:#4caf50}
     .bf-badge.review{background:rgba(255,152,0,.14);color:#ff9800}
-    .bf-det-model { font-size:.62rem; color:var(--text-muted); margin-top:.2rem; }
+    .bf-det-model { font-size:.68rem; color:var(--text-muted); margin-top:.35rem; letter-spacing:.01em; }
     .bf-det-empty { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:.82rem; }
 
     /* Recent detections strip inside detection zone */
@@ -389,7 +402,7 @@
       .bf-kpis{grid-template-columns:1fr 1fr}
       .bf-bottom{grid-template-columns:1fr}
       .bf-bottom>.bf-card:last-child{grid-column:auto}
-      .bf-det-photo{width:90px;height:90px}
+      .bf-det-photo{width:120px;height:120px}
     }
   </style>
 </head>
