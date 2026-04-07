@@ -1111,5 +1111,7 @@
   "pheno_legend_dusk": "Abenddämmerung",
   "pheno_disclaimer": "Diese Phasen werden aus den Erkennungen Ihrer Station abgeleitet, nicht aus biologischen Referenzdaten. Spezifische Brutstadien (Balz, Eiablage, Mauser) sind akustisch nicht erkennbar. Die Daten können je nach Wetter und Breitengrad variieren.",
   "detections": "Erkennungen",
-  "loading": "Laden"
+  "loading": "Laden",
+  "sp_action_pheno_sub": "Beobachteter Jahreszyklus · abgeleitete Phasen · stündliche Aktivität",
+  "sp_action_analyses_sub": "Detaillierte Statistiken · Trends · Vergleiche"
 }

@@ -1111,5 +1111,7 @@
   "pheno_legend_dusk": "Schemering",
   "pheno_disclaimer": "Deze fasen zijn afgeleid uit de detecties van uw station, niet uit biologische referentiegegevens. Specifieke broedstadia (balts, eileg, rui) zijn akoestisch niet detecteerbaar. Data kunnen variëren afhankelijk van het weer en de breedtegraad.",
   "detections": "detecties",
-  "loading": "Laden"
+  "loading": "Laden",
+  "sp_action_pheno_sub": "Waargenomen jaarcyclus · afgeleide fasen · uurlijkse activiteit",
+  "sp_action_analyses_sub": "Gedetailleerde statistieken · trends · vergelijkingen"
 }

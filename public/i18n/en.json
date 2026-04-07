@@ -1111,5 +1111,7 @@
   "pheno_legend_dusk": "Dusk",
   "pheno_disclaimer": "These phases are inferred from your station detections, not from reference biological data. Specific breeding stages (display, laying, molt) are not detectable acoustically. Dates may vary by weather and latitude.",
   "detections": "detections",
-  "loading": "Loading"
+  "loading": "Loading",
+  "sp_action_pheno_sub": "Observed annual cycle · inferred phases · hourly activity",
+  "sp_action_analyses_sub": "Detailed statistics · trends · comparisons"
 }

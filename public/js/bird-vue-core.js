@@ -118,6 +118,8 @@
   "pheno_disclaimer": "Ces phases sont inférées des détections de cette station, pas de données biologiques de référence. Les stades précis de nidification (parade, ponte, mue) ne sont pas détectables acoustiquement. Les dates peuvent varier selon la météo et la latitude.",
   "detections": "détections",
   "loading": "Chargement",
+  "sp_action_pheno_sub": "Cycle annuel observé · phases inférées · activité horaire",
+  "sp_action_analyses_sub": "Statistiques détaillées · tendances · comparaisons",
   "dash_sys_title": "Etat du systeme",
   "dash_sys_model": "Modele principal",
   "dash_sys_secondary": "Modele secondaire",
