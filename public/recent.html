@@ -295,7 +295,7 @@
           <!-- Contrôles -->
           <div class="audio-controls">
             <button class="play-big" :class="{playing:isPlaying}"
-                    @click="_togglePlay" :disabled="!currentDet.File_Name || spectro.state==='loading'">
+                    @click="togglePlay" :disabled="!currentDet.File_Name || spectro.state==='loading'">
               {{isPlaying ? '⏸' : '▶'}}
             </button>
             <div class="audio-progress-wrap">
@@ -487,7 +487,7 @@ const app = createApp({
     // Spectrogramme
     const spectroCanvas = ref(null);
     const { isPlaying, audioProgress, audioCurrentTime, audioDuration, play: _playAudio, stop: stopAudio, seekFraction, seekFromEvent: seekFromProgressBar, fmtDuration } = useAudioPlayer();
-    function _togglePlay() { _playAudio(spectro.value.url); }
+    function togglePlay() { _playAudio(spectro.value.url); }
     function seekFromClick(e) { if (!spectroCanvas.value) return; seekFromProgressBar(e); }
     const spectro       = ref({ state: 'idle' });
 
@@ -826,7 +826,7 @@ const app = createApp({
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
       if (e.code === 'Space') {
         e.preventDefault();
-        _togglePlay();
+        togglePlay();
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
         if (currentDetIdx.value < selectedDets.value.length - 1) loadDetection(currentDetIdx.value + 1);
@@ -872,7 +872,7 @@ const app = createApp({
       buildAudioUrl,
       fmtDate, fmtTime, fmtConf, fmtDuration, fmtDateLong,
       navigateTo, loadAll, selectSpecies, loadDetection,
-      _togglePlay, seekFromProgressBar, seekFromClick,
+      togglePlay, seekFromProgressBar, seekFromClick,
       toggleClean, reapplyClean,
       openSpectroModal,
     };
