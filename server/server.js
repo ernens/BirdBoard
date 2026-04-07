@@ -12,6 +12,7 @@ const fs   = require('fs');
 const { BIRDNET_CONF, BIRDNET_DIR, ALLOWED_SERVICES, SETTINGS_VALIDATORS,
         parseBirdnetConf, writeBirdnetConf, execCmd } = require('./lib/config');
 const { db, dbWrite, birdashDb, taxonomyDb, SONGS_DIR,
+        EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID,
         refreshTaxonomy, closeAll: closeAllDbs } = require('./lib/db');
 const _alerts        = require('./lib/alerts');
 const _backupRoutes  = require('./routes/backup');
@@ -122,6 +123,7 @@ const _routeCtx = {
   ALLOWED_SERVICES, BIRDNET_DIR, validateQuery,
   photoCacheKey: _photoRoutes.photoCacheKey, PHOTO_CACHE_DIR: _photoRoutes.PHOTO_CACHE_DIR,
   writeBirdnetConf, SETTINGS_VALIDATORS, BIRDNET_CONF, _alerts,
+  EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID,
 };
 
 // ── HTTP server ──────────────────────────────────────────────────────────────

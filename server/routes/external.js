@@ -27,7 +27,7 @@ function fetchJson(url, extraHeaders = {}) {
 }
 
 function handle(req, res, pathname, ctx) {
-  const { parseBirdnetConf, readJsonFile } = ctx;
+  const { parseBirdnetConf, readJsonFile, EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID } = ctx;
 
   // ── Route : GET /api/birdweather ─────────────────────────────────────────────
   // Proxy BirdWeather API — évite les CORS + cache 5 min
