@@ -1071,5 +1071,13 @@
   "update_dismiss": "Deze versie negeren",
   "update_view_github": "Bekijk op GitHub",
   "update_how_to": "Hoe bij te werken",
-  "update_how_title": "Op de Raspberry Pi: git pull && npm install && sudo systemctl restart birdash"
+  "update_how_title": "Op de Raspberry Pi: git pull && npm install && sudo systemctl restart birdash",
+  "bell_critical": "Kritiek",
+  "bell_warning": "Let op",
+  "bell_birds": "Vogels",
+  "bell_update_available": "Update beschikbaar",
+  "bell_pipeline_blocked": "Pipeline geblokkeerd",
+  "bell_pipeline_slow": "Pipeline traag",
+  "bell_review_pending": "te controleren",
+  "bell_review_sub": "Wachtende detecties"
 }

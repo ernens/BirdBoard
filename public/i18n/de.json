@@ -1071,5 +1071,13 @@
   "update_dismiss": "Diese Version ignorieren",
   "update_view_github": "Auf GitHub ansehen",
   "update_how_to": "Anleitung zum Update",
-  "update_how_title": "Auf dem Raspberry Pi: git pull && npm install && sudo systemctl restart birdash"
+  "update_how_title": "Auf dem Raspberry Pi: git pull && npm install && sudo systemctl restart birdash",
+  "bell_critical": "Kritisch",
+  "bell_warning": "Achtung",
+  "bell_birds": "Vögel",
+  "bell_update_available": "Update verfügbar",
+  "bell_pipeline_blocked": "Pipeline blockiert",
+  "bell_pipeline_slow": "Pipeline langsam",
+  "bell_review_pending": "zu prüfen",
+  "bell_review_sub": "Ausstehende Erkennungen"
 }

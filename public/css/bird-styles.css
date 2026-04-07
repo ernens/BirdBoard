@@ -2101,3 +2101,30 @@ a:hover { opacity: .85; }
 }
 .update-btn-primary:hover { opacity: .9; transform: translateY(-1px); }
 .update-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Unified bell — severity sections ──────────────────────────────── */
+.bell-badge.sev-critical { background: #e53935; }
+.bell-badge.sev-warning  { background: #ff9800; }
+.bell-badge.sev-birds    { background: #4caf50; }
+
+.bell-panel { width: 320px; padding: .25rem 0; }
+.bell-section { padding: .15rem 0 .25rem; }
+.bell-section + .bell-section { border-top: 1px solid var(--border); }
+.bell-section-hdr {
+  display: flex; align-items: center; gap: .35rem;
+  padding: .4rem .75rem .25rem;
+  font-size: .62rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-muted); font-weight: 700;
+}
+.bell-sec-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block;
+}
+.bell-sec-critical .bell-sec-dot { background: #e53935; box-shadow: 0 0 6px rgba(229,57,53,.5); }
+.bell-sec-warning  .bell-sec-dot { background: #ff9800; box-shadow: 0 0 6px rgba(255,152,0,.5); }
+.bell-sec-birds    .bell-sec-dot { background: #4caf50; box-shadow: 0 0 6px rgba(76,175,80,.5); }
+
+.bell-item-critical { border-left: 3px solid #e53935; cursor: pointer; }
+.bell-item-warning  { border-left: 3px solid #ff9800; cursor: pointer; }
+.bell-item-birds    { border-left: 3px solid #4caf50; }
+.bell-item-critical:hover, .bell-item-warning:hover { background: var(--bg-card2, rgba(0,0,0,.04)); }

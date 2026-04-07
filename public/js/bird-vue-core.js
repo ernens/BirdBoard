@@ -78,6 +78,14 @@
   "update_view_github": "Voir sur GitHub",
   "update_how_to": "Comment mettre à jour",
   "update_how_title": "Sur le Raspberry Pi : git pull && npm install && sudo systemctl restart birdash",
+  "bell_critical": "Critique",
+  "bell_warning": "Attention",
+  "bell_birds": "Oiseaux",
+  "bell_update_available": "Mise à jour disponible",
+  "bell_pipeline_blocked": "Pipeline bloqué",
+  "bell_pipeline_slow": "Pipeline ralenti",
+  "bell_review_pending": "à valider",
+  "bell_review_sub": "Détections en attente",
   "dash_sys_title": "Etat du systeme",
   "dash_sys_model": "Modele principal",
   "dash_sys_secondary": "Modele secondaire",
@@ -1924,40 +1932,141 @@
         }
       }
 
-      // ── Notification bell ────────────────────────────────────────────
+      // ── Unified notification bell (3 severity levels) ──────────────
       const bellOpen = ref(false);
-      const bellItems = ref([]);
-      const bellCount = computed(() => bellItems.value.length);
-      const bellSeen = ref(parseInt(localStorage.getItem('birdash_bell_seen') || '0', 10));
-      const bellUnseen = computed(() => Math.max(0, bellCount.value - bellSeen.value));
+      const bellCritical = ref([]);
+      const bellWarning = ref([]);
+      const bellBirds = ref([]);
 
-      fetch(`${BIRD_CONFIG.apiUrl}/whats-new`).then(r => r.json()).then(d => {
-        const items = [];
-        const icons = { out_of_season: '⚠️', activity_spike: '📈', species_return: '🔄', first_of_year: '🆕', species_streak: '📅', seasonal_peak: '🌿' };
-        const allCards = [...(d.alerts || []), ...(d.phenology || [])];
-        for (const card of allCards) {
-          if (!card.active || !card.data?.species) continue;
-          const icon = icons[card.type] || '🔔';
-          const label = t('wn_card_' + card.type) || card.type;
-          for (const sp of card.data.species) {
-            const name = sp.commonName || sp.comName || '';
-            const sci = sp.sciName || '';
-            let sub = label;
-            if (sp.absentDays) sub += ' (' + sp.absentDays + 'j)';
-            if (sp.streakDays) sub += ' (' + sp.streakDays + 'j)';
-            if (sp.count) sub += ' (' + sp.count + ')';
-            items.push({ icon, text: spName(name, sci) || name, sub, href: 'species.html?species=' + encodeURIComponent(name) });
+      // Track seen state per severity in localStorage
+      const bellSeen = ref({
+        critical: parseInt(localStorage.getItem('birdash_bell_seen_critical') || '0', 10),
+        warning:  parseInt(localStorage.getItem('birdash_bell_seen_warning')  || '0', 10),
+        birds:    parseInt(localStorage.getItem('birdash_bell_seen_birds')    || '0', 10),
+      });
+
+      const bellUnseenCritical = computed(() => Math.max(0, bellCritical.value.length - bellSeen.value.critical));
+      const bellUnseenWarning  = computed(() => Math.max(0, bellWarning.value.length  - bellSeen.value.warning));
+      const bellUnseenBirds    = computed(() => Math.max(0, bellBirds.value.length    - bellSeen.value.birds));
+      const bellUnseen = computed(() => bellUnseenCritical.value + bellUnseenWarning.value + bellUnseenBirds.value);
+
+      // Highest severity present (for badge color)
+      const bellSeverity = computed(() => {
+        if (bellUnseenCritical.value > 0 || bellCritical.value.length > 0) return 'critical';
+        if (bellUnseenWarning.value > 0  || bellWarning.value.length > 0)  return 'warning';
+        if (bellBirds.value.length > 0) return 'birds';
+        return 'none';
+      });
+
+      // ── Source 1: birds (whats-new) — green ─────────────────────────
+      function loadBirdsAlerts() {
+        fetch(`${BIRD_CONFIG.apiUrl}/whats-new`).then(r => r.json()).then(d => {
+          const items = [];
+          const icons = { out_of_season: '⚠️', activity_spike: '📈', species_return: '🔄', first_of_year: '🆕', species_streak: '📅', seasonal_peak: '🌿' };
+          const allCards = [...(d.alerts || []), ...(d.phenology || [])];
+          for (const card of allCards) {
+            if (!card.active || !card.data?.species) continue;
+            const icon = icons[card.type] || '🔔';
+            const label = t('wn_card_' + card.type) || card.type;
+            for (const sp of card.data.species) {
+              const name = sp.commonName || sp.comName || '';
+              const sci  = sp.sciName || '';
+              let sub = label;
+              if (sp.absentDays) sub += ' (' + sp.absentDays + 'j)';
+              if (sp.streakDays) sub += ' (' + sp.streakDays + 'j)';
+              if (sp.count) sub += ' (' + sp.count + ')';
+              items.push({ icon, text: spName(name, sci) || name, sub, href: 'species.html?species=' + encodeURIComponent(name) });
+            }
           }
+          bellBirds.value = items.slice(0, 12);
+        }).catch(() => {});
+      }
+      loadBirdsAlerts();
+
+      // ── Source 2: critical alerts (update + system) ─────────────────
+      function refreshCritical() {
+        const items = [];
+        // Update available
+        if (updateInfo.value && updateInfo.value.hasUpdate) {
+          items.push({
+            icon: '⬆',
+            text: t('bell_update_available'),
+            sub: 'v' + updateInfo.value.current + ' → v' + updateInfo.value.latest,
+            click: 'openUpdateModal',
+          });
         }
-        bellItems.value = items.slice(0, 12);
-      }).catch(() => {});
+        // Pipeline blocked: backlog > 20 AND lag > 5min
+        fetch(`${BIRD_CONFIG.apiUrl}/analysis-status`).then(r => r.json()).then(d => {
+          if (d.backlog > 20 && d.lagSecs > 300) {
+            items.push({
+              icon: '🚫',
+              text: t('bell_pipeline_blocked'),
+              sub: d.backlog + ' fichiers · ' + Math.floor(d.lagSecs/60) + ' min',
+              href: 'system.html',
+            });
+          }
+          bellCritical.value = items;
+        }).catch(() => { bellCritical.value = items; });
+      }
+
+      // ── Source 3: warnings (review queue + backlog/lag) ─────────────
+      function refreshWarning() {
+        const items = [];
+        const today = U.localDateStr();
+        // Review queue
+        fetch(`${BIRD_CONFIG.apiUrl}/flagged-detections?dateFrom=1900-01-01&dateTo=${today}&limit=1`)
+          .then(r => r.json()).then(d => {
+            if (d.total > 0) {
+              items.push({
+                icon: '✅',
+                text: d.total + ' ' + t('bell_review_pending'),
+                sub: t('bell_review_sub'),
+                href: 'review.html',
+              });
+            }
+            // Then check backlog/lag
+            return fetch(`${BIRD_CONFIG.apiUrl}/analysis-status`);
+          })
+          .then(r => r.json())
+          .then(d => {
+            if ((d.backlog > 5 && d.backlog <= 20) || (d.lagSecs > 60 && d.lagSecs <= 300)) {
+              items.push({
+                icon: '🐢',
+                text: t('bell_pipeline_slow'),
+                sub: d.backlog + ' fichiers · ' + (d.lagSecs < 60 ? d.lagSecs + 's' : Math.floor(d.lagSecs/60) + 'min'),
+                href: 'system.html',
+              });
+            }
+            bellWarning.value = items;
+          }).catch(() => { bellWarning.value = items; });
+      }
+
+      function refreshAllAlerts() {
+        refreshCritical();
+        refreshWarning();
+      }
+      // Initial + periodic refresh
+      setTimeout(refreshAllAlerts, 1500);
+      setInterval(refreshAllAlerts, 5 * 60 * 1000); // 5 min
+      setInterval(loadBirdsAlerts, 10 * 60 * 1000); // 10 min
 
       function toggleBell() {
         bellOpen.value = !bellOpen.value;
         if (bellOpen.value) {
-          bellSeen.value = bellCount.value;
-          localStorage.setItem('birdash_bell_seen', String(bellCount.value));
+          // Mark all as seen
+          bellSeen.value = {
+            critical: bellCritical.value.length,
+            warning:  bellWarning.value.length,
+            birds:    bellBirds.value.length,
+          };
+          localStorage.setItem('birdash_bell_seen_critical', String(bellSeen.value.critical));
+          localStorage.setItem('birdash_bell_seen_warning',  String(bellSeen.value.warning));
+          localStorage.setItem('birdash_bell_seen_birds',    String(bellSeen.value.birds));
         }
+      }
+      function bellItemClick(item) {
+        if (item.click === 'openUpdateModal') { openUpdateModal(); bellOpen.value = false; }
+        else if (item.href) window.location.href = item.href;
       }
 
       const currentPage = props.page;
@@ -2016,7 +2125,7 @@
       const drawerOpen = ref(false);
       function toggleDrawer() { drawerOpen.value = !drawerOpen.value; }
       function drawerNavClick(si) { navSectionClick(si); }
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellItems, bellCount, bellUnseen, toggleBell, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, dismissUpdate, updateNotesHtml };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, dismissUpdate, updateNotesHtml };
     },
     directives: {
       'click-outside': {
@@ -2066,26 +2175,49 @@
           </button>
         </div>
       </div>
-      <!-- Update available badge -->
-      <button v-if="updateInfo.hasUpdate" class="hdr-update-btn" @click="openUpdateModal" :title="t('update_available') + ' v' + updateInfo.latest">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 12 12 3 21 12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
-        <span class="hdr-update-dot"></span>
-      </button>
-      <!-- Notification bell -->
+      <!-- Notification bell (unified, 3 severities) -->
       <div class="hdr-bell" v-click-outside="()=>bellOpen=false">
         <button class="bell-btn" @click="toggleBell" :aria-label="t('notifications')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span v-if="bellUnseen > 0" class="bell-badge">{{bellUnseen}}</span>
+          <span v-if="bellUnseen > 0" class="bell-badge" :class="'sev-' + bellSeverity">{{bellUnseen}}</span>
         </button>
         <div class="bell-panel" v-show="bellOpen">
-          <div v-if="bellItems.length === 0" style="padding:1rem;text-align:center;opacity:.5;font-size:.8rem;">{{t('wn_empty')}}</div>
-          <a v-for="(item, i) in bellItems" :key="i" :href="item.href" class="bell-item">
-            <span class="bell-icon">{{item.icon}}</span>
-            <div class="bell-text">
-              <div class="bell-name">{{item.text}}</div>
-              <div class="bell-sub">{{item.sub}}</div>
+          <div v-if="bellCritical.length === 0 && bellWarning.length === 0 && bellBirds.length === 0" style="padding:1rem;text-align:center;opacity:.5;font-size:.8rem;">
+            {{t('wn_empty')}}
+          </div>
+          <!-- Critical -->
+          <div v-if="bellCritical.length > 0" class="bell-section bell-sec-critical">
+            <div class="bell-section-hdr"><span class="bell-sec-dot"></span>{{t('bell_critical')}}</div>
+            <div v-for="(item, i) in bellCritical" :key="'c'+i" class="bell-item bell-item-critical" @click="bellItemClick(item)">
+              <span class="bell-icon">{{item.icon}}</span>
+              <div class="bell-text">
+                <div class="bell-name">{{item.text}}</div>
+                <div class="bell-sub">{{item.sub}}</div>
+              </div>
             </div>
-          </a>
+          </div>
+          <!-- Warning -->
+          <div v-if="bellWarning.length > 0" class="bell-section bell-sec-warning">
+            <div class="bell-section-hdr"><span class="bell-sec-dot"></span>{{t('bell_warning')}}</div>
+            <div v-for="(item, i) in bellWarning" :key="'w'+i" class="bell-item bell-item-warning" @click="bellItemClick(item)">
+              <span class="bell-icon">{{item.icon}}</span>
+              <div class="bell-text">
+                <div class="bell-name">{{item.text}}</div>
+                <div class="bell-sub">{{item.sub}}</div>
+              </div>
+            </div>
+          </div>
+          <!-- Birds -->
+          <div v-if="bellBirds.length > 0" class="bell-section bell-sec-birds">
+            <div class="bell-section-hdr"><span class="bell-sec-dot"></span>{{t('bell_birds')}}</div>
+            <a v-for="(item, i) in bellBirds" :key="'b'+i" :href="item.href" class="bell-item bell-item-birds">
+              <span class="bell-icon">{{item.icon}}</span>
+              <div class="bell-text">
+                <div class="bell-name">{{item.text}}</div>
+                <div class="bell-sub">{{item.sub}}</div>
+              </div>
+            </a>
+          </div>
         </div>
       </div>
       <div class="header-dropdowns">
