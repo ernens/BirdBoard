@@ -236,6 +236,54 @@
   --radius:       8px;
   --radius-lg:    14px;
   /* --shadow / --shadow-card are defined per theme (paper needs a softer shadow than dark themes) */
+
+  /* ── Data-viz palette (semantic, theme-agnostic by default) ──────────────
+     Used by charts, histograms, the phenology week zoom, etc. Themes that
+     need different shades (e.g. paper) override individual entries below. */
+
+  /* Time-of-day buckets — used by phenology hourly mode */
+  --data-night:  #3949ab;
+  --data-dawn:   #fbc02d;
+  --data-day:    #4caf50;
+  --data-dusk:   #ff7043;
+
+  /* Abundance gradient (low → high) — used by phenology abundance mode */
+  --data-abundance-0: #aed581;
+  --data-abundance-1: #7cb342;
+  --data-abundance-2: #558b2f;
+  --data-abundance-3: #33691e;
+
+  /* Generic categorical palette (8 distinguishable hues for ChartJS, etc.) */
+  --data-cat-1: #34d399; /* emerald */
+  --data-cat-2: #60a5fa; /* blue    */
+  --data-cat-3: #f472b6; /* pink    */
+  --data-cat-4: #fbbf24; /* amber   */
+  --data-cat-5: #a78bfa; /* violet  */
+  --data-cat-6: #22d3ee; /* cyan    */
+  --data-cat-7: #fb923c; /* orange  */
+  --data-cat-8: #f87171; /* red     */
+}
+
+/* Paper needs slightly toned-down data colors so the cards don't glare. */
+[data-theme="paper"] {
+  --data-night:  #1a237e;
+  --data-dawn:   #b8860f;
+  --data-day:    #2e7d32;
+  --data-dusk:   #d84315;
+
+  --data-abundance-0: #8bc34a;
+  --data-abundance-1: #689f38;
+  --data-abundance-2: #33691e;
+  --data-abundance-3: #1b3a0e;
+
+  --data-cat-1: #0d9488;
+  --data-cat-2: #2563eb;
+  --data-cat-3: #db2777;
+  --data-cat-4: #d97706;
+  --data-cat-5: #7c3aed;
+  --data-cat-6: #0891b2;
+  --data-cat-7: #ea580c;
+  --data-cat-8: #dc2626;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -409,7 +457,7 @@ a:hover { opacity: .85; }
   background:     var(--bg-card);
   border:         1px solid var(--border);
   border-radius:  var(--radius);
-  box-shadow:     0 8px 24px rgba(0,0,0,.18);
+  box-shadow:     var(--shadow);
   z-index:        100;
   padding:        .3rem;
   animation:      hdrMenuIn .15s ease-out;
@@ -1154,7 +1202,7 @@ a:hover { opacity: .85; }
 .bell-btn:hover { color: var(--text-main); background: var(--border); }
 .bell-badge {
   position: absolute; top: 0; right: 0; min-width: 14px; height: 14px;
-  background: #e53e3e; color: #fff; font-size: .6rem; font-weight: 700;
+  background: var(--danger); color: #fff; font-size: .6rem; font-weight: 700;
   border-radius: 7px; display: flex; align-items: center; justify-content: center;
   padding: 0 3px; line-height: 1;
 }
@@ -1162,7 +1210,7 @@ a:hover { opacity: .85; }
   position: absolute; right: 0; top: 100%; margin-top: 4px;
   width: 280px; max-height: 360px; overflow-y: auto;
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  border-radius: var(--radius); box-shadow: var(--shadow);
   z-index: 200;
 }
 .bell-item {
@@ -1306,7 +1354,7 @@ a:hover { opacity: .85; }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  box-shadow: var(--shadow);
   z-index: 1000;
   padding: .25rem 0;
 }
@@ -1346,14 +1394,14 @@ a:hover { opacity: .85; }
    ══════════════════════════════════════════════════════════════════════════════ */
 .spectro-modal-overlay {
   position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+  background: var(--overlay-scrim); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
   padding: 1rem;
 }
 .spectro-modal {
   background: var(--bg-card); border-radius: var(--radius);
   border: 1px solid var(--border); max-width: 900px; width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,.4); overflow: hidden;
+  box-shadow: var(--shadow); overflow: hidden;
 }
 .spectro-modal-header {
   display: flex; justify-content: space-between; align-items: flex-start;
@@ -1974,13 +2022,13 @@ a:hover { opacity: .85; }
 
 /* Popup overlay */
 .tl-popup-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100;
+  position:fixed; inset:0; background:var(--overlay-scrim); z-index:100;
   display:flex; align-items:center; justify-content:center;
 }
 .tl-popup {
   background:var(--bg-card); border:1px solid var(--border);
   border-radius:14px; padding:1.5rem; max-width:320px; width:90%;
-  box-shadow:0 20px 60px rgba(0,0,0,.4); backdrop-filter:blur(16px); position:relative;
+  box-shadow:var(--shadow); backdrop-filter:blur(16px); position:relative;
   color:var(--text-main);
 }
 .tl-popup-close {
@@ -2032,14 +2080,14 @@ a:hover { opacity: .85; }
 @media (max-width: 768px) {
   .mob-drawer-overlay {
     display: block; position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,.5); backdrop-filter: blur(2px);
+    background: var(--overlay-scrim); backdrop-filter: blur(2px);
   }
   .mob-drawer {
     position: absolute; bottom: 0; left: 0; right: 0;
     max-height: 75vh; overflow-y: auto;
     background: var(--bg-card); border-radius: 16px 16px 0 0;
     padding: 0 0 env(safe-area-inset-bottom, .5rem);
-    box-shadow: 0 -4px 24px rgba(0,0,0,.3);
+    box-shadow: var(--shadow);
     animation: drawerSlideUp .25s ease-out;
   }
   @keyframes drawerSlideUp {
@@ -2108,7 +2156,7 @@ a:hover { opacity: .85; }
 }
 .update-modal-backdrop {
   position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,.6); backdrop-filter: blur(3px);
+  background: var(--overlay-scrim); backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center;
   padding: 1rem;
   animation: fadeIn .2s ease-out;
@@ -2123,7 +2171,7 @@ a:hover { opacity: .85; }
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  box-shadow: var(--shadow);
   animation: modalIn .25s cubic-bezier(.22,1,.36,1);
 }
 @keyframes modalIn { from{opacity:0;transform:translateY(20px) scale(.96)} to{opacity:1;transform:none} }

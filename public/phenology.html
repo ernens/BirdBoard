@@ -320,7 +320,7 @@
           <span v-if="viewMode==='presence'">
             <span class="ph-legend-cell" :style="{background: 'var(--border)'}"></span> {{t('pheno_legend_absent')}}
             &nbsp;
-            <span class="ph-legend-cell" :style="{background: '#4caf50'}"></span> {{t('pheno_legend_present')}}
+            <span class="ph-legend-cell" :style="{background: 'var(--data-day)'}"></span> {{t('pheno_legend_present')}}
           </span>
           <span v-else-if="viewMode==='abundance'">
             <span class="ph-legend-cell" :style="{background: 'var(--border)'}"></span> 0
@@ -330,10 +330,10 @@
             <span class="ph-legend-cell" :style="{background: phenoColor(80)}"></span> 50+
           </span>
           <span v-else-if="viewMode==='hourly'">
-            <span class="ph-legend-cell" :style="{background: '#1a237e'}"></span> {{t('pheno_legend_night')}} (0-4h)
-            <span class="ph-legend-cell" :style="{background: '#fbc02d'}"></span> {{t('pheno_legend_dawn')}} (4-8h)
-            <span class="ph-legend-cell" :style="{background: '#4caf50'}"></span> {{t('pheno_legend_day')}} (8-18h)
-            <span class="ph-legend-cell" :style="{background: '#ff7043'}"></span> {{t('pheno_legend_dusk')}} (18-22h)
+            <span class="ph-legend-cell" :style="{background: 'var(--data-night)'}"></span> {{t('pheno_legend_night')}} (0-4h)
+            <span class="ph-legend-cell" :style="{background: 'var(--data-dawn)'}"></span> {{t('pheno_legend_dawn')}} (4-8h)
+            <span class="ph-legend-cell" :style="{background: 'var(--data-day)'}"></span> {{t('pheno_legend_day')}} (8-18h)
+            <span class="ph-legend-cell" :style="{background: 'var(--data-dusk)'}"></span> {{t('pheno_legend_dusk')}} (18-22h)
           </span>
         </div>
       </div>
@@ -532,20 +532,21 @@ BIRDASH.ready.then(() => {
       }
 
       // ── Color scale (abundance / heatmap) ────────────────────
+      // All colors come from CSS custom properties so they re-theme automatically.
       function phenoColor(n) {
         if (!n || n <= 0) return 'var(--border)';
-        if (n <= 5)  return '#aed581';
-        if (n <= 20) return '#7cb342';
-        if (n <= 50) return '#558b2f';
-        return '#33691e';
+        if (n <= 5)  return 'var(--data-abundance-0)';
+        if (n <= 20) return 'var(--data-abundance-1)';
+        if (n <= 50) return 'var(--data-abundance-2)';
+        return 'var(--data-abundance-3)';
       }
       function hourColor(h) {
         if (h == null) return 'var(--border)';
-        if (h < 4)  return '#1a237e';
-        if (h < 8)  return '#fbc02d';
-        if (h < 18) return '#4caf50';
-        if (h < 22) return '#ff7043';
-        return '#1a237e';
+        if (h < 4)  return 'var(--data-night)';
+        if (h < 8)  return 'var(--data-dawn)';
+        if (h < 18) return 'var(--data-day)';
+        if (h < 22) return 'var(--data-dusk)';
+        return 'var(--data-night)';
       }
 
       // ── Build ribbon cells (53 weeks) ────────────────────────
