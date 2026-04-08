@@ -781,26 +781,46 @@ a:hover { opacity: .85; }
 .hdr-option-label { flex: 1; text-align: left; }
 .hdr-check { font-size: .75rem; color: var(--accent); font-weight: 700; }
 
-/* ── Theme dot (color indicator) ─────────────────────────────────────────── */
+/* ── Theme dot — mini page preview (3 horizontal bands) ─────────────────
+   Replaces the previous 14px circle with a small rectangle that previews
+   the actual theme: top band = accent, middle = card surface, bottom =
+   page background. Per-theme custom properties feed into a shared
+   linear-gradient so adding a new theme is one rule with three colors. */
 .theme-dot {
   display:       inline-block;
-  width:         14px;
-  height:        14px;
-  border-radius: 50%;
+  width:         24px;
+  height:        16px;
+  border-radius: 3px;
   flex-shrink:   0;
+  border:        1px solid var(--border);
+  box-shadow:    0 1px 2px rgba(0,0,0,.15);
+  background: linear-gradient(
+    to bottom,
+    var(--preview-accent) 0% 28%,
+    var(--preview-card)   28% 62%,
+    var(--preview-bg)     62% 100%
+  );
 }
-.theme-dot[data-t="forest"]     { background: linear-gradient(135deg, #34d399, #0f1418); }
-.theme-dot[data-t="night"]      { background: linear-gradient(135deg, #a78bfa, #0e1018); }
-.theme-dot[data-t="paper"]      { background: linear-gradient(135deg, #0d9488, #faf8f4); }
-.theme-dot[data-t="ocean"]      { background: linear-gradient(135deg, #22d3ee, #0a1220); }
-.theme-dot[data-t="dusk"]       { background: linear-gradient(135deg, #f472b6, #161218); }
-.theme-dot[data-t="sepia"]      { background: linear-gradient(135deg, #8b5a2b, #f5ecd9); }
-.theme-dot[data-t="hicontrast"] { background: linear-gradient(135deg, #00ff88, #000000); }
-.theme-dot[data-t="solar-dark"] { background: linear-gradient(135deg, #2aa198, #002b36); }
-.theme-dot[data-t="solar-light"]{ background: linear-gradient(135deg, #2aa198, #fdf6e3); }
-.theme-dot[data-t="nord"]       { background: linear-gradient(135deg, #88c0d0, #2e3440); }
-/* Auto: split half-dark / half-light to evoke "follows OS" */
-.theme-dot[data-t="auto"]       { background: linear-gradient(135deg, #0f1418 0%, #0f1418 50%, #faf8f4 50%, #faf8f4 100%); }
+.theme-dot[data-t="forest"]      { --preview-accent:#34d399; --preview-card:#151b20; --preview-bg:#0f1418; }
+.theme-dot[data-t="night"]       { --preview-accent:#a78bfa; --preview-card:#141622; --preview-bg:#0e1018; }
+.theme-dot[data-t="paper"]       { --preview-accent:#0d9488; --preview-card:#ffffff; --preview-bg:#faf8f4; }
+.theme-dot[data-t="ocean"]       { --preview-accent:#22d3ee; --preview-card:#0f1a2e; --preview-bg:#0a1220; }
+.theme-dot[data-t="dusk"]        { --preview-accent:#f472b6; --preview-card:#1e1820; --preview-bg:#161218; }
+.theme-dot[data-t="sepia"]       { --preview-accent:#8b5a2b; --preview-card:#fbf3e0; --preview-bg:#f5ecd9; }
+.theme-dot[data-t="hicontrast"]  { --preview-accent:#00ff88; --preview-card:#0a0a0a; --preview-bg:#000000; }
+.theme-dot[data-t="solar-dark"]  { --preview-accent:#2aa198; --preview-card:#073642; --preview-bg:#002b36; }
+.theme-dot[data-t="solar-light"] { --preview-accent:#2aa198; --preview-card:#ffffff; --preview-bg:#fdf6e3; }
+.theme-dot[data-t="nord"]        { --preview-accent:#88c0d0; --preview-card:#3b4252; --preview-bg:#2e3440; }
+/* Auto: vertical split between dark (forest) and light (paper) — the
+   horizontal cut contrasts with the 3-band horizontal layout of every
+   other theme so it's visually obvious that this entry is "different". */
+.theme-dot[data-t="auto"] {
+  background: linear-gradient(
+    to right,
+    #0f1418 0% 50%,
+    #faf8f4 50% 100%
+  );
+}
 
 /* ── Navigation ──────────────────────────────────────────────────────────── */
 .app-nav {
