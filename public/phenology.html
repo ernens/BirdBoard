@@ -99,6 +99,104 @@
     }
     .ph-cell.future { opacity: .15; }
     .ph-cell.now { box-shadow: 0 0 0 2px var(--accent); }
+    .ph-cell.has-data { cursor: pointer; }
+    .ph-cell.selected {
+      box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--accent);
+      transform: scale(1.4);
+      z-index: 6;
+    }
+    .ph-ribbon-hint {
+      font-size: .68rem; color: var(--text-muted);
+      margin-top: .35rem; font-style: italic;
+    }
+
+    /* ── Week zoom panel ───────────────────────────────────────── */
+    .ph-week-zoom {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+      border-left: 3px solid var(--accent);
+    }
+    .ph-zoom-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 1rem; margin-bottom: .85rem;
+    }
+    .ph-zoom-title {
+      font-size: 1rem; font-weight: 700; color: var(--text-main);
+    }
+    .ph-zoom-dates {
+      font-size: .78rem; color: var(--text-muted); margin-top: .15rem;
+    }
+    .ph-zoom-close {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 6px;
+      padding: .25rem .5rem; font-size: .72rem; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .ph-zoom-close:hover { color: var(--text-main); border-color: var(--accent); }
+    .ph-zoom-stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: .6rem; margin-bottom: 1rem;
+    }
+    .ph-zoom-stat {
+      background: var(--bg-card2);
+      border-radius: 8px; padding: .55rem .7rem;
+    }
+    .ph-zoom-stat-val {
+      font-size: 1.05rem; font-weight: 700; color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+    }
+    .ph-zoom-stat-lbl {
+      font-size: .65rem; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .04em;
+      margin-top: .15rem;
+    }
+    .ph-zoom-section-title {
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--text-muted); margin-bottom: .5rem;
+    }
+    .ph-hist {
+      display: flex; align-items: flex-end; gap: 2px;
+      height: 90px; padding: 0 .25rem; margin-bottom: .35rem;
+    }
+    .ph-hist-col {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; height: 100%; position: relative;
+    }
+    .ph-hist-bar {
+      width: 100%; min-height: 1px;
+      border-radius: 2px 2px 0 0;
+      transition: opacity .15s;
+    }
+    .ph-hist-bar:hover { opacity: .75; }
+    .ph-hist-bar.empty { background: var(--border); opacity: .35; }
+    .ph-hist-labels {
+      display: flex; gap: 2px; padding: 0 .25rem;
+      font-size: .62rem; color: var(--text-muted);
+    }
+    .ph-hist-labels > span { flex: 1; text-align: center; }
+    .ph-top-list {
+      display: flex; flex-direction: column; gap: .3rem;
+    }
+    .ph-top-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .35rem .55rem;
+      background: var(--bg-card2); border-radius: 6px;
+      font-size: .8rem;
+    }
+    .ph-top-date { color: var(--text-main); font-variant-numeric: tabular-nums; }
+    .ph-top-conf {
+      font-weight: 700; color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .ph-zoom-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width: 640px) {
+      .ph-zoom-grid { grid-template-columns: 1fr; }
+    }
     .ph-legend {
       display: flex; align-items: center; gap: .5rem;
       margin-top: .8rem; font-size: .72rem; color: var(--text-muted);
@@ -209,12 +307,15 @@
           <span>Mai</span><span>Juin</span><span>Juil</span><span>Août</span>
           <span>Sep</span><span>Oct</span><span>Nov</span><span>Déc</span>
         </div>
-        <div class="ph-ribbon">
+        <div class="ph-ribbon" ref="ribbonEl">
           <div v-for="cell in ribbonCells" :key="cell.week"
-               class="ph-cell" :class="{future: cell.future, now: cell.isCurrent}"
+               class="ph-cell"
+               :class="{future: cell.future, now: cell.isCurrent, 'has-data': cell.n > 0, selected: selectedWeek === cell.week}"
                :style="{background: cell.color}"
-               :title="cell.tooltip"></div>
+               :title="cell.tooltip"
+               @click="selectWeek(cell)"></div>
         </div>
+        <div class="ph-ribbon-hint">{{t('pheno_week_zoom_hint')}}</div>
         <div class="ph-legend">
           <span v-if="viewMode==='presence'">
             <span class="ph-legend-cell" :style="{background: 'var(--border)'}"></span> {{t('pheno_legend_absent')}}
@@ -235,6 +336,76 @@
             <span class="ph-legend-cell" :style="{background: '#ff7043'}"></span> {{t('pheno_legend_dusk')}} (18-22h)
           </span>
         </div>
+      </div>
+
+      <!-- ── Week zoom panel ─────────────────────────────────── -->
+      <div v-if="selectedWeek !== null" class="ph-week-zoom" ref="zoomEl">
+        <div class="ph-zoom-head">
+          <div>
+            <div class="ph-zoom-title">{{t('pheno_week_title')}} {{selectedWeek}}</div>
+            <div v-if="weekDetails?.date_from" class="ph-zoom-dates">
+              {{fmtDate(weekDetails.date_from)}}
+              <span v-if="weekDetails.date_to !== weekDetails.date_from"> → {{fmtDate(weekDetails.date_to)}}</span>
+            </div>
+          </div>
+          <button class="ph-zoom-close" @click="closeWeek">✕ {{t('pheno_week_close')}}</button>
+        </div>
+
+        <div v-if="!weekDetails" style="text-align:center;padding:1.5rem;color:var(--text-muted);font-size:.85rem;">
+          {{t('pheno_week_loading')}}
+        </div>
+
+        <template v-else>
+          <div class="ph-zoom-stats">
+            <div class="ph-zoom-stat">
+              <div class="ph-zoom-stat-val">{{weekDetails.n}}</div>
+              <div class="ph-zoom-stat-lbl">{{t('detections')}}</div>
+            </div>
+            <div class="ph-zoom-stat">
+              <div class="ph-zoom-stat-val">{{weekDetails.days}} / 7</div>
+              <div class="ph-zoom-stat-lbl">{{t('pheno_week_days_active')}}</div>
+            </div>
+            <div class="ph-zoom-stat" v-if="weekDetails.avg_hour != null">
+              <div class="ph-zoom-stat-val">{{weekDetails.avg_hour}}h</div>
+              <div class="ph-zoom-stat-lbl">{{t('pheno_week_avg_hour')}}</div>
+            </div>
+            <div class="ph-zoom-stat" v-if="weekDetails.first_time">
+              <div class="ph-zoom-stat-val">{{weekDetails.first_time?.substring(0,5)}} → {{weekDetails.last_time?.substring(0,5)}}</div>
+              <div class="ph-zoom-stat-lbl">{{t('pheno_week_first_last')}}</div>
+            </div>
+            <div class="ph-zoom-stat" v-if="weekPrevYearCount > 0">
+              <div class="ph-zoom-stat-val">{{weekPrevYearCount}}</div>
+              <div class="ph-zoom-stat-lbl">{{t('pheno_week_prev_year')}} {{selectedYear - 1}}</div>
+            </div>
+          </div>
+
+          <div class="ph-zoom-grid">
+            <div>
+              <div class="ph-zoom-section-title">{{t('pheno_week_hourly_dist')}}</div>
+              <div class="ph-hist">
+                <div v-for="h in 24" :key="'hb'+h" class="ph-hist-col">
+                  <div class="ph-hist-bar"
+                       :class="{empty: hourCount(h-1) === 0}"
+                       :style="{height: hourBarPct(h-1)+'%', background: hourCount(h-1) > 0 ? hourColor(h-1) : ''}"
+                       :title="(h-1)+'h : '+hourCount(h-1)"></div>
+                </div>
+              </div>
+              <div class="ph-hist-labels">
+                <span v-for="h in 24" :key="'hl'+h">{{(h-1)%4===0 ? (h-1)+'h' : ''}}</span>
+              </div>
+            </div>
+
+            <div v-if="weekDetails.top?.length">
+              <div class="ph-zoom-section-title">{{t('pheno_week_top_detections')}}</div>
+              <div class="ph-top-list">
+                <div v-for="(d, i) in weekDetails.top" :key="'td'+i" class="ph-top-row">
+                  <span class="ph-top-date">{{fmtDate(d.Date)}} · {{d.Time?.substring(0,5)}}</span>
+                  <span class="ph-top-conf">{{d.conf}}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- ── Inferred phases ──────────────────────────────────── -->
@@ -259,7 +430,7 @@
 
 <script>
 BIRDASH.ready.then(() => {
-  const { createApp, ref, computed, onMounted, watch } = Vue;
+  const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
   const { useI18n, useSpeciesNames, registerComponents,
           birdQuery, fmtDate, photoUrl } = BIRDASH;
   const Q = BIRDASH_QUERIES;
@@ -282,6 +453,12 @@ BIRDASH.ready.then(() => {
       const weeklyData = ref([]);
       const hourlyData = ref([]);
       const stats      = ref({ total: 0, first_date: null, last_date: null, activeWeeks: 0 });
+
+      // ── Week zoom state ──────────────────────────────────────
+      const selectedWeek    = ref(null);
+      const weekDetails     = ref(null);
+      const weekPrevYearCount = ref(0);
+      const zoomEl          = ref(null);
 
       // ── Read URL param ───────────────────────────────────────
       const url = new URL(window.location.href);
@@ -408,6 +585,60 @@ BIRDASH.ready.then(() => {
         return cells;
       });
 
+      // ── Week zoom: select / close / fetch ────────────────────
+      async function selectWeek(cell) {
+        if (cell.future || !cell.n) return;
+        if (selectedWeek.value === cell.week) {
+          closeWeek();
+          return;
+        }
+        selectedWeek.value = cell.week;
+        weekDetails.value = null;
+        weekPrevYearCount.value = 0;
+        try {
+          const [details, hourly, top, prev] = await Promise.all([
+            birdQuery(...Q.phenologyWeekDetails(currentSpecies.value, selectedYear.value, cell.week)),
+            birdQuery(...Q.phenologyWeekHourly(currentSpecies.value, selectedYear.value, cell.week)),
+            birdQuery(...Q.phenologyWeekTopDetections(currentSpecies.value, selectedYear.value, cell.week, 5)),
+            birdQuery(...Q.phenologyWeekPrevYear(currentSpecies.value, selectedYear.value, cell.week)),
+          ]);
+          weekDetails.value = {
+            ...(details[0] || {}),
+            hourly,
+            top,
+          };
+          weekPrevYearCount.value = (prev[0] && prev[0].n) || 0;
+          await nextTick();
+          if (zoomEl.value) {
+            zoomEl.value.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        } catch (e) {
+          console.error('selectWeek:', e);
+          weekDetails.value = { n: 0, days: 0, hourly: [], top: [] };
+        }
+      }
+
+      function closeWeek() {
+        selectedWeek.value = null;
+        weekDetails.value = null;
+        weekPrevYearCount.value = 0;
+      }
+
+      function hourCount(h) {
+        if (!weekDetails.value?.hourly) return 0;
+        const row = weekDetails.value.hourly.find(r => r.h === h);
+        return row ? row.n : 0;
+      }
+      function hourBarPct(h) {
+        if (!weekDetails.value?.hourly?.length) return 0;
+        const max = Math.max(1, ...weekDetails.value.hourly.map(r => r.n));
+        const n = hourCount(h);
+        return n > 0 ? Math.max(4, (n / max) * 100) : 0;
+      }
+
+      // Reset zoom whenever the context changes
+      watch([currentSpecies, selectedYear], closeWeek);
+
       function isoWeekOfYear(d) {
         const onejan = new Date(d.getFullYear(), 0, 1);
         return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
@@ -507,11 +738,13 @@ BIRDASH.ready.then(() => {
       onMounted(loadSpeciesList);
 
       return {
-        t, spName, fmtDate, photoUrl, phenoColor,
+        t, spName, fmtDate, photoUrl, phenoColor, hourColor,
         allSpecies, speciesSearch, onSpeciesPicked,
         currentSpecies, sciName, availableYears, selectedYear,
         viewMode, loaded, stats, ribbonCells, phases,
         reloadData,
+        selectedWeek, weekDetails, weekPrevYearCount, zoomEl,
+        selectWeek, closeWeek, hourCount, hourBarPct,
       };
     }
   });

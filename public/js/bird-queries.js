@@ -372,6 +372,38 @@
       ];
     },
 
+    /** Aggregate stats for one ISO week of a year — phenology week zoom */
+    phenologyWeekDetails(comName, year, week, c) {
+      return [
+        "SELECT MIN(Date) as date_from, MAX(Date) as date_to, COUNT(*) as n, COUNT(DISTINCT Date) as days, MIN(Time) as first_time, MAX(Time) as last_time, ROUND(AVG(CAST(SUBSTR(Time,1,2) AS REAL)),1) as avg_hour FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=?",
+        [comName, String(year), week, c || C()]
+      ];
+    },
+
+    /** Hourly histogram for one ISO week of a year — phenology week zoom */
+    phenologyWeekHourly(comName, year, week, c) {
+      return [
+        "SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=? GROUP BY h ORDER BY h",
+        [comName, String(year), week, c || C()]
+      ];
+    },
+
+    /** Top detections by confidence for one ISO week of a year — phenology week zoom */
+    phenologyWeekTopDetections(comName, year, week, limit, c) {
+      return [
+        "SELECT Date, Time, ROUND(Confidence*100,1) as conf, File_Name, Model FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=? ORDER BY Confidence DESC LIMIT ?",
+        [comName, String(year), week, c || C(), limit || 5]
+      ];
+    },
+
+    /** Same week of previous year — phenology week zoom (year-over-year) */
+    phenologyWeekPrevYear(comName, year, week, c) {
+      return [
+        "SELECT COUNT(*) as n FROM detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=?",
+        [comName, String(parseInt(year) - 1), week, c || C()]
+      ];
+    },
+
     /** Multi-year weekly counts for the same species — phenology multi-year overlay */
     phenologyMultiYear(comName, c) {
       return [

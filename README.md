@@ -11,38 +11,72 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 
 ## Screenshots
 
-### Live
-| Dashboard | Today | Spectrogram |
-|:-:|:-:|:-:|
-| ![Dashboard](screenshots/dashboard.png) | ![Today](screenshots/today.png) | ![Spectrogram](screenshots/spectrogram.png) |
+<details>
+<summary><b>Live</b> — Dashboard · Today · Spectrogram</summary>
 
-### History
-| Calendar | Timeline | Detections | Review |
-|:-:|:-:|:-:|:-:|
-| ![Calendar](screenshots/calendar.png) | ![Timeline](screenshots/timeline.png) | ![Detections](screenshots/detections.png) | ![Review](screenshots/review.png) |
+<p align="center">
+  <img src="screenshots/dashboard.png"   width="240" alt="Dashboard">
+  <img src="screenshots/today.png"       width="240" alt="Today">
+  <img src="screenshots/spectrogram.png" width="240" alt="Spectrogram">
+</p>
+</details>
 
-### Species
-| Species | Recordings | Gallery | Rarities |
-|:-:|:-:|:-:|:-:|
-| ![Species](screenshots/species.png) | ![Recordings](screenshots/recordings.png) | ![Gallery](screenshots/gallery.png) | ![Rarities](screenshots/rarities.png) |
+<details>
+<summary><b>History</b> — Calendar · Timeline · Detections · Review</summary>
 
-### Insights
-| Weather | Statistics | Analyses | Biodiversity |
-|:-:|:-:|:-:|:-:|
-| ![Weather](screenshots/weather.png) | ![Stats](screenshots/stats.png) | ![Analyses](screenshots/analyses.png) | ![Biodiversity](screenshots/biodiversity.png) |
+<p align="center">
+  <img src="screenshots/calendar.png"   width="240" alt="Calendar">
+  <img src="screenshots/timeline.png"   width="240" alt="Timeline">
+  <img src="screenshots/detections.png" width="240" alt="Detections">
+  <img src="screenshots/review.png"     width="240" alt="Review">
+</p>
+</details>
 
-### Station
-| System Health | Model Monitor | System Data | External |
-|:-:|:-:|:-:|:-:|
-| ![System](screenshots/system.png) | ![Model](screenshots/system-model.png) | ![Data](screenshots/system-data.png) | ![External](screenshots/system-external.png) |
+<details>
+<summary><b>Species</b> — Species · Recordings · Gallery · Rarities</summary>
 
-| Detection | Audio | Notifications | Station |
-|:-:|:-:|:-:|:-:|
-| ![Detection](screenshots/settings-detection.png) | ![Audio](screenshots/settings-audio.png) | ![Notifications](screenshots/settings-notif.png) | ![Station](screenshots/settings-station.png) |
+<p align="center">
+  <img src="screenshots/species.png"    width="240" alt="Species">
+  <img src="screenshots/recordings.png" width="240" alt="Recordings">
+  <img src="screenshots/gallery.png"    width="240" alt="Gallery">
+  <img src="screenshots/rarities.png"   width="240" alt="Rarities">
+</p>
+</details>
 
-| Services | Species | Backup | Terminal |
-|:-:|:-:|:-:|:-:|
-| ![Services](screenshots/settings-services.png) | ![Species](screenshots/settings-species.png) | ![Backup](screenshots/settings-backup.png) | ![Terminal](screenshots/settings-terminal.png) |
+<details>
+<summary><b>Insights</b> — Weather · Statistics · Analyses · Biodiversity · Phenology</summary>
+
+<p align="center">
+  <img src="screenshots/weather.png"      width="240" alt="Weather">
+  <img src="screenshots/stats.png"        width="240" alt="Statistics">
+  <img src="screenshots/analyses.png"     width="240" alt="Analyses">
+  <img src="screenshots/biodiversity.png" width="240" alt="Biodiversity">
+  <img src="screenshots/phenology.png"    width="240" alt="Phenology">
+</p>
+</details>
+
+<details>
+<summary><b>Station</b> — System health, settings &amp; terminal</summary>
+
+<p align="center">
+  <img src="screenshots/system.png"          width="240" alt="System health">
+  <img src="screenshots/system-model.png"    width="240" alt="Model monitor">
+  <img src="screenshots/system-data.png"     width="240" alt="System data">
+  <img src="screenshots/system-external.png" width="240" alt="External">
+</p>
+<p align="center">
+  <img src="screenshots/settings-detection.png" width="240" alt="Detection">
+  <img src="screenshots/settings-audio.png"     width="240" alt="Audio">
+  <img src="screenshots/settings-notif.png"     width="240" alt="Notifications">
+  <img src="screenshots/settings-station.png"   width="240" alt="Station">
+</p>
+<p align="center">
+  <img src="screenshots/settings-services.png" width="240" alt="Services">
+  <img src="screenshots/settings-species.png"  width="240" alt="Species">
+  <img src="screenshots/settings-backup.png"   width="240" alt="Backup">
+  <img src="screenshots/settings-terminal.png" width="240" alt="Terminal">
+</p>
+</details>
 
 ## Architecture
 
