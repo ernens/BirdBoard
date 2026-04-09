@@ -52,7 +52,6 @@ const BIRD_CONFIG = {
       { id: 'dashboard',   icon: 'zap', file: 'dashboard.html'   },
       { id: 'overview',     icon: 'layout-dashboard', file: 'overview.html'     },
       { id: 'today',        icon: 'calendar-days', file: 'today.html'        },
-      { id: 'recent',       icon: 'clock', file: 'recent.html'       },
     ]},
     { section: 'nav_sec_realtime', icon: 'circle-dot', items: [
       { id: 'spectrogram',  icon: 'radio', file: 'spectrogram.html'  },
