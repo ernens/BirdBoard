@@ -25,6 +25,7 @@ const _audioRoutes   = require('./routes/audio');
 const _photoRoutes   = require('./routes/photos');
 const _externalRoutes = require('./routes/external');
 const _settingsRoutes = require('./routes/settings');
+const _comparisonRoutes = require('./routes/comparison');
 
 const JSON_CT = { 'Content-Type': 'application/json' };
 const PORT    = process.env.BIRDASH_PORT || 7474;
@@ -190,6 +191,7 @@ const server = http.createServer((req, res) => {
   if (_detectionRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_externalRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_settingsRoutes.handle(req, res, pathname, _routeCtx)) return;
+  if (_comparisonRoutes.handle(req, res, pathname, _routeCtx)) return;
 
   console.warn(`[BIRDASH] 404 — route inconnue : ${req.method} ${pathname}`);
   if (res.headersSent) return;

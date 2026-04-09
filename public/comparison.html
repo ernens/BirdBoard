@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>BirdStation — Comparison</title>
+  <link rel="stylesheet" href="css/bird-styles.css">
+  <link rel="stylesheet" href="css/bird-pages.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js" integrity="sha384-wdamyDHEiblYHsu/XTokGtIeFekZu7xN37Yvkl0NZ7PnhwRB+nwE1ByT7VlwiypE" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="js/birdash-local.js" onerror=""></script>
+  <script src="js/bird-config.js"></script>
+  <script src="js/bird-shared.js"></script>
+  <script src="js/bird-queries.js"></script>
+  <script src="js/bird-icons.js"></script>
+  <script src="js/bird-vue-core.js"></script>
+  <style>
+    .cmp-arrow { font-size:.75rem; font-weight:700; }
+    .cmp-up   { color:var(--success,#5a9e3a); }
+    .cmp-down { color:var(--danger,#e06c4a); }
+    .cmp-new  { color:var(--accent); font-weight:600; }
+    .cmp-gone { color:var(--text-faint); text-decoration:line-through; opacity:.7; }
+    .yr-card  { text-align:center; padding:1rem; }
+    .yr-card .big { font-size:1.8rem; font-weight:700; }
+    .yr-card .sub { font-size:.78rem; opacity:.6; margin-top:.15rem; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <birdash-shell page="comparison" :title="t('nav_comparison')">
+
+    <!-- Controls -->
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <button @click="prevWeek" class="btn btn-secondary" style="padding:.4rem .7rem;">←</button>
+      <div style="font-weight:600;font-size:1rem;">
+        {{t('comparison_week')}} {{week}} · {{year}}
+      </div>
+      <button @click="nextWeek" class="btn btn-secondary" style="padding:.4rem .7rem;">→</button>
+      <button @click="goToday" class="btn btn-primary" style="padding:.4rem .8rem;font-size:.82rem;">{{t('today_btn')}}</button>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="loading" style="padding:1rem;">
+      <div class="skeleton-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1rem;">
+        <div class="skeleton skeleton-kpi" style="height:5rem;" v-for="i in 3" :key="i"></div>
+      </div>
+      <div class="skeleton skeleton-chart" style="height:200px;"></div>
+    </div>
+
+    <template v-else-if="data">
+
+      <!-- Year overview cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;margin-bottom:1.2rem;">
+        <div v-for="y in sortedYears" :key="y" class="card yr-card" :style="y==year ? 'border:2px solid var(--accent);' : ''">
+          <div class="big" :style="y==year ? 'color:var(--accent)' : ''">{{data.years[y]?.speciesCount || 0}}</div>
+          <div class="sub">{{t('species')}}</div>
+          <div style="font-weight:600;margin-top:.3rem;">{{y}}</div>
+          <div style="font-size:.75rem;color:var(--text-muted);">{{(data.years[y]?.totalDetections || 0).toLocaleString()}} {{t('detections')}}</div>
+        </div>
+      </div>
+
+      <!-- New arrivals + Departed -->
+      <div class="grid-2" style="margin-bottom:1.2rem;" v-if="data.newArrivals || data.departed">
+        <div class="card">
+          <div class="card-title" style="color:var(--success);">
+            <bird-icon name="plus-circle" :size="16"></bird-icon> {{t('comparison_new_arrivals')}} ({{(data.newArrivals||[]).length}})
+          </div>
+          <div v-if="!(data.newArrivals||[]).length" style="font-size:.82rem;opacity:.5;padding:.5rem;">{{t('comparison_none')}}</div>
+          <div v-for="s in (data.newArrivals||[])" :key="s.sci_name"
+               style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
+               @click="navigateTo('species.html',{species:s.com_name})">
+            <img :src="'api/photo?sci='+encodeURIComponent(s.sci_name)" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" loading="lazy" onerror="this.src='img/robin-logo.svg'">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.82rem;font-weight:600;">{{spName(s.com_name, s.sci_name)}}</div>
+              <div style="font-size:.7rem;color:var(--text-faint);font-style:italic;">{{s.sci_name}}</div>
+            </div>
+            <span class="cmp-new">{{s.total}}×</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="color:var(--danger);">
+            <bird-icon name="minus-circle" :size="16"></bird-icon> {{t('comparison_departed')}} ({{(data.departed||[]).length}})
+          </div>
+          <div v-if="!(data.departed||[]).length" style="font-size:.82rem;opacity:.5;padding:.5rem;">{{t('comparison_none')}}</div>
+          <div v-for="s in (data.departed||[]).slice(0,15)" :key="s.sci_name"
+               style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border);cursor:pointer;"
+               @click="navigateTo('species.html',{species:s.com_name})">
+            <img :src="'api/photo?sci='+encodeURIComponent(s.sci_name)" style="width:32px;height:32px;border-radius:50%;object-fit:cover;opacity:.5;" loading="lazy" onerror="this.src='img/robin-logo.svg'">
+            <div style="flex:1;min-width:0;">
+              <div class="cmp-gone" style="font-size:.82rem;">{{spName(s.com_name, s.sci_name)}}</div>
+            </div>
+            <span style="font-size:.78rem;color:var(--text-faint);">{{s.total}}× ({{data.comparison?.previousYear}})</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Common species comparison table -->
+      <div class="card" v-if="(data.common||[]).length">
+        <div class="card-title">{{t('comparison_common')}} ({{data.common.length}})</div>
+        <div style="overflow-x:auto;">
+          <table class="cmp-table" style="width:100%;border-collapse:collapse;font-size:.82rem;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:.4rem .6rem;">{{t('species')}}</th>
+                <th style="text-align:right;padding:.4rem .6rem;">{{year}}</th>
+                <th style="text-align:right;padding:.4rem .6rem;">{{data.comparison?.previousYear}}</th>
+                <th style="text-align:right;padding:.4rem .6rem;">Delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in data.common" :key="s.sci_name"
+                  style="cursor:pointer;" @click="navigateTo('species.html',{species:s.com_name})">
+                <td style="padding:.4rem .6rem;">
+                  <div style="display:flex;align-items:center;gap:.4rem;">
+                    <img :src="'api/photo?sci='+encodeURIComponent(s.sci_name)" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" loading="lazy" onerror="this.src='img/robin-logo.svg'">
+                    <span>{{spName(s.com_name, s.sci_name)}}</span>
+                  </div>
+                </td>
+                <td style="text-align:right;padding:.4rem .6rem;font-family:monospace;">{{s.total}}</td>
+                <td style="text-align:right;padding:.4rem .6rem;font-family:monospace;opacity:.6;">{{s.prevTotal}}</td>
+                <td style="text-align:right;padding:.4rem .6rem;">
+                  <span v-if="s.delta > 0" class="cmp-arrow cmp-up">+{{s.delta}} ↑</span>
+                  <span v-else-if="s.delta < 0" class="cmp-arrow cmp-down">{{s.delta}} ↓</span>
+                  <span v-else style="opacity:.4;">=</span>
+                  <span v-if="s.deltaPercent !== null" style="font-size:.7rem;opacity:.5;margin-left:.25rem;">({{s.deltaPercent > 0 ? '+' : ''}}{{s.deltaPercent}}%)</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </template>
+  </birdash-shell>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, watch } = Vue;
+const { useI18n, useTheme, useNav, useSpeciesNames, navigateTo, photoUrl } = BIRDASH;
+
+const app = createApp({
+  setup() {
+    const { lang, t } = useI18n();
+    useTheme(); useNav();
+    const { spName } = useSpeciesNames();
+
+    const year = ref(new Date().getFullYear());
+    const week = ref(0);
+    const data = ref(null);
+    const loading = ref(true);
+
+    // Compute current ISO week
+    function getISOWeek(d) {
+      const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+      return Math.ceil(((dt - yearStart) / 86400000 + 1) / 7);
+    }
+    week.value = getISOWeek(new Date());
+
+    const sortedYears = computed(() => {
+      if (!data.value?.years) return [];
+      return Object.keys(data.value.years).map(Number).sort();
+    });
+
+    async function loadData() {
+      loading.value = true;
+      try {
+        const resp = await fetch(`${BIRD_CONFIG.apiUrl}/comparison/weekly?week=${week.value}&year=${year.value}`);
+        data.value = await resp.json();
+      } catch(e) { console.error('comparison:', e); }
+      loading.value = false;
+    }
+
+    function prevWeek() { week.value--; if (week.value < 1) { week.value = 52; year.value--; } loadData(); }
+    function nextWeek() { week.value++; if (week.value > 52) { week.value = 1; year.value++; } loadData(); }
+    function goToday() { year.value = new Date().getFullYear(); week.value = getISOWeek(new Date()); loadData(); }
+
+    // URL param support
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('week')) week.value = parseInt(url.searchParams.get('week'));
+    if (url.searchParams.get('year')) year.value = parseInt(url.searchParams.get('year'));
+
+    onMounted(loadData);
+
+    return { t, spName, year, week, data, loading, sortedYears, prevWeek, nextWeek, goToday, navigateTo };
+  }
+});
+BIRDASH.ready.then(() => BIRDASH.registerComponents(app).mount('#app'));
+</script>
+</body>
+</html>
