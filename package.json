@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "start": "node server/server.js",
-    "test": "node --test tests/server.test.js"
+    "test": "node --test tests/server.test.js",
+    "test:e2e": "npx playwright test"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
     "suncalc": "^1.9.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "playwright": "^1.59.1"
   }
 }
