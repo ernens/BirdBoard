@@ -49,11 +49,11 @@ const BIRD_CONFIG = {
   // Navigation (grouped by user intent)
   nav: [
     { section: 'nav_sec_home', icon: 'home', items: [
-      { id: 'dashboard',   icon: 'zap', file: 'dashboard.html'   },
       { id: 'overview',     icon: 'layout-dashboard', file: 'overview.html'     },
       { id: 'today',        icon: 'calendar-days', file: 'today.html'        },
     ]},
     { section: 'nav_sec_realtime', icon: 'circle-dot', items: [
+      { id: 'dashboard',   icon: 'zap', file: 'dashboard.html'   },
       { id: 'spectrogram',  icon: 'radio', file: 'spectrogram.html'  },
       { id: 'log',          icon: 'scroll-text', file: 'log.html'          },
     ]},

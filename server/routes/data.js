@@ -5,6 +5,10 @@
 const path = require('path');
 const fs = require('fs');
 
+// ── Query result cache (2 min TTL for read-only queries) ─────────────────
+const _queryCache = new Map();
+const QUERY_CACHE_TTL = 2 * 60 * 1000;
+
 function handle(req, res, pathname, ctx) {
   const { requireAuth, db, dbWrite, readJsonFile, writeJsonFileAtomic, JSON_CT, validateQuery, photoCacheKey, PHOTO_CACHE_DIR } = ctx;
 
@@ -239,6 +243,15 @@ function handle(req, res, pathname, ctx) {
           return;
         }
 
+        // Cache expensive read-only queries for 2 min
+        const qKey = sql + '|' + JSON.stringify(params);
+        const qHit = _queryCache.get(qKey);
+        if (qHit && (Date.now() - qHit.ts) < QUERY_CACHE_TTL) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(qHit.json);
+          return;
+        }
+
         const stmt = db.prepare(sql);
         const rows = stmt.all(...params);
         if (rows.length > 10000) {
@@ -251,8 +264,10 @@ function handle(req, res, pathname, ctx) {
         const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
         const data    = rows.map(r => columns.map(c => r[c]));
 
+        const json = JSON.stringify({ columns, rows: data });
+        _queryCache.set(qKey, { json, ts: Date.now() });
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ columns, rows: data }));
+        res.end(json);
 
       } catch (err) {
         console.error('[BIRDASH] Erreur SQL :', err.message);

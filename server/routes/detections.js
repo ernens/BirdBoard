@@ -8,6 +8,16 @@ const fsp = fs.promises;
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
+// ── In-memory cache for expensive endpoints ──────────────────────────────
+const _cache = new Map();
+function cached(key, ttlMs, fn) {
+  const entry = _cache.get(key);
+  if (entry && (Date.now() - entry.ts) < ttlMs) return entry.data;
+  const data = fn();
+  _cache.set(key, { data, ts: Date.now() });
+  return data;
+}
+
 function handle(req, res, pathname, ctx) {
   const { requireAuth, db, dbWrite, birdashDb, taxonomyDb, readJsonFile, writeJsonFileAtomic, JSON_CT, SONGS_DIR, parseBirdnetConf } = ctx;
 
@@ -161,6 +171,15 @@ function handle(req, res, pathname, ctx) {
         const params = new URL(req.url, 'http://x').searchParams;
         const lang = params.get('lang') || '';
 
+        // Cache taxonomy for 10 min (expensive DISTINCT + N lookups)
+        const taxCacheKey = `tax_${lang}`;
+        const taxHit = _cache.get(taxCacheKey);
+        if (taxHit && (Date.now() - taxHit.ts) < 10 * 60 * 1000) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(taxHit.json);
+          return;
+        }
+
         // Build a family_sci → localized family_com map if lang is provided
         const famTr = {};
         if (lang && lang !== 'en') {
@@ -194,8 +213,10 @@ function handle(req, res, pathname, ctx) {
             families[r.familySci].count++;
           }
         }
+        const json = JSON.stringify({ species: result, orders, families });
+        _cache.set(taxCacheKey, { json, ts: Date.now() });
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ species: result, orders, families }));
+        res.end(json);
       } catch(e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));
@@ -390,6 +411,14 @@ function handle(req, res, pathname, ctx) {
         const days = Math.min(parseInt(qs.get('days') || '7'), 90);
         const minDate = qs.get('dateFrom') || new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
 
+        const cacheKey = `mc_${minDate}`;
+        const hit = _cache.get(cacheKey);
+        if (hit && (Date.now() - hit.ts) < 5 * 60 * 1000) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(hit.data));
+          return;
+        }
+
         // Models active in period
         const models = db.prepare(`
           SELECT DISTINCT Model FROM detections WHERE Date >= ?
@@ -453,8 +482,10 @@ function handle(req, res, pathname, ctx) {
           GROUP BY Date, Model ORDER BY Date
         `).all(minDate);
 
+        const result = { models, stats, unique, overlap, daily, since: minDate };
+        _cache.set(cacheKey, { data: result, ts: Date.now() });
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ models, stats, unique, overlap, daily, since: minDate }));
+        res.end(JSON.stringify(result));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));
