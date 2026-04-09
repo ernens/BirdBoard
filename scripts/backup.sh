@@ -9,6 +9,11 @@ LOCKFILE="/tmp/birdash-backup.lock"
 exec 200>"$LOCKFILE"
 if ! flock -n 200; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup déjà en cours — abandon" >> /var/log/birdash-backup.log
+    # Write blocked status so the UI can show feedback
+    STATUS_FILE="${BACKUP_STATUS:-$(dirname "$0")/../config/backup-status.json}"
+    cat > "$STATUS_FILE" <<BEOF
+{"state":"blocked","percent":0,"step":"","detail":"Un autre backup est déjà en cours","startedAt":null,"updatedAt":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')"}
+BEOF
     exit 0
 fi
 

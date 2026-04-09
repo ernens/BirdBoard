@@ -41,7 +41,7 @@
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ sql, params }),
     });
-    if (!res.ok) { _apiFailCount++; if (_apiFailCount >= 3) _showApiBanner(); const err = new Error(`HTTP ${res.status}`); window.dispatchEvent(new CustomEvent('birdash:error', { detail: 'API error: ' + res.status })); throw err; }
+    if (!res.ok) { _apiFailCount++; if (_apiFailCount >= 3) _showApiBanner(); const err = new Error(`HTTP ${res.status}`); if (res.status !== 429) window.dispatchEvent(new CustomEvent('birdash:error', { detail: 'API error: ' + res.status })); throw err; }
     _clearApiBanner();
     const data = await res.json();
     if (data.error) { window.dispatchEvent(new CustomEvent('birdash:error', { detail: data.error })); throw new Error(data.error); }

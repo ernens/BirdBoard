@@ -73,7 +73,7 @@ function getCorsOrigin(req) {
 // ── Rate limiter ─────────────────────────────────────────────────────────────
 const _rateBuckets = new Map();
 const RATE_WINDOW  = 60 * 1000;
-const RATE_MAX     = 120;
+const RATE_MAX     = 300;
 const _rateBucketCleanup = setInterval(() => {
   const now = Date.now();
   for (const [ip, b] of _rateBuckets) {

@@ -254,6 +254,12 @@
                   <span style="font-size:.72rem;font-family:monospace;color:var(--danger);">{{bkpProgress.percent}}%</span>
                 </div>
               </div>
+              <div v-else-if="bkpProgress.state === 'blocked'" style="margin-bottom:.5rem;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <span class="bkp-state-badge bkp-stopped" style="background:var(--warning,#c8a84b);">Bloqué</span>
+                  <span style="font-size:.78rem;color:var(--text-muted);">{{bkpProgress.detail || 'Un autre backup est déjà en cours'}}</span>
+                </div>
+              </div>
               <div v-else-if="bkpProgress.state === 'stopped'" style="margin-bottom:.5rem;">
                 <div style="display:flex;align-items:center;gap:.5rem;">
                   <span class="bkp-state-badge bkp-stopped">{{t('set_backup_state_stopped')}}</span>

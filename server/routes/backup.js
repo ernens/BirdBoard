@@ -229,7 +229,13 @@ function handle(req, res, pathname, ctx) {
 
         // Enrich with disk info for any running/paused backup
         if (status.state === 'running' || status.state === 'paused') {
-          const nfsPath = (_localConfig && _localConfig.nfsMountPath) || '/mnt/backup';
+          let nfsPath = '/mnt/backup';
+          try {
+            const cfgRaw = await fsp.readFile(path.join(PROJECT_ROOT, 'config', 'backup.json'), 'utf8');
+            const cfg = JSON.parse(cfgRaw);
+            if (cfg.destination === 'nfs' && cfg.nfs && cfg.nfs.mountPoint) nfsPath = cfg.nfs.mountPoint;
+            else if (cfg.destination === 'local' && cfg.local && cfg.local.path) nfsPath = cfg.local.path;
+          } catch(e) {}
           // df is instant — always include
           try {
             const dfOut = await execCmd('df', ['-B1', '--output=size,used,avail', nfsPath]);
