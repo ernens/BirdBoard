@@ -96,7 +96,7 @@
           <div v-if="photos.length>1" class="sp-thumbs">
             <div v-for="(p,i) in photos" :key="i" class="sp-thumb" :class="{active:i===photoIdx}"
                  @click="photoIdx=i">
-              <img :src="p.url" :alt="'photo '+(i+1)">
+              <img :src="p.url" :alt="'photo '+(i+1)" loading="lazy">
             </div>
           </div>
         </div>

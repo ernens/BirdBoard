@@ -104,6 +104,10 @@ async function cacheExternalPhoto(sciName, externalUrl, index) {
 }
 
 
+// ── species-info result cache (avoid hitting iNaturalist/Wikipedia on every page visit) ──
+const _speciesInfoCache = new Map(); // key: "sciName|lang" → { json, ts }
+const SPECIES_INFO_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 const _speciesNamesCache = {}; // lang → { sci: comName }
 let _detectedSpeciesCache = null;
 let _detectedSpeciesCacheTs = 0;
@@ -318,6 +322,15 @@ function handle(req, res, pathname, ctx) {
 
     (async () => {
       try {
+        // Check cache first
+        const infoCacheKey = `${sciName}|${infoLang}`;
+        const infoCached = _speciesInfoCache.get(infoCacheKey);
+        if (infoCached && (Date.now() - infoCached.ts) < SPECIES_INFO_TTL) {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' });
+          res.end(infoCached.json);
+          return;
+        }
+
         const result = { photos: [], summary: '', summaryFr: '', habitat: '', range: '', conservation: '', family: '', order: '', wingspan: '', size: '', diet: '' };
         const tn = encodeURIComponent(sciName);
 
@@ -442,11 +455,13 @@ function handle(req, res, pathname, ctx) {
         );
         result.photos = cachedPhotos;
 
+        const jsonStr = JSON.stringify(result);
+        _speciesInfoCache.set(infoCacheKey, { json: jsonStr, ts: Date.now() });
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Cache-Control': 'public, max-age=86400',
         });
-        res.end(JSON.stringify(result));
+        res.end(jsonStr);
       } catch(e) {
         console.error('[species-info]', e.message);
         if (!res.headersSent) {
