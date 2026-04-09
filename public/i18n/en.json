@@ -1138,5 +1138,7 @@
   "network_add": "Add station",
   "network_sync": "Sync",
   "network_no_peers": "No stations configured",
-  "network_last_sync": "Last sync"
+  "network_last_sync": "Last sync",
+  "review_conf_select": "Select by confidence",
+  "review_delete_selection": "Delete selection"
 }

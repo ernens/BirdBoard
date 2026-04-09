@@ -42,6 +42,7 @@
     .rv-mini { cursor:pointer; padding:.2rem .4rem; border-radius:.3rem; border:1px solid var(--border); background:var(--bg-card2); font-size:.75rem; }
     .rv-mini:hover { background:var(--accent); color:var(--on-accent); }
     .rv-sep { width:1px; height:20px; background:var(--border); flex-shrink:0; }
+    .rv-btn-outline.active { background:var(--danger); color:#fff; border-color:var(--danger); }
   </style>
 </head>
 <body>
@@ -73,7 +74,22 @@
         <button class="rv-btn rv-btn-no" @click="deleteSelected" :disabled="!selected.size" title="Supprimer définitivement"><bird-icon name="trash-2" :size="14" ></bird-icon> {{selected.size || ''}}</button>
       </div>
 
-      <!-- Row 3: Reject by rule + purge (only if applicable) -->
+      <!-- Row 3: Confidence threshold selector -->
+      <div class="rv-row">
+        <span style="font-size:.72rem;color:var(--text-muted);">{{t('review_conf_select')}} :</span>
+        <button v-for="th in [30,40,50,60,70]" :key="th"
+                class="rv-btn-outline" :class="{active: confThreshold===th}"
+                style="font-size:.72rem;padding:.18rem .45rem;"
+                @click="selectByConfidence(th)">
+          &lt;{{th}}% <span v-if="countBelow(th)" style="font-weight:700;">({{countBelow(th)}})</span>
+        </button>
+        <span class="rv-sep"></span>
+        <button v-if="selected.size" class="rv-btn rv-btn-no" style="font-size:.72rem;" @click="deleteSelected">
+          <bird-icon name="trash-2" :size="13" ></bird-icon> {{t('review_delete_selection')}} ({{selected.size}})
+        </button>
+      </div>
+
+      <!-- Row 4: Reject by rule + purge -->
       <div class="rv-row" v-if="reasonGroups.length || rejectedCount">
         <template v-if="reasonGroups.length">
           <span style="font-size:.72rem;color:var(--text-muted);">{{t('review_reject_rule')}} :</span>
@@ -285,6 +301,22 @@ const app = createApp({
     function toggleSelect(det) { const k=detKey(det); selected.has(k)?selected.delete(k):selected.add(k); }
     function selectAll() { selected.size===flagged.value.length ? selected.clear() : flagged.value.forEach(d => selected.add(detKey(d))); }
 
+    // ── Confidence-based selection ────────────────────────────
+    const confThreshold = ref(null);
+
+    function countBelow(pct) {
+      return flagged.value.filter(d => d.confidence < pct / 100).length;
+    }
+
+    function selectByConfidence(pct) {
+      selected.clear();
+      if (confThreshold.value === pct) { confThreshold.value = null; return; }
+      confThreshold.value = pct;
+      for (const d of flagged.value) {
+        if (d.confidence < pct / 100) selected.add(detKey(d));
+      }
+    }
+
     function playAudio(det) {
       const key = detKey(det);
       if (_audio && playingDet.value===key) { _audio.pause(); _audio=null; playingDet.value=null; return; }
@@ -350,7 +382,8 @@ const app = createApp({
       unreviewed, rejectedList, rejectedCount, confirmedCount, reasonGroups,
       delOpen, delItems, delDeleting, delDone, delResults,
       detKey, loadFlagged, validate, bulkAction, bulkRejectByReason, validatingKey,
-      toggleSelect, selectAll, playAudio, openSpectro,
+      toggleSelect, selectAll, confThreshold, countBelow, selectByConfidence,
+      playAudio, openSpectro,
       deleteSelected, openDeleteModal, closeDeleteModal, executeDelete,
     };
   }

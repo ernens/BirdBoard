@@ -493,6 +493,8 @@
   "review_purge_warning": "Les détections suivantes seront supprimées de la base de données et les fichiers audio associés seront effacés. Cette action est irréversible.",
   "review_purge_confirm": "Supprimer définitivement",
   "review_delete_done": "Suppression terminée",
+  "review_conf_select": "Sélectionner par confiance",
+  "review_delete_selection": "Supprimer la sélection",
   "models_detections": "détections",
   "models_species": "espèces",
   "models_avg_conf": "conf. moy.",

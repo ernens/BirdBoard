@@ -1138,5 +1138,7 @@
   "network_add": "Station toevoegen",
   "network_sync": "Synchroniseren",
   "network_no_peers": "Geen stations geconfigureerd",
-  "network_last_sync": "Laatste sync"
+  "network_last_sync": "Laatste sync",
+  "review_conf_select": "Selecteren op betrouwbaarheid",
+  "review_delete_selection": "Selectie verwijderen"
 }
