@@ -680,6 +680,73 @@ function handle(req, res, pathname, ctx) {
 
   // (Adaptive gain: state, agPushSample, agUpdate defined at module level)
 
+  // ── Route : GET /api/stats/daily ──────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/stats/daily') {
+    const qs = new URL(req.url, 'http://x').searchParams;
+    const from = qs.get('from') || '2000-01-01';
+    const to   = qs.get('to')   || '2099-12-31';
+    const minConf = parseFloat(qs.get('minConf') || '0');
+    try {
+      const rows = db.prepare(
+        'SELECT date, sci_name, com_name, count, avg_conf, max_conf, first_time, last_time FROM daily_stats WHERE date BETWEEN ? AND ?' + (minConf > 0 ? ' AND avg_conf >= ?' : '') + ' ORDER BY date, com_name'
+      ).all(...(minConf > 0 ? [from, to, minConf] : [from, to]));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ── Route : GET /api/stats/species ────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/stats/species') {
+    try {
+      const rows = db.prepare(
+        'SELECT sci_name, com_name, total_count, first_date, last_date, avg_conf, day_count FROM species_stats ORDER BY total_count DESC'
+      ).all();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ── Route : GET /api/stats/monthly ────────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/stats/monthly') {
+    const qs = new URL(req.url, 'http://x').searchParams;
+    const from = qs.get('from') || '2000-01';
+    const to   = qs.get('to')   || '2099-12';
+    try {
+      const rows = db.prepare(
+        'SELECT year_month, sci_name, com_name, count, avg_conf, day_count FROM monthly_stats WHERE year_month BETWEEN ? AND ? ORDER BY year_month, count DESC'
+      ).all(from, to);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ── Route : POST /api/admin/rebuild-stats ─────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/admin/rebuild-stats') {
+    if (!requireAuth(req, res)) return true;
+    try {
+      const { rebuildAll } = require('../lib/aggregates');
+      const result = rebuildAll(ctx.dbWrite || dbWrite);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...result }));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
   return false;
 }
 

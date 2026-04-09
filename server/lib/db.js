@@ -99,6 +99,10 @@ dbWrite.exec(`CREATE TABLE IF NOT EXISTS photo_preferences (
   PRIMARY KEY (sci_name)
 )`);
 
+// ── Pre-aggregated statistics tables ──────────────────────────────────────────
+const aggregates = require('./aggregates');
+aggregates.createTables(dbWrite);
+
 console.log(`[BIRDASH] birds.db ouvert : ${DB_PATH}`);
 
 // ── Birdash validation database ──────────────────────────────────────────────
@@ -255,7 +259,9 @@ async function refreshTaxonomy() {
 module.exports = {
   db, dbWrite, birdashDb, taxonomyDb, DB_PATH, SONGS_DIR,
   EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID,
+  aggregates,
   refreshTaxonomy, closeAll() {
+    aggregates.stopPeriodicRefresh();
     try { db.close(); } catch{} try { dbWrite.close(); } catch{}
     try { if (taxonomyDb) taxonomyDb.close(); } catch{} try { if (birdashDb) birdashDb.close(); } catch{}
   },

@@ -13,7 +13,7 @@ const { BIRDNET_CONF, BIRDNET_DIR, ALLOWED_SERVICES, SETTINGS_VALIDATORS,
         parseBirdnetConf, writeBirdnetConf, execCmd } = require('./lib/config');
 const { db, dbWrite, birdashDb, taxonomyDb, SONGS_DIR,
         EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID,
-        refreshTaxonomy, closeAll: closeAllDbs } = require('./lib/db');
+        aggregates, refreshTaxonomy, closeAll: closeAllDbs } = require('./lib/db');
 const _alerts        = require('./lib/alerts');
 const _backupRoutes  = require('./routes/backup');
 const _timelineRoutes = require('./routes/timeline');
@@ -115,6 +115,11 @@ function writeJsonFileAtomic(p, data) {
 // ── Start subsystems ─────────────────────────────────────────────────────────
 _alerts.startAlerts({ db, execCmd, parseBirdnetConf, ALLOWED_SERVICES });
 setTimeout(() => refreshTaxonomy().catch(e => console.error('[BIRDASH] Taxonomy refresh error:', e.message)), 3000);
+// Pre-aggregated stats: rebuild on startup, refresh every 5 min
+setTimeout(() => {
+  try { aggregates.rebuildAll(dbWrite); } catch(e) { console.error('[BIRDASH] Aggregate rebuild error:', e.message); }
+  aggregates.startPeriodicRefresh(dbWrite);
+}, 5000);
 
 // ── Route context ────────────────────────────────────────────────────────────
 const _routeCtx = {
