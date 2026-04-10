@@ -315,15 +315,20 @@ else
     ok "Perch V2 INT8 downloaded (best for $(echo $PI_MODEL | grep -oP 'Pi \d+' || echo 'this hardware'))"
 fi
 
-# BirdNET V2.4 (CC-NC-SA license — cannot redistribute, user must provide)
-if [ ! -f "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" ] || \
-   [ "$(stat -c%s "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" 2>/dev/null || echo 0)" -lt 1000 ]; then
-    warn "BirdNET V2.4 model not found. Download manually (CC-NC-SA license):"
-    echo "    From: https://github.com/kahst/BirdNET-Analyzer"
-    echo "    Copy to: $MODELS_DIR/"
-    echo "    Files needed: BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite"
-    echo "                  BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt"
-    echo "                  BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite"
+# BirdNET V2.4 (CC-NC-SA license)
+# Can be downloaded automatically via Settings → Detection in the dashboard,
+# or via the birdnetlib pip package (which bundles the models).
+BIRDNET_FOUND=0
+for bn in BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite; do
+    if [ -f "$MODELS_DIR/$bn" ] && [ "$(stat -c%s "$MODELS_DIR/$bn" 2>/dev/null || echo 0)" -gt 1000000 ]; then
+        BIRDNET_FOUND=1; break
+    fi
+done
+if [ "$BIRDNET_FOUND" = "0" ]; then
+    warn "BirdNET V2.4 not installed yet."
+    echo "    → Use the dashboard: Settings → Detection → 'Download BirdNET V2.4' button"
+    echo "    → Or manually: pip install birdnetlib and copy models to $MODELS_DIR/"
+    echo "    → License: CC-NC-SA 4.0 (non-commercial use only)"
 fi
 
 # Labels l18n directory

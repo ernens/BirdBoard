@@ -181,7 +181,8 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> Real-time VU meters via SSE
 
 ### Settings & System
-- <img src="docs/icons/wrench.svg" width="16" align="top" alt=""> Full settings UI — models, analysis parameters, notifications, audio, backup
+- <img src="docs/icons/wrench.svg" width="16" align="top" alt=""> Full settings UI — models (one-click BirdNET download with license acceptance), analysis parameters, notifications, audio, backup
+- <img src="docs/icons/map-pin.svg" width="16" align="top" alt=""> **Interactive GPS map** — Leaflet/OpenStreetMap widget in station settings with click-to-set, drag marker, and geolocation button
 - <img src="docs/icons/monitor.svg" width="16" align="top" alt=""> System health — CPU, RAM, disk, temperature, services
 - <img src="docs/icons/terminal.svg" width="16" align="top" alt=""> **Web terminal** — full bash in browser, supports Claude Code
 - <img src="docs/icons/save.svg" width="16" align="top" alt=""> **Backup** — NFS/SMB/SFTP/S3/GDrive/WebDAV with scheduling
@@ -208,14 +209,14 @@ Benchmarked on 20 real bird recordings from 20 species, 4 threads.
 
 | Component | Recommended |
 |-----------|-------------|
-| SBC | Raspberry Pi 5 (8GB) |
+| SBC | Raspberry Pi 5 (8GB) recommended — also works on Pi 4 (4GB+) and Pi 3 (1GB, INT8 models only) |
 | Storage | NVMe SSD (500GB+) |
 | Audio | Any USB audio interface (e.g., RODE AI-Micro, Focusrite Scarlett, Behringer UMC) |
 | Network | Ethernet or WiFi |
 
 ## Prerequisites
 
-- Raspberry Pi 5 (4 or 8 GB) with Raspberry Pi OS 64-bit (Bookworm/Trixie)
+- Raspberry Pi 3/4/5 with Raspberry Pi OS 64-bit (Bookworm/Trixie) — Pi 5 recommended for dual-model
 - Internet connection (for initial setup and model download)
 - USB audio interface + microphone(s)
 
@@ -231,16 +232,16 @@ cd birdash
 chmod +x install.sh
 ./install.sh
 
-# 2. Edit your station location
-sudo nano /etc/birdnet/birdnet.conf    # Set LATITUDE, LONGITUDE, DATABASE_LANG
-nano engine/config.toml                # Station name, BirdWeather ID, ntfy URL
-nano public/js/birdash-local.js        # Location for eBird integration
-
-# 3. Start all services
+# 2. Start all services
 sudo systemctl enable --now birdengine-recording birdengine birdash caddy ttyd
+
+# 3. Open the dashboard and configure
+#    → Settings → Station: set GPS coordinates via interactive map
+#    → Settings → Detection: download BirdNET V2.4 (one-click)
+#    → Settings → Audio: select your USB audio device
 ```
 
-The installer handles everything: system packages, Caddy, ttyd, databases, models, services, and cron jobs. See `install.sh` for details.
+The installer handles everything: system packages, Caddy, ttyd, databases, Perch V2 models (auto-downloaded from HuggingFace, variant adapted to your Pi model), services, and cron jobs. BirdNET V2.4 is installed via the dashboard (CC-NC-SA license acceptance required).
 
 Your dashboard will be available at `http://yourpi.local/birds/`
 
@@ -287,14 +288,16 @@ sudo systemctl restart birdengine birdengine-recording
 | 3 | Python venv + ML dependencies (ai-edge-litert, numpy, soundfile, resampy, scipy, noisereduce) |
 | 4 | Directory structure (audio, models, BirdSongs) |
 | 5 | Database bootstrap (birds.db + birdash.db with full schema) |
-| 6 | Configuration files (birdnet.conf, engine config, ALSA, Caddy) |
-| 7 | Model download (Perch V2 FP16 from HuggingFace) |
+| 6 | Configuration files (birdnet.conf with Pi-aware dual-model defaults, engine config, Caddy) |
+| 7 | Model download — Perch V2 from HuggingFace (INT8 on Pi 3, + FP16/FP32 on Pi 4/5) |
 | 8 | Systemd services (engine, recording, dashboard, terminal) |
 | 9 | Caddy reverse proxy |
 | 10 | Cron jobs (audio cleanup) |
 
-> **Note:** BirdNET V2.4 model must be copied manually due to its CC-NC-SA license.
-> Download from [BirdNET-Analyzer](https://github.com/kahst/BirdNET-Analyzer).
+> **Note:** BirdNET V2.4 (CC-NC-SA license) can be installed directly from the dashboard:
+> **Settings → Detection → Download BirdNET V2.4**. The download button fetches models
+> from the official [birdnetlib](https://pypi.org/project/birdnetlib/) package. You must
+> accept the CC-NC-SA 4.0 license (non-commercial use only).
 
 ## Tests
 
