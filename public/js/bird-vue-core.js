@@ -48,7 +48,7 @@
   "_meta": {
     "lang": "fr",
     "label": "Français",
-    "flag": "🇫🇷"
+    "flag": "FR"
   },
   "nav_sec_realtime": "En direct",
   "nav_sec_history": "Historique",

@@ -733,7 +733,7 @@ a:hover { opacity: .85; }
   box-shadow:   0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-.lang-flag { font-size: .9rem; line-height: 1; }
+.lang-flag { font-size: .65rem; font-weight: 700; line-height: 1; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); padding: .15rem .3rem; border-radius: 3px; letter-spacing: .04em; }
 .hdr-label { letter-spacing: .03em; }
 
 .hdr-chevron {
