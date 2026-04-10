@@ -618,20 +618,17 @@ function handle(req, res, pathname, ctx) {
         const { execSync } = require('child_process');
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, message: 'Download started — this may take a few minutes' }));
+        res.end(JSON.stringify({ ok: true, message: 'Download started — this may take several minutes on slower hardware' }));
 
-        // Run in background (don't block the response)
-        const script = [
-          `python3 -m venv ${venvDir}`,
-          `${venvDir}/bin/pip install --quiet birdnetlib`,
-          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/`,
-          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite ${modelsDir}/`,
-          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Labels.txt ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt`,
-          `rm -rf ${venvDir}`,
-        ].join(' && ');
-
-        execSync(`bash -c '${script}'`, { timeout: 300000 });
-        console.log('[BIRDASH] BirdNET models downloaded via birdnetlib');
+        // Run in background (don't block the response or timeout)
+        const script = `python3 -m venv ${venvDir} && ${venvDir}/bin/pip install --quiet birdnetlib && cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/ && cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite ${modelsDir}/ && cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Labels.txt ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt && rm -rf ${venvDir} && echo BIRDNET_DOWNLOAD_OK`;
+        const { spawn } = require('child_process');
+        const proc = spawn('bash', ['-c', script], { stdio: 'pipe' });
+        proc.stdout.on('data', d => { if (d.toString().includes('BIRDNET_DOWNLOAD_OK')) console.log('[BIRDASH] BirdNET models downloaded via birdnetlib'); });
+        proc.stderr.on('data', d => { /* ignore pip warnings */ });
+        proc.on('close', code => {
+          if (code !== 0) console.error('[download-birdnet] Process exited with code', code);
+        });
       } catch(e) {
         console.error('[download-birdnet]', e.message);
         if (!res.headersSent) {
