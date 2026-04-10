@@ -1340,9 +1340,11 @@
     settings:     'nav_settings',
     system:       'nav_system',
     phenology:    'nav_phenology',
+    comparison:   'nav_comparison',
     favorites:    'nav_favorites',
     weather:      'nav_weather',
     log:          'nav_log',
+    network:      'nav_network',
   };
 
   function useNav(pageId) {
