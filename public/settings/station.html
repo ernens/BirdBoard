@@ -1,4 +1,4 @@
-      <div class="settings-grid">
+      <div class="settings-grid" style="align-items:stretch;">
 
         <!-- ═══ Location (left column) ═══ -->
         <div class="card">
@@ -12,7 +12,7 @@
             <input v-model="conf.SITE_NAME" class="set-input">
           </div>
           <!-- Interactive map for GPS coordinates -->
-          <div id="station-map" style="height:240px;border-radius:8px;border:1px solid var(--border);margin:.6rem 0;background:var(--bg-card2);"></div>
+          <div id="station-map" style="height:240px;border-radius:8px;border:1px solid var(--border);margin:.6rem 0;background:var(--bg-card2);flex:1;min-height:200px;"></div>
           <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;">
             <div style="flex:1;min-width:100px;">
               <span class="set-label">{{t('set_latitude')}}</span>
@@ -50,20 +50,18 @@
           </div>
 
           <!-- BirdWeather -->
-          <div class="card">
+          <div class="card" style="flex:1;">
             <div class="section-title"><bird-icon name="cloud-sun" :size="14" ></bird-icon> {{t('set_birdweather')}}</div>
             <div class="set-row">
               <span class="set-label">Station ID <button class="info-btn" @click="helpKey='birdweather'">i</button></span>
-              <div style="display:flex;align-items:center;gap:.4rem;">
-                <input v-model="conf.BIRDWEATHER_ID" class="set-input" placeholder="empty = disabled">
-                <a v-if="conf.BIRDWEATHER_ID" :href="'https://app.birdweather.com/stations/'+conf.BIRDWEATHER_ID"
-                   target="_blank" rel="noopener" class="btn btn-secondary"
-                   style="font-size:.72rem;padding:.3rem .5rem;white-space:nowrap;text-decoration:none;">
-                  <bird-icon name="external-link" :size="12" ></bird-icon> BirdWeather
-                </a>
-              </div>
+              <input v-model="conf.BIRDWEATHER_ID" class="set-input" placeholder="empty = disabled">
             </div>
-            <div class="set-row">
+            <a v-if="conf.BIRDWEATHER_ID" :href="'https://app.birdweather.com/stations/'+conf.BIRDWEATHER_ID"
+               target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--accent);text-decoration:none;margin-top:.2rem;">
+              <bird-icon name="external-link" :size="13" ></bird-icon> app.birdweather.com/stations/{{conf.BIRDWEATHER_ID}}
+            </a>
+            <div class="set-row" style="margin-top:.5rem;">
               <span class="set-label">{{t('set_rtsp_stream')}} <button class="info-btn" @click="helpKey='rtsp'">i</button></span>
               <input v-model="conf.RTSP_STREAM" class="set-input" style="width:100%;" placeholder="rtsp://...">
             </div>
