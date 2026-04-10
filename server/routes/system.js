@@ -629,7 +629,36 @@ function handle(req, res, pathname, ctx) {
         res.end(JSON.stringify({ ok: true, message: 'Download started — this may take several minutes on slower hardware' }));
 
         // Run in background (don't block the response or timeout)
-        const script = `python3 -m venv ${venvDir} && ${venvDir}/bin/pip install --quiet birdnetlib && cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/ && cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite ${modelsDir}/ && cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Labels.txt ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt && ln -sf BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite && rm -rf ${venvDir} && echo BIRDNET_DOWNLOAD_OK`;
+        const l18nDir = path.join(modelsDir, 'l18n');
+        const script = [
+          `python3 -m venv ${venvDir}`,
+          `${venvDir}/bin/pip install --quiet birdnetlib`,
+          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/`,
+          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite ${modelsDir}/`,
+          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Labels.txt ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt`,
+          `ln -sf BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite`,
+          // Download l18n species name translations from BirdNET repo
+          `mkdir -p ${l18nDir}`,
+          `${venvDir}/bin/python3 -c "
+import urllib.request, json, os
+langs = ['af','ar','bg','ca','cs','da','de','el','en_uk','es','et','fi','fr','gl','he','hr','hu','id','is','it','ja','ko','lt','lv','nl','no','pl','pt_br','pt','ro','ru','sk','sl','sr','sv','th','tr','uk','zh']
+base = 'https://raw.githubusercontent.com/birdnet-team/BirdNET-Analyzer/main/birdnet_analyzer/labels/V2.4/BirdNET_GLOBAL_6K_V2.4_Labels_{}.txt'
+for lang in langs:
+    try:
+        url = base.format(lang)
+        data = urllib.request.urlopen(url).read().decode('utf-8')
+        d = {}
+        for line in data.strip().split(chr(10)):
+            parts = line.split('_', 1)
+            if len(parts) == 2: d[parts[0]] = parts[1]
+        out = '${l18nDir}/labels_' + lang.replace('_','-') + '.json'
+        with open(out, 'w') as f: json.dump(d, f, ensure_ascii=False, indent=2)
+    except: pass
+print('l18n: downloaded', len(os.listdir('${l18nDir}')), 'languages')
+"`,
+          `rm -rf ${venvDir}`,
+          `echo BIRDNET_DOWNLOAD_OK`,
+        ].join(' && ');
         const { spawn } = require('child_process');
         const proc = spawn('bash', ['-c', script], { stdio: 'pipe' });
         proc.stdout.on('data', d => { if (d.toString().includes('BIRDNET_DOWNLOAD_OK')) console.log('[BIRDASH] BirdNET models downloaded via birdnetlib'); });

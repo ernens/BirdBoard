@@ -1,6 +1,7 @@
 [Unit]
 Description=BirdEngine Recording — Audio capture
-After=sound.target
+After=sound.target birdash.service
+Wants=birdash.service
 
 [Service]
 Type=simple

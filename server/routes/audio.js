@@ -857,6 +857,12 @@ function _agBgStart() {
       console.log('[adaptive-gain] Created audio_config.json from template');
     }
     if (!fs.existsSync(_AG_AUDIO_CFG_PATH)) { console.warn('[adaptive-gain] No audio_config.json — skipping'); return; }
+    // Skip if recording service is running (would lock the device on mono USB cards)
+    try {
+      const { execSync } = require('child_process');
+      const active = execSync('systemctl is-active birdengine-recording 2>/dev/null || true', { encoding: 'utf8' }).trim();
+      if (active === 'active') { console.log('[adaptive-gain] Recording service active — skipping collector to avoid device conflict'); return; }
+    } catch(e) {}
     const audioCfg = JSON.parse(fs.readFileSync(_AG_AUDIO_CFG_PATH, 'utf8'));
     const device = audioCfg.device_id || 'default';
     const channels = audioCfg.input_channels || 2;
