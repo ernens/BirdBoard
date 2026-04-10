@@ -835,12 +835,17 @@ a:hover { opacity: .85; }
   border-bottom: 1px solid var(--border);
 }
 
+.nav-section-wrap {
+  flex:         1;
+  position:     relative;
+}
+
 .nav-section-btn {
-  flex:           1;
+  width:          100%;
   display:        flex;
   align-items:    center;
   justify-content:center;
-  gap:            .45rem;
+  gap:            .4rem;
   padding:        .65rem .5rem;
   background:     none;
   border:         none;
@@ -854,10 +859,14 @@ a:hover { opacity: .85; }
   white-space:    nowrap;
 }
 
+.nav-chevron { opacity:.4; transition: transform .2s, opacity .2s; }
+.nav-chevron.open { transform: rotate(180deg); opacity:.7; }
+
 .nav-section-btn:hover {
   color:          var(--text-main);
   background:     color-mix(in srgb, var(--accent) 8%, transparent);
 }
+.nav-section-btn:hover .nav-chevron { opacity:.7; }
 
 .nav-section-btn.active {
   color:          var(--accent);
@@ -874,24 +883,39 @@ a:hover { opacity: .85; }
   font-size:      1rem;
 }
 
-/* Page links (sub-row, shown for open section) */
-.nav-pages {
+/* Dropdown panel (replaces old sub-row) */
+.nav-dropdown {
+  position:       absolute;
+  top:            100%;
+  left:           50%;
+  transform:      translateX(-50%);
+  min-width:      200px;
+  padding:        .4rem;
+  background:     var(--bg-card);
+  border:         1px solid var(--border);
+  border-radius:  10px;
+  box-shadow:     0 8px 24px rgba(0,0,0,.25);
+  backdrop-filter: blur(12px);
+  z-index:        100;
   display:        flex;
-  justify-content:center;
-  gap:            .15rem;
-  padding:        .15rem .5rem;
-  background:     color-mix(in srgb, var(--bg-deep) 50%, var(--bg-card));
+  flex-direction: column;
+  gap:            .1rem;
+  animation:      navDropIn .15s ease-out;
+}
+@keyframes navDropIn {
+  from { opacity:0; transform:translateX(-50%) translateY(-6px); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0); }
 }
 
 .nav-link {
   display:       flex;
   align-items:   center;
-  gap:           .3rem;
-  padding:       .45rem .75rem;
+  gap:           .4rem;
+  padding:       .5rem .75rem;
   color:         var(--text-muted);
-  font-size:     .8rem;
+  font-size:     .82rem;
   font-weight:   500;
-  border-radius: .4rem;
+  border-radius: .5rem;
   transition:    all .15s;
   white-space:   nowrap;
 }
@@ -1594,8 +1618,10 @@ a:hover { opacity: .85; }
   .brand-name { font-size: 1.4rem; }
   .nav-section-btn { font-size: .75rem; padding: .5rem .3rem; }
   .nav-section-btn .nav-section-icon { display: none; }
-  .nav-label { display: none; }
-  .nav-link  { padding: .45rem .4rem; }
+  .nav-chevron { display: none; }
+  .nav-dropdown { left: 0; transform: none; min-width: 160px; }
+  .nav-label { display: inline; }
+  .nav-link  { padding: .45rem .6rem; }
   .kpi-grid  { grid-template-columns: repeat(2, 1fr); }
   .hdr-label { display: none; }
   .header-dropdowns { flex-direction: row; gap: .3rem; }

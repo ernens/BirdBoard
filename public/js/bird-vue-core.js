@@ -1850,12 +1850,20 @@
       const { navItems, navSections, siteName, brandName } = useNav(props.page);
       const { toasts } = useToast();
       // Open the section containing the current page by default
-      const openSection = ref(
-        (BIRD_CONFIG.nav || []).findIndex(sec => sec.items.some(p => p.id === props.page))
-      );
+      const openSection = ref(-1); // dropdown closed by default
+      const hoverSection = ref(-1);
       function navSectionClick(si) {
         if (openSection.value === si) { openSection.value = -1; return; }
         openSection.value = si;
+      }
+      // Close dropdown when clicking outside
+      if (typeof document !== 'undefined') {
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('.nav-section-wrap')) openSection.value = -1;
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') openSection.value = -1;
+        });
       }
       const { spName, spNamesReady }    = useSpeciesNames();
       const langOpen = ref(false);
@@ -2201,7 +2209,7 @@
       const drawerOpen = ref(false);
       function toggleDrawer() { drawerOpen.value = !drawerOpen.value; }
       function drawerNavClick(si) { navSectionClick(si); }
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, dismissUpdate, updateNotesHtml };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, dismissUpdate, updateNotesHtml };
     },
     directives: {
       'click-outside': {
@@ -2334,21 +2342,24 @@
   </header>
   <nav class="app-nav" aria-label="Navigation principale">
     <div class="nav-sections">
-      <button v-for="(sec, si) in navSections" :key="si"
-              class="nav-section-btn"
-              :class="{active: openSection === si, 'has-active-page': sec.items.some(p => p.active)}"
-              @click="navSectionClick(si)">
-        <span class="nav-section-icon"><bird-icon :name="sec.icon" :size="16" ></bird-icon></span>
-        {{sec.section}}
-      </button>
-    </div>
-    <div v-if="openSection >= 0 && navSections[openSection]" class="nav-pages">
-      <a v-for="p in navSections[openSection].items" :key="p.id" :href="p.file"
-         class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
-        <span class="nav-icon" aria-hidden="true"><bird-icon :name="p.icon" :size="16" ></bird-icon></span>
-        <span class="nav-label">{{p.label}}</span>
-        <span v-if="p.id==='review' && reviewCount > 0" class="nav-badge">{{reviewCount}}</span>
-      </a>
+      <div v-for="(sec, si) in navSections" :key="si" class="nav-section-wrap"
+           @mouseenter="hoverSection=si" @mouseleave="hoverSection=-1">
+        <button class="nav-section-btn"
+                :class="{active: openSection === si, 'has-active-page': sec.items.some(p => p.active)}"
+                @click="navSectionClick(si)">
+          <span class="nav-section-icon"><bird-icon :name="sec.icon" :size="16" ></bird-icon></span>
+          {{sec.section}}
+          <svg class="nav-chevron" :class="{open: openSection===si}" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+        </button>
+        <div v-show="openSection === si" class="nav-dropdown" @click="openSection=-1">
+          <a v-for="p in sec.items" :key="p.id" :href="p.file"
+             class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
+            <span class="nav-icon" aria-hidden="true"><bird-icon :name="p.icon" :size="16" ></bird-icon></span>
+            <span class="nav-label">{{p.label}}</span>
+            <span v-if="p.id==='review' && reviewCount > 0" class="nav-badge">{{reviewCount}}</span>
+          </a>
+        </div>
+      </div>
     </div>
   </nav>
   <main id="birdash-main" class="app-main" role="main">
