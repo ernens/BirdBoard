@@ -190,6 +190,17 @@ fi
 step 6 "Setting up configuration..."
 
 sudo mkdir -p /etc/birdnet
+# Select optimal Perch variant based on hardware
+_PI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "unknown")
+if echo "$_PI_MODEL" | grep -q "Pi 5"; then
+    _PERCH_MODEL="perch_v2_original"
+elif echo "$_PI_MODEL" | grep -qE "Pi 4|Pi 400"; then
+    _PERCH_MODEL="perch_v2_fp16"
+else
+    _PERCH_MODEL="Perch_v2_int8"
+fi
+echo "  Optimal Perch model for $(echo $_PI_MODEL | grep -oP 'Pi \d+' || echo 'this hardware'): $_PERCH_MODEL"
+
 if [ ! -f /etc/birdnet/birdnet.conf ]; then
     sudo tee /etc/birdnet/birdnet.conf > /dev/null <<EOF
 # Birdash detection configuration
@@ -213,9 +224,9 @@ FULL_DISK=purge
 PURGE_THRESHOLD=95
 AUDIO_RETENTION_DAYS=90
 
-# Dual-model
+# Dual-model (auto-select best Perch variant for this hardware)
 DUAL_MODEL_ENABLED=1
-SECONDARY_MODEL=Perch_v2_int8
+SECONDARY_MODEL=$_PERCH_MODEL
 
 # Notifications (edit ntfy topic or leave empty)
 NOTIFY_ENABLED=0
@@ -263,28 +274,55 @@ fi
 step 7 "Downloading ML models..."
 
 MODELS_DIR="$BIRDASH_DIR/engine/models"
+HF_BASE="https://huggingface.co/ernensbjorn/perch-v2-int8-tflite/resolve/main"
 
-# Perch V2 INT8 (from HuggingFace)
-if [ ! -f "$MODELS_DIR/Perch_v2_int8.tflite" ]; then
-    echo "  Downloading Perch V2 INT8 (~389 MB)..."
-    wget -q --show-progress -O "$MODELS_DIR/Perch_v2_int8.tflite" \
-        "https://huggingface.co/ernensbjorn/perch-v2-int8-tflite/resolve/main/Perch_v2_int8.tflite" || \
-        warn "Download failed — download manually from https://huggingface.co/ernensbjorn/perch-v2-int8-tflite"
-    # Labels and indices
-    wget -q -O "$MODELS_DIR/Perch_v2_int8_Labels.txt" \
-        "https://huggingface.co/ernensbjorn/perch-v2-int8-tflite/resolve/main/Perch_v2_int8_Labels.txt" 2>/dev/null || true
-    wget -q -O "$MODELS_DIR/Perch_v2_int8_bird_indices.json" \
-        "https://huggingface.co/ernensbjorn/perch-v2-int8-tflite/resolve/main/Perch_v2_int8_bird_indices.json" 2>/dev/null || true
-    ok "Perch V2 INT8 downloaded"
+# Helper: download model if missing or empty
+download_model() {
+    local name="$1" url="$2" size_hint="$3"
+    local path="$MODELS_DIR/$name"
+    if [ -f "$path" ] && [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -gt 1000 ]; then
+        echo "  ✓ $name already present"
+        return 0
+    fi
+    echo "  Downloading $name ($size_hint)..."
+    wget -q --show-progress -O "$path" "$url" || { warn "Download failed: $name"; return 1; }
+    # Verify not empty
+    if [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -lt 1000 ]; then
+        warn "$name download appears corrupt (too small), removing"
+        rm -f "$path"
+        return 1
+    fi
+    return 0
+}
+
+# Detect Pi model for optimal default
+PI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "unknown")
+echo "  Hardware: $PI_MODEL"
+
+# Perch V2 — download all variants from HuggingFace
+download_model "Perch_v2_int8.tflite" "$HF_BASE/Perch_v2_int8.tflite" "~105 MB"
+download_model "Perch_v2_int8_Labels.txt" "$HF_BASE/Perch_v2_int8_Labels.txt" "~200 KB"
+download_model "Perch_v2_int8_bird_indices.json" "$HF_BASE/Perch_v2_int8_bird_indices.json" "~50 KB"
+
+# FP16 and FP32 only on Pi 4/5 (too slow on Pi 3)
+if echo "$PI_MODEL" | grep -qE "Pi 4|Pi 5|Pi 400"; then
+    download_model "perch_v2_fp16.tflite" "$HF_BASE/perch_v2_fp16.tflite" "~205 MB"
+    download_model "perch_v2_original.tflite" "$HF_BASE/perch_v2_original.tflite" "~409 MB"
+    # Copy labels/indices for fp16 and original (same as int8)
+    for variant in perch_v2_fp16 perch_v2_original; do
+        [ ! -f "$MODELS_DIR/${variant}_Labels.txt" ] && cp "$MODELS_DIR/Perch_v2_int8_Labels.txt" "$MODELS_DIR/${variant}_Labels.txt" 2>/dev/null
+        [ ! -f "$MODELS_DIR/${variant}_bird_indices.json" ] && cp "$MODELS_DIR/Perch_v2_int8_bird_indices.json" "$MODELS_DIR/${variant}_bird_indices.json" 2>/dev/null
+    done
+    ok "Perch V2 models downloaded (INT8 + FP16 + FP32)"
 else
-    ok "Perch V2 INT8 already present"
+    ok "Perch V2 INT8 downloaded (best for $(echo $PI_MODEL | grep -oP 'Pi \d+' || echo 'this hardware'))"
 fi
 
-# BirdNET V2.4 (user must provide — CC-NC-SA license prevents redistribution)
-if [ ! -f "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" ]; then
-    warn "BirdNET V2.4 model not found. You need to download it manually:"
-    echo "    - From: https://github.com/kahst/BirdNET-Analyzer"
-    echo "    - Or from: https://github.com/kahst/BirdNET-Analyzer"
+# BirdNET V2.4 (CC-NC-SA license — cannot redistribute, user must provide)
+if [ ! -f "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" ] || \
+   [ "$(stat -c%s "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" 2>/dev/null || echo 0)" -lt 1000 ]; then
+    warn "BirdNET V2.4 model not found. Download manually (CC-NC-SA license):"
+    echo "    From: https://github.com/kahst/BirdNET-Analyzer"
     echo "    Copy to: $MODELS_DIR/"
     echo "    Files needed: BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite"
     echo "                  BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt"
@@ -292,8 +330,8 @@ if [ ! -f "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" ]; then
 fi
 
 # Labels l18n directory
-if [ ! -d "$MODELS_DIR/l18n" ]; then
-    warn "Species translation labels (l18n/) not found."
+if [ ! -d "$MODELS_DIR/l18n" ] || [ "$(ls "$MODELS_DIR/l18n/" 2>/dev/null | wc -l)" -lt 5 ]; then
+    warn "Species translation labels (l18n/) not found or incomplete."
     echo "    Download from: https://github.com/kahst/BirdNET-Analyzer (model/l18n/)"
     echo "    To: $MODELS_DIR/l18n/"
 fi

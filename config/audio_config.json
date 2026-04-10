@@ -1,11 +1,11 @@
 {
-  "device_id": "birdash",
-  "device_name": "RØDE AI-Micro",
-  "input_channels": 2,
+  "device_id": "default",
+  "device_name": "Auto-detect",
+  "input_channels": 1,
   "capture_sample_rate": 48000,
   "bit_depth": 16,
   "output_sample_rate": 32000,
-  "channel_strategy": "sum",
+  "channel_strategy": "left",
   "hop_size_s": 2.5,
   "highpass_enabled": true,
   "highpass_cutoff_hz": 100,
@@ -18,5 +18,5 @@
   "cal_gain_ch0": 1,
   "cal_gain_ch1": 1,
   "cal_date": null,
-  "profile_name": "jardin"
+  "profile_name": "default"
 }
