@@ -16,11 +16,10 @@ function handle(req, res, pathname, ctx) {
     (async () => {
       try {
         const conf = await parseBirdnetConf();
-        // Redact sensitive fields
+        // Redact sensitive fields (BIRDWEATHER_ID is public, keep it)
         delete conf.CADDY_PWD;
         delete conf.ICE_PWD;
         delete conf.FLICKR_API_KEY;
-        delete conf.BIRDWEATHER_ID;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(conf));
       } catch(e) {

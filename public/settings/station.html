@@ -54,7 +54,14 @@
             <div class="section-title"><bird-icon name="cloud-sun" :size="14" ></bird-icon> {{t('set_birdweather')}}</div>
             <div class="set-row">
               <span class="set-label">Station ID <button class="info-btn" @click="helpKey='birdweather'">i</button></span>
-              <input v-model="conf.BIRDWEATHER_ID" class="set-input" placeholder="empty = disabled">
+              <div style="display:flex;align-items:center;gap:.4rem;">
+                <input v-model="conf.BIRDWEATHER_ID" class="set-input" placeholder="empty = disabled">
+                <a v-if="conf.BIRDWEATHER_ID" :href="'https://app.birdweather.com/stations/'+conf.BIRDWEATHER_ID"
+                   target="_blank" rel="noopener" class="btn btn-secondary"
+                   style="font-size:.72rem;padding:.3rem .5rem;white-space:nowrap;text-decoration:none;">
+                  <bird-icon name="external-link" :size="12" ></bird-icon> BirdWeather
+                </a>
+              </div>
             </div>
             <div class="set-row">
               <span class="set-label">{{t('set_rtsp_stream')}} <button class="info-btn" @click="helpKey='rtsp'">i</button></span>
