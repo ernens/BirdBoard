@@ -2352,7 +2352,7 @@
           {{sec.section}}
           <svg class="nav-chevron" :class="{open: openSection===si}" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
         </button>
-        <div v-show="openSection === si" class="nav-dropdown">
+        <div v-show="openSection === si" class="nav-dropdown" @click.stop>
           <a v-for="p in sec.items" :key="p.id" :href="p.file"
              class="nav-link" :class="{active:p.active}" :aria-current="p.active?'page':null">
             <span class="nav-icon" aria-hidden="true"><bird-icon :name="p.icon" :size="16" ></bird-icon></span>
