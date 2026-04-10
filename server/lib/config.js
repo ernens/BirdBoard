@@ -73,6 +73,29 @@ async function writeBirdnetConf(updates) {
   // Invalidate cache so next read picks up new values
   _birdnetConfCache = null;
   _birdnetConfTs = 0;
+
+  // Also sync MODEL and SECONDARY_MODEL to engine/config.toml
+  const configToml = path.join(__dirname, '..', '..', 'engine', 'config.toml');
+  try {
+    if (fs.existsSync(configToml)) {
+      let toml = await fsp.readFile(configToml, 'utf8');
+      if (updates.MODEL) {
+        toml = toml.replace(/^model\s*=\s*"[^"]*"/m, `model = "${updates.MODEL}"`);
+      }
+      if ('DUAL_MODEL_ENABLED' in updates) {
+        const sec = updates.DUAL_MODEL_ENABLED === '1' || updates.DUAL_MODEL_ENABLED === 1
+          ? (updates.SECONDARY_MODEL || 'perch_v2_dynint8') : '';
+        toml = toml.replace(/^secondary_model\s*=\s*"[^"]*"/m, `secondary_model = "${sec}"`);
+      }
+      if (updates.SECONDARY_MODEL) {
+        toml = toml.replace(/^secondary_model\s*=\s*"[^"]*"/m, `secondary_model = "${updates.SECONDARY_MODEL}"`);
+      }
+      if (updates.CONFIDENCE) {
+        toml = toml.replace(/^birdnet_confidence\s*=\s*[\d.]+/m, `birdnet_confidence = ${updates.CONFIDENCE}`);
+      }
+      await fsp.writeFile(configToml, toml);
+    }
+  } catch(e) { console.warn('[config] Failed to sync config.toml:', e.message); }
 }
 
 function execCmd(cmd, args) {
