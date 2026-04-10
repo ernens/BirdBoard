@@ -206,7 +206,7 @@ if [ ! -f /etc/birdnet/birdnet.conf ]; then
 # Birdash detection configuration
 # This file is read by both BirdEngine and Birdash dashboard
 
-MODEL=BirdNET_GLOBAL_6K_V2.4_Model_FP16
+MODEL=BirdNET_GLOBAL_6K_V2.4_Model_FP32
 SENSITIVITY=1.3
 CONFIDENCE=0.7
 OVERLAP=0.5
@@ -265,7 +265,10 @@ if [ -n "$USB_CARD" ]; then
     USB_NAME=$(arecord -l 2>/dev/null | grep "card ${USB_CARD}:" | sed 's/.*: \(.*\) \[.*/\1/')
     ALSA_DEV="plughw:${USB_CARD},0"
     echo "  Detected USB audio: card $USB_CARD — $USB_NAME"
-    # Update audio_config.json with detected device
+    # Create audio_config.json from template if needed, then update with detected device
+    if [ ! -f "$BIRDASH_DIR/config/audio_config.json" ] && [ -f "$BIRDASH_DIR/config/audio_config.example.json" ]; then
+        cp "$BIRDASH_DIR/config/audio_config.example.json" "$BIRDASH_DIR/config/audio_config.json"
+    fi
     if [ -f "$BIRDASH_DIR/config/audio_config.json" ]; then
         python3 -c "
 import json
@@ -284,6 +287,10 @@ pcm.birdash {
 ASOUND
     ok "Audio configured: $USB_NAME (card $USB_CARD)"
 else
+    # No USB device — still create config from template
+    if [ ! -f "$BIRDASH_DIR/config/audio_config.json" ] && [ -f "$BIRDASH_DIR/config/audio_config.example.json" ]; then
+        cp "$BIRDASH_DIR/config/audio_config.example.json" "$BIRDASH_DIR/config/audio_config.json"
+    fi
     warn "No USB audio device detected — configure via Settings → Audio after plugging in a mic"
 fi
 

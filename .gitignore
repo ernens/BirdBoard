@@ -19,3 +19,10 @@ engine/audio/
 engine/models/
 engine/config.toml
 engine/__pycache__/
+config/audio_config.json
+config/backup.json
+config/backup-status.json
+config/stations.json
+config/station-snapshots.json
+config/weekly-reports.json
+photo-cache/_species-info-cache.json
