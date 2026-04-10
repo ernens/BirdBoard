@@ -197,7 +197,7 @@ if echo "$_PI_MODEL" | grep -q "Pi 5"; then
 elif echo "$_PI_MODEL" | grep -qE "Pi 4|Pi 400"; then
     _PERCH_MODEL="perch_v2_fp16"
 else
-    _PERCH_MODEL="Perch_v2_int8"
+    _PERCH_MODEL="perch_v2_dynint8"
 fi
 echo "  Optimal Perch model for $(echo $_PI_MODEL | grep -oP 'Pi \d+' || echo 'this hardware'): $_PERCH_MODEL"
 
@@ -280,14 +280,14 @@ HF_BASE="https://huggingface.co/ernensbjorn/perch-v2-int8-tflite/resolve/main"
 download_model() {
     local name="$1" url="$2" size_hint="$3"
     local path="$MODELS_DIR/$name"
-    if [ -f "$path" ] && [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -gt 1000 ]; then
+    if [ -f "$path" ] && [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -gt 10000 ]; then
         echo "  ✓ $name already present"
         return 0
     fi
+    rm -f "$path" # remove empty placeholders
     echo "  Downloading $name ($size_hint)..."
-    wget -q --show-progress -O "$path" "$url" || { warn "Download failed: $name"; return 1; }
-    # Verify not empty
-    if [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -lt 1000 ]; then
+    wget -q --show-progress -O "$path" "$url" || { warn "Download failed: $name"; rm -f "$path"; return 1; }
+    if [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -lt 10000 ]; then
         warn "$name download appears corrupt (too small), removing"
         rm -f "$path"
         return 1
@@ -299,20 +299,17 @@ download_model() {
 PI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "unknown")
 echo "  Hardware: $PI_MODEL"
 
-# Perch V2 — download all variants from HuggingFace
-download_model "Perch_v2_int8.tflite" "$HF_BASE/Perch_v2_int8.tflite" "~105 MB"
-download_model "Perch_v2_int8_Labels.txt" "$HF_BASE/Perch_v2_int8_Labels.txt" "~200 KB"
-download_model "Perch_v2_int8_bird_indices.json" "$HF_BASE/Perch_v2_int8_bird_indices.json" "~50 KB"
+# Shared labels and indices (used by all Perch variants)
+download_model "labels.txt" "$HF_BASE/labels.txt" "~300 KB"
+download_model "bird_indices.json" "$HF_BASE/bird_indices.json" "~60 KB"
 
-# FP16 and FP32 only on Pi 4/5 (too slow on Pi 3)
+# Perch V2 INT8 (works on all Pi models)
+download_model "perch_v2_dynint8.tflite" "$HF_BASE/perch_v2_dynint8.tflite" "~100 MB"
+
+# FP16 and FP32 only on Pi 4/5 (too slow / too much RAM on Pi 3)
 if echo "$PI_MODEL" | grep -qE "Pi 4|Pi 5|Pi 400"; then
-    download_model "perch_v2_fp16.tflite" "$HF_BASE/perch_v2_fp16.tflite" "~205 MB"
-    download_model "perch_v2_original.tflite" "$HF_BASE/perch_v2_original.tflite" "~409 MB"
-    # Copy labels/indices for fp16 and original (same as int8)
-    for variant in perch_v2_fp16 perch_v2_original; do
-        [ ! -f "$MODELS_DIR/${variant}_Labels.txt" ] && cp "$MODELS_DIR/Perch_v2_int8_Labels.txt" "$MODELS_DIR/${variant}_Labels.txt" 2>/dev/null
-        [ ! -f "$MODELS_DIR/${variant}_bird_indices.json" ] && cp "$MODELS_DIR/Perch_v2_int8_bird_indices.json" "$MODELS_DIR/${variant}_bird_indices.json" 2>/dev/null
-    done
+    download_model "perch_v2_fp16.tflite" "$HF_BASE/perch_v2_fp16.tflite" "~195 MB"
+    download_model "perch_v2_original.tflite" "$HF_BASE/perch_v2_original.tflite" "~390 MB"
     ok "Perch V2 models downloaded (INT8 + FP16 + FP32)"
 else
     ok "Perch V2 INT8 downloaded (best for $(echo $PI_MODEL | grep -oP 'Pi \d+' || echo 'this hardware'))"
