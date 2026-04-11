@@ -27,16 +27,42 @@ set -e
 REPO_DIR="${BIRDASH_DIR:-$HOME/birdash}"
 BRANCH="${BIRDASH_BRANCH:-main}"
 
+# --write-status PATH — when set, every step also appends a JSON object
+# to the named file (overwriting it each time so the dashboard can poll
+# for progress while update.sh is running detached).
+STATUS_FILE=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --write-status) STATUS_FILE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-info() { echo -e "${BLUE}▶${NC} $1"; }
+# write_status STATE STEP DETAIL
+# Atomic write so a poller never reads a half-written file.
+write_status() {
+    [ -z "$STATUS_FILE" ] && return 0
+    local state="$1" step="$2" detail="$3"
+    local tmp="${STATUS_FILE}.$$"
+    # Escape double quotes in detail to keep the JSON valid.
+    local esc
+    esc=$(printf '%s' "$detail" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')
+    cat > "$tmp" <<EOF
+{"state":"$state","step":"$step","detail":"$esc","updatedAt":"$(date -Iseconds)"}
+EOF
+    mv "$tmp" "$STATUS_FILE"
+}
+
+info() { echo -e "${BLUE}▶${NC} $1"; write_status running "${1%%...*}" "$1"; }
 ok()   { echo -e "${GREEN}✓${NC} $1"; }
 warn() { echo -e "${YELLOW}⚠${NC} $1"; }
-fail() { echo -e "${RED}✗${NC} $1" >&2; exit 1; }
+fail() { echo -e "${RED}✗${NC} $1" >&2; write_status failed error "$1"; exit 1; }
 
 if [ ! -d "$REPO_DIR/.git" ]; then
     fail "$REPO_DIR is not a git checkout. Use bootstrap.sh for a fresh install."
@@ -146,3 +172,14 @@ echo ""
 echo "Updated to $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
 echo "Changed files:"
 echo "$CHANGED" | sed 's/^/  /'
+
+# Final status for the dashboard poller. Includes the new commit so the
+# UI can confirm the apply landed and offer "reload page".
+if [ -n "$STATUS_FILE" ]; then
+    NEW_SHORT=$(git rev-parse --short HEAD)
+    NEW_SUBJECT=$(git log -1 --format=%s | sed 's/\\/\\\\/g; s/"/\\"/g')
+    cat > "${STATUS_FILE}.$$" <<EOF
+{"state":"done","step":"complete","detail":"Updated to $NEW_SHORT","newCommit":"$NEW_SHORT","subject":"$NEW_SUBJECT","updatedAt":"$(date -Iseconds)"}
+EOF
+    mv "${STATUS_FILE}.$$" "$STATUS_FILE"
+fi

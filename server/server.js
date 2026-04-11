@@ -27,6 +27,7 @@ const _externalRoutes = require('./routes/external');
 const _settingsRoutes = require('./routes/settings');
 const _comparisonRoutes = require('./routes/comparison');
 const _networkRoutes = require('./routes/network');
+const _updateRoutes  = require('./routes/updates');
 const _weeklyReport = require('./lib/weekly-report');
 
 const JSON_CT = { 'Content-Type': 'application/json' };
@@ -207,6 +208,7 @@ const server = http.createServer((req, res) => {
   if (_settingsRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_comparisonRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_networkRoutes.handle(req, res, pathname, _routeCtx)) return;
+  if (_updateRoutes.handle(req, res, pathname, _routeCtx)) return;
 
   console.warn(`[BIRDASH] 404 — route inconnue : ${req.method} ${pathname}`);
   if (res.headersSent) return;

@@ -73,6 +73,15 @@
   "dash_consensus_disagree": "Divergence",
   "dash_model_listening": "En attente...",
   "update_available": "Mise à jour disponible",
+  "update_banner_singular": "mise à jour disponible",
+  "update_banner_plural": "mises à jour disponibles",
+  "update_banner_view": "Voir",
+  "update_install": "Installer maintenant",
+  "update_defer": "Plus tard (24 h)",
+  "update_skip": "Ignorer ces mises à jour",
+  "update_starting": "Démarrage…",
+  "update_no_notes": "Pas de notes de version disponibles.",
+  "update_reload": "Recharger la page",
   "update_title": "Nouvelle version disponible",
   "update_dismiss": "Ignorer cette version",
   "update_view_github": "Voir sur GitHub",
@@ -2082,11 +2091,11 @@
       function refreshCritical() {
         const items = [];
         // Update available
-        if (updateInfo.value && updateInfo.value.hasUpdate) {
+        if (updateInfo.value && updateInfo.value.hasUpdate && !updateInfo.value.snoozed) {
           items.push({
             icon: '⬆',
             text: t('bell_update_available'),
-            sub: 'v' + updateInfo.value.current + ' → v' + updateInfo.value.latest,
+            sub: (updateInfo.value.commitsBehind || 0) + ' commit' + (updateInfo.value.commitsBehind > 1 ? 's' : ''),
             click: 'openUpdateModal',
           });
         }
@@ -2168,46 +2177,123 @@
 
       const currentPage = props.page;
 
-      // Version check (GitHub releases, cached 24h server-side)
-      const updateInfo = ref({ current: '', latest: '', hasUpdate: false });
+      // ── Update detection (git-based, server-side snooze) ─────────────
+      // Polls /api/update-status which compares the locally checked-out
+      // commit to git ls-remote origin/main and returns categorized
+      // commit metadata. Snooze (defer / skip) lives server-side in
+      // config/update-state.json so it's consistent across browsers.
+      const updateInfo = ref({
+        currentShort: '', latestShort: '',
+        hasUpdate: false, snoozed: false,
+        commitsBehind: 0, changes: [],
+      });
       const updateModalOpen = ref(false);
-      function fetchVersion() {
-        fetch(`${BIRD_CONFIG.apiUrl}/version-check`).then(r => r.json()).then(d => {
-          if (d && !d.error) {
-            updateInfo.value = d;
-            // Auto-dismiss if user already saw this version
-            const dismissed = localStorage.getItem('birdash_dismissed_version');
-            if (dismissed === d.latest) updateInfo.value.hasUpdate = false;
-          }
-        }).catch(() => {});
+      const updateApplying = ref(false);
+      const updateProgress = ref(null);   // {state, step, detail, newCommit?}
+      let _updatePollTimer = null;
+
+      async function fetchUpdateStatus() {
+        try {
+          const r = await fetch(`${BIRD_CONFIG.apiUrl}/update-status`);
+          const d = await r.json();
+          if (d && !d.error) updateInfo.value = d;
+        } catch {}
       }
-      fetchVersion();
-      function dismissUpdate() {
-        localStorage.setItem('birdash_dismissed_version', updateInfo.value.latest);
-        updateInfo.value.hasUpdate = false;
-        updateModalOpen.value = false;
-      }
+      fetchUpdateStatus();
+
+      // Banner visibility: only when there's an update AND no snooze active.
+      const showUpdateBanner = computed(() =>
+        updateInfo.value.hasUpdate && !updateInfo.value.snoozed && !updateApplying.value
+      );
+
       function openUpdateModal() { updateModalOpen.value = true; }
       function closeUpdateModal() { updateModalOpen.value = false; }
-      // Format release notes (basic markdown → HTML)
-      const updateNotesHtml = computed(() => {
-        const notes = updateInfo.value.releaseNotes || '';
-        return notes
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-          .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-          .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/`([^`]+)`/g, '<code>$1</code>')
-          .replace(/^- (.+)$/gm, '<li>$1</li>')
-          .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
-          .replace(/<\/ul>\s*<ul>/g, '')
-          .replace(/\n\n/g, '</p><p>')
-          .replace(/^/, '<p>').replace(/$/, '</p>')
-          .replace(/<p>(<h\d>)/g, '$1').replace(/(<\/h\d>)<\/p>/g, '$1')
-          .replace(/<p>(<ul>)/g, '$1').replace(/(<\/ul>)<\/p>/g, '$1');
+
+      async function _snoozeUpdate(action, days) {
+        try {
+          const r = await fetch(`${BIRD_CONFIG.apiUrl}/update-snooze`, {
+            method: 'POST', headers: BIRDASH.authHeaders(),
+            body: JSON.stringify({ action, days }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+          await fetchUpdateStatus();
+          updateModalOpen.value = false;
+        } catch (e) {
+          console.error('snooze:', e);
+        }
+      }
+      function deferUpdate(days) { return _snoozeUpdate('defer', days || 1); }
+      function skipUpdate()      { return _snoozeUpdate('skip'); }
+
+      async function applyUpdate() {
+        if (updateApplying.value) return;
+        updateApplying.value = true;
+        updateProgress.value = { state: 'starting', step: 'request', detail: '...' };
+        try {
+          const r = await fetch(`${BIRD_CONFIG.apiUrl}/apply-update`, {
+            method: 'POST', headers: BIRDASH.authHeaders(),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+        } catch (e) {
+          updateProgress.value = { state: 'failed', step: 'request', detail: e.message };
+          updateApplying.value = false;
+          return;
+        }
+        // Poll progress every 1.5s. Tolerate network errors during the
+        // birdash restart that the update script triggers mid-flight.
+        let consecutiveErrors = 0;
+        _updatePollTimer = setInterval(async () => {
+          try {
+            const r = await fetch(`${BIRD_CONFIG.apiUrl}/update-status?progress=1`);
+            const d = await r.json();
+            consecutiveErrors = 0;
+            updateProgress.value = d;
+            if (d.state === 'done' || d.state === 'failed') {
+              clearInterval(_updatePollTimer); _updatePollTimer = null;
+              updateApplying.value = (d.state !== 'done' && d.state !== 'failed') ? false : updateApplying.value;
+              if (d.state === 'done') {
+                // Refresh status so banner disappears, but keep modal open
+                // showing the success state until the user clicks Reload.
+                await fetchUpdateStatus();
+              }
+            }
+          } catch (e) {
+            consecutiveErrors++;
+            // Up to ~30s of network errors are tolerated (birdash restart
+            // is the most common cause).
+            if (consecutiveErrors > 20) {
+              clearInterval(_updatePollTimer); _updatePollTimer = null;
+              updateProgress.value = { state: 'failed', step: 'poll', detail: 'Lost contact with backend' };
+            } else {
+              updateProgress.value = { state: 'restarting', step: 'restart', detail: 'Backend redémarre…' };
+            }
+          }
+        }, 1500);
+      }
+
+      function reloadAfterUpdate() {
+        location.reload();
+      }
+
+      // Group commits by conventional-commit type for the modal display.
+      const updateGroupedChanges = computed(() => {
+        const groups = {
+          feat: { label: '✨ Nouvelles fonctionnalités', commits: [] },
+          fix:  { label: '🐛 Corrections',                commits: [] },
+          perf: { label: '⚡ Performances',                commits: [] },
+          refactor: { label: '🔧 Refactor',               commits: [] },
+          docs: { label: '📝 Documentation',              commits: [] },
+          test: { label: '🧪 Tests',                      commits: [] },
+          chore:{ label: '🧹 Maintenance',                commits: [] },
+          other:{ label: '📦 Autres',                     commits: [] },
+        };
+        for (const c of (updateInfo.value.changes || [])) {
+          const key = groups[c.type] ? c.type : 'other';
+          groups[key].commits.push(c);
+        }
+        return Object.values(groups).filter(g => g.commits.length > 0);
       });
 
       // Review badge count
@@ -2224,7 +2310,7 @@
       const drawerOpen = ref(false);
       function toggleDrawer() { drawerOpen.value = !drawerOpen.value; }
       function drawerNavClick(si) { navSectionClick(si); }
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, navGo, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, dismissUpdate, updateNotesHtml };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, navGo, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, showUpdateBanner, deferUpdate, skipUpdate, applyUpdate, updateApplying, updateProgress, updateGroupedChanges, reloadAfterUpdate };
     },
     directives: {
       'click-outside': {
@@ -2379,6 +2465,14 @@
     </div>
   </nav>
   <main id="birdash-main" class="app-main" role="main">
+    <!-- Update available banner — discreet, non-blocking -->
+    <div v-if="showUpdateBanner" class="update-banner">
+      <span class="update-banner-icon">⬆</span>
+      <span class="update-banner-text">
+        {{updateInfo.commitsBehind}} {{updateInfo.commitsBehind > 1 ? t('update_banner_plural') : t('update_banner_singular')}}
+      </span>
+      <button class="update-banner-btn" @click="openUpdateModal">{{t('update_banner_view')}}</button>
+    </div>
     <h1 v-if="title" class="sr-only">{{title}}</h1>
     <slot></slot>
   </main>
@@ -2389,15 +2483,49 @@
       <div class="update-modal-hdr">
         <div>
           <div class="update-modal-title">{{t('update_title')}}</div>
-          <div class="update-modal-version">v{{updateInfo.current}} → <strong>v{{updateInfo.latest}}</strong></div>
+          <div class="update-modal-version">
+            <code>{{updateInfo.currentShort}}</code> → <code><strong>{{updateInfo.latestShort}}</strong></code>
+            <span style="opacity:.6;margin-left:.5em;">({{updateInfo.commitsBehind}} commits)</span>
+          </div>
         </div>
         <button class="update-modal-close" @click="closeUpdateModal" aria-label="Close">✕</button>
       </div>
-      <div class="update-modal-body" v-html="updateNotesHtml"></div>
-      <div class="update-modal-footer">
-        <button class="update-btn-secondary" @click="dismissUpdate">{{t('update_dismiss')}}</button>
-        <a :href="updateInfo.releaseUrl" target="_blank" rel="noopener" class="update-btn-secondary">{{t('update_view_github')}}</a>
-        <button class="update-btn-primary" @click="closeUpdateModal" style="margin-left:auto" :title="t('update_how_title')">{{t('update_how_to')}}</button>
+      <div class="update-modal-body">
+        <!-- Apply progress -->
+        <div v-if="updateApplying || updateProgress" class="update-progress-box">
+          <div class="update-progress-state">
+            <span v-if="updateProgress && updateProgress.state === 'done'">✓</span>
+            <span v-else-if="updateProgress && updateProgress.state === 'failed'">✗</span>
+            <span v-else class="update-progress-spinner"></span>
+            {{updateProgress && updateProgress.step || t('update_starting')}}
+          </div>
+          <div v-if="updateProgress && updateProgress.detail" class="update-progress-detail">{{updateProgress.detail}}</div>
+          <button v-if="updateProgress && updateProgress.state === 'done'"
+                  class="update-btn-primary" @click="reloadAfterUpdate" style="margin-top:.8rem;">
+            {{t('update_reload')}}
+          </button>
+        </div>
+        <!-- Release notes (categorized commits) -->
+        <div v-else>
+          <div v-if="!updateGroupedChanges.length" style="opacity:.7;font-size:.85rem;">
+            {{t('update_no_notes')}}
+          </div>
+          <div v-for="g in updateGroupedChanges" :key="g.label" class="update-changes-group">
+            <div class="update-changes-label">{{g.label}}</div>
+            <ul class="update-changes-list">
+              <li v-for="c in g.commits" :key="c.hash">
+                <span v-if="c.scope" class="update-changes-scope">{{c.scope}}:</span>
+                {{c.subject}}
+                <code class="update-changes-hash">{{c.short}}</code>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="update-modal-footer" v-if="!updateApplying && !(updateProgress && updateProgress.state === 'done')">
+        <button class="update-btn-secondary" @click="skipUpdate">{{t('update_skip')}}</button>
+        <button class="update-btn-secondary" @click="deferUpdate(1)">{{t('update_defer')}}</button>
+        <button class="update-btn-primary" @click="applyUpdate" style="margin-left:auto;">{{t('update_install')}}</button>
       </div>
     </div>
   </div>
