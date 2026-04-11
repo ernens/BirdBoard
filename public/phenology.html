@@ -108,7 +108,17 @@
     }
     .ph-species-item:hover { background: var(--bg-card2); }
     .ph-species-item.active { background: var(--bg-card2); border-left: 2px solid var(--accent); padding-left: calc(.55rem - 2px); }
+    .ph-species-item-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; width: 100%; }
     .ph-species-item-name { font-weight: 500; }
+    .ph-species-item-count {
+      font-size: .7rem; font-variant-numeric: tabular-nums;
+      padding: .1rem .42rem; border-radius: 999px;
+      background: var(--bg-deep); color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .ph-species-item.active .ph-species-item-count {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
     .ph-species-item-sci { font-size: .72rem; opacity: .55; font-style: italic; }
     .ph-species-empty { padding: 1rem; text-align: center; opacity: .55; font-size: .82rem; }
 
@@ -327,7 +337,10 @@
                     class="ph-species-item"
                     :class="{active: sp.Com_Name === currentSpecies}"
                     @click.stop="pickSpeciesFromDropdown(sp)">
-              <span class="ph-species-item-name">{{spName(sp.Com_Name, sp.Sci_Name)}}</span>
+              <div class="ph-species-item-row">
+                <span class="ph-species-item-name">{{spName(sp.Com_Name, sp.Sci_Name)}}</span>
+                <span v-if="sp.n != null" class="ph-species-item-count">{{sp.n}}</span>
+              </div>
               <span class="ph-species-item-sci">{{sp.Sci_Name}}</span>
             </button>
             <div v-if="!filteredSpeciesList.length" class="ph-species-empty">
@@ -562,15 +575,16 @@ BIRDASH.ready.then(() => {
       const initialSpecies = url.searchParams.get('species');
 
       // ── Load species list ────────────────────────────────────
+      // Use the confidence-filtered query so species that exist in the
+      // database only at sub-threshold confidence (e.g. an "Aigrette
+      // garzette" with two 0.4 hits) don't appear in the picker — the
+      // phenology graphs filter the same way and would show empty.
       async function loadSpeciesList() {
         try {
-          const rows = await birdQuery(...Q.allSpeciesNames());
+          const rows = await birdQuery(...Q.speciesWithCounts());
           allSpecies.value = rows;
-          // Load top species by frequency for suggestions
-          try {
-            const top = await birdQuery('SELECT Com_Name, COUNT(*) as n FROM detections WHERE Confidence >= 0.7 GROUP BY Com_Name ORDER BY n DESC LIMIT 8', []);
-            topSpecies.value = top.map(r => r.Com_Name);
-          } catch(e) {}
+          // Top 8 for the empty-state suggestions (already sorted by count).
+          topSpecies.value = rows.slice(0, 8).map(r => r.Com_Name);
           if (initialSpecies) {
             const match = rows.find(r => r.Com_Name === initialSpecies);
             if (match) {

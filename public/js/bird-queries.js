@@ -28,6 +28,22 @@
       return ['SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC', []];
     },
 
+    /**
+     * Species observed at or above the confidence threshold, with their
+     * detection count. Used by pickers that drive views which themselves
+     * filter by confidence (e.g. phenology.html), so the dropdown
+     * doesn't list species the page can't visualize.
+     *
+     * Returns rows: { Com_Name, Sci_Name, n } sorted by count desc then
+     * common name asc, so well-documented species rise to the top.
+     */
+    speciesWithCounts(c) {
+      return [
+        'SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n FROM detections WHERE Confidence >= ? GROUP BY Com_Name ORDER BY n DESC, Com_Name ASC',
+        [c || C()]
+      ];
+    },
+
     /** All distinct common names only — detections filter */
     allCommonNames() {
       return ['SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC', []];
