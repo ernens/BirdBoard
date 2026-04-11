@@ -68,7 +68,37 @@ fi
 
 info "Updating $(git rev-parse --short HEAD) → $(git rev-parse --short "origin/$BRANCH")..."
 git checkout --quiet "$BRANCH" 2>/dev/null || true
-git merge --ff-only --quiet "origin/$BRANCH" || fail "Fast-forward failed (diverged history?)"
+
+# Resolve "untracked working tree file would be overwritten" automatically.
+# Common case: a file was scp'd to this host before being committed upstream.
+# If the untracked local copy is byte-identical to the incoming version, the
+# safest move is to remove it and let git pull put the tracked version in
+# place. If contents differ, abort with a clear message.
+_attempt_merge() {
+    local err
+    err=$(git merge --ff-only --quiet "origin/$BRANCH" 2>&1) && return 0
+    # Pull out the offending file list from git's error output.
+    local files
+    files=$(echo "$err" | sed -n '/would be overwritten by merge/,/Aborting/{/^[[:space:]]/p}' | tr -d '\t')
+    [ -z "$files" ] && { echo "$err" >&2; return 1; }
+
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        [ ! -e "$f" ] && continue
+        # Compare local untracked content to the incoming tracked version.
+        if git show "origin/$BRANCH:$f" 2>/dev/null | cmp -s - "$f"; then
+            warn "untracked $f matches incoming version — removing"
+            rm -f "$f"
+        else
+            echo "" >&2
+            fail "untracked $f differs from origin/$BRANCH:$f. Inspect and remove manually."
+        fi
+    done <<< "$files"
+
+    git merge --ff-only --quiet "origin/$BRANCH"
+}
+
+_attempt_merge || fail "Fast-forward failed (diverged history?)"
 ok "Pulled $(git rev-list --count "$OLD_HEAD..$NEW_HEAD") commit(s)"
 
 # ── 3. Decide what changed ────────────────────────────────────────────────
