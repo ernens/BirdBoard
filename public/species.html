@@ -453,7 +453,7 @@
           <button class="share-modal-close" @click="closeShareModal" aria-label="Close">✕</button>
         </div>
         <div class="share-modal-body">
-          <img v-if="_publicPhotoUrl()" :src="_publicPhotoUrl()" :alt="sp.name" class="share-modal-photo">
+          <img v-if="publicPhotoUrl()" :src="publicPhotoUrl()" :alt="sp.name" class="share-modal-photo">
           <textarea v-model="shareText" class="share-modal-text" rows="8" :aria-label="t('share') || 'Partager'"></textarea>
           <div v-if="shareToast" class="share-modal-toast">{{shareToast}}</div>
           <div class="share-modal-buttons">
@@ -1280,7 +1280,7 @@ const app = createApp({
     const shareToast     = ref('');
     const PROJECT_URL    = 'https://github.com/ernens/birdash';
 
-    function _publicPhotoUrl() {
+    function publicPhotoUrl() {
       // We only put a photo URL into the share message if it's actually
       // reachable from outside the LAN. Wikipedia / Flickr URLs qualify;
       // local /birds/photo? cache URLs don't.
@@ -1314,7 +1314,7 @@ const app = createApp({
         .replace('{days}', String(days))
         .replace('{first}', first)
         .replace('{url}', PROJECT_URL);
-      const photo = _publicPhotoUrl();
+      const photo = publicPhotoUrl();
       if (photo) out += '\n\n📷 ' + photo;
       return out;
     }
@@ -1334,7 +1334,7 @@ const app = createApp({
 
     async function shareViaClipboard() {
       const text = shareText.value;
-      const photoUrl = _publicPhotoUrl();
+      const photoUrl = publicPhotoUrl();
       // Try to copy text + image as a single ClipboardItem so pasting
       // into Twitter / WhatsApp / Discord attaches the photo directly.
       // Falls back to text-only if the browser doesn't support
@@ -1394,7 +1394,7 @@ const app = createApp({
     async function shareViaNative() {
       const text = shareText.value;
       const name = spName(sp.value.name, sp.value.sci);
-      const photoUrl = _publicPhotoUrl();
+      const photoUrl = publicPhotoUrl();
       // Web Share API Level 2 supports a `files` field, which gives the
       // best UX on mobile (the system share sheet attaches the image
       // directly so it lands as a real image post on every target).
@@ -1474,7 +1474,7 @@ const app = createApp({
       sp, feed, extLinks, speciesInfo, personalNote, savePersonalNote, shareSpecies,
       shareModalOpen, shareText, shareToast, closeShareModal,
       shareViaClipboard, shareViaNative, shareViaTwitter, shareViaMastodon, shareViaWhatsApp, shareViaEmail,
-      _publicPhotoUrl,
+      publicPhotoUrl,
       speciesNotes, detNoteMap, editingDetNote, detNoteText, toggleDetNote, saveDetNote, deleteDetNote,
       noteSaving, noteError,
       isFav, onToggleFav, banCurrentPhoto, setPreferredPhoto,
