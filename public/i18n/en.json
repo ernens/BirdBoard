@@ -149,6 +149,7 @@
   "notifications": "Notifications",
   "wn_empty": "Nothing new",
   "set_save": "Save",
+  "set_save_partial": "Some settings failed to save",
   "set_saved": "Configuration saved successfully",
   "set_defaults": "Defaults",
   "set_defaults_confirm": "Reset all detection parameters to their default values?",

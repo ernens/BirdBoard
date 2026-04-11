@@ -74,13 +74,14 @@ function agUpdate(cfg) {
   return _agState;
 }
 
-// --- Shared JSON helpers (used by multiple routes)
+// --- Shared JSON helpers
+//
+// Reads use a synchronous helper. Writes go through safe-config (per-file
+// mutex + atomic rename + validation). Never call fs.writeFile directly
+// from this module — that defeats the lock and re-introduces lost-update
+// races (see mickey.local 2026-04-11 corruption of engine/config.toml).
+const safeConfig = require('../lib/safe-config');
 function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
-function writeJsonFileAtomic(p, data) {
-  const tmp = p + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
-  fs.renameSync(tmp, p);
-}
 
 /**
  * Generic JSON config GET handler.
@@ -97,17 +98,19 @@ function jsonConfigGet(res, filePath, defaults) {
 
 /**
  * Generic JSON config POST handler.
- * Reads body, filters against whitelist, merges with existing file, writes atomically.
+ * Reads body, filters against whitelist, merges with existing file, writes
+ * via safe-config (per-file mutex + atomic write).
  * @param {object} req - HTTP request
  * @param {object} res - HTTP response
  * @param {string} filePath - path to JSON config file
  * @param {string[]} whitelist - allowed keys
  * @param {function} [afterSave] - optional callback(current, filtered) called after write
+ * @param {string} [label] - log label (e.g. route name)
  */
-function jsonConfigPost(req, res, filePath, whitelist, afterSave) {
+function jsonConfigPost(req, res, filePath, whitelist, afterSave, label) {
   let body = '';
   req.on('data', chunk => { body += chunk; });
-  req.on('end', () => {
+  req.on('end', async () => {
     try {
       const updates = JSON.parse(body);
       const filtered = {};
@@ -119,12 +122,15 @@ function jsonConfigPost(req, res, filePath, whitelist, afterSave) {
         res.end(JSON.stringify({ error: 'No valid config keys provided' }));
         return;
       }
-      const current = readJsonFile(filePath) || {};
-      Object.assign(current, filtered);
-      writeJsonFileAtomic(filePath, current);
-      if (afterSave) afterSave(current, filtered);
+      const next = await safeConfig.updateConfig(
+        filePath,
+        (current) => Object.assign(current, filtered),
+        null,
+        { label: label || `POST ${path.basename(filePath)}`, defaultValue: {} }
+      );
+      if (afterSave) afterSave(next, filtered);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, config: current }));
+      res.end(JSON.stringify({ ok: true, config: next }));
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
@@ -175,7 +181,7 @@ async function getRecentMp3s() {
 }
 
 function handle(req, res, pathname, ctx) {
-  const { requireAuth, readJsonFile, writeJsonFileAtomic, JSON_CT, SONGS_DIR } = ctx;
+  const { requireAuth, readJsonFile, JSON_CT, SONGS_DIR } = ctx;
   if (!_SONGS_DIR) _SONGS_DIR = SONGS_DIR;
 
 
@@ -359,7 +365,7 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'POST' && pathname === '/api/audio/config') {
     if (!requireAuth(req, res)) return true;
     const oldDevice = (readJsonFile(AUDIO_CONFIG_PATH) || {}).device_id;
-    jsonConfigPost(req, res, AUDIO_CONFIG_PATH, AUDIO_KEYS, (current, filtered) => {
+    jsonConfigPost(req, res, AUDIO_CONFIG_PATH, AUDIO_KEYS, async (current, filtered) => {
       // When device changes, generate ALSA dsnoop config for shared access
       if (filtered.device_id && filtered.device_id !== oldDevice) {
         try {
@@ -380,9 +386,13 @@ function handle(req, res, pathname, ctx) {
               `pcm.birdash {\n    type dsnoop\n    ipc_key 2048\n    slave {\n` +
               `        pcm "hw:CARD=${cardName},DEV=0"\n        channels ${channels}\n` +
               `        rate ${rate}\n    }\n}\n`;
-            fs.writeFileSync(path.join(process.env.HOME, '.asoundrc'), asoundrc);
-            current.device_id = 'birdash';
-            writeJsonFileAtomic(AUDIO_CONFIG_PATH, current);
+            await safeConfig.writeRaw(path.join(process.env.HOME, '.asoundrc'), asoundrc, { label: 'POST /api/audio/config (asoundrc)' });
+            await safeConfig.updateConfig(
+              AUDIO_CONFIG_PATH,
+              (cfg) => { cfg.device_id = 'birdash'; return cfg; },
+              null,
+              { label: 'POST /api/audio/config (device→birdash)', defaultValue: {} }
+            );
             console.log(`[audio] ALSA dsnoop config generated for ${cardName}`);
             try { require('child_process').exec('sudo systemctl restart birdengine-recording'); } catch {}
           }
@@ -390,7 +400,7 @@ function handle(req, res, pathname, ctx) {
           console.warn('[audio] ALSA config generation failed:', e.message);
         }
       }
-    });
+    }, 'POST /api/audio/config');
     return true;
   }
 
@@ -407,20 +417,25 @@ function handle(req, res, pathname, ctx) {
     if (!requireAuth(req, res)) return true;
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const raw = JSON.parse(body);
         if (!raw.profile_name) throw new Error('profile_name required');
-        // Validate and whitelist profile fields
         const PROFILE_KEYS = ['profile_name','highpass_enabled','highpass_cutoff_hz',
           'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
           'hop_size_s','channel_strategy','rms_normalize','rms_target'];
         const profile = { profile_name: raw.profile_name };
         for (const k of PROFILE_KEYS) { if (k in raw) profile[k] = raw[k]; }
-        const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
-        if (profiles[profile.profile_name]?.builtin) throw new Error('Cannot overwrite builtin profile');
-        profiles[profile.profile_name] = { ...profile, builtin: false };
-        writeJsonFileAtomic(AUDIO_PROFILES_PATH, profiles);
+        await safeConfig.updateConfig(
+          AUDIO_PROFILES_PATH,
+          (profiles) => {
+            if (profiles[profile.profile_name]?.builtin) throw new Error('Cannot overwrite builtin profile');
+            profiles[profile.profile_name] = { ...profile, builtin: false };
+            return profiles;
+          },
+          null,
+          { label: 'POST /api/audio/profiles', defaultValue: {} }
+        );
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
       } catch (e) {
@@ -435,24 +450,34 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'POST' && pathname.match(/^\/api\/audio\/profiles\/(.+)\/activate$/)) {
     if (!requireAuth(req, res)) return true;
     const name = decodeURIComponent(pathname.match(/^\/api\/audio\/profiles\/(.+)\/activate$/)[1]);
-    const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
-    if (!profiles[name]) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: `Profile '${name}' not found` }));
-      return;
-    }
-    const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
-    const p = profiles[name];
-    const patch = { profile_name: name };
-    for (const k of ['channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
-      'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
-      'rms_normalize','rms_target']) {
-      if (p[k] !== undefined) patch[k] = p[k];
-    }
-    Object.assign(config, patch);
-    writeJsonFileAtomic(AUDIO_CONFIG_PATH, config);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, config }));
+    (async () => {
+      try {
+        const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
+        if (!profiles[name]) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Profile '${name}' not found` }));
+          return;
+        }
+        const p = profiles[name];
+        const patch = { profile_name: name };
+        for (const k of ['channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
+          'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
+          'rms_normalize','rms_target']) {
+          if (p[k] !== undefined) patch[k] = p[k];
+        }
+        const next = await safeConfig.updateConfig(
+          AUDIO_CONFIG_PATH,
+          (config) => Object.assign(config, patch),
+          null,
+          { label: 'POST /api/audio/profiles/activate', defaultValue: {} }
+        );
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, config: next }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
     return true;
   }
 
@@ -460,16 +485,26 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'DELETE' && pathname.startsWith('/api/audio/profiles/')) {
     if (!requireAuth(req, res)) return true;
     const name = decodeURIComponent(pathname.replace('/api/audio/profiles/', ''));
-    const profiles = readJsonFile(AUDIO_PROFILES_PATH) || {};
-    if (profiles[name]?.builtin) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Cannot delete builtin profile' }));
-      return;
-    }
-    delete profiles[name];
-    writeJsonFileAtomic(AUDIO_PROFILES_PATH, profiles);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true }));
+    (async () => {
+      try {
+        await safeConfig.updateConfig(
+          AUDIO_PROFILES_PATH,
+          (profiles) => {
+            if (profiles[name]?.builtin) throw new Error('Cannot delete builtin profile');
+            delete profiles[name];
+            return profiles;
+          },
+          null,
+          { label: 'DELETE /api/audio/profiles', defaultValue: {} }
+        );
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        const status = /builtin/.test(e.message) ? 400 : 500;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
     return true;
   }
 
@@ -546,16 +581,22 @@ function handle(req, res, pathname, ctx) {
     if (!requireAuth(req, res)) return true;
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { gain_ch0, gain_ch1 } = JSON.parse(body);
-        const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
-        config.cal_gain_ch0 = gain_ch0;
-        config.cal_gain_ch1 = gain_ch1;
-        config.cal_date = new Date().toISOString();
-        writeJsonFileAtomic(AUDIO_CONFIG_PATH, config);
+        const next = await safeConfig.updateConfig(
+          AUDIO_CONFIG_PATH,
+          (config) => {
+            config.cal_gain_ch0 = gain_ch0;
+            config.cal_gain_ch1 = gain_ch1;
+            config.cal_date = new Date().toISOString();
+            return config;
+          },
+          null,
+          { label: 'POST /api/audio/calibration/apply', defaultValue: {} }
+        );
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, config }));
+        res.end(JSON.stringify({ ok: true, config: next }));
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));

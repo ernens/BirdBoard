@@ -6,6 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
+const safeConfig = require('../lib/safe-config');
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
@@ -591,7 +592,7 @@ function handle(req, res, pathname, ctx) {
             return;
           }
           const fp = path.join(BIRDNET_DIR, validLists[list]);
-          await fsp.writeFile(fp, species.join('\n') + '\n');
+          await safeConfig.writeRaw(fp, species.join('\n') + '\n', { label: `POST /api/species-lists/${list}` });
           console.log(`[species-lists] Updated ${list}: ${species.length} species`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, list, count: species.length }));

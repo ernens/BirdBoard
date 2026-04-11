@@ -3,6 +3,7 @@ const path = require('path');
 const fs   = require('fs');
 const fsp  = fs.promises;
 const { spawn } = require('child_process');
+const safeConfig = require('./safe-config');
 
 // ── BirdNET configuration ─────────────────────────────────────────────────────
 const BIRDNET_CONF = '/etc/birdnet/birdnet.conf';
@@ -39,19 +40,17 @@ async function parseBirdnetConf() {
   return conf;
 }
 
-// Serialize all writeBirdnetConf calls so two concurrent /api/settings
-// POSTs can't race on the temp file (`cp: cannot stat /tmp/birdnet.conf.tmp`)
-// or interleave fs.writeFile on engine/config.toml (which corrupted the
-// trailing local_db line on mickey.local).
-let _writeQueue = Promise.resolve();
-function _serialize(fn) {
-  const next = _writeQueue.then(fn, fn);
-  _writeQueue = next.catch(() => {});
-  return next;
-}
+// All writeBirdnetConf calls go through safe-config's per-path lock.
+// We grab locks for BOTH birdnet.conf AND engine/config.toml so a sync that
+// touches both files cannot interleave with another updater of either file.
+const CONFIG_TOML_PATH = path.join(__dirname, '..', '..', 'engine', 'config.toml');
 
 async function writeBirdnetConf(updates) {
-  return _serialize(() => _writeBirdnetConfImpl(updates));
+  return safeConfig.withLock(BIRDNET_CONF, () =>
+    safeConfig.withLock(CONFIG_TOML_PATH, () =>
+      _writeBirdnetConfImpl(updates)
+    )
+  );
 }
 
 async function _writeBirdnetConfImpl(updates) {

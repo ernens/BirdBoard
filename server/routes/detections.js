@@ -5,6 +5,7 @@
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
+const safeConfig = require('../lib/safe-config');
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
@@ -19,7 +20,7 @@ function cached(key, ttlMs, fn) {
 }
 
 function handle(req, res, pathname, ctx) {
-  const { requireAuth, db, dbWrite, birdashDb, taxonomyDb, readJsonFile, writeJsonFileAtomic, JSON_CT, SONGS_DIR, parseBirdnetConf } = ctx;
+  const { requireAuth, db, dbWrite, birdashDb, taxonomyDb, readJsonFile, JSON_CT, SONGS_DIR, parseBirdnetConf } = ctx;
 
   // ── Route : DELETE /api/detections ─────────────────────────────────────────
   // Delete a single detection by composite key (Date + Time + Com_Name)
@@ -534,10 +535,15 @@ function handle(req, res, pathname, ctx) {
     if (!requireAuth(req, res)) return true;
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const rules = JSON.parse(body);
-        writeJsonFileAtomic(DETECTION_RULES_PATH, rules);
+        await safeConfig.updateConfig(
+          DETECTION_RULES_PATH,
+          () => rules,                     // full replacement
+          null,
+          { label: 'POST /api/detection-rules', defaultValue: {} }
+        );
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
       } catch (e) {

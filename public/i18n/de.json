@@ -149,6 +149,7 @@
   "notifications": "Benachrichtigungen",
   "wn_empty": "Nichts Neues",
   "set_save": "Speichern",
+  "set_save_partial": "Einige Einstellungen wurden nicht gespeichert",
   "set_saved": "Konfiguration erfolgreich gespeichert",
   "set_defaults": "Standard",
   "set_defaults_confirm": "Alle Erkennungsparameter auf Standardwerte zurücksetzen?",

@@ -160,8 +160,9 @@
 
       <!-- ═══ Save bar ═══ -->
       <div class="save-bar">
-        <button class="btn-save" @click="saveAll" :disabled="saving">
-          {{saving ? '...' : t('set_save')}}
+        <button class="btn-save" @click="saveAll" :disabled="saving" :class="{'has-changes': isDirty}">
+          <span v-if="saving">…</span>
+          <span v-else>{{t('set_save')}}<span v-if="isDirty" style="margin-left:.35em;">•</span></span>
         </button>
         <button class="btn-outline" @click="resetDefaults">{{t('set_defaults')}}</button>
         <span v-if="saveMsg" class="save-msg" :class="saveErr ? 'save-err' : 'save-ok'">{{saveMsg}}</span>
@@ -594,12 +595,11 @@ const app = createApp({
         Object.assign(conf, defaults, confData);
         models.value = modelData.models || [];
         languages.value = langData.languages || [];
-        // Track initial model state for change detection
-        _savedModel = conf.MODEL || '';
-        _savedSecondary = conf.SECONDARY_MODEL || '';
-        _savedDual = String(conf.DUAL_MODEL_ENABLED || '0');
         includeList.value = (listsData.include || []).join('\n');
         excludeList.value = (listsData.exclude || []).join('\n');
+        // Capture the just-loaded state as the "saved" baseline. Anything
+        // the user types after this will mark the form as dirty.
+        _snapshotSavedState();
       } catch(e) {
         saveMsg.value = e.message;
         saveErr.value = true;
@@ -627,6 +627,24 @@ const app = createApp({
     // Track initial model to detect changes
     let _savedModel = '', _savedSecondary = '', _savedDual = '';
 
+    // saveAll fans out to ~7 endpoints in parallel. Each one can fail
+    // independently, so we collect all the results, surface every error,
+    // and only show "Saved" if EVERY POST returned ok. Previously most
+    // sub-saves were swallowed by `.catch(() => {})`, which produced the
+    // "the toast says OK but the value reverts" symptoms users reported.
+    async function _postJson(url, body) {
+      const res = await fetch(url, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        const err = new Error(data.error || `HTTP ${res.status}`);
+        err.url = url;
+        throw err;
+      }
+      return data;
+    }
+
     async function saveAll() {
       saving.value = true;
       saveMsg.value = '';
@@ -639,66 +657,63 @@ const app = createApp({
           String(conf.DUAL_MODEL_ENABLED) !== String(_savedDual)
         );
 
-        // Save all configs in parallel
-        const [res] = await Promise.all([
-          fetch(API + '/settings', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ updates: { ...conf } }),
-          }),
-          saveAudioConf(),
-          saveAgConf(),
-          fetch(API + '/apprise', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ urls: appriseUrls.value }),
-          }).catch(() => {}),
-          fetch(API + '/species-lists', {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ list: 'include', species: includeList.value.split('\n').map(s => s.trim()).filter(Boolean) }),
-          }).catch(() => {}),
-          fetch(API + '/species-lists', {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ list: 'exclude', species: excludeList.value.split('\n').map(s => s.trim()).filter(Boolean) }),
-          }).catch(() => {}),
-          saveAlertThresholds().catch(() => {}),
-        ]);
-        const data = await res.json();
-        if (data.ok) {
-          BIRDASH.updateSiteIdentity(conf.SITE_NAME, conf.SITE_BRAND);
+        // Build the list of save operations. Each one is a labelled
+        // function so we can report which sub-save failed.
+        const ops = [
+          ['settings', () => _postJson(API + '/settings', { updates: { ...conf } })],
+          ['audio',    () => saveAudioConf()],
+          ['adaptive-gain', () => saveAgConf()],
+          ['apprise',  () => _postJson(API + '/apprise', { urls: appriseUrls.value })],
+          ['species-include', () => _postJson(API + '/species-lists',
+              { list: 'include', species: includeList.value.split('\n').map(s => s.trim()).filter(Boolean) })],
+          ['species-exclude', () => _postJson(API + '/species-lists',
+              { list: 'exclude', species: excludeList.value.split('\n').map(s => s.trim()).filter(Boolean) })],
+          ['alerts',   () => saveAlertThresholds()],
+        ];
 
-          if (modelChanged) {
-            // Auto-restart engine after model change
-            saveMsg.value = t('set_model_restarting') || 'Model changed — restarting engine...';
-            try {
-              await fetch(API + '/services/restart', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ service: 'birdengine' }) });
-              await new Promise(r => setTimeout(r, 3000));
-              // Verify engine is running
-              const healthResp = await fetch(API + '/health');
-              const health = await healthResp.json();
-              if (health.status === 'ok') {
-                saveMsg.value = (t('set_model_changed') || 'Model changed successfully') +
-                  ' — ' + conf.MODEL + (conf.DUAL_MODEL_ENABLED === '1' || conf.DUAL_MODEL_ENABLED === 1 ? ' + ' + conf.SECONDARY_MODEL : '');
-                window.dispatchEvent(new CustomEvent('birdash:success', { detail: saveMsg.value }));
-              } else {
-                saveMsg.value = t('set_model_restart_warning') || 'Model saved but engine may need manual restart';
-                saveErr.value = true;
-              }
-            } catch(e) {
-              saveMsg.value = (t('set_model_restart_error') || 'Model saved but engine restart failed') + ': ' + e.message;
+        const results = await Promise.allSettled(ops.map(([, fn]) => fn()));
+        const failures = [];
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            failures.push(`${ops[i][0]}: ${r.reason && r.reason.message ? r.reason.message : r.reason}`);
+          }
+        });
+
+        if (failures.length > 0) {
+          saveMsg.value = (t('set_save_partial') || 'Some settings failed to save') + ': ' + failures.join('; ');
+          saveErr.value = true;
+          // Reload from server to make the UI reflect what's actually persisted.
+          await reload().catch(() => {});
+          return;
+        }
+
+        // All saves succeeded — pull the canonical state back from the
+        // server so the UI never lies about what's persisted.
+        BIRDASH.updateSiteIdentity(conf.SITE_NAME, conf.SITE_BRAND);
+        await reload().catch(() => {});
+        _snapshotSavedState();
+
+        if (modelChanged) {
+          saveMsg.value = t('set_model_restarting') || 'Model changed — restarting engine...';
+          try {
+            await fetch(API + '/services/restart', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ service: 'birdengine' }) });
+            await new Promise(r => setTimeout(r, 3000));
+            const healthResp = await fetch(API + '/health');
+            const health = await healthResp.json();
+            if (health.status === 'ok') {
+              saveMsg.value = (t('set_model_changed') || 'Model changed successfully') +
+                ' — ' + conf.MODEL + (conf.DUAL_MODEL_ENABLED === '1' || conf.DUAL_MODEL_ENABLED === 1 ? ' + ' + conf.SECONDARY_MODEL : '');
+              window.dispatchEvent(new CustomEvent('birdash:success', { detail: saveMsg.value }));
+            } else {
+              saveMsg.value = t('set_model_restart_warning') || 'Model saved but engine may need manual restart';
               saveErr.value = true;
             }
-          } else {
-            saveMsg.value = t('set_saved');
+          } catch(e) {
+            saveMsg.value = (t('set_model_restart_error') || 'Model saved but engine restart failed') + ': ' + e.message;
+            saveErr.value = true;
           }
-          if (data.warnings) saveMsg.value += ' (' + data.warnings.join(', ') + ')';
-          // Update saved state
-          _savedModel = conf.MODEL;
-          _savedSecondary = conf.SECONDARY_MODEL;
-          _savedDual = String(conf.DUAL_MODEL_ENABLED);
         } else {
-          saveMsg.value = data.error || 'Error';
-          saveErr.value = true;
+          saveMsg.value = t('set_saved');
         }
       } catch(e) {
         saveMsg.value = e.message;
@@ -707,9 +722,27 @@ const app = createApp({
       saving.value = false;
     }
 
+    // ── Dirty tracking — the Save button shows a • when conf has changed
+    // since the last successful save. Lets users see at a glance whether
+    // there's something to persist (and stops them from second-guessing
+    // whether the previous save took effect).
+    let _savedSnapshot = null;
+    function _snapshotSavedState() {
+      try { _savedSnapshot = JSON.stringify(conf); } catch { _savedSnapshot = null; }
+      _savedModel = conf.MODEL;
+      _savedSecondary = conf.SECONDARY_MODEL;
+      _savedDual = String(conf.DUAL_MODEL_ENABLED);
+    }
+    const isDirty = computed(() => {
+      if (!_savedSnapshot) return false;
+      try { return JSON.stringify(conf) !== _savedSnapshot; } catch { return false; }
+    });
+
     function resetDefaults() {
       if (!confirm(t('set_defaults_confirm'))) return;
-      // Detection defaults
+      // Detection defaults — applied to the in-memory form only.
+      // The user must click Save to persist; the message reflects this
+      // honestly instead of pretending the change is already on disk.
       conf.BIRDNET_CONFIDENCE = 0.65;
       conf.PERCH_CONFIDENCE = 0.15;
       conf.PERCH_MIN_MARGIN = 0.05;
@@ -721,8 +754,8 @@ const app = createApp({
       conf.EXTRACTION_LENGTH = 6;
       conf.AUDIOFMT = 'mp3';
       conf.CHANNELS = 1;
-      saveMsg.value = t('set_defaults_applied');
-      setTimeout(() => saveMsg.value = '', 3000);
+      saveMsg.value = t('set_defaults_applied_unsaved') || (t('set_defaults_applied') + ' — ' + (t('set_click_save_to_persist') || 'click Save to persist'));
+      saveErr.value = false;
     }
 
     async function restartService(name) {
@@ -1650,7 +1683,7 @@ const app = createApp({
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
-      saveAll, resetDefaults, restartService, saveSpeciesLists,
+      saveAll, resetDefaults, restartService, saveSpeciesLists, isDirty,
       helpKey, helpTitle, helpBody,
       bkp, backupDests, savingBkp, runningBkp, bkpProgress,
       toggleBackupContent, saveBackupConfig, runBackup,
@@ -1765,7 +1798,7 @@ const app = createApp({
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
-      saveAll, resetDefaults, restartService, saveSpeciesLists,
+      saveAll, resetDefaults, restartService, saveSpeciesLists, isDirty,
       helpKey, helpTitle, helpBody,
       bkp, backupDests, savingBkp, runningBkp, bkpProgress,
       toggleBackupContent, saveBackupConfig, runBackup,

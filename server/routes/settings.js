@@ -5,6 +5,7 @@
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
+const safeConfig = require('../lib/safe-config');
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
@@ -104,7 +105,7 @@ function handle(req, res, pathname, ctx) {
         const { urls } = JSON.parse(body);
         if (typeof urls !== 'string') throw new Error('urls must be a string');
         const appriseFile = path.join(process.env.HOME, 'birdash', 'config', 'apprise.txt');
-        await fsp.writeFile(appriseFile, urls.trim() + '\n');
+        await safeConfig.writeRaw(appriseFile, urls.trim() + '\n', { label: 'POST /api/apprise' });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
       } catch(e) {

@@ -149,6 +149,7 @@
   "notifications": "Meldingen",
   "wn_empty": "Niets nieuws",
   "set_save": "Opslaan",
+  "set_save_partial": "Sommige instellingen zijn niet opgeslagen",
   "set_saved": "Configuratie succesvol opgeslagen",
   "set_defaults": "Standaard",
   "set_defaults_confirm": "Alle detectieparameters terugzetten naar standaardwaarden?",

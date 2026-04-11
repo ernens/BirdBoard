@@ -7,6 +7,7 @@ const path = require('path');
 const fs   = require('fs');
 const fsp  = fs.promises;
 const { spawn } = require('child_process');
+const safeConfig = require('../lib/safe-config');
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
@@ -124,19 +125,23 @@ function handle(req, res, pathname, ctx) {
           return;
         }
 
-        // Preserve passwords if sent as redacted
-        for (const section of ['smb', 'sftp', 'webdav']) {
-          if (updates[section] && updates[section].pass === '••••••' && existing[section]) {
-            updates[section].pass = existing[section].pass;
-          }
-        }
-        if (updates.s3 && updates.s3.secretKey === '••••••' && existing.s3) {
-          updates.s3.secretKey = existing.s3.secretKey;
-        }
-
-        // Merge and save
-        const merged = { ...existing, ...updates };
-        await fsp.writeFile(cfgPath, JSON.stringify(merged, null, 2));
+        const merged = await safeConfig.updateConfig(
+          cfgPath,
+          (current) => {
+            // Preserve passwords if sent as redacted
+            for (const section of ['smb', 'sftp', 'webdav']) {
+              if (updates[section] && updates[section].pass === '••••••' && current[section]) {
+                updates[section].pass = current[section].pass;
+              }
+            }
+            if (updates.s3 && updates.s3.secretKey === '••••••' && current.s3) {
+              updates.s3.secretKey = current.s3.secretKey;
+            }
+            return Object.assign(current, updates);
+          },
+          null,
+          { label: 'POST /api/backup-config', defaultValue: {} }
+        );
 
         // Update cron if schedule changed
         await updateBackupCron(merged);
@@ -177,24 +182,34 @@ function handle(req, res, pathname, ctx) {
           const status = code === 0 ? 'success' : 'failed';
           const now = new Date().toISOString();
           try {
-            const cfg = JSON.parse(await fsp.readFile(cfgPath, 'utf8'));
-            cfg.lastRun = now;
-            cfg.lastStatus = status;
-            cfg.lastMessage = code === 0 ? '' : (stderr || stdout).slice(0, 500);
-            // Measure backup size after success (async, non-blocking)
+            // Measure backup size after success (outside the lock so we
+            // don't hold up other writers during the du call).
+            let lastBackupSize = null;
             if (code === 0) {
               try {
-                const dest = cfg.destination || 'local';
-                const bkpDir = dest === 'local' ? (cfg.local && cfg.local.path || '/mnt/backup')
-                  : (dest === 'nfs' && cfg.nfs) ? path.join(cfg.nfs.mountPoint || '/mnt/backup', cfg.nfs.remotePath || 'birdash-backup')
+                const peek = JSON.parse(await fsp.readFile(cfgPath, 'utf8'));
+                const dest = peek.destination || 'local';
+                const bkpDir = dest === 'local' ? (peek.local && peek.local.path || '/mnt/backup')
+                  : (dest === 'nfs' && peek.nfs) ? path.join(peek.nfs.mountPoint || '/mnt/backup', peek.nfs.remotePath || 'birdash-backup')
                   : null;
                 if (bkpDir) {
                   const sizeOut = await execCmd('du', ['-sb', bkpDir]);
-                  cfg.lastBackupSize = parseInt(sizeOut.split(/\s/)[0]);
+                  lastBackupSize = parseInt(sizeOut.split(/\s/)[0]);
                 }
               } catch {}
             }
-            await fsp.writeFile(cfgPath, JSON.stringify(cfg, null, 2));
+            await safeConfig.updateConfig(
+              cfgPath,
+              (cfg) => {
+                cfg.lastRun = now;
+                cfg.lastStatus = status;
+                cfg.lastMessage = code === 0 ? '' : (stderr || stdout).slice(0, 500);
+                if (lastBackupSize != null) cfg.lastBackupSize = lastBackupSize;
+                return cfg;
+              },
+              null,
+              { label: 'backup.proc.on(close)', defaultValue: {} }
+            );
           } catch(e) {}
         });
 
@@ -358,12 +373,17 @@ function handle(req, res, pathname, ctx) {
         // Update status file
         const statusPath = path.join(PROJECT_ROOT, 'config', 'backup-status.json');
         try {
-          const raw = await fsp.readFile(statusPath, 'utf8');
-          const s = JSON.parse(raw);
-          if (action === 'pause') { s.state = 'paused'; s.detail = 'Mis en pause'; }
-          else { s.state = 'running'; s.detail = 'Reprise...'; }
-          s.updatedAt = new Date().toISOString();
-          await fsp.writeFile(statusPath, JSON.stringify(s));
+          await safeConfig.updateConfig(
+            statusPath,
+            (s) => {
+              if (action === 'pause') { s.state = 'paused'; s.detail = 'Mis en pause'; }
+              else { s.state = 'running'; s.detail = 'Reprise...'; }
+              s.updatedAt = new Date().toISOString();
+              return s;
+            },
+            null,
+            { label: `POST /api/backup-${action}`, defaultValue: {} }
+          );
         } catch(e) {}
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -415,16 +435,19 @@ function handle(req, res, pathname, ctx) {
         // Update status file
         const statusPath = path.join(PROJECT_ROOT, 'config', 'backup-status.json');
         try {
-          const s = { state: 'stopped', percent: 0, step: '', detail: 'Arrêté par l\'utilisateur', startedAt: null, updatedAt: new Date().toISOString() };
-          // Try to preserve percent from existing status
-          try {
-            const raw = await fsp.readFile(statusPath, 'utf8');
-            const prev = JSON.parse(raw);
-            s.percent = prev.percent || 0;
-            s.step = prev.step || '';
-            s.startedAt = prev.startedAt;
-          } catch(e) {}
-          await fsp.writeFile(statusPath, JSON.stringify(s));
+          await safeConfig.updateConfig(
+            statusPath,
+            (prev) => ({
+              state: 'stopped',
+              percent: prev.percent || 0,
+              step: prev.step || '',
+              detail: 'Arrêté par l\'utilisateur',
+              startedAt: prev.startedAt || null,
+              updatedAt: new Date().toISOString(),
+            }),
+            null,
+            { label: 'POST /api/backup-stop', defaultValue: {} }
+          );
         } catch(e) {}
 
         res.writeHead(200, { 'Content-Type': 'application/json' });

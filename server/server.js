@@ -108,9 +108,14 @@ function requireAuth(req, res) {
 if (!API_TOKEN) console.warn('[BIRDASH] WARNING: No BIRDASH_API_TOKEN set — write endpoints are unprotected. Set Environment=BIRDASH_API_TOKEN=... in birdash.service for production.');
 
 // ── JSON file helpers ────────────────────────────────────────────────────────
+const safeConfig = require('./lib/safe-config');
 function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+// Legacy synchronous helper kept only for code paths that can't yet be made
+// async (e.g. periodic background tasks). All new writes — and any
+// read-modify-write cycle from a route handler — MUST go through
+// safeConfig.updateConfig / writeRaw so the per-file mutex is honoured.
 function writeJsonFileAtomic(p, data) {
-  const tmp = p + '.tmp';
+  const tmp = p + '.' + process.pid + '.' + Date.now() + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
   fs.renameSync(tmp, p);
 }
@@ -133,6 +138,7 @@ setInterval(() => {
 // ── Route context ────────────────────────────────────────────────────────────
 const _routeCtx = {
   requireAuth, execCmd, readJsonFile, writeJsonFileAtomic, JSON_CT,
+  safeConfig,  // updateConfig / writeRaw / withLock — see server/lib/safe-config.js
   db, dbWrite, birdashDb, taxonomyDb, parseBirdnetConf, SONGS_DIR,
   ALLOWED_SERVICES, BIRDNET_DIR, validateQuery,
   photoCacheKey: _photoRoutes.photoCacheKey, PHOTO_CACHE_DIR: _photoRoutes.PHOTO_CACHE_DIR,
