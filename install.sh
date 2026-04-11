@@ -7,12 +7,22 @@
 #   git clone https://github.com/ernens/birdash.git
 #   cd birdash
 #   chmod +x install.sh
-#   ./install.sh
+#   ./install.sh            # interactive
+#   ./install.sh --yes      # non-interactive (skip confirmation)
 #
 # Tested on: Raspberry Pi OS Lite 64-bit (Trixie/Bookworm)
 # ══════════════════════════════════════════════════════════════════════════
 
 set -e
+
+ASSUME_YES=0
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes|--non-interactive) ASSUME_YES=1 ;;
+    esac
+done
+# Auto-skip prompt when stdin isn't a TTY (e.g. piped from curl)
+if [ ! -t 0 ]; then ASSUME_YES=1; fi
 
 BIRDASH_USER=$(whoami)
 BIRDASH_HOME=$(eval echo ~$BIRDASH_USER)
@@ -44,9 +54,13 @@ echo "  Home:     $BIRDASH_HOME"
 echo "  Birdash:  $BIRDASH_DIR"
 echo "  Platform: $(uname -m) $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d= -f2 | tr -d '"')"
 echo ""
-read -p "Continue with installation? [Y/n] " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Nn]$ ]]; then exit 0; fi
+if [ "$ASSUME_YES" = "1" ]; then
+    echo "  (Non-interactive mode: proceeding automatically)"
+else
+    read -p "Continue with installation? [Y/n] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Nn]$ ]]; then exit 0; fi
+fi
 
 # ══════════════════════════════════════════════════════════════════════════
 # Step 1: System packages

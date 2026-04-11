@@ -226,13 +226,24 @@ All other dependencies are installed automatically by the installer.
 
 ## Installation
 
+### One-line install (recommended)
+
 ```bash
-# 1. Clone and install (everything is automated)
+curl -sSL https://raw.githubusercontent.com/ernens/birdash/main/bootstrap.sh | bash
+```
+
+That's it. The bootstrap installs git if needed, clones the repo into `~/birdash`, and runs `install.sh` non-interactively. When it finishes, open the dashboard URL printed at the end and configure your station (GPS, BirdNET model, audio device) from **Settings**.
+
+### Manual install
+
+```bash
+# 1. Clone and install
 cd ~
 git clone https://github.com/ernens/birdash.git
 cd birdash
 chmod +x install.sh
-./install.sh
+./install.sh                # interactive
+# or: ./install.sh --yes    # non-interactive
 
 # 2. Start all services
 sudo systemctl enable --now birdengine-recording birdengine birdash caddy ttyd
