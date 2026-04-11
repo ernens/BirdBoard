@@ -1171,5 +1171,17 @@
   "set_model_restarting": "Modell geändert — Motor wird neu gestartet...",
   "set_model_changed": "Modell erfolgreich geändert, Motor neu gestartet",
   "set_model_restart_warning": "Modell gespeichert aber Motor muss manuell neu gestartet werden",
-  "set_model_restart_error": "Modell gespeichert aber Neustart fehlgeschlagen"
+  "set_model_restart_error": "Modell gespeichert aber Neustart fehlgeschlagen",
+  "hour": "Stunde",
+  "error_generic": "Ein Fehler ist aufgetreten",
+  "spectro_expand": "Spektrogramm vergrößern",
+  "search": "Suchen",
+  "set_birdnet_missing": "BirdNET V2.4 ist nicht installiert.",
+  "set_birdnet_license_notice": "BirdNET steht unter CC-BY-NC-SA 4.0 (nicht-kommerzielle Nutzung). Mit dem Herunterladen akzeptieren Sie die Lizenz.",
+  "set_birdnet_accept": "Lizenz akzeptieren und herunterladen",
+  "set_defaults_applied_unsaved": "Standardwerte angewendet",
+  "set_click_save_to_persist": "Speichern klicken zum Bestätigen",
+  "sys_uptime": "Betriebszeit",
+  "sys_no_data": "Keine Daten",
+  "sys_channels": "Kanäle"
 }

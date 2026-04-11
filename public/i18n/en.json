@@ -1171,5 +1171,17 @@
   "set_model_restarting": "Model changed — restarting engine...",
   "set_model_changed": "Model changed successfully, engine restarted",
   "set_model_restart_warning": "Model saved but engine may need manual restart",
-  "set_model_restart_error": "Model saved but engine restart failed"
+  "set_model_restart_error": "Model saved but engine restart failed",
+  "hour": "hour",
+  "error_generic": "An error occurred",
+  "spectro_expand": "Expand spectrogram",
+  "search": "Search",
+  "set_birdnet_missing": "BirdNET V2.4 is not installed.",
+  "set_birdnet_license_notice": "BirdNET is distributed under CC-BY-NC-SA 4.0 (non-commercial use). Downloading means you accept the license.",
+  "set_birdnet_accept": "I accept the license and download",
+  "set_defaults_applied_unsaved": "Default values applied",
+  "set_click_save_to_persist": "click Save to confirm",
+  "sys_uptime": "Uptime",
+  "sys_no_data": "No data",
+  "sys_channels": "Channels"
 }

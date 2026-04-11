@@ -213,7 +213,7 @@
                          border-radius:var(--radius);outline:none;"
                   @focus="$event.target.style.borderColor='var(--accent)'"
                   @focusout="$event.target.style.borderColor='var(--border)'"></textarea>
-        <div v-if="noteSaving" style="font-size:.72rem;opacity:.6;margin-top:.25rem;">{{t('saving') || '…'}}</div>
+        <div v-if="noteSaving" style="font-size:.72rem;opacity:.6;margin-top:.25rem;">…</div>
         <div v-if="noteError" style="font-size:.75rem;color:var(--warning);margin-top:.25rem;">⚠ {{noteError}}</div>
       </div>
 
@@ -457,8 +457,8 @@
           <textarea v-model="shareText" class="share-modal-text" rows="9" :aria-label="t('share') || 'Partager'"></textarea>
           <div v-if="shareToast" class="share-modal-toast">{{shareToast}}</div>
           <div class="share-modal-buttons">
-            <button class="share-btn share-btn-primary" @click="shareViaClipboard">📋 {{t('share_copy') || 'Copier'}}</button>
-            <button class="share-btn" @click="shareViaNative">📲 {{t('share_native') || 'Partager…'}}</button>
+            <button class="share-btn share-btn-primary" @click="shareViaClipboard">📋 {{t('share_copy')}}</button>
+            <button class="share-btn" @click="shareViaNative">📲 {{t('share_native')}}</button>
             <button class="share-btn" @click="shareViaSms">📱 SMS</button>
             <button class="share-btn" @click="shareViaWhatsAppSmart">🟢 WhatsApp</button>
             <button class="share-btn" @click="shareViaTwitter">🐦 X / Twitter</button>

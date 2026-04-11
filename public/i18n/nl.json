@@ -1171,5 +1171,17 @@
   "set_model_restarting": "Model gewijzigd — motor herstart...",
   "set_model_changed": "Model succesvol gewijzigd, motor herstart",
   "set_model_restart_warning": "Model opgeslagen maar motor moet handmatig herstart worden",
-  "set_model_restart_error": "Model opgeslagen maar herstart mislukt"
+  "set_model_restart_error": "Model opgeslagen maar herstart mislukt",
+  "hour": "uur",
+  "error_generic": "Er is een fout opgetreden",
+  "spectro_expand": "Spectrogram vergroten",
+  "search": "Zoeken",
+  "set_birdnet_missing": "BirdNET V2.4 is niet geïnstalleerd.",
+  "set_birdnet_license_notice": "BirdNET wordt verspreid onder CC-BY-NC-SA 4.0 (niet-commercieel gebruik). Door te downloaden accepteer je de licentie.",
+  "set_birdnet_accept": "Ik accepteer de licentie en download",
+  "set_defaults_applied_unsaved": "Standaardwaarden toegepast",
+  "set_click_save_to_persist": "klik op Opslaan om te bevestigen",
+  "sys_uptime": "Uptime",
+  "sys_no_data": "Geen gegevens",
+  "sys_channels": "Kanalen"
 }
