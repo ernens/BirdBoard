@@ -614,57 +614,25 @@ function handle(req, res, pathname, ctx) {
         const modelsDir = path.join(PROJECT_ROOT, 'engine', 'models');
         // Check if already present
         const fp32 = path.join(modelsDir, 'BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite');
-        const mdata = path.join(modelsDir, 'BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite');
-        if (fs.existsSync(fp32) && fs.statSync(fp32).size > 1000000) {
+        const l18nEn = path.join(modelsDir, 'l18n', 'labels_en.json');
+        if (fs.existsSync(fp32) && fs.statSync(fp32).size > 1000000 && fs.existsSync(l18nEn)) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, message: 'BirdNET models already installed' }));
           return;
         }
 
-        // Use birdnetlib pip package to get models
-        const venvDir = path.join(PROJECT_ROOT, '.birdnet-download-' + Date.now());
-        const { execSync } = require('child_process');
-
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, message: 'Download started — this may take several minutes on slower hardware' }));
 
-        // Run in background (don't block the response or timeout)
-        const l18nDir = path.join(modelsDir, 'l18n');
-        const script = [
-          `python3 -m venv ${venvDir}`,
-          `${venvDir}/bin/pip install --quiet birdnetlib`,
-          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/`,
-          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite ${modelsDir}/`,
-          `cp ${venvDir}/lib/python*/site-packages/birdnetlib/models/analyzer/BirdNET_GLOBAL_6K_V2.4_Labels.txt ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt`,
-          `ln -sf BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite ${modelsDir}/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite`,
-          // Download l18n species name translations from BirdNET repo
-          `mkdir -p ${l18nDir}`,
-          `${venvDir}/bin/python3 -c "
-import urllib.request, json, os
-langs = ['af','ar','bg','ca','cs','da','de','el','en_uk','es','et','fi','fr','gl','he','hr','hu','id','is','it','ja','ko','lt','lv','nl','no','pl','pt_br','pt','ro','ru','sk','sl','sr','sv','th','tr','uk','zh']
-base = 'https://raw.githubusercontent.com/birdnet-team/BirdNET-Analyzer/main/birdnet_analyzer/labels/V2.4/BirdNET_GLOBAL_6K_V2.4_Labels_{}.txt'
-for lang in langs:
-    try:
-        url = base.format(lang)
-        data = urllib.request.urlopen(url).read().decode('utf-8')
-        d = {}
-        for line in data.strip().split(chr(10)):
-            parts = line.split('_', 1)
-            if len(parts) == 2: d[parts[0]] = parts[1]
-        out = '${l18nDir}/labels_' + lang.replace('_','-') + '.json'
-        with open(out, 'w') as f: json.dump(d, f, ensure_ascii=False, indent=2)
-    except: pass
-print('l18n: downloaded', len(os.listdir('${l18nDir}')), 'languages')
-"`,
-          `rm -rf ${venvDir}`,
-          `echo BIRDNET_DOWNLOAD_OK`,
-        ].join(' && ');
+        // Delegate to the standalone download script (same logic as install.sh uses).
+        const scriptPath = path.join(PROJECT_ROOT, 'engine', 'download_birdnet.sh');
         const { spawn } = require('child_process');
-        const proc = spawn('bash', ['-c', script], { stdio: 'pipe' });
-        proc.stdout.on('data', d => { if (d.toString().includes('BIRDNET_DOWNLOAD_OK')) console.log('[BIRDASH] BirdNET models downloaded via birdnetlib'); });
-        proc.stderr.on('data', d => { /* ignore pip warnings */ });
+        const proc = spawn('bash', [scriptPath, modelsDir], { stdio: 'pipe' });
+        proc.stdout.on('data', d => process.stdout.write('[download-birdnet] ' + d));
+        proc.stderr.on('data', d => process.stderr.write('[download-birdnet] ' + d));
         proc.on('close', code => {
-          if (code !== 0) console.error('[download-birdnet] Process exited with code', code);
+          if (code === 0) console.log('[BIRDASH] BirdNET models downloaded');
+          else console.error('[download-birdnet] Process exited with code', code);
         });
       } catch(e) {
         console.error('[download-birdnet]', e.message);

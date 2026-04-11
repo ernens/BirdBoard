@@ -232,7 +232,13 @@ All other dependencies are installed automatically by the installer.
 curl -sSL https://raw.githubusercontent.com/ernens/birdash/main/bootstrap.sh | bash
 ```
 
-That's it. The bootstrap installs git if needed, clones the repo into `~/birdash`, and runs `install.sh` non-interactively. When it finishes, open the dashboard URL printed at the end and configure your station (GPS, BirdNET model, audio device) from **Settings**.
+That's it. The bootstrap installs git if needed, clones the repo into `~/birdash`, runs `install.sh` non-interactively, downloads the BirdNET V2.4 model, enables dual-model detection (BirdNET + Perch), and starts all services. When it finishes, open the dashboard URL printed at the end and tweak GPS/audio from **Settings**.
+
+BirdNET V2.4 is under **CC-BY-NC-SA 4.0** (non-commercial use — see the [BirdNET-Analyzer repo](https://github.com/kahst/BirdNET-Analyzer)). To skip the BirdNET download and use Perch-only:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ernens/birdash/main/bootstrap.sh | BIRDASH_SKIP_BIRDNET=1 bash
+```
 
 ### Manual install
 

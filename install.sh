@@ -42,7 +42,7 @@ ok()   { echo -e "  ${GREEN}✓${NC} $1"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $1"; }
 fail() { echo -e "  ${RED}✗${NC} $1"; exit 1; }
 
-TOTAL_STEPS=10
+TOTAL_STEPS=12
 
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
@@ -220,7 +220,7 @@ if [ ! -f /etc/birdnet/birdnet.conf ]; then
 # Birdash detection configuration
 # This file is read by both BirdEngine and Birdash dashboard
 
-MODEL=BirdNET_GLOBAL_6K_V2.4_Model_FP32
+MODEL=$_PERCH_MODEL
 SENSITIVITY=1.3
 CONFIDENCE=0.7
 OVERLAP=0.5
@@ -238,9 +238,9 @@ FULL_DISK=purge
 PURGE_THRESHOLD=95
 AUDIO_RETENTION_DAYS=90
 
-# Dual-model (auto-select best Perch variant for this hardware)
-DUAL_MODEL_ENABLED=1
-SECONDARY_MODEL=$_PERCH_MODEL
+# Dual-model (enabled by install.sh step 12 once BirdNET is downloaded)
+DUAL_MODEL_ENABLED=0
+SECONDARY_MODEL=
 
 # Notifications (edit ntfy topic or leave empty)
 NOTIFY_ENABLED=0
@@ -463,7 +463,14 @@ EOF
 
 # Allow Caddy to read user files
 chmod 711 "$BIRDASH_HOME"
-ok "Caddy configured"
+
+# Reload caddy if already running, so it picks up the new Caddyfile.
+# (systemctl enable --now in step 11 would NOT reload an already-active service.)
+if systemctl is-active caddy >/dev/null 2>&1; then
+    sudo systemctl reload caddy >/dev/null 2>&1 && ok "Caddy configured and reloaded" || warn "Caddy reload failed"
+else
+    ok "Caddy configured"
+fi
 
 # ══════════════════════════════════════════════════════════════════════════
 # Step 10: Set up cron jobs
@@ -479,6 +486,60 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════════
+# Step 11: Download BirdNET V2.4 (optional — CC-BY-NC-SA 4.0 license)
+# ══════════════════════════════════════════════════════════════════════════
+step 11 "Downloading BirdNET V2.4..."
+
+MODELS_DIR="$BIRDASH_DIR/engine/models"
+
+if [ "${BIRDASH_SKIP_BIRDNET:-0}" = "1" ]; then
+    warn "BIRDASH_SKIP_BIRDNET=1 — skipping BirdNET download"
+    warn "You can install it later from the dashboard: Settings → Detection → Download BirdNET"
+elif [ -f "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite" ] \
+     && [ -f "$MODELS_DIR/l18n/labels_en.json" ]; then
+    ok "BirdNET V2.4 already installed"
+    # Promote to dual-model mode automatically (primary = BirdNET, secondary = Perch)
+    sudo sed -i "s|^MODEL=.*|MODEL=BirdNET_GLOBAL_6K_V2.4_Model_FP32|" /etc/birdnet/birdnet.conf
+    sudo sed -i "s|^DUAL_MODEL_ENABLED=.*|DUAL_MODEL_ENABLED=1|" /etc/birdnet/birdnet.conf
+    sudo sed -i "s|^SECONDARY_MODEL=.*|SECONDARY_MODEL=$_PERCH_MODEL|" /etc/birdnet/birdnet.conf
+    ok "Dual-model enabled (BirdNET + $_PERCH_MODEL)"
+else
+    echo ""
+    echo "  BirdNET V2.4 is distributed under CC-BY-NC-SA 4.0 (non-commercial use)."
+    echo "  See https://github.com/kahst/BirdNET-Analyzer for the full license."
+    echo "  Set BIRDASH_SKIP_BIRDNET=1 before install to skip this download."
+    echo ""
+    if bash "$BIRDASH_DIR/engine/download_birdnet.sh" "$MODELS_DIR"; then
+        ok "BirdNET V2.4 downloaded"
+        # Enable dual-model (BirdNET primary + Perch secondary) for best accuracy
+        sudo sed -i "s|^MODEL=.*|MODEL=BirdNET_GLOBAL_6K_V2.4_Model_FP32|" /etc/birdnet/birdnet.conf
+        sudo sed -i "s|^DUAL_MODEL_ENABLED=.*|DUAL_MODEL_ENABLED=1|" /etc/birdnet/birdnet.conf
+        sudo sed -i "s|^SECONDARY_MODEL=.*|SECONDARY_MODEL=$_PERCH_MODEL|" /etc/birdnet/birdnet.conf
+        # Sync the engine config.toml as well
+        if [ -f "$BIRDASH_DIR/engine/config.toml" ]; then
+            sed -i "s|^model\s*=.*|model = \"BirdNET_GLOBAL_6K_V2.4_Model_FP32\"|" "$BIRDASH_DIR/engine/config.toml"
+            sed -i "s|^secondary_model\s*=.*|secondary_model = \"$_PERCH_MODEL\"|" "$BIRDASH_DIR/engine/config.toml"
+        fi
+        ok "Dual-model enabled (BirdNET + $_PERCH_MODEL)"
+    else
+        warn "BirdNET download failed — starting with Perch-only"
+        warn "Retry later from the dashboard: Settings → Detection → Download BirdNET"
+    fi
+fi
+
+# ══════════════════════════════════════════════════════════════════════════
+# Step 12: Enable and start services
+# ══════════════════════════════════════════════════════════════════════════
+step 12 "Enabling and starting services..."
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now caddy >/dev/null 2>&1 && ok "caddy enabled & started" || warn "caddy failed to start"
+sudo systemctl enable --now birdash >/dev/null 2>&1 && ok "birdash enabled & started" || warn "birdash failed to start"
+sudo systemctl enable --now birdengine >/dev/null 2>&1 && ok "birdengine enabled & started" || warn "birdengine failed to start"
+sudo systemctl enable --now birdengine-recording >/dev/null 2>&1 && ok "birdengine-recording enabled & started" || warn "birdengine-recording failed to start"
+sudo systemctl enable --now ttyd >/dev/null 2>&1 && ok "ttyd enabled & started" || warn "ttyd failed to start"
+
+# ══════════════════════════════════════════════════════════════════════════
 # Done!
 # ══════════════════════════════════════════════════════════════════════════
 echo ""
@@ -486,27 +547,23 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  Installation complete!${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
 echo ""
-echo "  Configuration files to edit:"
-echo "    1. ${YELLOW}/etc/birdnet/birdnet.conf${NC}"
-echo "       → Set LATITUDE, LONGITUDE, DATABASE_LANG"
+echo -e "  Dashboard:"
+echo -e "    ${GREEN}http://$(hostname).local/birds/${NC}"
+echo -e "    ${GREEN}http://$(hostname -I | awk '{print $1}')/birds/${NC}"
 echo ""
-echo "    2. ${YELLOW}$BIRDASH_DIR/engine/config.toml${NC}"
-echo "       → Set station location, BirdWeather ID, ntfy URL"
+echo -e "  Next steps (from the dashboard → Settings):"
+echo -e "    • Station: GPS coordinates, language, timezone"
+echo -e "    • Detection: download BirdNET V2.4 (one-click)"
+echo -e "    • Audio: select USB device and verify levels"
 echo ""
-echo "    3. ${YELLOW}$BIRDASH_DIR/public/js/birdash-local.js${NC}"
-echo "       → Set location, eBird API key"
+echo -e "  Optional config files:"
+echo -e "    ${YELLOW}/etc/birdnet/birdnet.conf${NC}      — BirdNET runtime settings"
+echo -e "    ${YELLOW}$BIRDASH_DIR/engine/config.toml${NC} — engine + BirdWeather + ntfy"
+echo -e "    ${YELLOW}$BIRDASH_DIR/public/js/birdash-local.js${NC} — eBird API key"
 echo ""
-echo "  Start all services:"
-echo "    ${BLUE}sudo systemctl enable --now birdengine-recording birdengine birdash caddy ttyd${NC}"
-echo ""
-echo "  Dashboard:"
-echo "    ${GREEN}http://$(hostname).local/birds/${NC}"
-echo ""
-echo "  Run tests:"
-echo "    ${BLUE}cd $BIRDASH_DIR && npm test${NC}"
-echo "    ${BLUE}cd $BIRDASH_DIR/engine && ../engine/venv/bin/python -m unittest test_engine -v${NC}"
-echo ""
-if [ ! -f "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite" ]; then
-    echo -e "  ${YELLOW}⚠ Remember to copy BirdNET V2.4 model to $MODELS_DIR/${NC}"
+TFLITE_COUNT=$(ls "$MODELS_DIR"/*.tflite 2>/dev/null | wc -l)
+if [ "$TFLITE_COUNT" -eq 0 ]; then
+    echo -e "  ${YELLOW}⚠ No TFLite models found in $MODELS_DIR/${NC}"
+    echo -e "  ${YELLOW}  Use the dashboard's Detection panel to download BirdNET V2.4${NC}"
     echo ""
 fi
