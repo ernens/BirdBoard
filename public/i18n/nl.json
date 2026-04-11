@@ -901,6 +901,7 @@
   "click_to_edit_value": "Klik om waarde in te voeren",
   "search_filter_ph": "filteren…",
   "search_species_ph": "Zoeken… (druk /)",
+  "no_species_match": "Geen soort komt overeen",
   "fft_analysis": "FFT-analyse…",
   "ebird_api_missing": "API-sleutel ontbreekt",
   "ebird_enable_text": "Om deze sectie te activeren, haal een gratis sleutel op bij",

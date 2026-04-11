@@ -901,6 +901,7 @@
   "click_to_edit_value": "Klicken, um Wert einzugeben",
   "search_filter_ph": "filtern…",
   "search_species_ph": "Suchen… (Taste /)",
+  "no_species_match": "Keine Art entspricht",
   "fft_analysis": "FFT-Analyse…",
   "ebird_api_missing": "API-Schlüssel fehlt",
   "ebird_enable_text": "Um diesen Bereich zu aktivieren, holen Sie sich einen kostenlosen Schlüssel auf",

@@ -901,6 +901,7 @@
   "click_to_edit_value": "Click to enter a value",
   "search_filter_ph": "filter…",
   "search_species_ph": "Search… (press /)",
+  "no_species_match": "No species match",
   "fft_analysis": "FFT analysis…",
   "ebird_api_missing": "API key missing",
   "ebird_enable_text": "To enable this section, get a free key at",

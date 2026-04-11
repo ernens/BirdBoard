@@ -64,6 +64,54 @@
     }
     .ph-species-search:focus { border-color: var(--accent); }
 
+    /* ── Species picker (custom combobox) ──────────────────────── */
+    .ph-species-picker { position: relative; flex: 1; min-width: 240px; max-width: 360px; }
+    .ph-species-trigger {
+      width: 100%; display: flex; align-items: center; gap: .5rem;
+      padding: .4rem .7rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg-card2);
+      color: var(--text-main); font-size: .85rem;
+      font-family: inherit; cursor: pointer; text-align: left;
+      transition: border-color .15s;
+    }
+    .ph-species-trigger:hover { border-color: var(--accent); }
+    .ph-species-trigger.open { border-color: var(--accent); }
+    .ph-species-trigger-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ph-species-trigger-placeholder { flex: 1; opacity: .55; }
+    .ph-species-trigger-caret { font-size: .65em; opacity: .6; }
+    .ph-species-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.25);
+      z-index: 50; padding: .4rem;
+      display: flex; flex-direction: column; gap: .35rem;
+      max-height: 400px;
+    }
+    .ph-species-filter {
+      width: 100%; padding: .4rem .55rem; border-radius: 5px;
+      border: 1px solid var(--border); background: var(--bg-deep);
+      color: var(--text-main); font-size: .82rem;
+      font-family: inherit; outline: none; box-sizing: border-box;
+    }
+    .ph-species-filter:focus { border-color: var(--accent); }
+    .ph-species-list {
+      flex: 1; overflow-y: auto; max-height: 320px;
+      display: flex; flex-direction: column;
+    }
+    .ph-species-item {
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: .4rem .55rem; border-radius: 5px;
+      border: none; background: transparent;
+      color: var(--text-main); font-size: .82rem;
+      font-family: inherit; cursor: pointer; text-align: left;
+      transition: background .1s;
+    }
+    .ph-species-item:hover { background: var(--bg-card2); }
+    .ph-species-item.active { background: var(--bg-card2); border-left: 2px solid var(--accent); padding-left: calc(.55rem - 2px); }
+    .ph-species-item-name { font-weight: 500; }
+    .ph-species-item-sci { font-size: .72rem; opacity: .55; font-style: italic; }
+    .ph-species-empty { padding: 1rem; text-align: center; opacity: .55; font-size: .82rem; }
+
     /* ── Weekly ribbon ─────────────────────────────────────────── */
     .ph-ribbon-wrap {
       background: var(--bg-card);
@@ -259,14 +307,35 @@
 
     <!-- ── Species search bar ─────────────────────────────────── -->
     <div class="ph-controls">
-      <input type="text" v-model="speciesSearch"
-             :placeholder="t('pheno_pick_species')"
-             class="ph-species-search"
-             list="ph-species-list"
-             @change="onSpeciesPicked">
-      <datalist id="ph-species-list">
-        <option v-for="sp in allSpecies" :key="sp.Com_Name" :value="sp.Com_Name"></option>
-      </datalist>
+      <div class="ph-species-picker" v-click-outside="closeSpeciesDropdown">
+        <button class="ph-species-trigger" :class="{open: speciesDropdownOpen}"
+                @click="toggleSpeciesDropdown">
+          <span v-if="currentSpecies" class="ph-species-trigger-name">{{spName(currentSpecies, sciName)}}</span>
+          <span v-else class="ph-species-trigger-placeholder">{{t('pheno_pick_species')}}</span>
+          <span class="ph-species-trigger-caret">{{speciesDropdownOpen ? '▲' : '▼'}}</span>
+        </button>
+        <div v-if="speciesDropdownOpen" class="ph-species-dropdown">
+          <input ref="speciesSearchInput" type="text"
+                 v-model="speciesFilter"
+                 :placeholder="t('search_species_ph') || 'Rechercher...'"
+                 class="ph-species-filter"
+                 @click.stop
+                 @keydown.esc="closeSpeciesDropdown"
+                 @keydown.enter.prevent="pickFirstFiltered">
+          <div class="ph-species-list">
+            <button v-for="sp in filteredSpeciesList" :key="sp.Com_Name"
+                    class="ph-species-item"
+                    :class="{active: sp.Com_Name === currentSpecies}"
+                    @click.stop="pickSpeciesFromDropdown(sp)">
+              <span class="ph-species-item-name">{{spName(sp.Com_Name, sp.Sci_Name)}}</span>
+              <span class="ph-species-item-sci">{{sp.Sci_Name}}</span>
+            </button>
+            <div v-if="!filteredSpeciesList.length" class="ph-species-empty">
+              {{t('no_species_match') || 'Aucune espèce'}}
+            </div>
+          </div>
+        </div>
+      </div>
       <select v-if="availableYears.length" v-model="selectedYear" @change="reloadData" class="ph-year-select">
         <option v-for="y in availableYears" :key="y" :value="y">{{y}}</option>
       </select>
@@ -446,7 +515,19 @@ BIRDASH.ready.then(() => {
           birdQuery, fmtDate, photoUrl } = BIRDASH;
   const Q = BIRDASH_QUERIES;
 
+  // v-click-outside — closes the species dropdown when the user clicks
+  // anywhere outside the picker. Same shape as the directive used in
+  // detections.html so the behaviour is consistent across pages.
+  const vClickOutside = {
+    mounted(el, binding) {
+      el._clickOutsideHandler = e => { if (!el.contains(e.target)) binding.value(e); };
+      document.addEventListener('click', el._clickOutsideHandler);
+    },
+    unmounted(el) { document.removeEventListener('click', el._clickOutsideHandler); },
+  };
+
   const app = createApp({
+    directives: { 'click-outside': vClickOutside },
     setup() {
       const { t } = useI18n();
       const { spName } = useSpeciesNames();
@@ -454,9 +535,13 @@ BIRDASH.ready.then(() => {
       // ── State ────────────────────────────────────────────────
       const allSpecies     = ref([]);
       const topSpecies = ref([]);
-      const speciesSearch  = ref('');
       const currentSpecies = ref('');
       const sciName        = ref('');
+      // Custom species picker (replaces the legacy datalist input that
+      // forced the user to manually clear the field before re-selecting).
+      const speciesDropdownOpen = ref(false);
+      const speciesFilter       = ref('');
+      const speciesSearchInput  = ref(null);
       const availableYears = ref([]);
       const selectedYear   = ref(new Date().getFullYear());
       const viewMode       = ref('presence');
@@ -489,7 +574,6 @@ BIRDASH.ready.then(() => {
           if (initialSpecies) {
             const match = rows.find(r => r.Com_Name === initialSpecies);
             if (match) {
-              speciesSearch.value = match.Com_Name;
               await selectSpecies(match.Com_Name, match.Sci_Name);
             }
           }
@@ -519,11 +603,46 @@ BIRDASH.ready.then(() => {
         history.replaceState(null, '', u.toString());
       }
 
-      function onSpeciesPicked() {
-        const name = speciesSearch.value.trim();
-        if (!name) return;
-        const match = allSpecies.value.find(r => r.Com_Name === name);
-        if (match) selectSpecies(match.Com_Name, match.Sci_Name);
+      // ── Species dropdown helpers ─────────────────────────────
+      // Filter list against the search input. We compare against BOTH
+      // the localized common name (what the user actually sees) and
+      // the scientific name, so a French user typing "moineau" finds
+      // the right rows even if Com_Name is in the database language.
+      const filteredSpeciesList = computed(() => {
+        const q = speciesFilter.value.trim().toLowerCase();
+        const list = allSpecies.value || [];
+        if (!q) return list;
+        return list.filter(s => {
+          const display = (spName(s.Com_Name, s.Sci_Name) || '').toLowerCase();
+          return display.includes(q)
+              || (s.Com_Name || '').toLowerCase().includes(q)
+              || (s.Sci_Name || '').toLowerCase().includes(q);
+        });
+      });
+
+      function toggleSpeciesDropdown() {
+        speciesDropdownOpen.value = !speciesDropdownOpen.value;
+        if (speciesDropdownOpen.value) {
+          // Reset the filter on open so the user always sees the full
+          // list — this is the whole point of the redesign.
+          speciesFilter.value = '';
+          // Auto-focus the search input.
+          nextTick(() => {
+            if (speciesSearchInput.value) speciesSearchInput.value.focus();
+          });
+        }
+      }
+      function closeSpeciesDropdown() { speciesDropdownOpen.value = false; }
+
+      function pickSpeciesFromDropdown(sp) {
+        speciesDropdownOpen.value = false;
+        speciesFilter.value = '';
+        selectSpecies(sp.Com_Name, sp.Sci_Name);
+      }
+
+      function pickFirstFiltered() {
+        const first = filteredSpeciesList.value[0];
+        if (first) pickSpeciesFromDropdown(first);
       }
 
       // ── Load weekly + hourly data for current species/year ───
@@ -757,7 +876,9 @@ BIRDASH.ready.then(() => {
 
       return {
         t, spName, fmtDate, photoUrl, phenoColor, hourColor,
-        allSpecies, topSpecies, speciesSearch, onSpeciesPicked, selectSpecies,
+        allSpecies, topSpecies, selectSpecies,
+        speciesDropdownOpen, speciesFilter, speciesSearchInput, filteredSpeciesList,
+        toggleSpeciesDropdown, closeSpeciesDropdown, pickSpeciesFromDropdown, pickFirstFiltered,
         currentSpecies, sciName, availableYears, selectedYear,
         viewMode, loaded, stats, ribbonCells, phases,
         reloadData,
