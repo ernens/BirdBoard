@@ -150,6 +150,7 @@
   "wn_empty": "Nichts Neues",
   "set_save": "Speichern",
   "set_save_partial": "Einige Einstellungen wurden nicht gespeichert",
+  "set_save_conflict": "Konflikt: Einstellungen wurden in einem anderen Tab geändert. Bitte neu laden und erneut versuchen.",
   "set_saved": "Konfiguration erfolgreich gespeichert",
   "set_defaults": "Standard",
   "set_defaults_confirm": "Alle Erkennungsparameter auf Standardwerte zurücksetzen?",

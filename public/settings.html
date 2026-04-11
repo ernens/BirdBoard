@@ -160,9 +160,9 @@
 
       <!-- ═══ Save bar ═══ -->
       <div class="save-bar">
-        <button class="btn-save" @click="saveAll" :disabled="saving" :class="{'has-changes': isDirty}">
+        <button class="btn-save" @click="saveAll" :disabled="saving || !isDirty" :class="{'has-changes': isDirty}">
           <span v-if="saving">…</span>
-          <span v-else>{{t('set_save')}}<span v-if="isDirty" style="margin-left:.35em;">•</span></span>
+          <span v-else>{{t('set_save')}}<span v-if="isDirty" style="margin-left:.4em;color:var(--accent, #4a9eff);font-size:1.15em;line-height:1;">●</span></span>
         </button>
         <button class="btn-outline" @click="resetDefaults">{{t('set_defaults')}}</button>
         <span v-if="saveMsg" class="save-msg" :class="saveErr ? 'save-err' : 'save-ok'">{{saveMsg}}</span>
@@ -267,17 +267,24 @@ const app = createApp({
     async function saveApprise() {
       savingApprise.value = true;
       appriseMsg.value = '';
+      let _thrown = null;
       try {
         const res = await fetch(API + '/apprise', {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify({ urls: appriseUrls.value }),
         });
-        const data = await res.json();
-        if (data.ok) { appriseMsg.value = '✓'; appriseErr.value = false; }
-        else { appriseMsg.value = data.error; appriseErr.value = true; }
-      } catch(e) { appriseMsg.value = e.message; appriseErr.value = true; }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          throw new Error(data.error || ('apprise: HTTP ' + res.status));
+        }
+        appriseMsg.value = '✓'; appriseErr.value = false;
+      } catch(e) {
+        appriseMsg.value = e.message; appriseErr.value = true;
+        _thrown = e;
+      }
       savingApprise.value = false;
+      if (_thrown) throw _thrown;
     }
 
     // ── Alert thresholds ─────────────────────────────────────
@@ -292,9 +299,12 @@ const app = createApp({
     const alertSaveErr = ref(false);
 
     async function saveAlertThresholds() {
-      if (!alertsLoadOk.value) return;
+      if (!alertsLoadOk.value) {
+        throw new Error('alert-thresholds: initial load failed, refusing to save stale state');
+      }
       savingAlerts.value = true;
       alertSaveMsg.value = '';
+      let _thrown = null;
       try {
         // Save bird notification event toggles + system alert thresholds
         const updates = {
@@ -329,11 +339,17 @@ const app = createApp({
           headers: authHeaders(),
           body: JSON.stringify({ updates }),
         });
-        const data = await res.json();
-        if (data.ok) { alertSaveMsg.value = '✓'; alertSaveErr.value = false; }
-        else { alertSaveMsg.value = data.error || 'Error'; alertSaveErr.value = true; }
-      } catch(e) { alertSaveMsg.value = e.message; alertSaveErr.value = true; }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          throw new Error(data.error || ('alert-thresholds: HTTP ' + res.status));
+        }
+        alertSaveMsg.value = '✓'; alertSaveErr.value = false;
+      } catch(e) {
+        alertSaveMsg.value = e.message; alertSaveErr.value = true;
+        _thrown = e;
+      }
       savingAlerts.value = false;
+      if (_thrown) throw _thrown;
     }
 
     async function testApprise() {
@@ -514,10 +530,14 @@ const app = createApp({
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify({ ...bkp }),
         });
-        const data = await res.json();
-        if (data.ok) { saveMsg.value = t('set_backup_saved'); saveErr.value = false; loadBackupSchedule(); }
-        else { saveMsg.value = data.error || 'Error'; saveErr.value = true; }
-      } catch(e) { saveMsg.value = e.message; saveErr.value = true; }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          throw new Error(data.error || ('backup-config: HTTP ' + res.status));
+        }
+        saveMsg.value = t('set_backup_saved'); saveErr.value = false; loadBackupSchedule();
+      } catch(e) {
+        saveMsg.value = e.message; saveErr.value = true;
+      }
       savingBkp.value = false;
     }
 
@@ -575,12 +595,19 @@ const app = createApp({
       return m;
     }
 
+    // Etag of birdnet.conf at the moment we last loaded the form. Sent
+    // back as If-Match on the next save so two browser tabs editing the
+    // same settings can't silently overwrite each other (Phase 3).
+    let _settingsEtag = null;
+
     async function reload() {
       loading.value = true;
       saveMsg.value = '';
       try {
-        const [confData, modelData, langData, listsData] = await Promise.all([
-          fetch(API + '/settings').then(r => r.json()),
+        const settingsRes = await fetch(API + '/settings');
+        _settingsEtag = settingsRes.headers.get('ETag');
+        const confData = await settingsRes.json();
+        const [modelData, langData, listsData] = await Promise.all([
           fetch(API + '/models').then(r => r.json()),
           fetch(API + '/languages').then(r => r.json()),
           fetch(API + '/species-lists').then(r => r.json()),
@@ -632,11 +659,19 @@ const app = createApp({
     // and only show "Saved" if EVERY POST returned ok. Previously most
     // sub-saves were swallowed by `.catch(() => {})`, which produced the
     // "the toast says OK but the value reverts" symptoms users reported.
-    async function _postJson(url, body) {
+    async function _postJson(url, body, extraHeaders) {
       const res = await fetch(url, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
+        method: 'POST',
+        headers: { ...authHeaders(), ...(extraHeaders || {}) },
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.code === 'STALE_ETAG') {
+        const err = new Error(t('set_save_conflict') || 'Conflict: settings were modified by another tab. Reload and try again.');
+        err.code = 'STALE_ETAG';
+        err.url = url;
+        throw err;
+      }
       if (!res.ok || data.error) {
         const err = new Error(data.error || `HTTP ${res.status}`);
         err.url = url;
@@ -660,7 +695,11 @@ const app = createApp({
         // Build the list of save operations. Each one is a labelled
         // function so we can report which sub-save failed.
         const ops = [
-          ['settings', () => _postJson(API + '/settings', { updates: { ...conf } })],
+          ['settings', () => _postJson(
+            API + '/settings',
+            { updates: { ...conf } },
+            _settingsEtag ? { 'If-Match': _settingsEtag } : {}
+          )],
           ['audio',    () => saveAudioConf()],
           ['adaptive-gain', () => saveAgConf()],
           ['apprise',  () => _postJson(API + '/apprise', { urls: appriseUrls.value })],
@@ -1258,12 +1297,26 @@ const app = createApp({
           loadOk.value = false;
         }
       }
-      function save() {
-        if (!loadOk.value) return Promise.resolve({ json: () => ({ ok: true }) });
-        return fetch(BIRD_CONFIG.apiUrl + endpoint, {
+      // save() throws on any failure path (load never succeeded, network
+      // error, non-2xx response, or {error} body). Previously it returned
+      // a fake "ok" if loadOk was false, which let saveAll report success
+      // without ever talking to the server — a major source of "saved
+      // but reverted" reports.
+      async function save() {
+        if (!loadOk.value) {
+          throw new Error(endpoint + ': initial load failed, refusing to save stale state');
+        }
+        const r = await fetch(BIRD_CONFIG.apiUrl + endpoint, {
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify(data),
         });
+        let body = null;
+        try { body = await r.json(); } catch {}
+        if (!r.ok) {
+          throw new Error((body && body.error) || (endpoint + ': HTTP ' + r.status));
+        }
+        if (body && body.error) throw new Error(body.error);
+        return body;
       }
       return { data, loadOk, load, save };
     }
@@ -1566,9 +1619,14 @@ const app = createApp({
     }
     async function activateAudioProfile(name) {
       try {
-        const data = await fetch(API + '/audio/profiles/' + encodeURIComponent(name) + '/activate', { method: 'POST' }).then(r => r.json());
+        const r = await fetch(API + '/audio/profiles/' + encodeURIComponent(name) + '/activate', { method: 'POST', headers: authHeaders() });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
         if (data.config) Object.assign(audioConf, data.config);
-      } catch {}
+      } catch (e) {
+        saveMsg.value = 'activate profile: ' + e.message;
+        saveErr.value = true;
+      }
     }
     async function duplicateAudioProfile() {
       const name = prompt('Nom du nouveau profil:', audioConf.profile_name + '_copie');
@@ -1576,19 +1634,33 @@ const app = createApp({
       const profile = { ...audioConf, profile_name: name };
       delete profile.device_id; delete profile.device_name;
       delete profile.cal_gain_ch0; delete profile.cal_gain_ch1; delete profile.cal_date;
-      await fetch(API + '/audio/profiles', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      });
-      await loadAudioProfiles();
-      audioConf.profile_name = name;
+      try {
+        const r = await fetch(API + '/audio/profiles', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify(profile),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+        await loadAudioProfiles();
+        audioConf.profile_name = name;
+      } catch (e) {
+        saveMsg.value = 'duplicate profile: ' + e.message;
+        saveErr.value = true;
+      }
     }
     async function deleteAudioProfile() {
       if (!confirm(t('audio_delete') + ' "' + audioConf.profile_name + '" ?')) return;
-      await fetch(API + '/audio/profiles/' + encodeURIComponent(audioConf.profile_name), { method: 'DELETE' });
-      await loadAudioProfiles();
-      audioConf.profile_name = 'jardin';
-      await activateAudioProfile('jardin');
+      try {
+        const r = await fetch(API + '/audio/profiles/' + encodeURIComponent(audioConf.profile_name), { method: 'DELETE', headers: authHeaders() });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+        await loadAudioProfiles();
+        audioConf.profile_name = 'jardin';
+        await activateAudioProfile('jardin');
+      } catch (e) {
+        saveMsg.value = 'delete profile: ' + e.message;
+        saveErr.value = true;
+      }
     }
     async function startCalibration() {
       calRunning.value = true; calResult.value = null;

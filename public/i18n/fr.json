@@ -150,6 +150,7 @@
   "wn_empty": "Rien de nouveau",
   "set_save": "Enregistrer",
   "set_save_partial": "Certains paramètres n'ont pas été enregistrés",
+  "set_save_conflict": "Conflit : les paramètres ont été modifiés par un autre onglet. Rechargez la page et réessayez.",
   "set_saved": "Configuration enregistrée avec succès",
   "set_defaults": "Défaut",
   "set_defaults_confirm": "Remettre tous les paramètres de détection à leurs valeurs par défaut ?",

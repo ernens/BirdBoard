@@ -173,7 +173,65 @@ describe('safe-config.updateConfig', () => {
   });
 });
 
-// ── 3. updateRaw for non-mutator content (apprise.txt, .asoundrc, etc.) ────
+// ── 3. Optimistic concurrency via etag (Phase 3 — cross-tab safety) ────────
+
+describe('safe-config etag / ifMatch', () => {
+  it('etagOfFile returns a stable hash for unchanged content', async () => {
+    const file = path.join(tmpDir, 'cfg.json');
+    fs.writeFileSync(file, JSON.stringify({ a: 1 }));
+    const e1 = await safeConfig.etagOfFile(file);
+    const e2 = await safeConfig.etagOfFile(file);
+    assert.equal(e1, e2);
+  });
+
+  it('updateConfig with matching ifMatch returns {value, etag}', async () => {
+    const file = path.join(tmpDir, 'cfg.json');
+    fs.writeFileSync(file, JSON.stringify({ a: 1 }, null, 2));
+    const etag = await safeConfig.etagOfFile(file);
+    const result = await safeConfig.updateConfig(
+      file,
+      c => ({ ...c, a: 2 }),
+      null,
+      { ifMatch: etag }
+    );
+    assert.deepEqual(result.value, { a: 2 });
+    assert.ok(result.etag);
+    assert.notEqual(result.etag, etag);
+  });
+
+  it('updateConfig with stale ifMatch throws StaleEtagError, file unchanged', async () => {
+    const file = path.join(tmpDir, 'cfg.json');
+    fs.writeFileSync(file, JSON.stringify({ a: 1 }, null, 2));
+    const oldEtag = await safeConfig.etagOfFile(file);
+
+    // Tab A modifies first
+    await safeConfig.updateConfig(file, c => ({ ...c, a: 99 }));
+
+    // Tab B tries to commit using the old etag — must be rejected
+    await assert.rejects(
+      safeConfig.updateConfig(
+        file,
+        c => ({ ...c, a: 42 }),
+        null,
+        { ifMatch: oldEtag }
+      ),
+      err => err.code === 'STALE_ETAG'
+    );
+
+    // File still has tab A's change, not tab B's
+    const result = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(result.a, 99);
+  });
+
+  it('updateConfig without ifMatch returns the bare value (back-compat)', async () => {
+    const file = path.join(tmpDir, 'cfg.json');
+    fs.writeFileSync(file, JSON.stringify({ a: 1 }));
+    const result = await safeConfig.updateConfig(file, c => ({ ...c, a: 2 }));
+    assert.deepEqual(result, { a: 2 });
+  });
+});
+
+// ── 4. updateRaw for non-mutator content (apprise.txt, .asoundrc, etc.) ────
 
 describe('safe-config.writeRaw', () => {
   it('atomically replaces a text file', async () => {

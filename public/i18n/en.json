@@ -150,6 +150,7 @@
   "wn_empty": "Nothing new",
   "set_save": "Save",
   "set_save_partial": "Some settings failed to save",
+  "set_save_conflict": "Conflict: settings were modified by another tab. Reload and try again.",
   "set_saved": "Configuration saved successfully",
   "set_defaults": "Defaults",
   "set_defaults_confirm": "Reset all detection parameters to their default values?",

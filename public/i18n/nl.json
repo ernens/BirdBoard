@@ -150,6 +150,7 @@
   "wn_empty": "Niets nieuws",
   "set_save": "Opslaan",
   "set_save_partial": "Sommige instellingen zijn niet opgeslagen",
+  "set_save_conflict": "Conflict: instellingen zijn gewijzigd door een ander tabblad. Herlaad en probeer opnieuw.",
   "set_saved": "Configuratie succesvol opgeslagen",
   "set_defaults": "Standaard",
   "set_defaults_confirm": "Alle detectieparameters terugzetten naar standaardwaarden?",

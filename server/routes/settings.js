@@ -12,16 +12,20 @@ const PROJECT_ROOT = path.join(__dirname, '..', '..');
 function handle(req, res, pathname, ctx) {
   const { requireAuth, parseBirdnetConf, writeBirdnetConf, SETTINGS_VALIDATORS, BIRDNET_CONF, _alerts } = ctx;
 
+  // Cross-tab safety (Phase 3): GET /api/settings advertises an etag of
+  // the on-disk birdnet.conf, POST /api/settings honours an If-Match
+  // header and returns 409 Conflict if another tab wrote in between.
+
   // ── Route : GET /api/settings ───────────────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/settings') {
     (async () => {
       try {
         const conf = await parseBirdnetConf();
-        // Redact sensitive fields (BIRDWEATHER_ID is public, keep it)
         delete conf.CADDY_PWD;
         delete conf.ICE_PWD;
         delete conf.FLICKR_API_KEY;
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        const etag = await safeConfig.etagOfFile(BIRDNET_CONF);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'ETag': etag });
         res.end(JSON.stringify(conf));
       } catch(e) {
         console.error('[settings]', e.message);
@@ -46,11 +50,24 @@ function handle(req, res, pathname, ctx) {
             res.end(JSON.stringify({ error: 'updates object required' }));
             return;
           }
-          // Validate each key
+          const ifMatch = req.headers['if-match'];
+          if (ifMatch) {
+            const currentEtag = await safeConfig.etagOfFile(BIRDNET_CONF);
+            if (currentEtag !== ifMatch) {
+              console.warn(`[settings] STALE ETAG: client sent ${ifMatch}, server has ${currentEtag}`);
+              res.writeHead(409, { 'Content-Type': 'application/json', 'ETag': currentEtag });
+              res.end(JSON.stringify({
+                error: 'conflict',
+                code: 'STALE_ETAG',
+                message: 'birdnet.conf was modified by another client since you loaded the form. Please reload and try again.',
+                etag: currentEtag,
+              }));
+              return;
+            }
+          }
           const validated = {};
           const errors = [];
           for (const [key, val] of Object.entries(updates)) {
-            // Skip keys without a validator (pass-through from conf, not editable)
             if (!SETTINGS_VALIDATORS[key]) { if (key !== '__v_skip' && !key.startsWith('_')) console.warn('[settings] Unknown key ignored:', key); continue; }
             if (!SETTINGS_VALIDATORS[key](val)) {
               errors.push(`Invalid value for ${key}: ${val}`);
@@ -64,9 +81,15 @@ function handle(req, res, pathname, ctx) {
             return;
           }
           await writeBirdnetConf(validated);
+          const newEtag = await safeConfig.etagOfFile(BIRDNET_CONF);
           console.log(`[settings] Updated: ${Object.keys(validated).join(', ')}`);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, updated: Object.keys(validated), warnings: errors.length ? errors : undefined }));
+          res.writeHead(200, { 'Content-Type': 'application/json', 'ETag': newEtag });
+          res.end(JSON.stringify({
+            ok: true,
+            updated: Object.keys(validated),
+            etag: newEtag,
+            warnings: errors.length ? errors : undefined,
+          }));
         } catch(e) {
           console.error('[settings]', e.message);
           res.writeHead(500, { 'Content-Type': 'application/json' });

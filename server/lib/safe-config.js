@@ -61,6 +61,27 @@ const fsp  = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 
+// ── etag helper ─────────────────────────────────────────────────────────────
+// Used by GET endpoints to advertise the current revision and by PUT/POST
+// endpoints to detect lost updates between two browser tabs editing the
+// same file. The etag is short SHA-1 of the on-disk content; it changes
+// only when the bytes change, so an idempotent re-save doesn't trigger
+// false 409s.
+
+function etagFor(content) {
+  return '"' + crypto.createHash('sha1').update(content).digest('hex').slice(0, 16) + '"';
+}
+
+async function etagOfFile(absPath) {
+  try {
+    const buf = await fsp.readFile(absPath);
+    return etagFor(buf);
+  } catch (e) {
+    if (e.code === 'ENOENT') return '"empty"';
+    throw e;
+  }
+}
+
 // ── Per-path mutex ──────────────────────────────────────────────────────────
 // Each lock is the *tail* of a Promise chain for that file. Acquiring the
 // lock means appending a new task to the chain; releasing happens implicitly
@@ -121,6 +142,20 @@ const _deepClone = (typeof structuredClone === 'function')
 // ── Public: updateConfig ────────────────────────────────────────────────────
 
 /**
+ * StaleEtagError — thrown by updateConfig when opts.ifMatch is supplied
+ * and doesn't match the current on-disk etag. Distinct class so route
+ * handlers can map it to HTTP 409 Conflict.
+ */
+class StaleEtagError extends Error {
+  constructor(expected, actual) {
+    super(`stale etag: expected ${expected}, got ${actual}`);
+    this.code = 'STALE_ETAG';
+    this.expected = expected;
+    this.actual = actual;
+  }
+}
+
+/**
  * Read → deep clone → mutate → validate → atomic write, under per-file lock.
  *
  * @param {string} filePath
@@ -131,7 +166,9 @@ const _deepClone = (typeof structuredClone === 'function')
  * @param {(value: any) => string} [opts.serializer]
  * @param {*} [opts.defaultValue={}] - used when the file is missing
  * @param {string} [opts.label='updateConfig'] - log label, e.g. the route name
- * @returns {Promise<any>} the persisted state
+ * @param {string} [opts.ifMatch] - etag from a previous GET; if it doesn't
+ *   match the current file etag, throws StaleEtagError without writing.
+ * @returns {Promise<{value:any, etag:string}>} persisted state + new etag
  */
 async function updateConfig(filePath, mutator, validator = null, opts = {}) {
   const abs = path.resolve(filePath);
@@ -144,10 +181,11 @@ async function updateConfig(filePath, mutator, validator = null, opts = {}) {
   return withLock(abs, async () => {
     const t0 = Date.now();
     let current;
+    let rawContent;
     try {
-      const raw = await fsp.readFile(abs, 'utf8');
+      rawContent = await fsp.readFile(abs, 'utf8');
       try {
-        current = parser(raw);
+        current = parser(rawContent);
       } catch (parseErr) {
         console.error(`[safe-config] ${label} ${base} PARSE FAILED in ${Date.now()-t0}ms: ${parseErr.message}`);
         throw parseErr;
@@ -155,11 +193,23 @@ async function updateConfig(filePath, mutator, validator = null, opts = {}) {
     } catch (e) {
       if (e.code === 'ENOENT') {
         current = _deepClone(defaultValue);
+        rawContent = '';
       } else if (e.message && /JSON|parser|parse/i.test(e.message)) {
         throw e;
       } else {
         console.error(`[safe-config] ${label} ${base} READ FAILED in ${Date.now()-t0}ms: ${e.message}`);
         throw e;
+      }
+    }
+
+    // Optimistic concurrency: if the caller passed ifMatch, fail fast
+    // before running the mutator (so we don't waste work and the user
+    // doesn't see a half-applied state).
+    if (opts.ifMatch) {
+      const currentEtag = etagFor(rawContent);
+      if (currentEtag !== opts.ifMatch) {
+        console.warn(`[safe-config] ${label} ${base} STALE ETAG in ${Date.now()-t0}ms: expected ${opts.ifMatch}, got ${currentEtag}`);
+        throw new StaleEtagError(opts.ifMatch, currentEtag);
       }
     }
 
@@ -174,15 +224,22 @@ async function updateConfig(filePath, mutator, validator = null, opts = {}) {
       throw err;
     }
 
+    let serialized;
     try {
-      await _atomicWrite(abs, serializer(next));
+      serialized = serializer(next);
+      await _atomicWrite(abs, serialized);
     } catch (err) {
       console.error(`[safe-config] ${label} ${base} WRITE FAILED in ${Date.now()-t0}ms: ${err.message}`);
       throw err;
     }
 
-    console.log(`[safe-config] ${label} ${base} OK in ${Date.now()-t0}ms`);
-    return next;
+    const etag = etagFor(serialized);
+    console.log(`[safe-config] ${label} ${base} OK in ${Date.now()-t0}ms etag=${etag}`);
+    // Backwards-compatible return: callers that read .value or .etag can
+    // do so, but the value is also still iterable / spread-friendly. We
+    // return a wrapped object only when ifMatch is used; otherwise return
+    // the bare value to avoid breaking existing callers.
+    return opts.ifMatch ? { value: next, etag } : next;
   });
 }
 
@@ -215,4 +272,4 @@ async function writeRaw(filePath, content, opts = {}) {
   });
 }
 
-module.exports = { updateConfig, writeRaw, withLock };
+module.exports = { updateConfig, writeRaw, withLock, etagOfFile, etagFor, StaleEtagError };
