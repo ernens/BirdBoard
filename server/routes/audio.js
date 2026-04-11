@@ -712,9 +712,15 @@ function handle(req, res, pathname, ctx) {
             setTimeout(() => { proc.kill(); reject(new Error('timeout')); }, 8000);
           });
 
-          // Run Python filter preview script
-          const pyBin = path.join(process.env.HOME || '/home/bjorn', 'birdengine', 'venv', 'bin', 'python');
+          // Run Python filter preview script — prefer the engine venv that
+          // install.sh provisions alongside the repo, fall back to legacy path,
+          // and finally to the system python.
           const scriptPath = path.join(PROJECT_ROOT, 'engine', 'filter_preview.py');
+          const _engineVenvPy = path.join(PROJECT_ROOT, 'engine', 'venv', 'bin', 'python');
+          const _legacyVenvPy = path.join(process.env.HOME || '', 'birdengine', 'venv', 'bin', 'python');
+          const pyBin = fs.existsSync(_engineVenvPy) ? _engineVenvPy
+                      : fs.existsSync(_legacyVenvPy) ? _legacyVenvPy
+                      : 'python3';
           const result = await new Promise((resolve, reject) => {
             const proc = require('child_process').spawn(pyBin, [
               scriptPath, tmpWav, JSON.stringify(filterConf)
