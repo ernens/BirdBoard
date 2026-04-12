@@ -416,21 +416,26 @@ function handle(req, res, pathname, ctx) {
           const moonIllum = SunCalc.getMoonIllumination(new Date());
           const phase = moonIllum.phase;
           const illumination = parseFloat(moonIllum.fraction.toFixed(2));
-          let phaseName;
-          if (phase <= 0.05 || phase >= 0.95) phaseName = 'new_moon';
-          else if (phase < 0.25) phaseName = 'waxing_crescent';
-          else if (phase < 0.27) phaseName = 'first_quarter';
-          else if (phase < 0.48) phaseName = 'waxing_gibbous';
-          else if (phase < 0.52) phaseName = 'full_moon';
-          else if (phase < 0.73) phaseName = 'waning_gibbous';
-          else if (phase < 0.75) phaseName = 'last_quarter';
-          else phaseName = 'waning_crescent';
+          // Same 8-slice mapping as timeline.js (symmetric, standard)
+          const MOON = [
+            { max: 0.0625, name: 'new_moon',         icon: '🌑' },
+            { max: 0.1875, name: 'waxing_crescent',  icon: '🌒' },
+            { max: 0.3125, name: 'first_quarter',    icon: '🌓' },
+            { max: 0.4375, name: 'waxing_gibbous',   icon: '🌔' },
+            { max: 0.5625, name: 'full_moon',        icon: '🌕' },
+            { max: 0.6875, name: 'waning_gibbous',   icon: '🌖' },
+            { max: 0.8125, name: 'last_quarter',     icon: '🌗' },
+            { max: 0.9375, name: 'waning_crescent',  icon: '🌘' },
+            { max: 1.01,   name: 'new_moon',         icon: '🌑' },
+          ];
+          const m = MOON.find(x => phase < x.max) || MOON[0];
           let migrationContext = 'limited';
           if (illumination > 0.7) migrationContext = 'favorable';
           else if (illumination >= 0.3) migrationContext = 'moderate';
           cardMoonPhase.data = {
             phase: parseFloat(phase.toFixed(2)),
-            phaseName, illumination, migrationContext
+            phaseName: m.name, moonIcon: m.icon,
+            illumination, migrationContext
           };
         } catch(e) { console.error('[whats-new] moon_phase:', e.message); }
 

@@ -84,8 +84,8 @@
         <span>{{data.meta.sunset}}</span>
       </span>
       <!-- Moon -->
-      <span v-if="data.meta.moonPhaseName" style="display:inline-flex;align-items:center;gap:.3rem;">
-        <span style="font-size:1.3rem;line-height:1;">{{moonEmoji(data.meta.moonPhaseName)}}</span>
+      <span v-if="data.meta.moonPhaseName" style="display:inline-flex;align-items:center;gap:.3rem;" :title="t('wn_moon_'+data.meta.moonPhaseName)">
+        <span style="font-size:1.3rem;line-height:1;">{{data.meta.moonIcon || moonEmoji(data.meta.moonPhaseName)}}</span>
         <span>{{t('wn_moon_'+data.meta.moonPhaseName)}} {{Math.round(data.meta.moonIllumination*100)}}%</span>
       </span>
     </div>

@@ -17,7 +17,7 @@ const TIMELINE_TTL_TODAY = 2 * 60 * 1000;  // 2 min for today
 const TIMELINE_TTL_PAST  = 60 * 60 * 1000; // 60 min for past dates
 
 function handle(req, res, pathname, ctx) {
-  const { db, birdashDb, parseBirdnetConf, SONGS_DIR, readJsonFile, JSON_CT } = ctx;
+  const { db, birdashDb, parseBirdnetConf, SONGS_DIR, readJsonFile, JSON_CT, ebirdFreq } = ctx;
 
   // ══════════════════════════════════════════════════════════════════════════════
   // ── Route : GET /api/timeline?date=YYYY-MM-DD ─────────────────────────────────
@@ -167,7 +167,14 @@ function handle(req, res, pathname, ctx) {
           }
         }
 
-        // 3. Rare species (seen ≤3 times in past year)
+        // 3. Rare species — uses eBird regional frequency when available,
+        // falls back to local "≤3 in past year" heuristic only after 30+
+        // days of data. On a fresh install, nothing is flagged as rare
+        // (better than calling every Blackbird "rare" for the first month).
+        const totalDays = db.prepare(
+          "SELECT COUNT(DISTINCT Date) as n FROM active_detections WHERE Date < ?"
+        ).get(dateStr)?.n || 0;
+
         const rareRows = db.prepare(`
           WITH hist AS (
             SELECT Com_Name, COUNT(*) as cnt
@@ -186,12 +193,16 @@ function handle(req, res, pathname, ctx) {
                  COALESCE(h.cnt, 0) as historical_count
           FROM today t
           LEFT JOIN hist h ON t.Com_Name = h.Com_Name
-          WHERE COALESCE(h.cnt, 0) <= 3
           ORDER BY t.Confidence DESC
-          LIMIT ?
-        `).all(dateStr, dateStr, dateStr, minConf, maxEvents);
+        `).all(dateStr, dateStr, dateStr, minConf);
+        let rareCount = 0;
         for (const r of rareRows) {
+          if (rareCount >= maxEvents) break;
           if (events.some(e => e.sciName === r.Sci_Name)) continue;
+          const rarity = ebirdFreq
+            ? ebirdFreq.checkRarity(r.Sci_Name, r.historical_count, totalDays)
+            : { isRare: false, source: 'unavailable' };
+          if (!rarity.isRare) continue;
           const h = parseInt(r.Time.substr(0, 2)), m = parseInt(r.Time.substr(3, 2));
           events.push({
             id: `evt_${dateStr.replace(/-/g, '')}_${r.Time.replace(/:/g, '')}_${r.Sci_Name.replace(/ /g, '-')}`,
@@ -204,7 +215,9 @@ function handle(req, res, pathname, ctx) {
             photoFallback: '⭐',
             audioFile: r.File_Name,
             priority: 1,
+            raritySource: rarity.source,
           });
+          rareCount++;
         }
 
         // 4. First of the year
@@ -523,19 +536,26 @@ function handle(req, res, pathname, ctx) {
         const prevRow = db.prepare(`SELECT MAX(Date) as prev_date FROM active_detections WHERE Date < ?`).get(dateStr);
         const nextRow = db.prepare(`SELECT MIN(Date) as next_date FROM active_detections WHERE Date > ?`).get(dateStr);
 
-        // ── Moon phase name ──
-        let moonPhaseName = '';
+        // ── Moon phase name + emoji icon ──
+        let moonPhaseName = '', moonIcon = '';
         if (hasGPS) {
           const p = astronomy.moonPhase;
-          if (p < 0.0625) moonPhaseName = 'new_moon';
-          else if (p < 0.1875) moonPhaseName = 'waxing_crescent';
-          else if (p < 0.3125) moonPhaseName = 'first_quarter';
-          else if (p < 0.4375) moonPhaseName = 'waxing_gibbous';
-          else if (p < 0.5625) moonPhaseName = 'full_moon';
-          else if (p < 0.6875) moonPhaseName = 'waning_gibbous';
-          else if (p < 0.8125) moonPhaseName = 'last_quarter';
-          else if (p < 0.9375) moonPhaseName = 'waning_crescent';
-          else moonPhaseName = 'new_moon';
+          // 8 standard Unicode moon phase emoji (U+1F311–1F318).
+          // Ranges divide the 0→1 cycle into 8 equal slices.
+          const MOON = [
+            { max: 0.0625, name: 'new_moon',         icon: '🌑' },
+            { max: 0.1875, name: 'waxing_crescent',  icon: '🌒' },
+            { max: 0.3125, name: 'first_quarter',    icon: '🌓' },
+            { max: 0.4375, name: 'waxing_gibbous',   icon: '🌔' },
+            { max: 0.5625, name: 'full_moon',        icon: '🌕' },
+            { max: 0.6875, name: 'waning_gibbous',   icon: '🌖' },
+            { max: 0.8125, name: 'last_quarter',     icon: '🌗' },
+            { max: 0.9375, name: 'waning_crescent',  icon: '🌘' },
+            { max: 1.01,   name: 'new_moon',         icon: '🌑' },
+          ];
+          const m = MOON.find(x => p < x.max) || MOON[0];
+          moonPhaseName = m.name;
+          moonIcon = m.icon;
         }
 
         const result = {
@@ -551,6 +571,7 @@ function handle(req, res, pathname, ctx) {
             moonPhase: hasGPS ? astronomy.moonPhase : null,
             moonIllumination: hasGPS ? astronomy.moonIllumination : null,
             moonPhaseName,
+            moonIcon,
             isToday,
             hasPrevDay: !!prevRow?.prev_date,
             hasNextDay: !!nextRow?.next_date,

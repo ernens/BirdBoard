@@ -124,6 +124,18 @@ function writeJsonFileAtomic(p, data) {
 // ── Start subsystems ─────────────────────────────────────────────────────────
 _alerts.startAlerts({ db, execCmd, parseBirdnetConf, ALLOWED_SERVICES });
 setTimeout(() => refreshTaxonomy().catch(e => console.error('[BIRDASH] Taxonomy refresh error:', e.message)), 3000);
+// eBird regional frequency — determines "is this species rare?" from actual
+// ornithological data instead of the naive "≤3 local observations" heuristic
+// that flagged Blackbirds as rare on every fresh install.
+const ebirdFreq = require('./lib/ebird-frequency');
+setTimeout(async () => {
+  try {
+    const conf = await parseBirdnetConf();
+    const lat = parseFloat(conf.LATITUDE || '0');
+    const lon = parseFloat(conf.LONGITUDE || '0');
+    await ebirdFreq.loadFrequency(lat, lon, EBIRD_API_KEY);
+  } catch(e) { console.warn('[BIRDASH] eBird frequency init:', e.message); }
+}, 4000);
 // Pre-aggregated stats: rebuild on startup, refresh every 5 min
 setTimeout(() => {
   try { aggregates.rebuildAll(dbWrite); } catch(e) { console.error('[BIRDASH] Aggregate rebuild error:', e.message); }
@@ -139,7 +151,7 @@ setInterval(() => {
 // ── Route context ────────────────────────────────────────────────────────────
 const _routeCtx = {
   requireAuth, execCmd, readJsonFile, writeJsonFileAtomic, JSON_CT,
-  safeConfig,  // updateConfig / writeRaw / withLock — see server/lib/safe-config.js
+  safeConfig, ebirdFreq,
   db, dbWrite, birdashDb, taxonomyDb, parseBirdnetConf, SONGS_DIR,
   ALLOWED_SERVICES, BIRDNET_DIR, validateQuery,
   photoCacheKey: _photoRoutes.photoCacheKey, PHOTO_CACHE_DIR: _photoRoutes.PHOTO_CACHE_DIR,
