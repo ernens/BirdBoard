@@ -357,6 +357,30 @@ const app = createApp({
         const ats = Q.adaptiveTimeSeries(from, to, fc.confidence.value);
         let rows = await birdQuery(ats.sql, ats.params);
         if (ats.resolution === 'weekly' && ats.days > 90) rows = Q.aggregateWeekly(rows);
+        // Fill gaps so the chart shows all buckets in the range (empty days = 0)
+        if (ats.resolution === 'daily') {
+          const map = {}; rows.forEach(r => { map[r.bucket] = r; });
+          const filled = [];
+          for (let d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const key = d.toISOString().slice(0, 10);
+            filled.push(map[key] || { bucket: key, det: 0, sp: 0 });
+          }
+          rows = filled;
+        } else if (ats.resolution === 'hourly') {
+          const map = {}; rows.forEach(r => { map[r.bucket] = r; });
+          rows = Array.from({ length: 24 }, (_, h) => map[h] || { bucket: h, det: 0, sp: 0 });
+        } else if (ats.resolution === 'monthly') {
+          const map = {}; rows.forEach(r => { map[r.bucket] = r; });
+          const filled = [];
+          const [fy, fm] = from.split('-').map(Number);
+          const [ty, tm] = to.split('-').map(Number);
+          for (let y = fy, m = fm; y < ty || (y === ty && m <= tm); m++) {
+            if (m > 12) { m = 1; y++; }
+            const key = y + '-' + String(m).padStart(2, '0');
+            filled.push(map[key] || { bucket: key, det: 0, sp: 0 });
+          }
+          rows = filled;
+        }
         richnessData.value = { rows, labelFn: ats.labelFn, resolution: ats.resolution };
       } catch(e) { console.error(e); }
     }
