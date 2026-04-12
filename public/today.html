@@ -192,19 +192,6 @@
             </div>
           </div>
 
-          <!-- Quick validation buttons -->
-          <div class="player-validate">
-            <button class="pv-btn pv-confirm" @click="quickValidate('confirmed')" :title="t('review_confirm')">
-              <bird-icon name="check" :size="14"></bird-icon> {{t('review_confirm')}}
-            </button>
-            <button class="pv-btn pv-doubtful" @click="quickValidate('doubtful')" :title="t('review_doubtful')">
-              <bird-icon name="help-circle" :size="14"></bird-icon> ?
-            </button>
-            <button class="pv-btn pv-reject" @click="quickValidate('rejected')" :title="t('review_reject')">
-              <bird-icon name="x" :size="14"></bird-icon> {{t('review_reject')}}
-            </button>
-          </div>
-
           <!-- Spectrogramme — le canvas reste TOUJOURS dans le DOM (v-show) -->
           <div class="spectro-wrap" style="position:relative;min-height:200px;">
 
@@ -488,8 +475,9 @@ const app = createApp({
       try {
         const rows = await birdQuery(
           `SELECT Com_Name, MAX(Sci_Name) as sci, COUNT(*) as n,
-                  MAX(Time) as last_time, MAX(Confidence) as max_conf
-           FROM detections WHERE Date=? AND Confidence>=?
+                  MIN(Time) as first_time, MAX(Time) as last_time,
+                  MAX(Confidence) as max_conf
+           FROM active_detections WHERE Date=? AND Confidence>=?
            GROUP BY Com_Name ORDER BY n DESC`, [today, minConf.value]);
         speciesList.value = rows.map(r => ({
           ...r,
@@ -517,9 +505,10 @@ const app = createApp({
         const [rows, hourlyRows] = await Promise.all([
           birdQuery(...Q.detectionsForSpecies(today, sp.Com_Name, minConf.value)),
           // Sparkline: hourly distribution for this species today
-          birdQuery(
-            'SELECT hour as h, count_07 as n FROM hourly_stats WHERE date=? AND com_name=?',
-            [today, sp.Com_Name]
+          // Try pre-aggregated hourly_stats first, fallback to raw scan
+          Q.withFallback(birdQuery,
+            ['SELECT hour as h, count_07 as n FROM hourly_stats WHERE date=? AND com_name=?', [today, sp.Com_Name]],
+            ['SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM active_detections WHERE Date=? AND Com_Name=? AND Confidence>=0.7 GROUP BY h', [today, sp.Com_Name]]
           ).catch(() => []),
         ]);
         selectedDets.value = rows;
@@ -699,7 +688,7 @@ const app = createApp({
       today, minConf, searchQ, newSpOnly, newSpeciesSet,
       kpis, freshness,
       loadingList, speciesList, filteredSpecies,
-      selected, selectedDets, currentDet, currentDetIdx, nextAudioIdx, selectedHourly, quickValidate,
+      selected, selectedDets, currentDet, currentDetIdx, nextAudioIdx, selectedHourly,
       spectroCanvas, spectro, speciesFreqRange,
       isPlaying, audioProgress, audioCurrentTime, audioDuration,
       cleanMode, cleanStrength, processingClean,
