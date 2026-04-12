@@ -1752,6 +1752,37 @@ const app = createApp({
     });
 
 
+    // ── Telemetry opt-in ────────────────────────────────────────
+    const telemetryStatus = reactive({ enabled: false, stationId: null, stationName: '' });
+    const telemetryLoading = ref(true);
+    const telemetryName = ref('');
+    const telemetryJoining = ref(false);
+    fetch(`${API}/telemetry/status`).then(r => r.json()).then(d => {
+      Object.assign(telemetryStatus, d);
+      telemetryName.value = d.stationName || '';
+    }).catch(() => {}).finally(() => { telemetryLoading.value = false; });
+
+    async function enableTelemetry() {
+      telemetryJoining.value = true;
+      try {
+        const res = await fetch(`${API}/telemetry/register`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stationName: telemetryName.value.trim() })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          telemetryStatus.enabled = true;
+          telemetryStatus.stationId = d.stationId;
+          telemetryStatus.stationName = telemetryName.value.trim();
+        }
+      } catch(e) { console.error(e); }
+      telemetryJoining.value = false;
+    }
+    async function disableTelemetry() {
+      await fetch(`${API}/telemetry/disable`, { method: 'POST' });
+      telemetryStatus.enabled = false;
+    }
+
     // ── Provide context to lazy-loaded tab components ──────────────
     const settingsCtx = {
       t, lang, safeHtml, conf, models, analysisStatus, languages, services,
@@ -1785,6 +1816,7 @@ const app = createApp({
       pauseBackup, stopBackup, fmtSize, fmtDateTimeFull,
       bkpSchedule, bkpHistory,
       tabComponents,
+      telemetryStatus, telemetryLoading, telemetryName, telemetryJoining, enableTelemetry, disableTelemetry,
     };
     // ── Station map (Leaflet) ──────────────────────────────────────
     let _stationMap = null, _stationMarker = null, _leafletLoaded = false;
@@ -1865,37 +1897,6 @@ const app = createApp({
     settingsCtx.geolocateMe = geolocateMe;
 
     provide('settingsCtx', settingsCtx);
-
-    // ── Telemetry opt-in ────────────────────────────────────────
-    const telemetryStatus = reactive({ enabled: false, stationId: null, stationName: '' });
-    const telemetryLoading = ref(true);
-    const telemetryName = ref('');
-    const telemetryJoining = ref(false);
-    fetch(`${API}/telemetry/status`).then(r => r.json()).then(d => {
-      Object.assign(telemetryStatus, d);
-      telemetryName.value = d.stationName || '';
-    }).catch(() => {}).finally(() => { telemetryLoading.value = false; });
-
-    async function enableTelemetry() {
-      telemetryJoining.value = true;
-      try {
-        const res = await fetch(`${API}/telemetry/register`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stationName: telemetryName.value.trim() })
-        });
-        const d = await res.json();
-        if (d.ok) {
-          telemetryStatus.enabled = true;
-          telemetryStatus.stationId = d.stationId;
-          telemetryStatus.stationName = telemetryName.value.trim();
-        }
-      } catch(e) { console.error(e); }
-      telemetryJoining.value = false;
-    }
-    async function disableTelemetry() {
-      await fetch(`${API}/telemetry/disable`, { method: 'POST' });
-      telemetryStatus.enabled = false;
-    }
 
     return {
       t, lang, safeHtml, conf, models, analysisStatus, languages, services,
