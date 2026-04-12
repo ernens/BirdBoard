@@ -1198,5 +1198,7 @@
   "avg_confidence_tooltip": "Durchschnittliche Konfidenz über alle Modelle. BirdNET (Sigmoid) und Perch (Softmax) verwenden unterschiedliche Skalen — siehe Modellvergleich unten.",
   "models_conf_caveat": "Konfidenzwerte sind zwischen Modellen nicht direkt vergleichbar (unterschiedliche Skalen).",
   "weather_corr_caveat": "r = statistische Korrelation (Assoziation), keine Ursache-Wirkungs-Beziehung. Werte |r| < 0,2 ausgeblendet (nicht signifikant).",
-  "weather_no_significant_corr": "Keine signifikante Korrelation erkannt (|r| < 0,2)"
+  "weather_no_significant_corr": "Keine signifikante Korrelation erkannt (|r| < 0,2)",
+  "rare_tooltip": "Arten, die in dieser Region kürzlich nicht beobachtet wurden (Quelle: eBird, letzte 30 Tage, 25 km). Bei einer neuen Installation (< 30 Tage) wird keine Art als selten markiert.",
+  "activity_tooltip": "Gesamtzahl der Erkennungen (3-Sekunden-Analysefenster über dem Konfidenzschwellenwert). Misst das akustische Volumen, nicht die Vielfalt."
 }

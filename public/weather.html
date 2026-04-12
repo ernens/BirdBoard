@@ -65,7 +65,7 @@
     <div style="display:grid;grid-template-columns:3fr 2fr;gap:1rem;">
       <!-- 30-day chart -->
       <div class="card">
-        <div class="card-title">{{t('weather_activity')}}</div>
+        <div class="card-title" :title="t('activity_tooltip')">{{t('weather_activity')}}</div>
         <div v-if="loading" class="spinner"><div></div><div></div><div></div></div>
         <div v-else-if="error" class="error-msg">{{error}}</div>
         <div v-else class="chart-wrap chart-wrap-tall"><canvas ref="canvasWeather"></canvas></div>

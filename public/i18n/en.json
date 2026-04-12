@@ -1198,5 +1198,7 @@
   "avg_confidence_tooltip": "Average confidence across all models. BirdNET (sigmoid) and Perch (softmax) scores use different scales — see per-model comparison below.",
   "models_conf_caveat": "Confidence scores are not directly comparable between models (different scales).",
   "weather_corr_caveat": "r = statistical correlation (association), not a cause-and-effect relationship. Values |r| < 0.2 hidden (not significant).",
-  "weather_no_significant_corr": "No significant correlation detected (|r| < 0.2)"
+  "weather_no_significant_corr": "No significant correlation detected (|r| < 0.2)",
+  "rare_tooltip": "Species not recently observed in this region (source: eBird, last 30 days, 25 km). On a fresh install (< 30 days), no species is flagged as rare.",
+  "activity_tooltip": "Total number of detections (3-second analysis windows scoring above the confidence threshold). Measures acoustic volume, not diversity."
 }

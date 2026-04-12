@@ -36,7 +36,7 @@
         <div class="kpi-value amber">{{kpis.sp || '—'}}</div>
         <div class="kpi-label">{{t('species')}}</div>
       </div>
-      <div class="kpi-card" style="position:relative;cursor:pointer;" @click="toggleRarePanel">
+      <div class="kpi-card" style="position:relative;cursor:pointer;" @click="toggleRarePanel" :title="t('rare_tooltip')">
         <div class="kpi-value" style="color:var(--danger);">{{kpis.rareToday || '0'}}</div>
         <div class="kpi-label">{{t('rare_today')}}</div>
         <div v-if="rarePanelOpen && rareSpeciesToday.length" class="new-sp-panel" @click.stop>
@@ -401,11 +401,11 @@
       <!-- Graphiques activité (stacked) -->
       <div class="idx-right-stack">
         <div class="card">
-          <div class="card-title">{{t('activity_today')}}</div>
+          <div class="card-title" :title="t('activity_tooltip')">{{t('activity_today')}}</div>
           <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
         </div>
         <div class="card">
-          <div class="card-title">{{t('activity_7d')}}</div>
+          <div class="card-title" :title="t('activity_tooltip')">{{t('activity_7d')}}</div>
           <div class="chart-wrap"><canvas ref="canvas7d"></canvas></div>
         </div>
         <!-- Espèces rares aujourd'hui -->
