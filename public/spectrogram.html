@@ -914,11 +914,11 @@ const app = createApp({
           const today = localDateStr();
           const tenSecAgo = new Date(Date.now() - 30000).toTimeString().substring(0, 8);
           const rows = await birdQuery(
-            'SELECT Com_Name, Confidence, Time FROM detections WHERE Date = ? AND Time >= ? ORDER BY Time DESC LIMIT 5',
+            'SELECT Com_Name, Sci_Name, Confidence, Time FROM active_detections WHERE Date = ? AND Time >= ? ORDER BY Time DESC LIMIT 5',
             [today, tenSecAgo]
           );
           for (const r of rows) {
-            const label = r.Com_Name + ' ' + Math.round(r.Confidence * 100) + '%';
+            const label = spName(r.Com_Name, r.Sci_Name) + ' ' + Math.round(r.Confidence * 100) + '%';
             const exists = detLabels.value.some(d => d.text === label && d.col > _colsDrawn - 100);
             if (!exists) {
               detLabels.value.push({
