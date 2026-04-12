@@ -125,7 +125,7 @@
                  :class="{'wn-card--insufficient': card.insufficientData, 'wn-card--clickable': card.link && card.active}"
                  @click="card.link && card.active && navigateTo(card.link)">
               <div class="wn-card-header">
-                <span class="wn-card-icon">{{wnIcon(card.type)}}</span>
+                <span class="wn-card-icon"><bird-icon :name="wnIcon(card.type)" :size="16"></bird-icon></span>
                 <span class="wn-card-title">{{t('wn_card_'+card.type)}}</span>
                 <span v-if="card.insufficientData" class="wn-card-info-btn"
                       :title="t('wn_insuf_'+card.insufficientDataReason)">&#9432;</span>
@@ -166,7 +166,7 @@
                  class="wn-card"
                  :class="{'wn-card--insufficient': card.insufficientData}">
               <div class="wn-card-header">
-                <span class="wn-card-icon">{{wnIcon(card.type)}}</span>
+                <span class="wn-card-icon"><bird-icon :name="wnIcon(card.type)" :size="16"></bird-icon></span>
                 <span class="wn-card-title">{{t('wn_card_'+card.type)}}</span>
                 <span v-if="card.insufficientData" class="wn-card-info-btn"
                       :title="t('wn_insuf_'+card.insufficientDataReason)">&#9432;</span>
@@ -983,13 +983,13 @@ const app = createApp({
     // ── What's New helpers ──
     function wnIcon(type) {
       const icons = {
-        out_of_season:'\u26A0\uFE0F', activity_spike:'\uD83D\uDCC8',
-        species_return:'\uD83D\uDD04', first_of_year:'\uD83C\uDF31',
-        species_streak:'\uD83D\uDD25', seasonal_peak:'\uD83C\uDFC6',
-        dawn_chorus:'\uD83C\uDF05', acoustic_quality:'\uD83C\uDF9A\uFE0F',
-        species_richness:'\uD83C\uDF3F', moon_phase:'\uD83C\uDF19'
+        out_of_season: 'alert-triangle', activity_spike: 'trending-up',
+        species_return: 'refresh-cw', first_of_year: 'sparkles',
+        species_streak: 'flame', seasonal_peak: 'trophy',
+        dawn_chorus: 'sunrise', acoustic_quality: 'audio-lines',
+        species_richness: 'sprout', moon_phase: 'moon'
       };
-      return icons[type] || '\uD83D\uDCCC';
+      return icons[type] || 'info';
     }
     function wnMoonIcon(phaseName) {
       const icons = {
