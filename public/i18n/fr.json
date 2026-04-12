@@ -1200,5 +1200,6 @@
   "weather_corr_caveat": "r = corrélation statistique (association), pas une relation de cause à effet. Valeurs |r| < 0.2 masquées (non significatives).",
   "weather_no_significant_corr": "Aucune corrélation significative détectée (|r| < 0.2)",
   "rare_tooltip": "Espèces non observées récemment dans cette région (source : eBird, 30 derniers jours, 25 km). Sur une installation récente (< 30 jours), aucune espèce n'est signalée comme rare.",
-  "activity_tooltip": "Nombre total de détections (fenêtres d'analyse de 3 secondes avec un score de confiance au-dessus du seuil). Mesure le volume acoustique, pas la diversité."
+  "activity_tooltip": "Nombre total de détections (fenêtres d'analyse de 3 secondes avec un score de confiance au-dessus du seuil). Mesure le volume acoustique, pas la diversité.",
+  "top_species_tooltip": "Classées par nombre total de détections (volume acoustique, pas fiabilité). Les espèces très vocales ou détectées dans de nombreuses fenêtres d'analyse apparaissent en tête."
 }

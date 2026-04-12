@@ -283,7 +283,7 @@
 
       <!-- Top 10 espèces du jour -->
       <div class="card">
-        <div class="card-title">{{t('top_species')}}</div>
+        <div class="card-title" :title="t('top_species_tooltip')">{{t('top_species')}}</div>
         <div class="chart-wrap"><canvas ref="canvasTop"></canvas></div>
       </div>
       </div>

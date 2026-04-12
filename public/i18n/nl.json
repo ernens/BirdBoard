@@ -1200,5 +1200,6 @@
   "weather_corr_caveat": "r = statistische correlatie (associatie), geen oorzaak-gevolgrelatie. Waarden |r| < 0,2 verborgen (niet significant).",
   "weather_no_significant_corr": "Geen significante correlatie gedetecteerd (|r| < 0,2)",
   "rare_tooltip": "Soorten die recent niet zijn waargenomen in deze regio (bron: eBird, laatste 30 dagen, 25 km). Bij een nieuwe installatie (< 30 dagen) wordt geen soort als zeldzaam gemarkeerd.",
-  "activity_tooltip": "Totaal aantal detecties (3-seconden analysevensters boven de betrouwbaarheidsdrempel). Meet akoestisch volume, niet diversiteit."
+  "activity_tooltip": "Totaal aantal detecties (3-seconden analysevensters boven de betrouwbaarheidsdrempel). Meet akoestisch volume, niet diversiteit.",
+  "top_species_tooltip": "Gerangschikt op totaal aantal detecties (akoestisch volume, niet betrouwbaarheid). Zeer vocale soorten staan bovenaan."
 }
