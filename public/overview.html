@@ -21,7 +21,6 @@
   <script src="js/birdash-local.js" onerror=""></script>
   <script src="js/bird-config.js"></script>
   <script src="js/bird-shared.js"></script>
-  <script src="js/bird-timeline.js"></script>
   <script src="js/bird-queries.js"></script>
   <script src="js/bird-icons.js"></script>
   <script src="js/bird-vue-core.js"></script>
@@ -208,7 +207,8 @@
     <!-- ═══ Dernière détection + Contexte du jour ═══ -->
     <div class="grid-2" style="margin-bottom:1rem;">
 
-      <!-- Dernière détection (gauche) -->
+      <!-- Colonne gauche : dernière détection + activité -->
+      <div style="display:flex;flex-direction:column;gap:1rem;">
       <div class="card">
         <div class="card-title">{{t('last_detection')}}</div>
         <div v-if="lastDet.loading" class="spinner"><div></div><div></div><div></div></div>
@@ -246,6 +246,13 @@
             <div v-if="spectroState==='loading'" class="idx-spectro-loading"><div class="spinner" style="transform:scale(.5)"></div></div>
           </div>
         </div>
+      </div>
+
+      <!-- Activité aujourd'hui -->
+      <div class="card" style="flex:1;display:flex;flex-direction:column;">
+        <div class="card-title" :title="t('activity_tooltip')">{{t('activity_today')}}</div>
+        <div class="chart-wrap" style="flex:1;"><canvas ref="canvasHourly"></canvas></div>
+      </div>
       </div>
 
       <!-- Colonne droite : contexte + top especes -->
@@ -286,8 +293,7 @@
         </div>
       </div>
 
-      <!-- Top 10 espèces du jour — flex:1 so it fills remaining height
-           and its bottom aligns with the last detection card -->
+      <!-- Top espèces — flex:1 so it fills remaining height -->
       <div class="card" style="flex:1;display:flex;flex-direction:column;">
         <div class="card-title" :title="t('top_species_tooltip')">{{t('top_species')}}</div>
         <div class="chart-wrap" style="flex:1;"><canvas ref="canvasTop"></canvas></div>
@@ -296,42 +302,6 @@
     </div>
 
 
-    <!-- Activité aujourd'hui (pleine largeur) -->
-    <div class="card">
-      <div class="card-title" :title="t('activity_tooltip')">{{t('activity_today')}}</div>
-      <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
-    </div>
-
-
-    <!-- Journal du jour -->
-    <div class="card">
-      <div class="card-title">{{t('today_log')}}</div>
-      <div v-if="feed.loading" class="spinner"><div></div><div></div><div></div></div>
-      <div v-else-if="!feed.rows.length" class="error-msg">{{t('no_data')}}</div>
-      <div v-else>
-        <div v-for="d in feed.rows" :key="d.Date+d.Time+d.File_Name"
-             class="det-item"
-             :style="d.isRare ? 'border-left:2px solid var(--danger);padding-left:.4rem;' : ''">
-          <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name"></bird-img>
-          <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
-          <button v-if="d.File_Name" class="play-btn" style="width:22px;height:22px;font-size:.6rem;"
-                  @click="BIRDASH.openSpectroModal({fileName:d.File_Name, speciesName:d.Com_Name, sciName:d.Sci_Name, confidence:d.Confidence, date:d.Date, time:d.Time})">▶</button>
-          <span v-else style="width:22px;display:inline-block;"></span>
-          <div class="det-time">{{fmtTime(d.Time)}}</div>
-          <div class="det-species">
-            <a class="species-link" @click="navigateTo('species.html',{species:d.Com_Name})">{{spName(d.Com_Name, d.Sci_Name)}}</a>
-          </div>
-          <span v-if="d.isRare" class="rare-badge"><bird-icon name="gem" :size="14" ></bird-icon> {{d.totalDet}}×</span>
-          <span v-else style="display:flex;align-items:center;gap:.25rem;">
-            <span v-if="d.Model" class="model-tag">{{shortModel(d.Model)}}</span>
-            <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':parseFloat(d.Confidence)>=0.6?'conf-mid':'conf-low')">{{fmtConf(d.Confidence)}}</span>
-          </span>
-        </div>
-      </div>
-      <div style="text-align:right;margin-top:.5rem;">
-        <a href="detections.html" class="btn btn-secondary">{{t('nav_detections')}} →</a>
-      </div>
-    </div>
 
   </birdash-shell>
 </div>
@@ -353,14 +323,12 @@ const app = createApp({
     const { navItems, siteName } = useNav('index');
     const { playingFile, toggleAudio } = useAudio();
     const { spName } = useSpeciesNames();
-    const { mountChart: mount7d }     = useChart();
     const { mountChart: mountTop }    = useChart();
     const { mountChart: mountHourly } = useChart();
 
     const today = localDateStr();
     const CONF  = BIRD_CONFIG.defaultConfidence;
 
-    const canvas7d      = ref(null);
     const canvasTop     = ref(null);
     const canvasHourly  = ref(null);
     const spectroCanvas = ref(null);
@@ -374,7 +342,6 @@ const app = createApp({
     }
     onMounted(() => document.addEventListener('click', () => { rarePanelOpen.value = false; }));
     const lastDet = ref({ loading:true, row:null, photoUrl:null });
-    const feed    = ref({ loading:true, rows:[] });
     const rareSpeciesToday = ref([]);
     const morning = ref({ newSpecies: [], bestDet: null, todayCount: 0, yesterdayCount: 0, loaded: false });
     const whatsNew = ref({
@@ -386,23 +353,8 @@ const app = createApp({
         moon_phase: { insufficientData: false, data: null }
       }
     });
-    const data7d     = ref(null);
     const dataTop    = ref(null);
     const dataHourly = ref(null);
-
-    // ── Timeline ──────────────────────────────────────────────────────
-    const timelineExpanded = ref(true);
-    const timelineLoading  = ref(false);
-    const timelineData     = ref(null);
-    const tlSelectedDate   = ref(localDateStr());
-    const tlShowDatePicker = ref(false);
-    const tlTodayStr       = localDateStr();
-    const tlScrollRef      = ref(null);
-    const tlInnerRef       = ref(null);
-    const tlSkyCanvasRef   = ref(null);
-    const tlStarsCanvasRef = ref(null);
-    const tlDensityRef     = ref(null);
-    const tlDensityWrapRef = ref(null);
 
     // ── Rich player ────────────────────────────────────────────────
     const richPlaying  = ref(false);
@@ -486,7 +438,7 @@ const app = createApp({
       // blocking KPIs). The rareToday KPI updates reactively when rare
       // data arrives.
       const sections = [
-        loadRareSpeciesToday, loadKpis, loadLastDet, loadFeed,
+        loadRareSpeciesToday, loadKpis, loadLastDet,
         loadTopData, loadHourlyData,
         loadMorningSummary, loadWhatsNew, loadWeatherWidget,
       ];
@@ -531,41 +483,6 @@ const app = createApp({
         // Charger le spectrogramme automatiquement
         if (row?.File_Name) await nextTick().then(loadSpectro);
       } catch(e) { lastDet.value = { loading:false, row:null, photoUrl:null }; }
-    }
-
-    async function loadFeed() {
-      feed.value.loading = true;
-      try {
-        const rows = await birdQuery(
-          `SELECT Date,Time,Com_Name,Sci_Name,Confidence,File_Name,Model
-           FROM active_detections ORDER BY Date DESC,Time DESC LIMIT 15`
-        );
-
-        // Charger le compteur total par espèce pour détecter les raretés (≤5)
-        const speciesInFeed = [...new Set(rows.map(r => r.Com_Name))];
-        let rarityMap = {};
-        if (speciesInFeed.length) {
-          const counts = await birdQuery(
-            `SELECT Com_Name, COUNT(*) as n FROM active_detections
-             WHERE Com_Name IN (${speciesInFeed.map(()=>'?').join(',')})
-             GROUP BY Com_Name`,
-            speciesInFeed
-          );
-          counts.forEach(c => { rarityMap[c.Com_Name] = c.n; });
-        }
-
-        // Photos + marquage rareté (basé sur la liste rareSpeciesToday
-        // qui utilise eBird, pas le comptage local ≤5 qui est faux
-        // sur les installations récentes)
-        const rareSet = new Set(rareSpeciesToday.value.map(r => r.Com_Name));
-        rows.forEach(r => {
-          r.photoUrl  = r.Sci_Name ? photoUrl(r.Sci_Name) : null;
-          r.totalDet  = rarityMap[r.Com_Name] || 0;
-          r.isRare    = rareSet.has(r.Com_Name);
-        });
-
-        feed.value = { loading:false, rows };
-      } catch(e) { feed.value = { loading:false, rows:[] }; }
     }
 
     // ── Player avec progression ────────────────────────────────────
@@ -680,12 +597,6 @@ const app = createApp({
       } catch(e) { console.error(e); rareSpeciesToday.value = []; }
     }
 
-    async function load7dData() {
-      try {
-        const rows = await birdQuery(...Q.dailyStats(daysAgo(6), today));
-        data7d.value = rows;
-      } catch(e) { console.error(e); }
-    }
     async function loadTopData() {
       try {
         const rows = await birdQuery(...Q.topSpecies(daysAgo(6), BIRD_CONFIG.topSpeciesCount, CONF));
@@ -704,30 +615,6 @@ const app = createApp({
         dataHourly.value = vals;
       } catch(e) { console.error(e); }
     }
-
-    watch([data7d, lang], async () => {
-      await nextTick();
-      const d = data7d.value;
-      if (!d || !canvas7d.value) return;
-      const map={};d.forEach(r=>{map[r.Date]=r;});
-      const labels=[],dets=[],sps=[];
-      for(let i=6;i>=0;i--){const date=daysAgo(i);const mo=t('months_short')[new Date(date).getMonth()];labels.push(`${new Date(date).getDate()} ${mo}`);dets.push(map[date]?map[date].n:0);sps.push(map[date]?map[date].sp:0);}
-      // Trendline: linear regression on detections
-      const n=dets.length, sumX=n*(n-1)/2, sumY=dets.reduce((a,b)=>a+b,0);
-      const sumXY=dets.reduce((a,y,i)=>a+i*y,0), sumX2=n*(n-1)*(2*n-1)/6;
-      const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX||1);
-      const intercept=(sumY-slope*sumX)/n;
-      const trend=dets.map((_,i)=>Math.max(0,Math.round(intercept+slope*i)));
-      const cs=getComputedStyle(document.documentElement);
-      const accent=cs.getPropertyValue('--accent').trim();
-      const gridC=cs.getPropertyValue('--border').trim()+'40';
-      const txtC=cs.getPropertyValue('--text-muted').trim();
-      mount7d(canvas7d, ()=>({type:'bar',data:{labels,datasets:[
-        {label:t('detections'),data:dets,backgroundColor:accent+'99',borderColor:accent,borderWidth:0,borderRadius:4},
-        {label:t('species'),data:sps,type:'line',borderColor:'#eab308',backgroundColor:'rgba(234,179,8,.08)',pointBackgroundColor:'#eab308',pointRadius:3,tension:0.3,yAxisID:'y2'},
-        {label:'Tendance',data:trend,type:'line',borderColor:accent+'60',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0,yAxisID:'y',fill:false}
-      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:txtC,usePointStyle:true,pointStyle:'circle',boxWidth:6}},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:accent+'40',borderWidth:1,titleColor:'#fff',bodyColor:txtC}},scales:{x:{ticks:{color:txtC,font:{size:11}},grid:{display:false}},y:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true},y2:{position:'right',ticks:{color:'#eab308',font:{size:10}},grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true}}}}));
-    });
 
     watch([dataTop, lang], async () => {
       await nextTick();
@@ -768,88 +655,7 @@ const app = createApp({
       });
     }
 
-    // ── Timeline functions ──────────────────────────────────────────
-    const TL_ZOOM_LEVELS = [70, 110, 180];
-    const tlZoom = ref(window.innerWidth < 768 ? 0 : 1); // mobile=compact
-    function tlPxPerHour() { return TL_ZOOM_LEVELS[tlZoom.value] || 110; }
-    function tlTotalW() { return 24 * tlPxPerHour(); }
-    function tlZoomIn() { if (tlZoom.value < 2) { tlZoom.value++; renderTimeline(); } }
-    function tlZoomOut() { if (tlZoom.value > 0) { tlZoom.value--; renderTimeline(); } }
 
-    async function loadTimeline() {
-      timelineLoading.value = true;
-      try {
-        const r = await fetch(`${BIRD_CONFIG.apiUrl}/timeline?date=${tlSelectedDate.value}`);
-        if (!r.ok) { timelineLoading.value = false; return; }
-        const data = await r.json();
-        if (!data || data.error) { timelineLoading.value = false; return; }
-        timelineData.value = data;
-      } catch(e) {
-        console.error('[timeline]', e);
-      } finally {
-        timelineLoading.value = false;
-      }
-    }
-
-    // Render timeline when data changes (after DOM updates via nextTick)
-    watch(timelineData, async (val) => {
-      if (!val || !val.meta?.astronomy) return;
-      await nextTick();
-      // Wait one extra frame for DOM to be fully ready
-      await new Promise(r => requestAnimationFrame(r));
-      try { renderTimeline(); } catch(e) { console.error('[timeline render]', e); }
-    });
-
-    function tlNavigateDay(dir) {
-      const nav = timelineData.value?.navigation;
-      const target = dir < 0 ? nav?.prevDate : nav?.nextDate;
-      if (target) { tlSelectedDate.value = target; loadTimeline(); }
-    }
-    function tlOnDateChange() { tlShowDatePicker.value = false; loadTimeline(); }
-    function tlToggle() { timelineExpanded.value = !timelineExpanded.value; }
-    function tlFormatDate(d) {
-      return new Date(d + 'T12:00:00').toLocaleDateString(lang.value, { weekday:'long', day:'numeric', month:'long' });
-    }
-
-    const TL = window.BIRDASH_TIMELINE;
-
-    const tlPopupEvent = ref(null);
-    const tlClusterPopup = ref(null);
-    function tlOpenPopup(ev) { tlPopupEvent.value = ev; }
-    function tlOpenCluster(ev) { tlClusterPopup.value = ev; }
-    function tlClosePopup(e) {
-      if (!e || e.target === e.currentTarget) { tlPopupEvent.value = null; tlClusterPopup.value = null; }
-    }
-
-    function renderTimeline() {
-      const data = timelineData.value;
-      if (!data) return;
-      const astro = data.meta?.astronomy || { astronomicalDawn:4, nauticalDawn:5, civilDawn:5.5, sunrise:6.5, sunset:19.5, civilDusk:20.5, nauticalDusk:21, astronomicalDusk:22 };
-      const A = {
-        astroDawn: astro.astronomicalDawn, nautDawn: astro.nauticalDawn,
-        civilDawn: astro.civilDawn, sunrise: astro.sunrise,
-        sunset: astro.sunset, civilDusk: astro.civilDusk,
-        nautDusk: astro.nauticalDusk, astroDusk: astro.astronomicalDusk,
-      };
-      const pph = tlPxPerHour();
-      if (tlSkyCanvasRef.value) TL.drawSky(tlSkyCanvasRef.value, A, pph);
-      if (tlStarsCanvasRef.value) TL.drawStars(tlStarsCanvasRef.value, A, pph, data.meta?.moonPhase);
-      if (tlDensityRef.value) {
-        const cw = tlDensityWrapRef.value ? tlDensityWrapRef.value.clientWidth : tlTotalW();
-        TL.buildDensityBar(tlDensityRef.value, data.density, data.meta?.astronomy, cw, pph);
-      }
-      if (tlInnerRef.value) {
-        tlInnerRef.value.style.width = tlTotalW() + 'px';
-        tlInnerRef.value.style.height = TL.TL_SKY_H + 'px';
-        TL.buildMarkers(tlInnerRef.value, data.events, pph, {
-          t, spName, isToday: data.meta?.isToday,
-          onOpenPopup: tlOpenPopup, onOpenCluster: tlOpenCluster,
-        });
-      }
-      if (tlScrollRef.value && A.civilDawn) {
-        setTimeout(() => { tlScrollRef.value.scrollLeft = Math.max(0, A.civilDawn * pph - 50); }, 80);
-      }
-    }
 
     // ── What's New helpers ──
     function wnIcon(type) {
@@ -879,30 +685,16 @@ const app = createApp({
     });
     onUnmounted(() => { if (_wnTimer) clearInterval(_wnTimer); });
 
-    // ── Timeline polling (3 min, today only) ──
-    let _tlTimer = null;
-    onMounted(() => {
-      _tlTimer = setInterval(() => {
-        if (tlSelectedDate.value === tlTodayStr) loadTimeline();
-      }, 3 * 60 * 1000);
-    });
-    onUnmounted(() => { if (_tlTimer) clearInterval(_tlTimer); });
-
     return {
       lang, t, spName, daysAgo, weatherToday,
-      today, kpis, lastDet, feed, rareSpeciesToday, rarePanelOpen, toggleRarePanel, morning, isMultiModel, loadProgress,
+      today, kpis, lastDet, rareSpeciesToday, rarePanelOpen, toggleRarePanel, morning, isMultiModel, loadProgress,
       whatsNew, wnIcon, wnMoonIcon,
-      timelineExpanded, timelineLoading, timelineData, tlSelectedDate, tlShowDatePicker, tlTodayStr,
-      tlScrollRef, tlInnerRef, tlSkyCanvasRef, tlStarsCanvasRef, tlDensityRef, tlDensityWrapRef,
-      tlNavigateDay, tlOnDateChange, tlToggle, tlFormatDate, tlPopupEvent, tlClusterPopup, tlOpenPopup, tlOpenCluster, tlClosePopup,
-      tlZoom, tlZoomIn, tlZoomOut,
-      loadTimeline,
       playingFile, toggleAudio,
       richPlaying, richProgress, richDuration, toggleRichPlay, seekRich,
       spectroCanvas, spectroState, loadSpectro,
       cleanMode, cleanStrength, cleanProcessing, toggleClean, reapplyClean,
       fmtDate, fmtTime, fmtConf, freshnessLabel, navigateTo, shortModel,
-      canvas7d, canvasTop, canvasHourly,
+      canvasTop, canvasHourly,
       openSpectroModal,
       quickPlay(comName) { quickPlaySpecies(comName); },
     };
