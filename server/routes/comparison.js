@@ -37,13 +37,17 @@ function handle(req, res, pathname, ctx) {
 
         for (const y of years) {
           const [wStart, wEnd] = isoWeekBounds(y, week);
+          // Use count_07 (per-detection filtered count) instead of
+          // filtering by avg_conf, which inflated totals by ~21%.
           const rows = db.prepare(`
-            SELECT sci_name, com_name, SUM(count) as total, ROUND(AVG(avg_conf),4) as avg_conf,
+            SELECT sci_name, com_name,
+                   SUM(COALESCE(count_07, count)) as total,
+                   ROUND(AVG(avg_conf),4) as avg_conf,
                    COUNT(DISTINCT date) as days_present
             FROM daily_stats
-            WHERE date BETWEEN ? AND ? AND avg_conf >= ?
+            WHERE date BETWEEN ? AND ? AND COALESCE(count_07, count) > 0
             GROUP BY sci_name ORDER BY total DESC
-          `).all(wStart, wEnd, minConf);
+          `).all(wStart, wEnd);
 
           const totalDet = rows.reduce((s, r) => s + r.total, 0);
           result.years[y] = {
@@ -114,11 +118,13 @@ function handle(req, res, pathname, ctx) {
         for (const ym of yms) {
           const y = parseInt(ym.substring(0, 4));
           const rows = db.prepare(`
-            SELECT sci_name, com_name, count as total, avg_conf, day_count
+            SELECT sci_name, com_name,
+                   COALESCE(count_07, count) as total,
+                   avg_conf, day_count
             FROM monthly_stats
-            WHERE year_month = ? AND avg_conf >= ?
-            ORDER BY count DESC
-          `).all(ym, minConf);
+            WHERE year_month = ? AND COALESCE(count_07, count) > 0
+            ORDER BY total DESC
+          `).all(ym);
 
           result.years[y] = {
             yearMonth: ym,
@@ -149,7 +155,7 @@ function handle(req, res, pathname, ctx) {
         if (!sci) { res.writeHead(400, JSON_CT); res.end('{"error":"species param required"}'); return; }
 
         const rows = db.prepare(`
-          SELECT date, count, avg_conf FROM daily_stats
+          SELECT date, COALESCE(count_07, count) as count, avg_conf FROM daily_stats
           WHERE sci_name = ? ORDER BY date
         `).all(sci);
 

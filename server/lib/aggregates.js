@@ -10,10 +10,15 @@
 // Noise floor filter (Confidence >= 0.5) excludes obvious junk so that
 // avg_conf in the aggregate is meaningful and downstream avg_conf >= ? filters
 // work correctly without inflating counts by ~21%.
+// count    = all detections above 0.5 noise floor
+// count_07 = only detections with Confidence >= 0.7 (system default)
+// Downstream queries should use count_07 for totals shown to the user,
+// and count for the unfiltered view (e.g. analysis modes).
 const DAILY_REBUILD_SQL = `
-  INSERT OR REPLACE INTO daily_stats (date, sci_name, com_name, count, avg_conf, max_conf, first_time, last_time)
+  INSERT OR REPLACE INTO daily_stats (date, sci_name, com_name, count, count_07, avg_conf, max_conf, first_time, last_time)
   SELECT Date, Sci_Name, Com_Name,
          COUNT(*) as count,
+         SUM(CASE WHEN Confidence >= 0.7 THEN 1 ELSE 0 END) as count_07,
          ROUND(AVG(Confidence), 4) as avg_conf,
          ROUND(MAX(Confidence), 4) as max_conf,
          MIN(Time) as first_time,
@@ -23,11 +28,11 @@ const DAILY_REBUILD_SQL = `
   GROUP BY Date, Sci_Name
 `;
 
-// Same noise floor as daily — keeps monthly aggregates consistent
 const MONTHLY_REBUILD_SQL = `
-  INSERT OR REPLACE INTO monthly_stats (year_month, sci_name, com_name, count, avg_conf, day_count)
+  INSERT OR REPLACE INTO monthly_stats (year_month, sci_name, com_name, count, count_07, avg_conf, day_count)
   SELECT SUBSTR(Date,1,7), Sci_Name, MAX(Com_Name),
          COUNT(*) as count,
+         SUM(CASE WHEN Confidence >= 0.7 THEN 1 ELSE 0 END) as count_07,
          ROUND(AVG(Confidence), 4) as avg_conf,
          COUNT(DISTINCT Date) as day_count
   FROM active_detections
@@ -35,11 +40,11 @@ const MONTHLY_REBUILD_SQL = `
   GROUP BY SUBSTR(Date,1,7), Sci_Name
 `;
 
-// Same noise floor as daily/monthly — keeps species aggregates consistent
 const SPECIES_REBUILD_SQL = `
-  INSERT OR REPLACE INTO species_stats (sci_name, com_name, total_count, first_date, last_date, avg_conf, day_count)
+  INSERT OR REPLACE INTO species_stats (sci_name, com_name, total_count, count_07, first_date, last_date, avg_conf, day_count)
   SELECT Sci_Name, MAX(Com_Name),
          COUNT(*) as total_count,
+         SUM(CASE WHEN Confidence >= 0.7 THEN 1 ELSE 0 END) as count_07,
          MIN(Date) as first_date,
          MAX(Date) as last_date,
          ROUND(AVG(Confidence), 4) as avg_conf,
@@ -127,12 +132,14 @@ function refreshToday(dbWrite, dateStr) {
   const ym = dateStr.substring(0, 7);
 
   const tx = dbWrite.transaction(() => {
-    // Refresh today's daily_stats
+    // Refresh today's daily_stats (count + count_07)
     dbWrite.prepare('DELETE FROM daily_stats WHERE date = ?').run(dateStr);
     dbWrite.prepare(`
-      INSERT INTO daily_stats (date, sci_name, com_name, count, avg_conf, max_conf, first_time, last_time)
+      INSERT INTO daily_stats (date, sci_name, com_name, count, count_07, avg_conf, max_conf, first_time, last_time)
       SELECT Date, Sci_Name, Com_Name,
-             COUNT(*), ROUND(AVG(Confidence),4), ROUND(MAX(Confidence),4),
+             COUNT(*),
+             SUM(CASE WHEN Confidence >= 0.7 THEN 1 ELSE 0 END),
+             ROUND(AVG(Confidence),4), ROUND(MAX(Confidence),4),
              MIN(Time), MAX(Time)
       FROM active_detections WHERE Date = ? AND Confidence >= 0.5
       GROUP BY Sci_Name
@@ -141,9 +148,11 @@ function refreshToday(dbWrite, dateStr) {
     // Refresh current month's monthly_stats
     dbWrite.prepare('DELETE FROM monthly_stats WHERE year_month = ?').run(ym);
     dbWrite.prepare(`
-      INSERT INTO monthly_stats (year_month, sci_name, com_name, count, avg_conf, day_count)
+      INSERT INTO monthly_stats (year_month, sci_name, com_name, count, count_07, avg_conf, day_count)
       SELECT SUBSTR(Date,1,7), Sci_Name, MAX(Com_Name),
-             COUNT(*), ROUND(AVG(Confidence),4), COUNT(DISTINCT Date)
+             COUNT(*),
+             SUM(CASE WHEN Confidence >= 0.7 THEN 1 ELSE 0 END),
+             ROUND(AVG(Confidence),4), COUNT(DISTINCT Date)
       FROM active_detections WHERE SUBSTR(Date,1,7) = ? AND Confidence >= 0.5
       GROUP BY Sci_Name
     `).run(ym);
@@ -153,8 +162,10 @@ function refreshToday(dbWrite, dateStr) {
       'SELECT DISTINCT Sci_Name FROM active_detections WHERE Date = ? AND Confidence >= 0.5'
     ).all(dateStr);
     const spUpdate = dbWrite.prepare(`
-      INSERT OR REPLACE INTO species_stats (sci_name, com_name, total_count, first_date, last_date, avg_conf, day_count)
-      SELECT Sci_Name, MAX(Com_Name), COUNT(*), MIN(Date), MAX(Date),
+      INSERT OR REPLACE INTO species_stats (sci_name, com_name, total_count, count_07, first_date, last_date, avg_conf, day_count)
+      SELECT Sci_Name, MAX(Com_Name), COUNT(*),
+             SUM(CASE WHEN Confidence >= 0.7 THEN 1 ELSE 0 END),
+             MIN(Date), MAX(Date),
              ROUND(AVG(Confidence),4), COUNT(DISTINCT Date)
       FROM active_detections WHERE Sci_Name = ? AND Confidence >= 0.5
       GROUP BY Sci_Name
