@@ -86,7 +86,7 @@
             <template v-else>
               <div class="kpi-card"><div class="kpi-value">{{kpis.total}}</div><div class="kpi-label">{{t('all_time')}} ({{t('detections')}})</div></div>
               <div class="kpi-card"><div class="kpi-value amber">{{kpis.sp}}</div><div class="kpi-label">{{t('sys_species_distinct')}}</div></div>
-              <div class="kpi-card"><div class="kpi-value blue">{{kpis.avgConf}}%</div><div class="kpi-label">{{t('avg_confidence')}}</div></div>
+              <div class="kpi-card" :title="t('avg_confidence_tooltip')"><div class="kpi-value blue">{{kpis.avgConf}}%</div><div class="kpi-label">{{t('avg_confidence')}}</div></div>
               <div class="kpi-card"><div class="kpi-value">{{kpis.perDay}}</div><div class="kpi-label">{{t('detections')}} {{t('per_day_avg')}}</div></div>
               <div class="kpi-card"><div class="kpi-value">{{kpis.days}}</div><div class="kpi-label">{{t('sys_days_recorded')}}</div></div>
               <div class="kpi-card"><div class="kpi-value amber">{{kpis.maxConf}}%</div><div class="kpi-label">{{t('max_confidence')}}</div></div>
@@ -223,6 +223,9 @@
             <div style="font-weight:600;margin-top:.3rem;">{{ modelLabel(m) }}</div>
             <div style="font-size:.78rem;opacity:.7;margin-top:.2rem;">
               {{ mData.stats[m]?.species || 0 }} {{t('models_species')}} | {{t('models_avg_conf')}} {{ ((mData.stats[m]?.avg_conf || 0) * 100).toFixed(0) }}%
+            </div>
+            <div style="font-size:.65rem;opacity:.45;margin-top:.15rem;" v-if="mData.models.length > 1">
+              {{t('models_conf_caveat')}}
             </div>
           </div>
         </div>

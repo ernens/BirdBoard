@@ -1194,5 +1194,9 @@
   "update_done": "Mise à jour terminée",
   "update_done_version": "Mise à jour terminée — v{v}",
   "update_failed": "La mise à jour a échoué",
-  "update_already_uptodate": "Déjà à jour"
+  "update_already_uptodate": "Déjà à jour",
+  "avg_confidence_tooltip": "Confiance moyenne sur tous les modèles. Les scores BirdNET (sigmoid) et Perch (softmax) utilisent des échelles différentes — voir la comparaison par modèle ci-dessous.",
+  "models_conf_caveat": "Les scores de confiance ne sont pas directement comparables entre modèles (échelles différentes).",
+  "weather_corr_caveat": "r = corrélation statistique (association), pas une relation de cause à effet. Valeurs |r| < 0.2 masquées (non significatives).",
+  "weather_no_significant_corr": "Aucune corrélation significative détectée (|r| < 0.2)"
 }

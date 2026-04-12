@@ -1194,5 +1194,9 @@
   "update_done": "Update complete",
   "update_done_version": "Update complete — v{v}",
   "update_failed": "Update failed",
-  "update_already_uptodate": "Already up to date"
+  "update_already_uptodate": "Already up to date",
+  "avg_confidence_tooltip": "Average confidence across all models. BirdNET (sigmoid) and Perch (softmax) scores use different scales — see per-model comparison below.",
+  "models_conf_caveat": "Confidence scores are not directly comparable between models (different scales).",
+  "weather_corr_caveat": "r = statistical correlation (association), not a cause-and-effect relationship. Values |r| < 0.2 hidden (not significant).",
+  "weather_no_significant_corr": "No significant correlation detected (|r| < 0.2)"
 }

@@ -73,12 +73,18 @@
         <div v-if="corr" style="margin-top:.75rem;padding:.5rem;background:var(--bg-deep);border-radius:var(--radius);font-size:.82rem;">
           <div style="font-weight:600;margin-bottom:.4rem;">{{t('weather_correlation')}}</div>
           <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
-            <span><bird-icon name="thermometer" :size="14" ></bird-icon> {{t('temperature')}} : <strong :style="{color: corr.temp > 0.3 ? '#5a9e3a' : corr.temp < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{corr.temp.toFixed(2)}}</strong></span>
-            <span>🌧️ {{t('precipitation')}} : <strong :style="{color: corr.precip > 0.3 ? '#5a9e3a' : corr.precip < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{corr.precip.toFixed(2)}}</strong></span>
-            <span>🌬️ {{t('wind')}} : <strong :style="{color: corr.wind > 0.3 ? '#5a9e3a' : corr.wind < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{corr.wind.toFixed(2)}}</strong></span>
+            <span v-if="Math.abs(corr.temp) >= 0.2"><bird-icon name="thermometer" :size="14" ></bird-icon> {{t('temperature')}} : <strong :style="{color: corr.temp > 0.3 ? '#5a9e3a' : corr.temp < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{corr.temp.toFixed(2)}}</strong></span>
+            <span v-if="Math.abs(corr.precip) >= 0.2">🌧️ {{t('precipitation')}} : <strong :style="{color: corr.precip > 0.3 ? '#5a9e3a' : corr.precip < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{corr.precip.toFixed(2)}}</strong></span>
+            <span v-if="Math.abs(corr.wind) >= 0.2">🌬️ {{t('wind')}} : <strong :style="{color: corr.wind > 0.3 ? '#5a9e3a' : corr.wind < -0.3 ? '#e53e3e' : 'var(--text-muted)'}">r = {{corr.wind.toFixed(2)}}</strong></span>
+            <span v-if="Math.abs(corr.temp) < 0.2 && Math.abs(corr.precip) < 0.2 && Math.abs(corr.wind) < 0.2" style="opacity:.6;">
+              {{t('weather_no_significant_corr')}}
+            </span>
           </div>
           <div v-if="corr.bestConditions" style="margin-top:.4rem;color:var(--text-muted);">
             {{corr.bestConditions}}
+          </div>
+          <div style="margin-top:.35rem;font-size:.72rem;opacity:.5;">
+            {{t('weather_corr_caveat')}}
           </div>
         </div>
       </div>
@@ -123,7 +129,10 @@ const app = createApp({
 
     function pearson(x, y) {
       const n = x.length;
-      if (n < 5) return 0;
+      // Minimum 10 data points for a meaningful correlation.
+      // With n<10, Pearson r is too sensitive to outliers to be
+      // interpretable (even r=0.5 is not significant at p<0.05).
+      if (n < 10) return 0;
       let sx=0,sy=0,sxx=0,syy=0,sxy=0;
       for (let i=0;i<n;i++) { sx+=x[i]; sy+=y[i]; sxx+=x[i]*x[i]; syy+=y[i]*y[i]; sxy+=x[i]*y[i]; }
       const d = Math.sqrt((n*sxx-sx*sx)*(n*syy-sy*sy));
