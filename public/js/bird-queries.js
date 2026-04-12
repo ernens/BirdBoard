@@ -40,7 +40,7 @@
     speciesWithCounts(c) {
       return [
         'SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n FROM active_detections WHERE Confidence >= ? GROUP BY Com_Name ORDER BY n DESC, Com_Name ASC',
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -51,12 +51,12 @@
 
     /** First observation date per species — today, calendar, recent, gallery */
     firstObservations(c) {
-      return ['SELECT Com_Name, MIN(Date) as first_date FROM active_detections WHERE Confidence>=? GROUP BY Com_Name', [c || C()]];
+      return ['SELECT Com_Name, MIN(Date) as first_date FROM active_detections WHERE Confidence>=? GROUP BY Com_Name', [(c != null ? c : C())]];
     },
 
     /** Species first seen on a specific date — today, calendar, recent */
     newSpeciesForDate(date, c) {
-      return ['SELECT Com_Name FROM active_detections WHERE Confidence>=? GROUP BY Com_Name HAVING MIN(Date)=?', [c || C(), date]];
+      return ['SELECT Com_Name FROM active_detections WHERE Confidence>=? GROUP BY Com_Name HAVING MIN(Date)=?', [(c != null ? c : C()), date]];
     },
 
     /** New species since a date — detections, gallery */
@@ -73,14 +73,14 @@
 
     /** Day stats: total + unique species — dashboard, today, overview */
     todayStats(date, c) {
-      return ['SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species FROM active_detections WHERE Date=? AND Confidence>=?', [date, c || C()]];
+      return ['SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as species FROM active_detections WHERE Date=? AND Confidence>=?', [date, (c != null ? c : C())]];
     },
 
     /** Extended day stats with avg confidence — today, calendar, recent */
     todayStatsExtended(date, c) {
       return [
         'SELECT COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp, ROUND(AVG(Confidence)*100,1) as conf, MAX(Date) as last_date, MAX(Time) as last_time FROM active_detections WHERE Date=? AND Confidence>=?',
-        [date, c || C()]
+        [date, (c != null ? c : C())]
       ];
     },
 
@@ -88,7 +88,7 @@
     lastHourCount(date, c) {
       return [
         "SELECT COUNT(*) as n FROM active_detections WHERE Date=? AND Confidence>=? AND Time>=time('now','-1 hour','localtime')",
-        [date, c || C()]
+        [date, (c != null ? c : C())]
       ];
     },
 
@@ -100,7 +100,7 @@
     latestDetections(n = 1, c) {
       return [
         'SELECT Date, Time, Sci_Name, Com_Name, MAX(Confidence) as Confidence, Model, File_Name FROM active_detections WHERE Confidence>=? GROUP BY Date, Time, Com_Name ORDER BY Date DESC, Time DESC LIMIT ?',
-        [c || C(), n]
+        [(c != null ? c : C()), n]
       ];
     },
 
@@ -117,7 +117,7 @@
     speciesByDate(date, limit = 100, c) {
       return [
         'SELECT Com_Name, Sci_Name, COUNT(*) as n, MAX(Time) as last_time FROM active_detections WHERE Date=? AND Confidence>=? GROUP BY Sci_Name ORDER BY last_time DESC LIMIT ?',
-        [date, c || C(), limit]
+        [date, (c != null ? c : C()), limit]
       ];
     },
 
@@ -125,7 +125,7 @@
     speciesByDateRanked(date, c) {
       return [
         'SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as n, ROUND(MAX(Confidence)*100,1) as max_conf, ROUND(AVG(Confidence)*100,1) as avg_conf FROM active_detections WHERE Date=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC',
-        [date, c || C()]
+        [date, (c != null ? c : C())]
       ];
     },
 
@@ -133,7 +133,7 @@
     speciesByDateRange(dateFrom, dateTo, c) {
       return [
         'SELECT Com_Name, MIN(Sci_Name) as Sci_Name, COUNT(*) as n FROM active_detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC',
-        [dateFrom, dateTo, c || C()]
+        [dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -141,7 +141,7 @@
     topSpecies(dateFrom, limit, c) {
       return [
         'SELECT Com_Name, Sci_Name, COUNT(*) as n FROM active_detections WHERE Date>=? AND Confidence>=? GROUP BY Com_Name, Sci_Name ORDER BY n DESC LIMIT ?',
-        [dateFrom, c || C(), limit]
+        [dateFrom, (c != null ? c : C()), limit]
       ];
     },
 
@@ -153,7 +153,7 @@
     detectionsForSpecies(date, comName, c) {
       return [
         'SELECT Time, Confidence, File_Name, Model FROM active_detections WHERE Date=? AND Com_Name=? AND Confidence>=? ORDER BY Time DESC',
-        [date, comName, c || C()]
+        [date, comName, (c != null ? c : C())]
       ];
     },
 
@@ -162,7 +162,7 @@
       // Confidence filter ensures detection list matches filtered totals
       return [
         'SELECT Date, Time, Confidence, File_Name, Model FROM active_detections WHERE Com_Name=? AND Confidence>=? ORDER BY Date DESC, Time DESC LIMIT ?',
-        [comName, c || C(), limit]
+        [comName, (c != null ? c : C()), limit]
       ];
     },
 
@@ -196,7 +196,7 @@
     hourlyDistributionRaw(date, c) {
       return [
         "SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM active_detections WHERE Date=? AND Confidence>=? GROUP BY h",
-        [date, c || C()]
+        [date, (c != null ? c : C())]
       ];
     },
 
@@ -211,7 +211,7 @@
     hourlyBySpeciesRaw(comName, c) {
       return [
         "SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Confidence>=? GROUP BY h ORDER BY h ASC",
-        [comName, c || C()]
+        [comName, (c != null ? c : C())]
       ];
     },
 
@@ -219,7 +219,7 @@
     monthlyBySpecies(comName, c) {
       return [
         "SELECT CAST(SUBSTR(Date,6,2) AS INTEGER) as m, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Confidence>=? GROUP BY m ORDER BY m ASC",
-        [comName, c || C()]
+        [comName, (c != null ? c : C())]
       ];
     },
 
@@ -227,7 +227,7 @@
     dailyBySpecies(comName, dateFrom, c) {
       return [
         "SELECT Date, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Date>=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC",
-        [comName, dateFrom, c || C()]
+        [comName, dateFrom, (c != null ? c : C())]
       ];
     },
 
@@ -237,19 +237,19 @@
 
     /** Total detection count (all time, confidence-filtered) — overview */
     totalDetections(c) {
-      return ['SELECT COUNT(*) as n FROM active_detections WHERE Confidence>=?', [c || C()]];
+      return ['SELECT COUNT(*) as n FROM active_detections WHERE Confidence>=?', [(c != null ? c : C())]];
     },
 
     /** Detection count for a single date — overview */
     countForDate(date, c) {
-      return ['SELECT COUNT(*) as n FROM active_detections WHERE Date=? AND Confidence>=?', [date, c || C()]];
+      return ['SELECT COUNT(*) as n FROM active_detections WHERE Date=? AND Confidence>=?', [date, (c != null ? c : C())]];
     },
 
     /** Daily detections+species for date range — overview chart */
     dailyStats(dateFrom, dateTo, c) {
       return [
         'SELECT Date, COUNT(*) as n, COUNT(DISTINCT Com_Name) as sp FROM active_detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC',
-        [dateFrom, dateTo, c || C()]
+        [dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -265,7 +265,7 @@
     globalStats(where, c) {
       return [
         `SELECT COUNT(*) as total, COUNT(DISTINCT Com_Name) as sp, ROUND(AVG(Confidence)*100,1) as avg_conf, ROUND(MAX(Confidence)*100,1) as max_conf, MIN(Date) as first, MAX(Date) as last FROM active_detections WHERE ${where}`,
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -273,7 +273,7 @@
     avgPerDay(where, c) {
       return [
         `SELECT ROUND(AVG(n),0) as avg FROM (SELECT COUNT(*) as n FROM active_detections WHERE ${where} GROUP BY Date)`,
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -281,7 +281,7 @@
     monthlyTrend(where, c) {
       return [
         `SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp FROM active_detections WHERE ${where} GROUP BY ym ORDER BY ym ASC`,
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -289,7 +289,7 @@
     yearlyTrend(where, c) {
       return [
         `SELECT SUBSTR(Date,1,4) as year, COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp FROM active_detections WHERE ${where} GROUP BY year ORDER BY year ASC`,
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -297,7 +297,7 @@
     topSpeciesByCount(where, limit, c) {
       return [
         `SELECT Com_Name, Sci_Name, COUNT(*) as n FROM active_detections WHERE ${where} GROUP BY Com_Name, Sci_Name ORDER BY n DESC LIMIT ?`,
-        [c || C(), limit]
+        [(c != null ? c : C()), limit]
       ];
     },
 
@@ -305,7 +305,7 @@
     topSpeciesByConfidence(where, limit, c) {
       return [
         `SELECT Com_Name, Sci_Name, ROUND(AVG(Confidence)*100,1) as avg_conf FROM active_detections WHERE ${where} GROUP BY Com_Name, Sci_Name HAVING COUNT(*)>=10 ORDER BY avg_conf DESC LIMIT ?`,
-        [c || C(), limit]
+        [(c != null ? c : C()), limit]
       ];
     },
 
@@ -319,12 +319,12 @@
 
     /** Record day (most detections) — stats */
     recordDay(where, c) {
-      return [`SELECT Date, COUNT(*) as n FROM active_detections WHERE ${where} GROUP BY Date ORDER BY n DESC LIMIT 1`, [c || C()]];
+      return [`SELECT Date, COUNT(*) as n FROM active_detections WHERE ${where} GROUP BY Date ORDER BY n DESC LIMIT 1`, [(c != null ? c : C())]];
     },
 
     /** Record day by species count — stats */
     recordDaySpecies(where, c) {
-      return [`SELECT Date, COUNT(DISTINCT Com_Name) as n FROM active_detections WHERE ${where} GROUP BY Date ORDER BY n DESC LIMIT 1`, [c || C()]];
+      return [`SELECT Date, COUNT(DISTINCT Com_Name) as n FROM active_detections WHERE ${where} GROUP BY Date ORDER BY n DESC LIMIT 1`, [(c != null ? c : C())]];
     },
 
     /** Record highest confidence ever — stats */
@@ -336,7 +336,7 @@
     speciesCatalog(where, c) {
       return [
         `SELECT Com_Name, Sci_Name, COUNT(*) as n, ROUND(AVG(Confidence)*100,1) as avg_conf, MIN(Date) as first_date, MAX(Date) as last_date, COUNT(DISTINCT Date) as days FROM active_detections WHERE ${where} GROUP BY Com_Name, Sci_Name ORDER BY n DESC`,
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -349,7 +349,7 @@
       // Confidence filter ensures consistency with dashboard totals (Bug fix)
       return [
         'SELECT COUNT(*) as total, COUNT(DISTINCT Date) as days, ROUND(AVG(Confidence)*100,1) as avg_conf, ROUND(MAX(Confidence)*100,1) as max_conf, MIN(Date) as first_date, MAX(Date) as last_date FROM active_detections WHERE Com_Name=? AND Confidence>=?',
-        [comName, c || C()]
+        [comName, (c != null ? c : C())]
       ];
     },
 
@@ -358,14 +358,14 @@
       // Confidence filter keeps year breakdown consistent with filtered totals
       return [
         "SELECT SUBSTR(Date,1,4) as year, CAST(SUBSTR(Date,6,2) AS INTEGER) as month, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Confidence>=? GROUP BY year, month ORDER BY year ASC, month ASC",
-        [comName, c || C()]
+        [comName, (c != null ? c : C())]
       ];
     },
 
     /** Check if species exists — species page */
     speciesExists(comName, c) {
       // Confidence filter prevents showing species that only have low-confidence detections
-      return ['SELECT COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Confidence>=?', [comName, c || C()]];
+      return ['SELECT COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Confidence>=?', [comName, (c != null ? c : C())]];
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -376,7 +376,7 @@
     phenologyYears(comName, c) {
       return [
         "SELECT DISTINCT CAST(strftime('%Y', Date) AS INTEGER) as year FROM active_detections WHERE Com_Name=? AND Confidence>=? ORDER BY year DESC",
-        [comName, c || C()]
+        [comName, (c != null ? c : C())]
       ];
     },
 
@@ -384,7 +384,7 @@
     phenologyWeekly(comName, year, c) {
       return [
         "SELECT MIN(CAST(strftime('%W', Date) AS INTEGER), 52) as week, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND Confidence>=? GROUP BY week ORDER BY week",
-        [comName, String(year), c || C()]
+        [comName, String(year), (c != null ? c : C())]
       ];
     },
 
@@ -392,7 +392,7 @@
     phenologyHourlyByWeek(comName, year, c) {
       return [
         "SELECT MIN(CAST(strftime('%W', Date) AS INTEGER), 52) as week, ROUND(AVG(CAST(SUBSTR(Time,1,2) AS REAL)),1) as avg_hour, SUM(CASE WHEN CAST(SUBSTR(Time,1,2) AS INTEGER) BETWEEN 4 AND 8 THEN 1 ELSE 0 END) as dawn_n, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND Confidence>=? GROUP BY week ORDER BY week",
-        [comName, String(year), c || C()]
+        [comName, String(year), (c != null ? c : C())]
       ];
     },
 
@@ -400,7 +400,7 @@
     phenologyFirstLast(comName, year, c) {
       return [
         "SELECT MIN(Date) as first_date, MAX(Date) as last_date, COUNT(*) as total FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND Confidence>=?",
-        [comName, String(year), c || C()]
+        [comName, String(year), (c != null ? c : C())]
       ];
     },
 
@@ -408,7 +408,7 @@
     phenologyWeekDetails(comName, year, week, c) {
       return [
         "SELECT MIN(Date) as date_from, MAX(Date) as date_to, COUNT(*) as n, COUNT(DISTINCT Date) as days, MIN(Time) as first_time, MAX(Time) as last_time, ROUND(AVG(CAST(SUBSTR(Time,1,2) AS REAL)),1) as avg_hour FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=?",
-        [comName, String(year), week, c || C()]
+        [comName, String(year), week, (c != null ? c : C())]
       ];
     },
 
@@ -416,7 +416,7 @@
     phenologyWeekHourly(comName, year, week, c) {
       return [
         "SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=? GROUP BY h ORDER BY h",
-        [comName, String(year), week, c || C()]
+        [comName, String(year), week, (c != null ? c : C())]
       ];
     },
 
@@ -424,7 +424,7 @@
     phenologyWeekTopDetections(comName, year, week, limit, c) {
       return [
         "SELECT Date, Time, ROUND(Confidence*100,1) as conf, File_Name, Model FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=? ORDER BY Confidence DESC LIMIT ?",
-        [comName, String(year), week, c || C(), limit || 5]
+        [comName, String(year), week, (c != null ? c : C()), limit || 5]
       ];
     },
 
@@ -432,7 +432,7 @@
     phenologyWeekPrevYear(comName, year, week, c) {
       return [
         "SELECT COUNT(*) as n FROM active_detections WHERE Com_Name=? AND strftime('%Y', Date)=? AND CAST(strftime('%W', Date) AS INTEGER)=? AND Confidence>=?",
-        [comName, String(parseInt(year) - 1), week, c || C()]
+        [comName, String(parseInt(year) - 1), week, (c != null ? c : C())]
       ];
     },
 
@@ -440,7 +440,7 @@
     phenologyMultiYear(comName, c) {
       return [
         "SELECT CAST(strftime('%Y', Date) AS INTEGER) as year, CAST(strftime('%W', Date) AS INTEGER) as week, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Confidence>=? GROUP BY year, week ORDER BY year, week",
-        [comName, c || C()]
+        [comName, (c != null ? c : C())]
       ];
     },
 
@@ -452,7 +452,7 @@
     biodiversitySpecies(dateFrom, dateTo, c) {
       return [
         'SELECT Com_Name, COUNT(*) as n FROM active_detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name',
-        [dateFrom, dateTo, c || C()]
+        [dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -460,7 +460,7 @@
     phenologyByYear(c) {
       return [
         "SELECT Sci_Name, Com_Name, strftime('%Y', Date) as year, MIN(Date) as first_seen, MAX(Date) as last_seen, COUNT(*) as cnt FROM active_detections WHERE Confidence>=? GROUP BY Sci_Name, year ORDER BY first_seen",
-        [c || C()]
+        [(c != null ? c : C())]
       ];
     },
 
@@ -468,7 +468,7 @@
     topSpeciesAllTime(limit, c) {
       return [
         'SELECT Com_Name, MAX(Sci_Name) as Sci_Name FROM active_detections WHERE Confidence>=? GROUP BY Com_Name ORDER BY COUNT(*) DESC LIMIT ?',
-        [c || C(), limit]
+        [(c != null ? c : C()), limit]
       ];
     },
 
@@ -480,7 +480,7 @@
     analysesSpecies(expr, dateFrom, dateTo, c) {
       return [
         `SELECT Com_Name, MIN(Sci_Name) as Sci_Name, ${expr} FROM active_detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC`,
-        [dateFrom, dateTo, c || C()]
+        [dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -488,7 +488,7 @@
     analysesMultiStats(placeholders, sciNames, dateFrom, dateTo, c) {
       return [
         `SELECT COUNT(*) as total, ROUND(AVG(Confidence)*100,1) as avg_conf, COUNT(DISTINCT Com_Name) as sp_count, COUNT(DISTINCT Date) as days FROM active_detections WHERE Sci_Name IN (${placeholders}) AND Date>=? AND Date<=? AND Confidence>=?`,
-        [...sciNames, dateFrom, dateTo, c || C()]
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -496,7 +496,7 @@
     dailyForSpecies(placeholders, sciNames, dateFrom, dateTo, c) {
       return [
         `SELECT Date, COUNT(*) as n FROM active_detections WHERE Sci_Name IN (${placeholders}) AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC`,
-        [...sciNames, dateFrom, dateTo, c || C()]
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -504,7 +504,7 @@
     monthlyForSpecies(placeholders, sciNames, dateFrom, dateTo, c) {
       return [
         `SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM active_detections WHERE Sci_Name IN (${placeholders}) AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC`,
-        [...sciNames, dateFrom, dateTo, c || C()]
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -512,7 +512,7 @@
     dailyForOneSpecies(comName, dateFrom, dateTo, c) {
       return [
         'SELECT Date, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC',
-        [comName, dateFrom, dateTo, c || C()]
+        [comName, dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -520,7 +520,7 @@
     monthlyForOneSpecies(comName, dateFrom, dateTo, c) {
       return [
         'SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM active_detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC',
-        [comName, dateFrom, dateTo, c || C()]
+        [comName, dateFrom, dateTo, (c != null ? c : C())]
       ];
     },
 
@@ -542,7 +542,7 @@
 
     /** Total distinct species — rarities */
     totalSpeciesCount(where, c) {
-      return [`SELECT COUNT(DISTINCT Com_Name) as n FROM active_detections WHERE Confidence>=?${where ? ' AND ' + where : ''}`, [c || C()]];
+      return [`SELECT COUNT(DISTINCT Com_Name) as n FROM active_detections WHERE Confidence>=?${where ? ' AND ' + where : ''}`, [(c != null ? c : C())]];
     },
 
     // ═══════════════════════════════════════════════════════════
