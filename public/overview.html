@@ -295,15 +295,10 @@
     </div>
 
 
-    <!-- ═══ Activité + Détections ═══ -->
-    <div class="grid-2" style="align-items:start;">
-
-      <!-- Graphique activité aujourd'hui -->
-      <div class="card">
-        <div class="card-title" :title="t('activity_tooltip')">{{t('activity_today')}}</div>
-        <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
-      </div>
-
+    <!-- Activité aujourd'hui (pleine largeur) -->
+    <div class="card">
+      <div class="card-title" :title="t('activity_tooltip')">{{t('activity_today')}}</div>
+      <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
     </div>
 
 
