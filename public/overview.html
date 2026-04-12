@@ -42,7 +42,7 @@
         <div class="kpi-label">{{t('species')}}</div>
       </div>
       <div class="kpi-card" style="position:relative;cursor:pointer;" @click="toggleRarePanel" :title="t('rare_tooltip')">
-        <div class="kpi-value" style="color:var(--danger);">{{kpis.rareToday || '0'}}</div>
+        <div class="kpi-value" style="color:var(--danger);">{{rareSpeciesToday.length}}</div>
         <div class="kpi-label">{{t('rare_today')}}</div>
         <div v-if="rarePanelOpen && rareSpeciesToday.length" class="new-sp-panel" @click.stop>
           <div class="new-sp-title">{{t('rare_today')}} ({{rareSpeciesToday.length}})</div>
@@ -611,10 +611,11 @@ const app = createApp({
     async function loadAll() {
       // Progressive loading: each section resolves independently so the
       // user sees cards fill in one by one instead of a 10s blank screen.
-      // The loadProgress counter drives a small "X/Y" badge.
-      await loadRareSpeciesToday();
+      // loadRareSpeciesToday runs IN PARALLEL with the rest (no longer
+      // blocking KPIs). The rareToday KPI updates reactively when rare
+      // data arrives.
       const sections = [
-        loadKpis, loadLastDet, loadFeed,
+        loadRareSpeciesToday, loadKpis, loadLastDet, loadFeed,
         load7dData, loadTopData, loadHourlyData,
         loadMorningSummary, loadWhatsNew, loadWeatherWidget,
       ];
