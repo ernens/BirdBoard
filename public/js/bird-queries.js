@@ -158,10 +158,11 @@
     },
 
     /** All detections of a species (latest first) — species page */
-    speciesDetections(comName, limit = 15) {
+    speciesDetections(comName, limit = 15, c) {
+      // Confidence filter ensures detection list matches filtered totals
       return [
-        'SELECT Date, Time, Confidence, File_Name, Model FROM detections WHERE Com_Name=? ORDER BY Date DESC, Time DESC LIMIT ?',
-        [comName, limit]
+        'SELECT Date, Time, Confidence, File_Name, Model FROM detections WHERE Com_Name=? AND Confidence>=? ORDER BY Date DESC, Time DESC LIMIT ?',
+        [comName, c || C(), limit]
       ];
     },
 
@@ -332,24 +333,27 @@
     // ═══════════════════════════════════════════════════════════
 
     /** Species stats summary — species page header */
-    speciesStats(comName) {
+    speciesStats(comName, c) {
+      // Confidence filter ensures consistency with dashboard totals (Bug fix)
       return [
-        'SELECT COUNT(*) as total, COUNT(DISTINCT Date) as days, ROUND(AVG(Confidence)*100,1) as avg_conf, ROUND(MAX(Confidence)*100,1) as max_conf, MIN(Date) as first_date, MAX(Date) as last_date FROM detections WHERE Com_Name=?',
-        [comName]
+        'SELECT COUNT(*) as total, COUNT(DISTINCT Date) as days, ROUND(AVG(Confidence)*100,1) as avg_conf, ROUND(MAX(Confidence)*100,1) as max_conf, MIN(Date) as first_date, MAX(Date) as last_date FROM detections WHERE Com_Name=? AND Confidence>=?',
+        [comName, c || C()]
       ];
     },
 
     /** Species year-over-year monthly data — species page */
-    speciesYearMonth(comName) {
+    speciesYearMonth(comName, c) {
+      // Confidence filter keeps year breakdown consistent with filtered totals
       return [
-        "SELECT SUBSTR(Date,1,4) as year, CAST(SUBSTR(Date,6,2) AS INTEGER) as month, COUNT(*) as n FROM detections WHERE Com_Name=? GROUP BY year, month ORDER BY year ASC, month ASC",
-        [comName]
+        "SELECT SUBSTR(Date,1,4) as year, CAST(SUBSTR(Date,6,2) AS INTEGER) as month, COUNT(*) as n FROM detections WHERE Com_Name=? AND Confidence>=? GROUP BY year, month ORDER BY year ASC, month ASC",
+        [comName, c || C()]
       ];
     },
 
     /** Check if species exists — species page */
-    speciesExists(comName) {
-      return ['SELECT COUNT(*) as n FROM detections WHERE Com_Name=?', [comName]];
+    speciesExists(comName, c) {
+      // Confidence filter prevents showing species that only have low-confidence detections
+      return ['SELECT COUNT(*) as n FROM detections WHERE Com_Name=? AND Confidence>=?', [comName, c || C()]];
     },
 
     // ═══════════════════════════════════════════════════════════

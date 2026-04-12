@@ -430,8 +430,10 @@ function handle(req, res, pathname, ctx) {
         const qs = new URLSearchParams(req.url.split('?')[1] || '');
         const days = Math.min(parseInt(qs.get('days') || '7'), 90);
         const minDate = qs.get('dateFrom') || new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+        // Confidence filter — consistent with all other endpoints (default 0.7)
+        const minConf = parseFloat(qs.get('minConf') || '0.7');
 
-        const cacheKey = `mc_${minDate}`;
+        const cacheKey = `mc_${minDate}_${minConf}`;
         const hit = _cache.get(cacheKey);
         if (hit && (Date.now() - hit.ts) < 5 * 60 * 1000) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -439,23 +441,23 @@ function handle(req, res, pathname, ctx) {
           return;
         }
 
-        // Models active in period
+        // Models active in period (confidence-filtered to avoid counting noise)
         const models = db.prepare(`
-          SELECT DISTINCT Model FROM detections WHERE Date >= ?
-        `).all(minDate).map(r => r.Model);
+          SELECT DISTINCT Model FROM detections WHERE Date >= ? AND Confidence >= ?
+        `).all(minDate, minConf).map(r => r.Model);
 
-        // Per-model stats
+        // Per-model stats — confidence filter prevents low-quality detections from inflating counts
         const stats = {};
         for (const m of models) {
           const row = db.prepare(`
             SELECT COUNT(*) as total, COUNT(DISTINCT Sci_Name) as species,
                    round(AVG(Confidence),3) as avg_conf
-            FROM detections WHERE Date >= ? AND Model = ?
-          `).get(minDate, m);
+            FROM detections WHERE Date >= ? AND Model = ? AND Confidence >= ?
+          `).get(minDate, m, minConf);
           stats[m] = row;
         }
 
-        // Species unique to each model
+        // Species unique to each model — confidence filter applied to both sides
         const unique = {};
         for (const m of models) {
           const others = models.filter(o => o !== m);
@@ -464,17 +466,17 @@ function handle(req, res, pathname, ctx) {
           const rows = db.prepare(`
             SELECT d.Sci_Name, d.Com_Name, COUNT(*) as n, round(AVG(d.Confidence),3) as avg_conf
             FROM detections d
-            WHERE d.Date >= ? AND d.Model = ?
+            WHERE d.Date >= ? AND d.Model = ? AND d.Confidence >= ?
             AND d.Sci_Name NOT IN (
               SELECT DISTINCT Sci_Name FROM detections
-              WHERE Date >= ? AND Model IN (${placeholders})
+              WHERE Date >= ? AND Model IN (${placeholders}) AND Confidence >= ?
             )
             GROUP BY d.Sci_Name ORDER BY n DESC
-          `).all(minDate, m, minDate, ...others);
+          `).all(minDate, m, minConf, minDate, ...others, minConf);
           unique[m] = rows;
         }
 
-        // Species detected by ALL models (overlap)
+        // Species detected by ALL models (overlap) — confidence filter for fair comparison
         let overlap = [];
         if (models.length >= 2) {
           const m1 = models[0], m2 = models[1];
@@ -484,23 +486,23 @@ function handle(req, res, pathname, ctx) {
               b.n as n2, b.avg_conf as conf2
             FROM (
               SELECT Sci_Name, Com_Name, COUNT(*) as n, round(AVG(Confidence),3) as avg_conf
-              FROM detections WHERE Date >= ? AND Model = ? GROUP BY Sci_Name
+              FROM detections WHERE Date >= ? AND Model = ? AND Confidence >= ? GROUP BY Sci_Name
             ) a
             INNER JOIN (
               SELECT Sci_Name, COUNT(*) as n, round(AVG(Confidence),3) as avg_conf
-              FROM detections WHERE Date >= ? AND Model = ? GROUP BY Sci_Name
+              FROM detections WHERE Date >= ? AND Model = ? AND Confidence >= ? Group BY Sci_Name
             ) b ON a.Sci_Name = b.Sci_Name
             ORDER BY (a.n + b.n) DESC
             LIMIT 30
-          `).all(minDate, m1, minDate, m2);
+          `).all(minDate, m1, minConf, minDate, m2, minConf);
         }
 
-        // Daily detection counts per model
+        // Daily detection counts per model — confidence filter for consistency
         const daily = db.prepare(`
           SELECT Date, Model, COUNT(*) as n
-          FROM detections WHERE Date >= ?
+          FROM detections WHERE Date >= ? AND Confidence >= ?
           GROUP BY Date, Model ORDER BY Date
-        `).all(minDate);
+        `).all(minDate, minConf);
 
         const result = { models, stats, unique, overlap, daily, since: minDate };
         _cache.set(cacheKey, { data: result, ts: Date.now() });

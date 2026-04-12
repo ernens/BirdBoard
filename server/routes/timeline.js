@@ -383,11 +383,11 @@ function handle(req, res, pathname, ctx) {
               SELECT Com_Name, Sci_Name, MAX(Confidence) as Confidence,
                      MIN(Time) as Time, File_Name
               FROM detections
-              WHERE Date = ? AND Time >= ? AND Time <= ? AND Confidence >= 0.75
+              WHERE Date = ? AND Time >= ? AND Time <= ? AND Confidence >= ?
               GROUP BY Com_Name
               ORDER BY MIN(Time) ASC
               LIMIT 5
-            `).all(dateStr, sunriseTime, chorusEnd);
+            `).all(dateStr, sunriseTime, chorusEnd, minConf); // Use minConf param instead of hardcoded value
             for (const r of chorusRows) {
               if (events.some(e => e.sciName === r.Sci_Name)) continue;
               const h = parseInt(r.Time.substr(0, 2)), m = parseInt(r.Time.substr(3, 2));
