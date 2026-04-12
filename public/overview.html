@@ -206,7 +206,7 @@
     </div>
 
     <!-- ═══ Dernière détection + Contexte du jour ═══ -->
-    <div class="grid-2" style="margin-bottom:1rem;align-items:start;">
+    <div class="grid-2" style="margin-bottom:1rem;">
 
       <!-- Dernière détection (gauche) -->
       <div class="card">
@@ -286,10 +286,11 @@
         </div>
       </div>
 
-      <!-- Top 10 espèces du jour -->
-      <div class="card">
+      <!-- Top 10 espèces du jour — flex:1 so it fills remaining height
+           and its bottom aligns with the last detection card -->
+      <div class="card" style="flex:1;display:flex;flex-direction:column;">
         <div class="card-title" :title="t('top_species_tooltip')">{{t('top_species')}}</div>
-        <div class="chart-wrap"><canvas ref="canvasTop"></canvas></div>
+        <div class="chart-wrap" style="flex:1;"><canvas ref="canvasTop"></canvas></div>
       </div>
       </div>
     </div>
