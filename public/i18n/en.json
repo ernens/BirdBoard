@@ -1204,5 +1204,13 @@
   "top_species_tooltip": "Ranked by total detection count (acoustic volume, not reliability). Highly vocal species or those detected in many analysis windows rank highest.",
   "avg_confidence_multimodel": "Not shown in multi-model mode (BirdNET and Perch use incomparable confidence scales). See the Models tab for per-model details.",
   "first": "First",
-  "last": "Last"
+  "last": "Last",
+  "update_cat_feat": "New features",
+  "update_cat_fix": "Bug fixes",
+  "update_cat_perf": "Performance",
+  "update_cat_refactor": "Refactor",
+  "update_cat_docs": "Documentation",
+  "update_cat_test": "Tests",
+  "update_cat_chore": "Maintenance",
+  "update_cat_other": "Other"
 }

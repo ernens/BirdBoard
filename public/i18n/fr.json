@@ -1204,5 +1204,13 @@
   "top_species_tooltip": "Classées par nombre total de détections (volume acoustique, pas fiabilité). Les espèces très vocales ou détectées dans de nombreuses fenêtres d'analyse apparaissent en tête.",
   "avg_confidence_multimodel": "Non affiché en mode multi-modèle (BirdNET et Perch utilisent des échelles de confiance incomparables). Voir l'onglet Modèles pour les détails par modèle.",
   "first": "Premier",
-  "last": "Dernier"
+  "last": "Dernier",
+  "update_cat_feat": "Nouvelles fonctionnalités",
+  "update_cat_fix": "Corrections",
+  "update_cat_perf": "Performances",
+  "update_cat_refactor": "Refactor",
+  "update_cat_docs": "Documentation",
+  "update_cat_test": "Tests",
+  "update_cat_chore": "Maintenance",
+  "update_cat_other": "Autres"
 }

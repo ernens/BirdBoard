@@ -62,7 +62,7 @@
           </label>
           <label class="fp-label" style="cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;">
             <input type="checkbox" v-model="newSpOnly" @change="loadDetections" style="accent-color:var(--danger);">
-            🆕 {{t('new_species')}}
+            <bird-icon name="sparkles" :size="12"></bird-icon> {{t('new_species')}}
           </label>
         </div>
         <!-- Species picker filtered by taxonomy -->

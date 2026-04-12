@@ -61,7 +61,7 @@
 
     <!-- Empty state -->
     <div v-if="!loading && !favList.length" class="card hint-empty" style="padding:3rem;text-align:center;">
-      <div class="hint-icon" style="font-size:2.5rem;">⭐</div>
+      <div class="hint-icon" style="font-size:2.5rem;"><bird-icon name="star" :size="14"></bird-icon></div>
       <div style="color:var(--text-muted);margin-top:.5rem;">{{t('fav_empty')}}</div>
     </div>
 

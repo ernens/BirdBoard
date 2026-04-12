@@ -85,7 +85,7 @@
                       :style="newSpOnly
                         ? 'background:var(--danger);color:#fff;border-color:var(--danger);'
                         : 'background:transparent;color:var(--text-muted);border-color:var(--border);'">
-                🆕 {{newSpeciesSet.size}}
+                <bird-icon name="sparkles" :size="12"></bird-icon> {{newSpeciesSet.size}}
               </button>
               <input type="text" v-model="searchQ" class="bird-input"
                      :placeholder="'🔍 '+t('search_filter_ph')"
@@ -107,7 +107,7 @@
                 <span v-else><bird-icon name="bird" :size="16" ></bird-icon></span>
               </div>
               <div class="sp-info">
-                <div class="sp-name-row">{{spName(s.Com_Name, s.sci)}} <span v-if="newSpeciesSet.has(s.Com_Name)" style="font-size:.6rem;vertical-align:middle;">🆕</span></div>
+                <div class="sp-name-row">{{spName(s.Com_Name, s.sci)}} <span v-if="newSpeciesSet.has(s.Com_Name)" style="font-size:.6rem;vertical-align:middle;"><bird-icon name="sparkles" :size="12"></bird-icon></span></div>
                 <div class="sp-sci-row">{{s.sci}} <button @click.stop="toggleFavorite(s.Com_Name, s.sci)" :title="isFavorite(s.Com_Name) ? t('fav_remove') : t('fav_add')" :aria-label="isFavorite(s.Com_Name) ? t('fav_remove') : t('fav_add')" style="background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 .15rem;line-height:1;color:var(--accent);vertical-align:middle;">{{isFavorite(s.Com_Name) ? '★' : '☆'}}</button></div>
               </div>
               <div class="sp-meta">

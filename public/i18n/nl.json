@@ -1204,5 +1204,13 @@
   "top_species_tooltip": "Gerangschikt op totaal aantal detecties (akoestisch volume, niet betrouwbaarheid). Zeer vocale soorten staan bovenaan.",
   "avg_confidence_multimodel": "Niet weergegeven in multi-model modus (BirdNET en Perch gebruiken onvergelijkbare betrouwbaarheidsschalen). Zie Modellen-tab voor details per model.",
   "first": "Eerste",
-  "last": "Laatste"
+  "last": "Laatste",
+  "update_cat_feat": "Nieuwe functies",
+  "update_cat_fix": "Bugfixes",
+  "update_cat_perf": "Prestaties",
+  "update_cat_refactor": "Refactor",
+  "update_cat_docs": "Documentatie",
+  "update_cat_test": "Tests",
+  "update_cat_chore": "Onderhoud",
+  "update_cat_other": "Overig"
 }

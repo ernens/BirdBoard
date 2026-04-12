@@ -85,7 +85,7 @@
             </div>
             <!-- Attribution -->
             <div v-if="photos.length" style="display:flex;gap:.3rem;justify-content:center;margin:.3rem 0 .2rem;">
-              <button @click.stop="setPreferredPhoto" :title="t('photo_set_preferred')" style="background:var(--bg-card);border:1px solid var(--border);cursor:pointer;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;color:var(--accent);">⭐ {{t('photo_set_preferred')}}</button>
+              <button @click.stop="setPreferredPhoto" :title="t('photo_set_preferred')" style="background:var(--bg-card);border:1px solid var(--border);cursor:pointer;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;color:var(--accent);"><bird-icon name="star" :size="12"></bird-icon> {{t('photo_set_preferred')}}</button>
               <button @click.stop="banCurrentPhoto" :title="t('photo_ban')" style="background:var(--bg-card);border:1px solid var(--border);cursor:pointer;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;color:var(--danger);" v-if="photos.length>1"><bird-icon name="ban" :size="14" ></bird-icon> {{t('photo_ban')}}</button>
             </div>
             <div v-if="photos[photoIdx]?.attr" class="sp-photo-attr">

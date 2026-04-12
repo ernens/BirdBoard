@@ -921,7 +921,7 @@
       function loadBirdsAlerts() {
         fetch(`${BIRD_CONFIG.apiUrl}/whats-new`).then(r => r.json()).then(d => {
           const items = [];
-          const icons = { out_of_season: '⚠️', activity_spike: '📈', species_return: '🔄', first_of_year: '🆕', species_streak: '📅', seasonal_peak: '🌿' };
+          const icons = { out_of_season: 'alert-triangle', activity_spike: 'trending-up', species_return: 'refresh-cw', first_of_year: 'sparkles', species_streak: 'calendar', seasonal_peak: 'sprout' };
           const allCards = [...(d.alerts || []), ...(d.phenology || [])];
           for (const card of allCards) {
             if (!card.active || !card.data?.species) continue;
@@ -948,7 +948,7 @@
         // Update available
         if (updateInfo.value && updateInfo.value.hasUpdate && !updateInfo.value.snoozed) {
           items.push({
-            icon: '⬆',
+            icon: 'arrow-up-circle',
             text: t('bell_update_available'),
             sub: 'v' + (updateInfo.value.latestVersion || updateInfo.value.latestShort),
             click: 'openUpdateModal',
@@ -1177,14 +1177,14 @@
       // Group commits by conventional-commit type for the modal display.
       const updateGroupedChanges = computed(() => {
         const groups = {
-          feat: { label: '✨ Nouvelles fonctionnalités', commits: [] },
-          fix:  { label: '🐛 Corrections',                commits: [] },
-          perf: { label: '⚡ Performances',                commits: [] },
-          refactor: { label: '🔧 Refactor',               commits: [] },
-          docs: { label: '📝 Documentation',              commits: [] },
-          test: { label: '🧪 Tests',                      commits: [] },
-          chore:{ label: '🧹 Maintenance',                commits: [] },
-          other:{ label: '📦 Autres',                     commits: [] },
+          feat: { icon: 'sparkles', label: t('update_cat_feat'), commits: [] },
+          fix:  { icon: 'wrench',   label: t('update_cat_fix'),  commits: [] },
+          perf: { icon: 'zap',      label: t('update_cat_perf'), commits: [] },
+          refactor: { icon: 'settings', label: t('update_cat_refactor'), commits: [] },
+          docs: { icon: 'file-text', label: t('update_cat_docs'), commits: [] },
+          test: { icon: 'check-circle', label: t('update_cat_test'), commits: [] },
+          chore:{ icon: 'archive',  label: t('update_cat_chore'), commits: [] },
+          other:{ icon: 'plus',     label: t('update_cat_other'), commits: [] },
         };
         for (const c of (updateInfo.value.changes || [])) {
           const key = groups[c.type] ? c.type : 'other';
@@ -1364,7 +1364,7 @@
   <main id="birdash-main" class="app-main" role="main">
     <!-- Update available banner — discreet, non-blocking -->
     <div v-if="showUpdateBanner" class="update-banner">
-      <span class="update-banner-icon">⬆</span>
+      <span class="update-banner-icon"><bird-icon name="arrow-up-circle" :size="16"></bird-icon></span>
       <span class="update-banner-text">
         {{t('update_banner_new_version')}} v{{updateInfo.latestVersion || updateInfo.latestShort}}
       </span>
@@ -1384,14 +1384,14 @@
             v{{updateInfo.currentVersion || updateInfo.currentShort}} → <strong>v{{updateInfo.latestVersion || updateInfo.latestShort}}</strong>
           </div>
         </div>
-        <button class="update-modal-close" @click="closeUpdateModal" aria-label="Close">✕</button>
+        <button class="update-modal-close" @click="closeUpdateModal" aria-label="Close"><bird-icon name="x" :size="16"></bird-icon></button>
       </div>
       <div class="update-modal-body">
         <!-- Apply progress -->
         <div v-if="updateApplying || updateProgress" class="update-progress-box">
           <div class="update-progress-state">
-            <span v-if="updateProgress && updateProgress.state === 'done'">✓</span>
-            <span v-else-if="updateProgress && updateProgress.state === 'failed'">✗</span>
+            <span v-if="updateProgress && updateProgress.state === 'done'"><bird-icon name="check-circle" :size="16" style="color:var(--accent);"></bird-icon></span>
+            <span v-else-if="updateProgress && updateProgress.state === 'failed'"><bird-icon name="alert-circle" :size="16" style="color:var(--danger);"></bird-icon></span>
             <span v-else class="update-progress-spinner"></span>
             {{progressLabel(updateProgress)}}
           </div>
@@ -1406,7 +1406,7 @@
             {{t('update_no_notes')}}
           </div>
           <div v-for="g in updateGroupedChanges" :key="g.label" class="update-changes-group">
-            <div class="update-changes-label">{{g.label}}</div>
+            <div class="update-changes-label"><bird-icon :name="g.icon" :size="14"></bird-icon> {{g.label}}</div>
             <ul class="update-changes-list">
               <li v-for="c in g.commits" :key="c.hash">
                 <span v-if="c.scope" class="update-changes-scope">{{c.scope}}:</span>
@@ -1431,7 +1431,7 @@
     <a href="overview.html" class="mob-nav-item" :class="{active: currentPage==='overview'}"><span class="mob-nav-icon"><bird-icon name="home" :size="20" ></bird-icon></span>{{t('nav_overview')}}</a>
     <a href="today.html" class="mob-nav-item" :class="{active: currentPage==='today'}"><span class="mob-nav-icon"><bird-icon name="calendar-days" :size="20" ></bird-icon></span>{{t('nav_today')}}</a>
     <a href="species.html" class="mob-nav-item" :class="{active: currentPage==='species'}"><span class="mob-nav-icon"><bird-icon name="bird" :size="20" ></bird-icon></span>{{t('nav_species')}}</a>
-    <a href="stats.html" class="mob-nav-item" :class="{active: currentPage==='stats'}"><span class="mob-nav-icon">📈</span>{{t('nav_stats')}}</a>
+    <a href="stats.html" class="mob-nav-item" :class="{active: currentPage==='stats'}"><span class="mob-nav-icon"><bird-icon name="trending-up" :size="20"></bird-icon></span>{{t('nav_stats')}}</a>
     <button class="mob-nav-item" :class="{active: drawerOpen}" @click="toggleDrawer"><span class="mob-nav-icon"><bird-icon name="menu" :size="20" ></bird-icon></span>{{t('nav_more')}}</button>
   </nav>
   <transition name="drawer">
@@ -1548,7 +1548,7 @@
         <div v-if="errored" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:2rem;color:var(--text-faint);">🦜</div>
         <button v-if="loaded && !errored && imgSrc"
                 class="img-refresh-btn" @click.stop="refreshPhoto"
-                :disabled="refreshing" title="Refresh photo" aria-label="Refresh photo">🔄</button>
+                :disabled="refreshing" title="Refresh photo" aria-label="Refresh photo"><bird-icon name="refresh-cw" :size="14"></bird-icon></button>
       </div>
     `
   };

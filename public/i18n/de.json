@@ -1204,5 +1204,13 @@
   "top_species_tooltip": "Sortiert nach Gesamtzahl der Erkennungen (akustisches Volumen, nicht Zuverlässigkeit). Sehr lautstarke Arten stehen oben.",
   "avg_confidence_multimodel": "Im Multi-Modell-Modus nicht angezeigt (BirdNET und Perch verwenden inkompatible Konfidenzskalen). Siehe Modelle-Tab für Details pro Modell.",
   "first": "Erste",
-  "last": "Letzte"
+  "last": "Letzte",
+  "update_cat_feat": "Neue Funktionen",
+  "update_cat_fix": "Fehlerbehebungen",
+  "update_cat_perf": "Leistung",
+  "update_cat_refactor": "Refactor",
+  "update_cat_docs": "Dokumentation",
+  "update_cat_test": "Tests",
+  "update_cat_chore": "Wartung",
+  "update_cat_other": "Sonstiges"
 }
