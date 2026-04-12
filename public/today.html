@@ -158,6 +158,11 @@
                    style="padding:.1rem .5rem;font-size:.72rem;">
                   Fiche →
                 </a>
+                <a class="btn btn-secondary"
+                   :href="'phenology.html?species='+encodeURIComponent(selected.Com_Name)"
+                   style="padding:.1rem .5rem;font-size:.72rem;">
+                  {{t('phenology_title') || 'Phénologie'}} →
+                </a>
               </div>
             </div>
           </div>
