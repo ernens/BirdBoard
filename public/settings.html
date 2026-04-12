@@ -732,6 +732,8 @@ const app = createApp({
         BIRDASH.updateSiteIdentity(conf.SITE_NAME, conf.SITE_BRAND);
         await reload().catch(() => {});
         _snapshotSavedState();
+        // Tell the shell header to refresh its model badge / site name.
+        window.dispatchEvent(new Event('birdash:settings-changed'));
 
         if (modelChanged) {
           saveMsg.value = t('set_model_restarting') || 'Model changed — restarting engine...';

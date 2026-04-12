@@ -732,17 +732,21 @@
       const currentLang = computed(() => langs.find(l => l.code === lang.value) || langs[0]);
       const currentTheme = computed(() => themes.find(th => th.id === theme.value) || themes[0]);
       const modelName = ref('');
-      // Fetch active model from settings (non-blocking)
-      fetch(`${BIRD_CONFIG.apiUrl}/settings`).then(r => r.json()).then(conf => {
-        const raw = conf.MODEL || '';
-        const primary = MODEL_LABELS[raw] || raw.replace(/_/g, ' ');
-        if (conf.DUAL_MODEL_ENABLED === '1' && conf.SECONDARY_MODEL) {
-          const sec = MODEL_LABELS[conf.SECONDARY_MODEL] || conf.SECONDARY_MODEL.replace(/_/g, ' ');
-          modelName.value = primary + ' + ' + sec;
-        } else {
-          modelName.value = primary;
-        }
-      }).catch(() => {});
+      function refreshModelBadge() {
+        fetch(`${BIRD_CONFIG.apiUrl}/settings`).then(r => r.json()).then(conf => {
+          const raw = conf.MODEL || '';
+          const primary = MODEL_LABELS[raw] || raw.replace(/_/g, ' ');
+          if (conf.DUAL_MODEL_ENABLED === '1' && conf.SECONDARY_MODEL) {
+            const sec = MODEL_LABELS[conf.SECONDARY_MODEL] || conf.SECONDARY_MODEL.replace(/_/g, ' ');
+            modelName.value = primary + ' + ' + sec;
+          } else {
+            modelName.value = primary;
+          }
+        }).catch(() => {});
+      }
+      refreshModelBadge();
+      // Re-fetch when settings.html saves (model change, site name, etc.)
+      window.addEventListener('birdash:settings-changed', refreshModelBadge);
 
       // ── Global search bar ──────────────────────────────────────────────
       const searchQuery = ref('');
