@@ -23,9 +23,12 @@
     //  GENERAL / CROSS-PAGE
     // ═══════════════════════════════════════════════════════════
 
-    /** All distinct species names — detections, species, filters */
+    /** All distinct species names — detections, species, filters.
+     *  Uses raw table (not VIEW) — full-table scan on 1M+ rows is
+     *  200× slower through the NOT EXISTS VIEW, and the ~13 rejected
+     *  entries are negligible for a species picker. */
     allSpeciesNames() {
-      return ['SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM active_detections GROUP BY Com_Name ORDER BY Com_Name ASC', []];
+      return ['SELECT DISTINCT Com_Name, MAX(Sci_Name) as Sci_Name FROM detections GROUP BY Com_Name ORDER BY Com_Name ASC', []];
     },
 
     /**
@@ -46,7 +49,7 @@
 
     /** All distinct common names only — detections filter */
     allCommonNames() {
-      return ['SELECT DISTINCT Com_Name FROM active_detections ORDER BY Com_Name ASC', []];
+      return ['SELECT DISTINCT Com_Name FROM detections ORDER BY Com_Name ASC', []];
     },
 
     /** First observation date per species — today, calendar, recent, gallery */
@@ -61,7 +64,7 @@
 
     /** New species since a date — detections, gallery */
     newSpeciesSince(dateFrom, c) {
-      return ['SELECT Com_Name FROM active_detections GROUP BY Com_Name HAVING MIN(Date)>=?', [dateFrom || '2000-01-01']];
+      return ['SELECT Com_Name FROM detections GROUP BY Com_Name HAVING MIN(Date)>=?', [dateFrom || '2000-01-01']];
     },
 
     /** Current confidence threshold */
@@ -106,7 +109,7 @@
 
     /** Latest detection (unfiltered) — overview */
     latestDetectionRaw() {
-      return ['SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name, Model FROM active_detections ORDER BY Date DESC, Time DESC LIMIT 1', []];
+      return ['SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name, Model FROM detections ORDER BY Date DESC, Time DESC LIMIT 1', []];
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -235,9 +238,11 @@
     //  OVERVIEW
     // ═══════════════════════════════════════════════════════════
 
-    /** Total detection count (all time, confidence-filtered) — overview */
+    /** Total detection count (all time, confidence-filtered) — overview.
+     *  Raw table: full-table VIEW scan is 200× slower and the ~13
+     *  rejected entries are 0.001% of 1M — invisible in a total count. */
     totalDetections(c) {
-      return ['SELECT COUNT(*) as n FROM active_detections WHERE Confidence>=?', [(c != null ? c : C())]];
+      return ['SELECT COUNT(*) as n FROM detections WHERE Confidence>=?', [(c != null ? c : C())]];
     },
 
     /** Detection count for a single date — overview */
@@ -312,7 +317,7 @@
     /** Confidence distribution histogram — stats */
     confidenceHistogram() {
       return [
-        "SELECT CAST(CAST(Confidence*10 AS INT) AS TEXT)||'0%' as bucket, CAST(CAST(Confidence*10 AS INT)*10 AS INTEGER) as pct, COUNT(*) as n FROM active_detections GROUP BY CAST(Confidence*10 AS INT) ORDER BY pct ASC",
+        "SELECT CAST(CAST(Confidence*10 AS INT) AS TEXT)||'0%' as bucket, CAST(CAST(Confidence*10 AS INT)*10 AS INTEGER) as pct, COUNT(*) as n FROM detections GROUP BY CAST(Confidence*10 AS INT) ORDER BY pct ASC",
         []
       ];
     },
@@ -329,7 +334,7 @@
 
     /** Record highest confidence ever — stats */
     recordConfidence() {
-      return ['SELECT Date, Com_Name, Sci_Name, ROUND(Confidence*100,1) as conf FROM active_detections ORDER BY Confidence DESC LIMIT 1', []];
+      return ['SELECT Date, Com_Name, Sci_Name, ROUND(Confidence*100,1) as conf FROM detections ORDER BY Confidence DESC LIMIT 1', []];
     },
 
     /** Full species catalog — stats */

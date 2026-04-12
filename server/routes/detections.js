@@ -427,7 +427,10 @@ function handle(req, res, pathname, ctx) {
   // Route : GET /api/health
   if (req.method === 'GET' && pathname === '/api/health') {
     try {
-      const row = db.prepare("SELECT COUNT(*) as total FROM active_detections").get();
+      // Use raw detections (not the VIEW) for the global count — the VIEW
+      // does a NOT EXISTS on 1M+ rows which takes 4s. The 13 rejected
+      // entries are 0.001% and irrelevant for the health check.
+      const row = db.prepare("SELECT COUNT(*) as total FROM detections").get();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', total_detections: row.total }));
     } catch (err) {

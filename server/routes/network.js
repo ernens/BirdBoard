@@ -76,8 +76,9 @@ function handle(req, res, pathname, ctx) {
     (async () => {
       try {
         const conf = await parseBirdnetConf();
-        const totalDet = db.prepare('SELECT COUNT(*) as n FROM active_detections').get().n;
-        const totalSp = db.prepare('SELECT COUNT(DISTINCT Sci_Name) as n FROM active_detections').get().n;
+        // Raw table for global counts (VIEW is 200× slower on full scans)
+        const totalDet = db.prepare('SELECT COUNT(*) as n FROM detections').get().n;
+        const totalSp = db.prepare('SELECT COUNT(DISTINCT Sci_Name) as n FROM detections').get().n;
         const lastDate = db.prepare('SELECT MAX(Date) as d FROM active_detections').get().d;
         const pkg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
 
