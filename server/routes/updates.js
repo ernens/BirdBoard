@@ -32,11 +32,13 @@ const PROGRESS_PATH = path.join(PROJECT_ROOT, 'config', 'update-progress.json');
 const REPO          = 'ernens/birdash';
 const BRANCH        = 'main';
 
-// 5-minute in-memory cache so multiple pages on the same dashboard don't
-// hammer git ls-remote / GitHub on every load.
+// 60s in-memory cache so git ls-remote / GitHub aren't hit on every page
+// load, but new updates are detected within a minute of landing on main.
+// Previously 5 minutes, which was too long — the banner didn't appear
+// until the cache expired, confusing testers.
 let _statusCache = null;
 let _statusCacheTs = 0;
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 60 * 1000;
 
 function _git(args) {
   return execSync('git ' + args, { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
