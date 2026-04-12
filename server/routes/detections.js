@@ -367,6 +367,9 @@ function handle(req, res, pathname, ctx) {
               updated_at = excluded.updated_at`)
             .run(date, time, sciName, status || 'unreviewed', notes || '', now);
         }
+        // Validation changes what active_detections returns (the VIEW
+        // is dynamic), but cached query results still hold the old data.
+        clearQueryCache();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
       } catch (err) {
@@ -704,6 +707,12 @@ function handle(req, res, pathname, ctx) {
           }
         });
         tx();
+        clearQueryCache();
+        // If any rejection was added, refresh aggregates so counts
+        // reflect the exclusion immediately (not after 5-min timer).
+        if (status === 'rejected') {
+          try { aggregates.refreshToday(dbWrite); } catch {}
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, count: detections.length }));
       } catch (e) {

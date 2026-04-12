@@ -220,6 +220,7 @@ function handle(req, res, pathname, ctx) {
         } else {
           dbWrite.prepare('INSERT OR REPLACE INTO favorites (com_name, sci_name) VALUES (?, ?)').run(com_name, sci_name || '');
         }
+        clearQueryCache(); // so pages filtering by favorites see the change immediately
         const rows = db.prepare('SELECT com_name, sci_name, added_at FROM favorites ORDER BY added_at DESC').all();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, favorites: rows }));
