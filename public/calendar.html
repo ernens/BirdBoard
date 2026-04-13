@@ -677,7 +677,14 @@ const app = createApp({
 
     async function loadLiferDates() {
       try {
-        const rows = await birdQuery(...Q.firstObservations(fc.confidence.value));
+        const [dFrom, dTo] = dateRange();
+        const rows = await birdQuery(
+          `SELECT Com_Name, MIN(Date) as first_date FROM detections
+           WHERE Date BETWEEN ? AND ? AND Confidence>=?
+             AND Com_Name NOT IN (
+               SELECT Com_Name FROM detections WHERE Date < ? GROUP BY Com_Name
+             )
+           GROUP BY Com_Name`, [dFrom, dTo, fc.confidence.value, dFrom]);
         const map = {};
         rows.forEach(r => { map[r.Com_Name] = r.first_date; });
         liferDates.value = map;
@@ -751,9 +758,13 @@ const app = createApp({
           [dFrom, dTo, fc.confidence.value]);
         const nsRows = await birdQuery(
           `SELECT Com_Name, MAX(Sci_Name) as sci, MAX(Confidence) as max_conf
-           FROM detections WHERE Confidence>=?
-           GROUP BY Com_Name HAVING MIN(Date) BETWEEN ? AND ?
-           ORDER BY MAX(Confidence) DESC`, [fc.confidence.value, dFrom, dTo]);
+           FROM detections
+           WHERE Date BETWEEN ? AND ? AND Confidence>=?
+           GROUP BY Com_Name
+           HAVING Com_Name NOT IN (
+             SELECT Com_Name FROM detections WHERE Date < ? GROUP BY Com_Name
+           )
+           ORDER BY MAX(Confidence) DESC`, [dFrom, dTo, fc.confidence.value, dFrom]);
         newSpList.value = (nsRows || []).map(r => ({
           ...r,
           photoUrl: BIRD_CONFIG.apiUrl + '/photo?sci=' + encodeURIComponent(r.sci || r.Com_Name),

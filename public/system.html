@@ -1261,7 +1261,7 @@ const app = createApp({
     async function loadFresh() {
       fresh.value.loading = true;
       try {
-        const [last]  = await birdQuery(`SELECT Date,Time,Com_Name FROM detections ORDER BY Date DESC,Time DESC LIMIT 1`);
+        const [last]  = await birdQuery(`SELECT Date,Time,Com_Name FROM detections WHERE Date >= DATE('now','localtime','-7 days') ORDER BY Date DESC,Time DESC LIMIT 1`);
         const [today] = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [localDateStr()]);
         const [yest]  = await birdQuery(`SELECT COUNT(*) as n FROM detections WHERE Date=?`, [daysAgo(1)]);
         const diffMin = last ? Math.floor((Date.now()-new Date(`${last.Date}T${last.Time}`).getTime())/60000) : null;
@@ -1302,7 +1302,7 @@ const app = createApp({
     async function loadGaps() {
       gaps.value.loading = true;
       try {
-        const rows  = await birdQuery(`SELECT Date FROM detections GROUP BY Date ORDER BY Date ASC`);
+        const rows  = await birdQuery(`SELECT DISTINCT date AS Date FROM daily_stats ORDER BY date ASC`);
         const found = [];
         for (let i=1;i<rows.length;i++) {
           const diff = Math.round((new Date(rows[i].Date)-new Date(rows[i-1].Date))/86400000);
@@ -1711,7 +1711,7 @@ const app = createApp({
 
         // Cross-reference with local species
         const localSpecies = new Set(
-          (await birdQuery(`SELECT DISTINCT Com_Name FROM detections`)).map(r => r.Com_Name)
+          (await birdQuery(`SELECT com_name AS Com_Name FROM species_stats ORDER BY com_name ASC`)).map(r => r.Com_Name)
         );
 
         const obs = (data.obs || []).map(o => ({
