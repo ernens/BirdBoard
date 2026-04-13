@@ -453,7 +453,7 @@
   "audio_clean_done": "Cleaned",
   "audio_clean_btn": "Clean audio",
   "audio_pipeline_title": "Audio processing pipeline",
-  "audio_pipeline_desc": "Audio is processed in this order before BirdNET analysis. Green steps are active.",
+  "audio_pipeline_desc": "Audio is processed in this order before BirdNET and Perch analysis. Green steps are active.",
   "audio_highpass_desc": "Cuts low frequencies (background noise, wind, traffic). Most birds sing above 1000 Hz. Increase the cutoff if you're near a road or in an urban area.",
   "audio_lowpass_desc": "Cuts high frequencies (insects, electronics). Most birds sing below 10 kHz. Lower to filter out high-pitched interference.",
   "audio_noise_profile": "Ambient noise profile",

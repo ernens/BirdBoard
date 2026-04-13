@@ -453,7 +453,7 @@
   "audio_clean_done": "Nettoyé",
   "audio_clean_btn": "Nettoyer le son",
   "audio_pipeline_title": "Pipeline de traitement audio",
-  "audio_pipeline_desc": "L'audio est traité dans cet ordre avant d'être analysé par BirdNET. Les étapes vertes sont actives.",
+  "audio_pipeline_desc": "L'audio est traité dans cet ordre avant d'être analysé par BirdNET et Perch. Les étapes vertes sont actives.",
   "audio_highpass_desc": "Coupe les fréquences basses (bruit de fond, vent, trafic). La plupart des oiseaux chantent au-dessus de 1000 Hz. Augmentez la fréquence si vous êtes proche d'une route ou en milieu urbain.",
   "audio_lowpass_desc": "Coupe les fréquences hautes (insectes, électronique). La plupart des oiseaux chantent en dessous de 10 kHz. Réduisez pour filtrer les parasites aigus.",
   "audio_noise_profile": "Profil de bruit ambiant",

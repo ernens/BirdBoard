@@ -97,6 +97,8 @@ Raspberry Pi 5 + SSD
 │     ↓
 ├── BirdEngine (Python)
 │   ├── Recording service (arecord → WAV 45s)
+│   ├── Audio pipeline: Adaptive Gain → Highpass → Lowpass
+│   │   → Noise Profile Subtraction → RMS Normalize
 │   ├── BirdNET V2.4    (~2s/file, primary)
 │   ├── Perch V2 FP16   (~2s/file, secondary)
 │   ├── MP3 extraction + spectrograms
@@ -175,8 +177,10 @@ Raspberry Pi 5 + SSD
 ### Audio Configuration
 - <img src="docs/icons/mic.svg" width="16" align="top" alt=""> Auto-detection of USB audio devices with one-click selection
 - <img src="docs/icons/sliders-horizontal.svg" width="16" align="top" alt=""> **Adaptive gain** — noise floor estimation, clip guard, activity hold, observer/apply modes
-- <img src="docs/icons/volume-x.svg" width="16" align="top" alt=""> **Bandpass + denoise** — lowpass filter (4-15 kHz), spectral gating (noisereduce), all toggleable per profile
-- <img src="docs/icons/eye.svg" width="16" align="top" alt=""> **Filter preview** — before/after spectrograms from live mic to visualize filter effects
+- <img src="docs/icons/volume-x.svg" width="16" align="top" alt=""> **Bandpass + denoise** — highpass (50-300 Hz), lowpass (4-15 kHz), spectral gating (noisereduce), all toggleable per profile
+- <img src="docs/icons/mic.svg" width="16" align="top" alt=""> **Ambient noise profile** — record 5s of background noise (highway, HVAC), used for targeted spectral subtraction via noisereduce `y_noise` — more effective than auto-denoise for constant noise sources
+- <img src="docs/icons/eye.svg" width="16" align="top" alt=""> **Filter preview** — before/after spectrograms from live mic to visualize the effect of each filter including the noise profile
+- <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **Audio pipeline** — Mic → Adaptive Gain → Highpass → Lowpass → Noise Profile (or auto denoise) → RMS Normalize → BirdNET + Perch — visual pipeline diagram in Settings
 - <img src="docs/icons/sliders-horizontal.svg" width="16" align="top" alt=""> 6 environment profiles (garden, forest, roadside, urban, night, test)
 - <img src="docs/icons/scale.svg" width="16" align="top" alt=""> Inter-channel calibration wizard for dual EM272 microphones
 - <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> Real-time VU meters via SSE

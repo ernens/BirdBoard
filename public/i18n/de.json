@@ -453,7 +453,7 @@
   "audio_clean_done": "Bereinigt",
   "audio_clean_btn": "Audio bereinigen",
   "audio_pipeline_title": "Audio-Verarbeitungspipeline",
-  "audio_pipeline_desc": "Audio wird in dieser Reihenfolge verarbeitet, bevor BirdNET es analysiert. Grüne Schritte sind aktiv.",
+  "audio_pipeline_desc": "Audio wird in dieser Reihenfolge verarbeitet, bevor BirdNET und Perch es analysieren. Grüne Schritte sind aktiv.",
   "audio_highpass_desc": "Schneidet tiefe Frequenzen ab (Hintergrundgeräusche, Wind, Verkehr). Die meisten Vögel singen über 1000 Hz. Erhöhen Sie den Wert bei Straßen- oder Stadtlärm.",
   "audio_lowpass_desc": "Schneidet hohe Frequenzen ab (Insekten, Elektronik). Die meisten Vögel singen unter 10 kHz. Senken Sie den Wert, um hochfrequente Störungen zu filtern.",
   "audio_noise_profile": "Umgebungsgeräuschprofil",

@@ -453,7 +453,7 @@
   "audio_clean_done": "Opgeschoond",
   "audio_clean_btn": "Audio opschonen",
   "audio_pipeline_title": "Audio-verwerkingspijplijn",
-  "audio_pipeline_desc": "Audio wordt in deze volgorde verwerkt voordat BirdNET het analyseert. Groene stappen zijn actief.",
+  "audio_pipeline_desc": "Audio wordt in deze volgorde verwerkt voordat BirdNET en Perch het analyseren. Groene stappen zijn actief.",
   "audio_highpass_desc": "Snijdt lage frequenties af (achtergrondgeluid, wind, verkeer). De meeste vogels zingen boven 1000 Hz. Verhoog de waarde bij weg- of stadsgeluid.",
   "audio_lowpass_desc": "Snijdt hoge frequenties af (insecten, elektronica). De meeste vogels zingen onder 10 kHz. Verlaag om hoogfrequente storing te filteren.",
   "audio_noise_profile": "Omgevingsgeluidsprofiel",
