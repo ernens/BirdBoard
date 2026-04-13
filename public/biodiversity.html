@@ -113,24 +113,6 @@
           </div>
         </div>
 
-        <!-- Phenology chart -->
-        <div class="card">
-          <div class="card-title">{{t('phenology')}}</div>
-          <div v-if="phenology.loading" class="spinner"><div></div><div></div><div></div></div>
-          <div v-else-if="!phenology.ready" class="error-msg">{{t('no_data')}}</div>
-          <div v-else class="chart-wrap" style="min-height:420px;"><canvas ref="canvasPhenology"></canvas></div>
-        </div>
-
-        <!-- Heatmap heure × jour -->
-        <div class="card">
-          <div class="card-title">{{t('heatmap_hour_day')}}</div>
-          <div class="heatmap-wrap">
-            <div v-if="heatmap.loading" class="spinner"><div></div><div></div><div></div></div>
-            <div v-else-if="heatmap.error" class="error-msg">⚠ {{heatmap.error}}</div>
-            <div v-else v-html="safeHtml(heatmap.html)"></div>
-          </div>
-        </div>
-
         <!-- Répartition taxonomique — pie chart ECharts -->
         <div class="card">
           <div class="card-title">{{t('bio_taxonomy_orders')}}</div>
@@ -179,14 +161,11 @@ const app = createApp({
     const { navItems, siteName } = useNav('biodiversity');
     const { mountChart: mountRichness } = useChart();
     const { mountChart: mountTaxChart } = useChart();
-    const { mountChart: mountPhenology } = useChart();
     let _echartsOrders = null;
     const { spName } = useSpeciesNames();
 
     const canvasRichness = ref(null);
-    const canvasPhenology = ref(null);
     const elTaxOrders = ref(null);
-    const phenology = ref({ loading: true, ready: false });
     const taxFamilies = ref([]);
     // ── Filtres (composables partagés) ────────────────────────────
     const fp = useFilterPeriod({
@@ -204,7 +183,6 @@ const app = createApp({
     }
 
     const richnessData = ref(null);
-    const heatmap  = ref({ loading:true, error:null, html:'' });
     const monthly  = ref({ loading:true, rows:[] });
     const matrix   = ref({ loading:true, error:null, html:'' });
 
@@ -238,116 +216,8 @@ const app = createApp({
 
     function quickPlay(comName) { quickPlaySpecies(comName); }
 
-    async function loadPhenology() {
-      phenology.value = { loading: true, ready: false };
-      try {
-        const rows = await birdQuery(
-          `SELECT Sci_Name, Com_Name, strftime('%Y', Date) as year, MIN(Date) as first_seen, MAX(Date) as last_seen, COUNT(*) as cnt FROM detections WHERE Confidence >= ? AND Date >= DATE('now','localtime','-5 years') GROUP BY Sci_Name, year ORDER BY first_seen`,
-          [fc.confidence.value]);
-        if (!rows.length) { phenology.value = { loading: false, ready: false }; return; }
-        // Find top 15 most detected species overall
-        const spTotals = {};
-        rows.forEach(r => { spTotals[r.Com_Name] = (spTotals[r.Com_Name] || 0) + r.cnt; });
-        const topSp = Object.entries(spTotals).sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
-        const topSet = new Set(topSp);
-        const filtered = rows.filter(r => topSet.has(r.Com_Name));
-        const years = [...new Set(filtered.map(r => r.year))].sort();
-        const yearColors = ['#5a9e3a','#c8a84b','#4a90d9','#d96b4a','#9b59b6','#1abc9c','#e67e22','#e74c3c','#3498db','#2ecc71'];
-        // Build datasets: one per year
-        const datasets = years.map((yr, yi) => {
-          const data = topSp.map(sp => {
-            const rec = filtered.find(r => r.Com_Name === sp && r.year === yr);
-            if (!rec) return null;
-            const first = new Date(rec.first_seen);
-            const last = new Date(rec.last_seen);
-            // Convert to day-of-year (0-365)
-            const doyFirst = Math.floor((first - new Date(first.getFullYear(), 0, 1)) / 86400000);
-            const doyLast = Math.floor((last - new Date(last.getFullYear(), 0, 1)) / 86400000);
-            return [doyFirst, doyLast];
-          });
-          return {
-            label: yr,
-            data: data.map(d => d ? { x: [d[0], d[1]] } : null),
-            backgroundColor: yearColors[yi % yearColors.length] + 'AA',
-            borderColor: yearColors[yi % yearColors.length],
-            borderWidth: 1,
-            borderRadius: 2,
-            borderSkipped: false,
-          };
-        });
-        phenology.value = { loading: false, ready: true, labels: topSp.map(sp => spName(sp, '')), datasets, years };
-        await nextTick();
-        if (!canvasPhenology.value) return;
-        const base = chartDefaults();
-        mountPhenology(canvasPhenology, () => ({
-          type: 'bar',
-          data: {
-            labels: phenology.value.labels,
-            datasets: datasets.map(ds => ({
-              label: ds.label,
-              data: ds.data.map(d => d ? [d.x[0], d.x[1]] : [null, null]),
-              backgroundColor: ds.backgroundColor,
-              borderColor: ds.borderColor,
-              borderWidth: ds.borderWidth,
-              borderRadius: ds.borderRadius,
-              borderSkipped: ds.borderSkipped,
-            })),
-          },
-          options: {
-            ...base,
-            indexAxis: 'y',
-            scales: {
-              x: {
-                ...base.scales.x,
-                min: 0, max: 365,
-                ticks: {
-                  ...base.scales.x.ticks,
-                  callback: function(v) {
-                    const monthStarts = [0,31,59,90,120,151,181,212,243,273,304,334];
-                    const mShort = t('months_short');
-                    const idx = monthStarts.findIndex((s, i) => {
-                      const next = monthStarts[i+1] || 366;
-                      return v >= s && v < next;
-                    });
-                    return idx >= 0 ? mShort[idx] : '';
-                  },
-                  stepSize: 30,
-                },
-                title: { display: false },
-              },
-              y: {
-                ...base.scales.y,
-                ticks: { ...base.scales.y.ticks, font: { size: 10 } },
-              },
-            },
-            plugins: {
-              ...base.plugins,
-              tooltip: {
-                ...base.plugins.tooltip,
-                callbacks: {
-                  label: function(ctx) {
-                    const raw = ctx.raw;
-                    if (!raw || raw[0] == null) return '';
-                    const monthStarts = [0,31,59,90,120,151,181,212,243,273,304,334];
-                    const mShort = t('months_short');
-                    function doyToLabel(doy) {
-                      let mi = 0;
-                      for (let i = 0; i < monthStarts.length; i++) { if (doy >= monthStarts[i]) mi = i; }
-                      const day = doy - monthStarts[mi] + 1;
-                      return day + ' ' + mShort[mi];
-                    }
-                    return ctx.dataset.label + ': ' + doyToLabel(raw[0]) + ' → ' + doyToLabel(raw[1]);
-                  }
-                }
-              }
-            }
-          }
-        }));
-      } catch(e) { console.error('[phenology]', e); phenology.value = { loading: false, ready: false }; }
-    }
-
     async function loadAll() {
-      await Promise.all([loadRichnessData(), loadHeatmap(), loadMonthly(), loadMatrix(), loadShannon(), loadPhenology()]);
+      await Promise.all([loadRichnessData(), loadMonthly(), loadMatrix(), loadShannon()]);
     }
 
     async function loadRichnessData() {
@@ -383,32 +253,6 @@ const app = createApp({
         }
         richnessData.value = { rows, labelFn: ats.labelFn, resolution: ats.resolution };
       } catch(e) { console.error(e); }
-    }
-
-    async function loadHeatmap() {
-      heatmap.value.loading = true;
-      try {
-        const from = fp.dateFrom.value || '2000-01-01';
-        const rows = await birdQuery(
-          `SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, CAST(strftime('%w',Date) AS INTEGER) as dow, COUNT(*) as n
-           FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY hour,dow`,
-          [from, fp.dateTo.value || localDateStr(), fc.confidence.value]);
-        const grid = Array.from({length:7}, ()=>Array(24).fill(0));
-        let maxVal = 0;
-        rows.forEach(r => { grid[r.dow][r.hour]=r.n; if(r.n>maxVal) maxVal=r.n; });
-        const dayLabels = t('days_short');
-        const order = [1,2,3,4,5,6,0];
-        const hc = v => { if(!v) return 'hm-0'; const p=v/maxVal; return p<.1?'hm-1':p<.3?'hm-2':p<.5?'hm-3':p<.75?'hm-4':'hm-5'; };
-        const hours = Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
-        let html = `<table class="heatmap-table"><thead><tr><th class="row-header"></th>${hours.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`;
-        order.forEach((dow,di) => {
-          html += `<tr><th class="row-header" style="text-align:left;">${dayLabels[di]}</th>`;
-          for(let h=0;h<24;h++) { const v=grid[dow][h]; html+=`<td class="${hc(v)}" title="${dayLabels[di]} ${String(h).padStart(2,'0')}h : ${v}">${v||''}</td>`; }
-          html += '</tr>';
-        });
-        html += '</tbody></table>';
-        heatmap.value = { loading:false, error:null, html };
-      } catch(e) { console.error('[biodiversity]', e); heatmap.value = { loading:false, error:t('error_generic') || 'Erreur de chargement', html:'' }; }
     }
 
     function loadPhotosFor(targetRef, rows) {
@@ -485,7 +329,7 @@ const app = createApp({
     });
 
     // Heatmap et matrice : retraduits si lang change
-    watch(lang, () => { loadHeatmap(); loadMonthly(); loadMatrix(); loadTaxonomy(); loadPhenology(); loadWeather(); });
+    watch(lang, () => { loadMonthly(); loadMatrix(); loadTaxonomy(); });
 
     // ── Taxonomy donut chart ────────────────────────────────────────────
     async function loadTaxonomy() {
@@ -598,8 +442,8 @@ const app = createApp({
     return {
       lang, t, safeHtml,
       shannonH, shannonJ, shannonS,
-      heatmap, monthly, matrix, phenology,
-      canvasRichness, canvasPhenology, elTaxOrders, taxFamilies,
+      monthly, matrix,
+      canvasRichness, elTaxOrders, taxFamilies,
       fp, fc, resetDefaults, loadAll,
       chartColor, navigateTo, spName, exportCsv, quickPlay,
     };
