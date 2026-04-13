@@ -17,29 +17,44 @@ function handle(req, res, pathname, ctx) {
 
   // ── Route : GET /api/rare-today ──────────────────────────────────────────
   // Returns species detected today that are genuinely rare in the region
-  // (via eBird) or locally (after 30+ days of data). Replaces the naive
-  // overview.html client-side "HAVING total<=5" that flagged Blackbirds
-  // as rare on every fresh install.
+  // (via eBird) or locally (after 30+ days of data).
+  // Uses raw `detections` table for historical scans (not the active_detections
+  // VIEW) because the NOT EXISTS anti-join costs ~6s on 1M rows. The ~13
+  // rejected detections are negligible for rarity classification.
+  // Result cached 5 min via resultCache (cleared on mutations).
   if (req.method === 'GET' && pathname === '/api/rare-today') {
     (async () => {
       try {
+        const resultCache = require('../lib/result-cache');
         const { localDateStr } = require('../lib/local-date');
         const dateStr = new URL(req.url, 'http://x').searchParams.get('date')
           || localDateStr();
+        const cacheKey = 'rare-today:' + dateStr;
+        const cached = resultCache.get(cacheKey);
+        if (cached) {
+          res.writeHead(200, JSON_CT);
+          res.end(JSON.stringify(cached));
+          return;
+        }
+
+        // Use raw detections table for heavy historical scans (~50ms vs 6s)
         const totalDays = db.prepare(
-          "SELECT COUNT(DISTINCT Date) as n FROM active_detections WHERE Date < ?"
+          "SELECT COUNT(DISTINCT Date) as n FROM detections WHERE Date < ?"
         ).get(dateStr)?.n || 0;
+
+        // Today's species — small result set, VIEW cost is negligible
         const todaySpecies = db.prepare(`
           SELECT Com_Name, Sci_Name, COUNT(*) as n
           FROM active_detections
           WHERE Date = ? AND Confidence >= 0.7
           GROUP BY Com_Name
         `).all(dateStr);
-        // Historical counts (past year) for the local fallback path
+
+        // Historical counts (past year) — raw table, fast
         const histMap = {};
         const histRows = db.prepare(`
           SELECT Com_Name, COUNT(*) as cnt
-          FROM active_detections
+          FROM detections
           WHERE Date < ? AND Date >= DATE(?, '-365 days')
           GROUP BY Com_Name
         `).all(dateStr, dateStr);
@@ -61,6 +76,7 @@ function handle(req, res, pathname, ctx) {
             });
           }
         }
+        resultCache.set(cacheKey, rares, 5 * 60 * 1000);
         res.writeHead(200, JSON_CT);
         res.end(JSON.stringify(rares));
       } catch (e) {
