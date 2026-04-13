@@ -129,8 +129,41 @@ def apply_filters(samples, sr, audio_config):
         except ImportError:
             log.warning("scipy not installed — lowpass filter skipped")
 
-    # ── Spectral gating (noise reduction) ────────────────────────────────
-    if audio_config.get("denoise_enabled", False):
+    # ── Noise profile subtraction (recorded ambient noise) ─────────────
+    if audio_config.get("noise_profile_enabled", False):
+        profile_path = audio_config.get("noise_profile_path", "")
+        strength = audio_config.get("denoise_strength", 0.5)
+        try:
+            import noisereduce as nr
+            noise, noise_sr = sf.read(profile_path, dtype="float32", always_2d=False)
+            if noise.ndim > 1:
+                noise = noise.mean(axis=1)
+            if noise_sr != sr:
+                import resampy
+                noise = resampy.resample(noise, noise_sr, sr).astype(np.float32)
+            sig = nr.reduce_noise(
+                y=sig, sr=sr,
+                y_noise=noise,
+                prop_decrease=strength,
+                stationary=True,
+                n_fft=1024,
+                hop_length=256,
+            ).astype(np.float32)
+            log.debug("Noise profile subtraction applied: %s (strength=%.2f)", profile_path, strength)
+        except Exception as e:
+            log.warning("Noise profile error: %s — falling back to auto denoise", e)
+            # Fallback to stationary auto-denoise
+            try:
+                import noisereduce as nr
+                sig = nr.reduce_noise(
+                    y=sig, sr=sr, prop_decrease=strength,
+                    stationary=True, n_fft=1024, hop_length=256,
+                ).astype(np.float32)
+            except ImportError:
+                pass
+
+    # ── Spectral gating (auto noise reduction) ──────────────────────────
+    elif audio_config.get("denoise_enabled", False):
         strength = audio_config.get("denoise_strength", 0.5)
         try:
             import noisereduce as nr

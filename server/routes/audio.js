@@ -142,6 +142,7 @@ function jsonConfigPost(req, res, filePath, whitelist, afterSave, label) {
 const AUDIO_KEYS = ['device_id','device_name','input_channels','capture_sample_rate','bit_depth',
   'output_sample_rate','channel_strategy','hop_size_s','highpass_enabled','highpass_cutoff_hz',
   'lowpass_enabled','lowpass_cutoff_hz','denoise_enabled','denoise_strength',
+  'noise_profile_enabled','noise_profile_path',
   'rms_normalize','rms_target','cal_gain_ch0','cal_gain_ch1','cal_date','profile_name'];
 const AG_KEYS = ['enabled','mode','observer_only','min_db','max_db','step_up_db','step_down_db',
   'update_interval_s','history_s','noise_percentile','target_floor_dbfs','clip_guard_dbfs','activity_hold_s'];
@@ -725,6 +726,95 @@ function handle(req, res, pathname, ctx) {
     proc.stderr.on('data', () => {});
     proc.on('close', () => { try { res.end(); } catch {} });
     req.on('close', () => { proc.kill(); });
+    return true;
+  }
+
+  // ── Route : POST /api/audio/noise-profile/record ─────────────────────────
+  // Record 5s of ambient noise and save as WAV for spectral subtraction.
+  // The user should ensure no birds are singing during recording.
+  if (req.method === 'POST' && pathname === '/api/audio/noise-profile/record') {
+    (async () => {
+      try {
+        const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
+        const device = config.device_id || 'default';
+        const channels = config.input_channels || 2;
+        const profilePath = path.join(PROJECT_ROOT, 'config', 'noise_profile.wav');
+
+        // Record 5 seconds of ambient noise
+        await new Promise((resolve, reject) => {
+          const proc = require('child_process').spawn('arecord', [
+            '-D', device, '-f', 'S16_LE', '-r', '48000', '-c', String(channels),
+            '-d', '5', profilePath
+          ]);
+          proc.on('close', code => code === 0 ? resolve() : reject(new Error(`arecord exit ${code}`)));
+          proc.on('error', reject);
+          setTimeout(() => { proc.kill(); reject(new Error('timeout')); }, 10000);
+        });
+
+        // Update audio config to enable noise profile
+        const safeConfig = require('../lib/safe-config');
+        await safeConfig.updateConfig(AUDIO_CONFIG_PATH, cfg => {
+          cfg.noise_profile_enabled = true;
+          cfg.noise_profile_path = profilePath;
+          return cfg;
+        });
+
+        const stat = fs.statSync(profilePath);
+        res.writeHead(200, JSON_CT);
+        res.end(JSON.stringify({
+          ok: true,
+          path: profilePath,
+          size: stat.size,
+          date: new Date().toISOString(),
+        }));
+      } catch (e) {
+        res.writeHead(500, JSON_CT);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return true;
+  }
+
+  // ── Route : GET /api/audio/noise-profile/status ───────────────────────────
+  if (req.method === 'GET' && pathname === '/api/audio/noise-profile/status') {
+    const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
+    const profilePath = config.noise_profile_path || path.join(PROJECT_ROOT, 'config', 'noise_profile.wav');
+    const exists = fs.existsSync(profilePath);
+    let stat = null;
+    if (exists) try { stat = fs.statSync(profilePath); } catch {}
+    res.writeHead(200, JSON_CT);
+    res.end(JSON.stringify({
+      enabled: !!config.noise_profile_enabled && exists,
+      exists,
+      path: profilePath,
+      size: stat ? stat.size : 0,
+      date: stat ? stat.mtime.toISOString() : null,
+    }));
+    return true;
+  }
+
+  // ── Route : DELETE /api/audio/noise-profile ────────────────────────────────
+  if (req.method === 'DELETE' && pathname === '/api/audio/noise-profile') {
+    (async () => {
+      try {
+        const config = readJsonFile(AUDIO_CONFIG_PATH) || {};
+        const profilePath = config.noise_profile_path || path.join(PROJECT_ROOT, 'config', 'noise_profile.wav');
+        try { fs.unlinkSync(profilePath); } catch {}
+
+        const safeConfig = require('../lib/safe-config');
+        await safeConfig.updateConfig(AUDIO_CONFIG_PATH, cfg => {
+          cfg.noise_profile_enabled = false;
+          cfg.noise_profile_path = '';
+          return cfg;
+        });
+
+        res.writeHead(200, JSON_CT);
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(500, JSON_CT);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
     return true;
   }
 

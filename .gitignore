@@ -32,3 +32,4 @@ config/adaptive_gain.json
 config/github-token.txt
 config/bug-reports.json
 config/telemetry.json
+config/noise_profile.wav

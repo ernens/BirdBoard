@@ -97,7 +97,32 @@ def apply_filters(samples, sr, config):
         sos = butter(4, cutoff, btype="low", fs=sr, output="sos")
         sig = sosfilt(sos, sig).astype(np.float32)
 
-    if config.get("denoise_enabled", False):
+    if config.get("noise_profile_enabled", False):
+        profile_path = config.get("noise_profile_path", "")
+        strength = config.get("denoise_strength", 0.5)
+        try:
+            import noisereduce as nr
+            import soundfile as sf
+            noise, noise_sr = sf.read(profile_path, dtype="float32", always_2d=False)
+            if noise.ndim > 1:
+                noise = noise.mean(axis=1)
+            # Resample noise profile if sample rates differ
+            if noise_sr != sr:
+                import resampy
+                noise = resampy.resample(noise, noise_sr, sr).astype(np.float32)
+            sig = nr.reduce_noise(
+                y=sig, sr=sr,
+                y_noise=noise,
+                prop_decrease=strength,
+                stationary=True,
+                n_fft=1024,
+                hop_length=256,
+            ).astype(np.float32)
+        except (ImportError, Exception) as e:
+            import sys
+            print(f"[filter_preview] noise profile error: {e}", file=sys.stderr)
+
+    elif config.get("denoise_enabled", False):
         strength = config.get("denoise_strength", 0.5)
         try:
             import noisereduce as nr
