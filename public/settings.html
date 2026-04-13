@@ -1458,6 +1458,35 @@ const app = createApp({
       { id: 'max', label: t('audio_max'), desc: t('audio_max_desc') },
       { id: 'vote', label: t('audio_vote'), desc: t('audio_vote_desc') },
     ]);
+    // ── Noise profile ──
+    const noiseProfileStatus = reactive({ exists: false, date: null, size: 0 });
+    const noiseProfileRecording = ref(false);
+    fetch(`${API}/audio/noise-profile/status`).then(r => r.json()).then(d => Object.assign(noiseProfileStatus, d)).catch(() => {});
+
+    async function recordNoiseProfile() {
+      noiseProfileRecording.value = true;
+      try {
+        const res = await fetch(`${API}/audio/noise-profile/record`, { method: 'POST' });
+        const d = await res.json();
+        if (d.ok) {
+          noiseProfileStatus.exists = true;
+          noiseProfileStatus.date = d.date;
+          noiseProfileStatus.size = d.size;
+          audioConf.noise_profile_enabled = true;
+          audioConf.noise_profile_path = d.path;
+        }
+      } catch(e) { console.error(e); }
+      noiseProfileRecording.value = false;
+    }
+    async function deleteNoiseProfile() {
+      await fetch(`${API}/audio/noise-profile`, { method: 'DELETE' });
+      noiseProfileStatus.exists = false;
+      noiseProfileStatus.date = null;
+      noiseProfileStatus.size = 0;
+      audioConf.noise_profile_enabled = false;
+      audioConf.noise_profile_path = '';
+    }
+
     const filterPreviewing = ref(false);
     const filterPreview = ref(null);
     const filterPreviewErr = ref('');
@@ -1791,6 +1820,7 @@ const app = createApp({
       channelStrategies,
       filterPreviewing, filterPreview, filterPreviewErr, runFilterPreview,
       filterPreviewProgress, filterPreviewPhase,
+      noiseProfileStatus, noiseProfileRecording, recordNoiseProfile, deleteNoiseProfile,
       calRunning, calResult, calExpired,
       audioMonitoring, monitorLevels, audioTesting, audioTestImg,
       loadAudioDevices, selectAudioDevice, activateAudioProfile,
@@ -1907,6 +1937,7 @@ const app = createApp({
       channelStrategies,
       filterPreviewing, filterPreview, filterPreviewErr, runFilterPreview,
       filterPreviewProgress, filterPreviewPhase,
+      noiseProfileStatus, noiseProfileRecording, recordNoiseProfile, deleteNoiseProfile,
       calRunning, calResult, calExpired,
       audioMonitoring, monitorLevels, audioTesting, audioTestImg,
       loadAudioDevices, selectAudioDevice, activateAudioProfile,
