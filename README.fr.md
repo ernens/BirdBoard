@@ -79,6 +79,8 @@ Dashboard et moteur de detection d'oiseaux pour Raspberry Pi 5. Architecture dua
 
 ## Architecture
 
+> **[Documentation complète de l'architecture →](ARCHITECTURE.fr.md)** — référence technique détaillée : pipeline audio, base de données, performance, et plus.
+
 ```
 Raspberry Pi 5 + SSD
 ├── Interface audio USB

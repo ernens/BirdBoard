@@ -91,6 +91,8 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 
 ## Architecture
 
+> **[Full architecture documentation →](ARCHITECTURE.md)** — deep technical reference covering audio pipeline, database schema, performance, and more.
+
 ```
 Raspberry Pi 5 + SSD
 ├── USB Audio Interface

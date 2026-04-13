@@ -75,6 +75,10 @@ Modern vogeldetectie-dashboard en engine voor Raspberry Pi 5. Zelfstandige dual-
 </p>
 </details>
 
+## Architectuur
+
+> **[Volledige architectuurdocumentatie →](ARCHITECTURE.nl.md)** — technische referentie: audio-pipeline, databaseschema, prestaties en meer.
+
 ## Kenmerken
 
 - <img src="docs/icons/cpu.svg" width="16" align="top" alt=""> **Dual-model inferentie** — BirdNET V2.4 + Perch V2 parallel

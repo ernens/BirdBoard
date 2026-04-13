@@ -75,6 +75,10 @@ Modernes Vogelerkennungs-Dashboard und Engine fur Raspberry Pi 5. Eigenstandige 
 </p>
 </details>
 
+## Architektur
+
+> **[Vollständige Architekturdokumentation →](ARCHITECTURE.de.md)** — technische Referenz: Audio-Pipeline, Datenbankschema, Performance und mehr.
+
 ## Funktionen
 
 - <img src="docs/icons/cpu.svg" width="16" align="top" alt=""> **Dual-Modell-Inferenz** — BirdNET V2.4 + Perch V2 parallel
