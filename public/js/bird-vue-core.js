@@ -1979,28 +1979,31 @@
       <a :href="audioUrl" :download="downloadName" class="spectro-modal-dl" title="Download">\u2B07</a>
     </div>
     <div class="spectro-modal-filters">
+      <div style="font-size:.72rem;color:var(--text-muted,#7a8a9e);margin-bottom:.4rem;padding:0 .2rem;">
+        {{t('spectro_filters_hint')}}
+      </div>
       <div class="spectro-modal-filter-group">
-        <span class="rstb-flabel">Gain (dB)</span>
+        <span class="rstb-flabel"><bird-icon name="volume-2" :size="12"></bird-icon> {{t('spectro_gain')}}</span>
         <div class="stb-pills">
           <button v-for="g in gainOpts" :key="g" class="stb-pill stb-pill-sm"
                   :class="{'stb-pill-active': filters.gain===g}"
-                  @click="setFilter('gain',g)">{{g===0?'Off':'+'+g}}</button>
+                  @click="setFilter('gain',g)">{{g===0?'Off':'+'+g+'dB'}}</button>
         </div>
       </div>
       <div class="spectro-modal-filter-group">
-        <span class="rstb-flabel">{{t('af_highpass')}}</span>
+        <span class="rstb-flabel"><bird-icon name="arrow-up" :size="12"></bird-icon> {{t('spectro_highpass')}}</span>
         <div class="stb-pills">
           <button v-for="h in hpOpts" :key="h" class="stb-pill stb-pill-sm"
                   :class="{'stb-pill-active': filters.highpass===h}"
-                  @click="setFilter('highpass',h)">{{h===0?'Off':h>=1000?(h/1000)+'k':h}}</button>
+                  @click="setFilter('highpass',h)">{{h===0?'Off':h>=1000?(h/1000)+'kHz':h+'Hz'}}</button>
         </div>
       </div>
       <div class="spectro-modal-filter-group">
-        <span class="rstb-flabel">{{t('af_lowpass')}}</span>
+        <span class="rstb-flabel"><bird-icon name="arrow-down" :size="12"></bird-icon> {{t('spectro_lowpass')}}</span>
         <div class="stb-pills">
           <button v-for="l in lpOpts" :key="l" class="stb-pill stb-pill-sm"
                   :class="{'stb-pill-active': filters.lowpass===l}"
-                  @click="setFilter('lowpass',l)">{{l===0?'Off':l>=1000?(l/1000)+'k':l}}</button>
+                  @click="setFilter('lowpass',l)">{{l===0?'Off':l>=1000?(l/1000)+'kHz':l+'Hz'}}</button>
         </div>
       </div>
     </div>
