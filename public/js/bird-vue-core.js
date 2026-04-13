@@ -1209,12 +1209,13 @@
 
       // Bug report
       const bugReportOpen = ref(false);
-      const bugReportForm = reactive({ title: '', description: '', sending: false, sent: false, error: '', issueUrl: '' });
+      const bugReportForm = reactive({ title: '', description: '', attachLogs: false, sending: false, sent: false, error: '', issueUrl: '' });
       const bugReportEnabled = ref(false);
       fetch(`${BIRD_CONFIG.apiUrl}/bug-report/status`).then(r => r.json()).then(d => { bugReportEnabled.value = d.enabled; }).catch(() => {});
       function openBugReport() {
         bugReportForm.title = '';
         bugReportForm.description = '';
+        bugReportForm.attachLogs = false;
         bugReportForm.sending = false;
         bugReportForm.sent = false;
         bugReportForm.error = '';
@@ -1235,10 +1236,18 @@
             lang: lang.value,
             theme: theme.value
           };
+          // Fetch logs if checkbox is checked
+          let logs = '';
+          if (bugReportForm.attachLogs) {
+            try {
+              const lr = await fetch(`${BIRD_CONFIG.apiUrl}/system/logs-export`);
+              if (lr.ok) logs = await lr.text();
+            } catch {}
+          }
           const res = await fetch(`${BIRD_CONFIG.apiUrl}/bug-report`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: bugReportForm.title, description: bugReportForm.description, systemInfo })
+            body: JSON.stringify({ title: bugReportForm.title, description: bugReportForm.description, systemInfo, logs })
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Failed to submit bug report');
@@ -1504,6 +1513,11 @@
                       style="display:block;width:100%;margin-top:.3rem;padding:.45rem .6rem;border:1px solid var(--border,#333);border-radius:6px;background:var(--bg-card,#1a1a2e);color:inherit;font-size:.85rem;resize:vertical;"></textarea>
           </label>
           <p style="font-size:.75rem;opacity:.6;">{{t('bug_report_auto_info')}}</p>
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.82rem;">
+            <input type="checkbox" v-model="bugReportForm.attachLogs">
+            <bird-icon name="clipboard" :size="14" style="opacity:.6;"></bird-icon>
+            {{t('bug_report_attach_logs')}}
+          </label>
           <div style="display:flex;justify-content:flex-end;gap:.5rem;">
             <button type="button" class="update-btn-secondary" @click="closeBugReport" :disabled="bugReportForm.sending">{{t('bug_report_cancel')}}</button>
             <button type="submit" class="update-btn-primary" :disabled="bugReportForm.sending || !bugReportForm.title.trim()">

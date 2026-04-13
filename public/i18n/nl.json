@@ -1268,6 +1268,7 @@
   "bug_report_cancel": "Annuleren",
   "bug_report_submit": "Verzenden",
   "bug_report_sending": "Verzenden...",
+  "bug_report_attach_logs": "Recente logs bijvoegen (afgelopen uur)",
   "set_network_title": "BirdStation-netwerk",
   "set_network_desc": "Sluit je aan bij het community-netwerk! Je station verschijnt op de kaart en deelt dagelijkse detectiestatistieken (soorten, aantallen). Er worden geen persoonlijke gegevens verzonden.",
   "set_network_active": "Station verbonden met het netwerk",

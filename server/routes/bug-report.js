@@ -76,7 +76,7 @@ function createGitHubIssue(title, markdownBody) {
 /**
  * Format system info into a markdown body with collapsible details.
  */
-function formatIssueBody(description, systemInfo) {
+function formatIssueBody(description, systemInfo, logs) {
   let body = description + '\n\n';
 
   if (systemInfo && typeof systemInfo === 'object' && Object.keys(systemInfo).length > 0) {
@@ -87,6 +87,13 @@ function formatIssueBody(description, systemInfo) {
       body += `| ${key} | ${display} |\n`;
     }
     body += '\n</details>\n';
+  }
+
+  if (logs && typeof logs === 'string' && logs.trim()) {
+    body += '\n<details>\n<summary>Service Logs (last hour)</summary>\n\n```\n';
+    // Limit to ~5000 chars to avoid GitHub body size issues
+    const trimmed = logs.length > 5000 ? '...(truncated)\n' + logs.slice(-5000) : logs;
+    body += trimmed + '\n```\n\n</details>\n';
   }
 
   body += '\n---\n*Submitted via birdash bug report*\n';
@@ -131,7 +138,7 @@ function handle(req, res, pathname, ctx) {
     req.on('end', () => {
       (async () => {
         try {
-          const { title, description, systemInfo } = JSON.parse(body);
+          const { title, description, systemInfo, logs } = JSON.parse(body);
 
           if (!title || typeof title !== 'string' || !title.trim()) {
             res.writeHead(400, { 'Content-Type': JSON_CT });
@@ -144,7 +151,7 @@ function handle(req, res, pathname, ctx) {
             return;
           }
 
-          const markdownBody = formatIssueBody(description.trim(), systemInfo || {});
+          const markdownBody = formatIssueBody(description.trim(), systemInfo || {}, logs || '');
 
           if (githubToken) {
             // Create GitHub issue
