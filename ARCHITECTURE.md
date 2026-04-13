@@ -638,6 +638,7 @@ Redirects: `index.html` -> `overview.html`, `recent.html` -> `calendar.html`, `m
 
 - **4 UI languages**: French, English, German, Dutch (`public/i18n/*.json`)
 - **36 species name languages**: bird names displayed in user's chosen language across all pages
+- **Auto-download**: if BirdNET label files (`l18n/labels_XX.json`) are missing, `/api/species-names` auto-downloads from the BirdNET-Analyzer GitHub repo and caches locally
 - Default language: French (`defaultLang: 'fr'` in `bird-config.js`)
 
 ### Themes (11)
@@ -764,7 +765,13 @@ Hosted on GitHub Pages at `https://ernens.github.io/birdash-network/`. Reads the
 
 File: `server/routes/bug-report.js`
 
-Users can submit bugs directly from the dashboard header (red bug icon). The report is created as a GitHub Issue via the GitHub Issues API, using a token stored in `config/github-token.txt`.
+Users can submit bugs directly from the dashboard header (red bug icon). The report is created as a GitHub Issue via the GitHub Issues API, using a built-in fine-grained PAT (Issues:Write only).
+
+Features:
+- Title + description form in a modal
+- System info auto-collected (version, browser, page, screen, lang, theme)
+- **"Attach recent logs" checkbox** — fetches `/api/system/logs-export` (last hour of journalctl from birdash, birdengine, birdengine-recording) and includes in the issue body as a collapsible `<details>` block (truncated to 5KB)
+- System info + logs in collapsible sections to keep the issue body clean
 
 ---
 

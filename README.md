@@ -190,7 +190,7 @@ Raspberry Pi 5 + SSD
 ### Community Network
 - <img src="docs/icons/radio.svg" width="16" align="top" alt=""> **BirdStation Network** — opt-in community of stations sharing daily detection summaries via Supabase
 - <img src="docs/icons/map-pin.svg" width="16" align="top" alt=""> **[Live station map](https://ernens.github.io/birdash-network/)** — all registered stations on an interactive dark-themed map
-- <img src="docs/icons/bug.svg" width="16" align="top" alt=""> **In-app bug reporting** — submit issues directly to GitHub from the dashboard header
+- <img src="docs/icons/bug.svg" width="16" align="top" alt=""> **In-app bug reporting** — submit issues directly to GitHub from the dashboard header, with optional log attachment (last hour of service logs included in the issue)
 
 ### Settings & System
 - <img src="docs/icons/wrench.svg" width="16" align="top" alt=""> Full settings UI — models (one-click BirdNET download with license acceptance), analysis parameters, notifications, audio, backup
@@ -444,10 +444,11 @@ birdash/
 - Rate limiting: 300 req/min per IP
 - Strict SQL validation (read-only, parameterized)
 - Centralized SQL query library (`bird-queries.js`) — 38 parameterized queries with automatic confidence filtering
-- Lucide icon system (`bird-icons.js` + `<bird-icon>` component) — 98 modern SVG icons replacing emojis across the UI
+- Lucide icon system (`bird-icons.js` + `<bird-icon>` component) — 100+ modern SVG icons, theme-aware form controls (`accent-color`)
 - Security headers (CSP, X-Frame-Options, Referrer-Policy)
 - CORS restricted to localhost
 - Worker threads for heavy computation (event-loop non-blocking)
+- Auto-download of species translation labels when missing (BirdNET GitHub fallback)
 
 ## Community
 
