@@ -201,20 +201,6 @@
 
       </div>
 
-      <!-- Copy logs button -->
-      <div class="card" style="display:flex;align-items:center;gap:.8rem;padding:.7rem 1rem;margin-bottom:1rem;">
-        <bird-icon name="clipboard" :size="16" style="color:var(--text-muted);flex-shrink:0;"></bird-icon>
-        <div style="flex:1;">
-          <div style="font-size:.82rem;font-weight:600;">{{t('sys_copy_logs')}}</div>
-          <div style="font-size:.72rem;color:var(--text-muted);">{{t('sys_copy_logs_desc')}}</div>
-        </div>
-        <button class="btn btn-secondary" style="font-size:.78rem;white-space:nowrap;" @click="copyLogs" :disabled="copyingLogs">
-          <bird-icon name="copy" :size="13"></bird-icon>
-          {{ copyingLogs ? '...' : t('sys_copy_logs_btn') }}
-        </button>
-        <span v-if="logsCopied" style="font-size:.75rem;color:var(--accent);">{{t('sys_copy_logs_done')}}</span>
-      </div>
-
       <div class="grid-2">
 
         <!-- Analysis Status -->
@@ -1804,35 +1790,6 @@ const app = createApp({
 
     function openUrl(url) { window.open(url, '_blank'); }
 
-    // ── Copy logs to clipboard ──
-    const copyingLogs = ref(false);
-    const logsCopied = ref(false);
-    async function copyLogs() {
-      copyingLogs.value = true;
-      logsCopied.value = false;
-      try {
-        const res = await fetch(BIRD_CONFIG.apiUrl + '/system/logs-export');
-        const text = await res.text();
-        // Try modern clipboard API first, fallback to execCommand for HTTP
-        let ok = false;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          try { await navigator.clipboard.writeText(text); ok = true; } catch {}
-        }
-        if (!ok) {
-          const ta = document.createElement('textarea');
-          ta.value = text;
-          ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
-          document.body.appendChild(ta);
-          ta.select();
-          ok = document.execCommand('copy');
-          document.body.removeChild(ta);
-        }
-        logsCopied.value = ok;
-        if (ok) setTimeout(() => { logsCopied.value = false; }, 3000);
-      } catch(e) { console.error(e); }
-      copyingLogs.value = false;
-    }
-
     return {
       lang, t, spName,
       // Tabs
@@ -1840,7 +1797,7 @@ const app = createApp({
       // Health tab
       api, health, services, svcExpanded, svcDetail, confirmAction, analysis, audio, backup, network, hw, fresh,
       loadHealth, loadServices, toggleSvc, svcAction, svcError, confirmStop, svcLabel, svcDotClass, terminalKey,
-      loadApi, loadFresh, fmtBytes, copyLogs, copyingLogs, logsCopied,
+      loadApi, loadFresh, fmtBytes,
       // Model tab
       mod, modPeriod, modPeriods, loadModelMonitor,
       cmp, cmpDate, loadModelCompare,
