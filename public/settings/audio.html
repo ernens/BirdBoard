@@ -5,7 +5,7 @@
           <div style="flex:1;">
             <strong>{{ audioConf.device_name || t('audio_no_device_selected') }}</strong>
             <div style="font-size:.82em;opacity:.7;">
-              {{t('audio_profile')}} : <strong>{{ audioConf.profile_name }}</strong>
+              {{t('audio_profile')}} : <strong>{{ t('audio_prof_'+audioConf.profile_name) || audioConf.profile_name }}</strong>
               &nbsp;|&nbsp; {{t('audio_channels')}} : {{ audioConf.input_channels }}
               &nbsp;|&nbsp; {{ audioConf.capture_sample_rate }} Hz → 32000 Hz
               <span v-if="audioConf.cal_date"> &nbsp;|&nbsp; {{t('audio_calibrated')}} {{ audioConf.cal_date?.split('T')[0] }}</span>
@@ -72,7 +72,7 @@
             <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
               <select v-model="audioConf.profile_name" @change="activateAudioProfile(audioConf.profile_name)"
                       style="padding:.4rem .6rem;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);font-size:.9em;">
-                <option v-for="(p, name) in audioProfiles" :key="name" :value="name">{{ name }}</option>
+                <option v-for="(p, name) in audioProfiles" :key="name" :value="name">{{ t('audio_prof_'+name) || p.label || name }}</option>
               </select>
               <button class="btn-outline" @click="duplicateAudioProfile" style="font-size:.78em;">{{t('audio_duplicate')}}</button>
               <button class="btn-outline" @click="deleteAudioProfile" style="font-size:.78em;"

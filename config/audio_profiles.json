@@ -1,6 +1,7 @@
 {
   "default": {
     "profile_name": "default",
+    "label": "Default",
     "highpass_enabled": true,
     "highpass_cutoff_hz": 100,
     "lowpass_enabled": true,
@@ -15,6 +16,7 @@
   },
   "jardin": {
     "profile_name": "jardin",
+    "label": "Jardin",
     "highpass_enabled": true,
     "highpass_cutoff_hz": 80,
     "lowpass_enabled": true,
@@ -29,6 +31,7 @@
   },
   "foret": {
     "profile_name": "foret",
+    "label": "Forêt",
     "highpass_enabled": true,
     "highpass_cutoff_hz": 80,
     "lowpass_enabled": false,
@@ -43,6 +46,7 @@
   },
   "bord_de_route": {
     "profile_name": "bord_de_route",
+    "label": "Bord de route",
     "highpass_enabled": true,
     "highpass_cutoff_hz": 150,
     "lowpass_enabled": true,
@@ -57,6 +61,7 @@
   },
   "ville": {
     "profile_name": "ville",
+    "label": "Ville",
     "highpass_enabled": true,
     "highpass_cutoff_hz": 150,
     "lowpass_enabled": true,
@@ -71,6 +76,7 @@
   },
   "nuit": {
     "profile_name": "nuit",
+    "label": "Nuit",
     "highpass_enabled": true,
     "highpass_cutoff_hz": 80,
     "lowpass_enabled": false,
@@ -85,6 +91,7 @@
   },
   "test": {
     "profile_name": "test",
+    "label": "Test",
     "highpass_enabled": false,
     "highpass_cutoff_hz": 80,
     "lowpass_enabled": false,
