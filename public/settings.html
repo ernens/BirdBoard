@@ -765,15 +765,24 @@ const app = createApp({
     // there's something to persist (and stops them from second-guessing
     // whether the previous save took effect).
     let _savedSnapshot = null;
+    let _savedAudioSnapshot = null;
+    let _savedAgSnapshot = null;
     function _snapshotSavedState() {
       try { _savedSnapshot = JSON.stringify(conf); } catch { _savedSnapshot = null; }
+      try { _savedAudioSnapshot = JSON.stringify(audioConf); } catch { _savedAudioSnapshot = null; }
+      try { _savedAgSnapshot = JSON.stringify(agConf); } catch { _savedAgSnapshot = null; }
       _savedModel = conf.MODEL;
       _savedSecondary = conf.SECONDARY_MODEL;
       _savedDual = String(conf.DUAL_MODEL_ENABLED);
     }
     const isDirty = computed(() => {
       if (!_savedSnapshot) return false;
-      try { return JSON.stringify(conf) !== _savedSnapshot; } catch { return false; }
+      try {
+        if (JSON.stringify(conf) !== _savedSnapshot) return true;
+        if (_savedAudioSnapshot && JSON.stringify(audioConf) !== _savedAudioSnapshot) return true;
+        if (_savedAgSnapshot && JSON.stringify(agConf) !== _savedAgSnapshot) return true;
+        return false;
+      } catch { return false; }
     });
 
     function resetDefaults() {
