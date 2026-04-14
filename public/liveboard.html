@@ -71,9 +71,12 @@
     @keyframes flash { 0% { opacity: 1; } 50% { opacity: .5; } 100% { opacity: 1; } }
     .d-flash { animation: flash .6s ease-in-out; }
 
-    /* Fullscreen button */
-    .d-fullscreen { position: fixed; top: .8rem; right: .8rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .4rem .6rem; cursor: pointer; color: var(--text-muted); opacity: .5; transition: opacity .2s; z-index: 10; }
-    .d-fullscreen:hover { opacity: 1; }
+    /* Back + Fullscreen buttons */
+    .d-back, .d-fullscreen { position: fixed; top: .8rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .4rem .6rem; cursor: pointer; color: var(--text-muted); opacity: 0; transition: opacity .3s; z-index: 10; text-decoration: none; }
+    .d-back { left: .8rem; }
+    .d-fullscreen { right: .8rem; }
+    .d-back:hover, .d-fullscreen:hover { opacity: 1; }
+    body:hover .d-back, body:hover .d-fullscreen { opacity: .3; }
 
     @media (max-width: 768px) {
       .d-main { grid-template-columns: 1fr; }
@@ -85,6 +88,9 @@
 </head>
 <body>
 <div id="app">
+  <a href="overview.html" class="d-back" :title="t('nav_overview')">
+    <bird-icon name="arrow-left" :size="14"></bird-icon>
+  </a>
   <button class="d-fullscreen" @click="toggleFullscreen" :title="t('display_fullscreen')">
     <bird-icon name="maximize-2" :size="18"></bird-icon>
   </button>
