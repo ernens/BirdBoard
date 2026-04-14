@@ -152,7 +152,10 @@
               <div class="skeleton" style="width:55px;height:1.1rem;border-radius:10px;"></div>
             </div>
           </div>
-          <div v-else-if="!displayRows.length" class="error-msg" style="padding:2rem;">{{t('no_data')}}</div>
+          <div v-else-if="!displayRows.length" class="hint-empty" style="padding:2rem;">
+            <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
+            <div>{{t('no_data')}}</div>
+          </div>
           <div v-else class="det-table-wrap">
           <table class="bird-table">
             <thead><tr>

@@ -79,7 +79,10 @@
           <div class="card">
             <div class="card-title">{{t('rarity_seen_once')}}</div>
             <div v-if="once.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:60%"></div><div class="skeleton skeleton-text" style="width:40%"></div></div></div></div>
-            <div v-else-if="!once.rows.length" class="error-msg">{{t('no_data')}}</div>
+            <div v-else-if="!once.rows.length" class="hint-empty">
+              <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
+              <div>{{t('no_data')}}</div>
+            </div>
             <div v-else>
               <div v-for="r in once.rows" :key="r.Com_Name" class="det-item"
                    style="cursor:pointer;gap:.5rem;" @click="navigateTo('species.html',{species:r.Com_Name})">
@@ -103,7 +106,10 @@
           <div class="card">
             <div class="card-title">{{t('rarity_last_rare')}}</div>
             <div v-if="recent.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:55%"></div><div class="skeleton skeleton-text" style="width:35%"></div></div></div></div>
-            <div v-else-if="!recent.rows.length" class="error-msg">{{t('no_data')}}</div>
+            <div v-else-if="!recent.rows.length" class="hint-empty">
+              <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
+              <div>{{t('no_data')}}</div>
+            </div>
             <div v-else>
               <div v-for="d in recent.rows" :key="d.Date+d.Time+d.Com_Name"
                    class="det-item" style="gap:.5rem;cursor:pointer;"
@@ -137,7 +143,10 @@
             <div class="card-title" style="margin-bottom:0;">{{t('rare_desc',{n:fMaxDet})}}</div>
           </div>
           <div v-if="table.loading" style="padding:1rem;"><div class="skeleton-row" v-for="i in 5" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:50%"></div><div class="skeleton skeleton-text" style="width:30%"></div></div><div class="skeleton" style="width:60px;height:1rem;"></div></div></div>
-          <div v-else-if="!table.rows.length" class="error-msg" style="padding:1rem;">{{t('no_data')}}</div>
+          <div v-else-if="!table.rows.length" class="hint-empty" style="padding:1rem;">
+            <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
+            <div>{{t('no_data')}}</div>
+          </div>
           <table v-else class="bird-table">
             <thead><tr>
               <th style="width:44px;"></th>

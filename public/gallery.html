@@ -94,7 +94,7 @@
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.2rem;flex-shrink:0;">
             <span style="font-size:.72rem;font-weight:600;color:var(--accent);">{{group.dets.length}} det.</span>
-            <span style="font-size:.68rem;color:var(--text-faint);">max {{Math.round(Math.max(...group.dets.map(d=>d.conf))*100)}}%</span>
+            <span style="font-size:.68rem;color:var(--text-faint);">max {{fmtConf(Math.max(...group.dets.map(d=>d.conf)))}}</span>
           </div>
         </div>
 
@@ -107,7 +107,7 @@
                     style="cursor:pointer"
                     @click="openModal(group, det)"></canvas>
             <div class="gallery-det-meta">
-              <span class="gallery-conf-badge" :style="confStyle(det.conf)">{{Math.round(det.conf*100)}}%</span>
+              <span class="gallery-conf-badge" :style="confStyle(det.conf)">{{fmtConf(det.conf)}}</span>
               <span class="gallery-det-date">{{det.date}} {{det.timeShort}}</span>
             </div>
             <button class="gallery-play-btn"
@@ -139,7 +139,7 @@ async function renderMiniSpectro(url, canvas) {
 
 <script>
 const { createApp, ref, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
-const { birdQuery, buildAudioUrl, useFilterPeriod, useFilterConfidence, buildWhereClause } = BIRDASH;
+const { birdQuery, buildAudioUrl, useFilterPeriod, useFilterConfidence, buildWhereClause, fmtConf } = BIRDASH;
       const Q = BIRDASH_QUERIES;
 
 const app = createApp({
@@ -283,7 +283,7 @@ const app = createApp({
     // ── Delete detection ──────────────────────────────────────────
     async function deleteDet(group, det, detIdx) {
       const name = spName(group.name, group.sci);
-      if (!await BIRDASH_UTILS.confirmDialog(`${t('gallery_delete_confirm') || 'Delete this detection?'}\n\n${name} — ${det.date} ${det.timeShort} (${Math.round(det.conf*100)}%)`, { okLabel: t('gallery_delete_confirm'), danger: true })) return;
+      if (!await BIRDASH_UTILS.confirmDialog(`${t('gallery_delete_confirm') || 'Delete this detection?'}\n\n${name} — ${det.date} ${det.timeShort} (${fmtConf(det.conf)})`, { okLabel: t('gallery_delete_confirm'), danger: true })) return;
       try {
         const resp = await fetch(BIRD_CONFIG.apiUrl + '/detections', {
           method: 'DELETE',
@@ -321,7 +321,7 @@ const app = createApp({
 
     return {
       t, lang, theme, spName, favorites, toggleFavorite, isFavorite,
-      fp, fc,
+      fp, fc, fmtConf,
       loading, searchQuery, newSpOnly, newSpeciesSet,
       allGroups, filteredGroups,
       loadGallery, deleteDet,

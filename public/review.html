@@ -120,10 +120,10 @@
               <strong style="font-size:.88rem;">{{spName(det.com_name, det.sci_name)}}</strong>
               <span style="font-size:.72rem;font-weight:600;"
                     :style="{color: det.confidence>=0.8?'var(--accent)':det.confidence>=0.7?'#dd6b20':'#e53e3e'}">
-                {{(det.confidence*100).toFixed(0)}}%
+                {{fmtConf(det.confidence)}}
               </span>
             </div>
-            <div style="font-size:.75rem;color:var(--text-muted);">{{det.date}} {{det.time.slice(0,5)}} · {{det.model}}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);">{{fmtDate(det.date)}} {{det.time.slice(0,5)}} · {{det.model}}</div>
             <div style="margin-top:.2rem;">
               <span v-for="r in det.reasons" :key="r" class="rv-badge">{{r}}</span>
             </div>
@@ -160,10 +160,10 @@
           <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;">
             <div v-for="det in delItems" :key="det.date+det.time+det.sci_name"
                  style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);font-size:.8rem;">
-              <span style="color:var(--text-muted);min-width:70px;">{{det.date}}</span>
+              <span style="color:var(--text-muted);min-width:70px;">{{fmtDate(det.date)}}</span>
               <span style="color:var(--text-muted);min-width:40px;">{{det.time.slice(0,5)}}</span>
               <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{spName(det.com_name, det.sci_name)}}</span>
-              <span style="font-size:.7rem;color:var(--text-faint);">{{(det.confidence*100).toFixed(0)}}%</span>
+              <span style="font-size:.7rem;color:var(--text-faint);">{{fmtConf(det.confidence)}}</span>
             </div>
           </div>
           <div style="display:flex;gap:.5rem;justify-content:flex-end;">
@@ -200,7 +200,7 @@
 
 <script>
 const { createApp, ref, reactive, computed, onMounted } = Vue;
-const { useI18n, useTheme, useNav, useFilterPeriod, useSpeciesNames, registerComponents } = BIRDASH;
+const { useI18n, useTheme, useNav, useFilterPeriod, useSpeciesNames, registerComponents, fmtDate, fmtConf } = BIRDASH;
 const { buildAudioUrl } = BIRDASH_UTILS;
 const API = BIRD_CONFIG.apiUrl;
 
@@ -402,7 +402,7 @@ const app = createApp({
     onMounted(loadFlagged);
 
     return {
-      t, spName, fp, API,
+      t, spName, fp, API, fmtDate, fmtConf,
       flagged, pagedFlagged, loading, pageLimit, selected, playingDet,
       unreviewed, rejectedList, rejectedCount, confirmedCount, reasonGroups,
       delOpen, delItems, delDeleting, delDone, delResults, delProgress,
