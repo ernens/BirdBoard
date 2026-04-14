@@ -39,7 +39,7 @@ Raspberry Pi 5 + SSD
 | Component | Technologie | Rol |
 |-----------|------------|-----|
 | **BirdEngine** | Python 3 + TFLite | Audio-opname, filtering, dual-model inferentie |
-| **Birdash** | Node.js + better-sqlite3 | REST-API, 19 Vue 3-pagina's, cache, aggregaten |
+| **Birdash** | Node.js + better-sqlite3 | REST-API, 20 Vue 3-pagina's, cache, aggregaten |
 | **Caddy** | Go | Reverse proxy HTTPS, gzip, statische bestanden |
 | **SQLite** | C | Detecties, validaties, taxonomie |
 | **Supabase** | PostgreSQL | Community-netwerk (opt-in telemetrie) |
@@ -50,12 +50,12 @@ Raspberry Pi 5 + SSD
 🎤 Microfoon → Adaptieve versterking → Hoogdoorlaat → Laagdoorlaat → Geluidsprofiel / Auto-denoise → RMS → 🐦 BirdNET + Perch
 ```
 
-### Dashboard-pagina's (19)
+### Dashboard-pagina's (20)
 
 | Sectie | Pagina's |
 |--------|----------|
 | Home | Overzicht, Vandaag |
-| Live | Bird Flow, Spectrogram, Logboek |
+| Live | Bird Flow, Live Board, Spectrogram, Logboek |
 | Geschiedenis | Kalender, Tijdlijn, Detecties, Review |
 | Soorten | Soortenkaarten, Galerij, Favorieten, Zeldzaamheden, Opnamen |
 | Indicatoren | Weer, Statistieken, Analyses, Biodiversiteit, Fenologie, Vergelijking |

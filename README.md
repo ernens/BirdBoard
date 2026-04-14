@@ -127,10 +127,10 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/sliders-horizontal.svg" width="16" align="top" alt=""> **Adaptive noise normalization** — automatic software gain based on ambient noise, with clip guard, activity hold, and observer mode
 - <img src="docs/icons/volume-x.svg" width="16" align="top" alt=""> **Audio filters** — configurable highpass + lowpass (bandpass), spectral noise reduction (stationary gating), RMS normalization
 - <img src="docs/icons/radio.svg" width="16" align="top" alt=""> **BirdWeather** — automatic upload of soundscapes + detections
-- <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Smart push notifications** — via Apprise (ntfy, Telegram, Discord, Slack, email, 100+ services) with species photo attached. 5 configurable rules: rare species, first-of-season, new species, first-of-day, favorites
+- <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Smart push notifications** — via Apprise (ntfy, Telegram, Discord, Slack, email, 100+ services) with species photo attached, station name prefix (`[Heinsch] Merle noir`). 5 configurable rules: rare species, first-of-season, new species, first-of-day, favorites
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **Async post-processing** — MP3 extraction, spectrogram generation, DB sync don't block inference
 
-### Dashboard (19 pages)
+### Dashboard (20 pages)
 
 **Home**
 - <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Overview** (landing page) — 6 KPIs, bird of the day, weather context, hourly activity, "What's New" alerts, latest detections
@@ -141,6 +141,7 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **Bird Flow** — animated pipeline showing live audio levels (SSE), dual-model inference with per-model species + confidence, detection flow with animated connectors, today's KPIs, key events feed
 - <img src="docs/icons/music.svg" width="16" align="top" alt=""> **Live spectrogram** — real-time audio from mic with bird name overlay
 - <img src="docs/icons/scroll-text.svg" width="16" align="top" alt=""> **Live log** — real-time streaming dashboard (SSE) with color-coded categories, KPIs, pause/resume
+- <img src="docs/icons/monitor.svg" width="16" align="top" alt=""> **Live Board** — full-screen kiosk display for a dedicated screen: large species photo, KPIs, today's species list, weather, auto-refresh 30s, discreet back button
 
 **History**
 - <img src="docs/icons/calendar-days.svg" width="16" align="top" alt=""> **Calendar** — unified day-by-day view with timeline visualization, species list, audio player
@@ -163,7 +164,7 @@ Raspberry Pi 5 + SSD
 
 **Navigation**
 - 6 intent-based sections: Home, Live, History, Species, Indicators, Station
-- Mobile bottom nav (4 quick links + hamburger drawer with all 19 pages)
+- Mobile bottom nav (4 quick links + hamburger drawer with all 20 pages)
 - Global species+date search, notification bell, review badge counter
 - Keyboard shortcuts on 5 pages, swipe gestures on species photos
 - Skeleton loading states for data-heavy pages
@@ -386,6 +387,7 @@ birdash/
 │   ├── spectrogram.html           # Live spectrogram + clip playback
 │   ├── settings.html              # Full settings (9 tabs)
 │   ├── system.html                # System health + terminal
+│   ├── liveboard.html              # Live Board — kiosk display mode
 │   ├── log.html                   # Live log dashboard (SSE)
 │   ├── recordings.html            # Audio library with photos
 │   ├── rarities.html              # Rare species tracker

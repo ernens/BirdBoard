@@ -39,7 +39,7 @@ Raspberry Pi 5 + SSD
 | Composant | Technologie | Rôle |
 |-----------|------------|------|
 | **BirdEngine** | Python 3 + TFLite | Enregistrement audio, filtrage, inférence dual-model |
-| **Birdash** | Node.js + better-sqlite3 | API REST, 19 pages Vue 3, cache, agrégats |
+| **Birdash** | Node.js + better-sqlite3 | API REST, 20 pages Vue 3, cache, agrégats |
 | **Caddy** | Go | Reverse proxy HTTPS, gzip, fichiers statiques |
 | **SQLite** | C | Stockage détections, validations, taxonomie |
 | **Supabase** | PostgreSQL | Réseau communautaire (télémétrie opt-in) |
@@ -52,12 +52,12 @@ Raspberry Pi 5 + SSD
 
 Chaque étape est configurable et peut être activée/désactivée indépendamment via **Réglages → Audio**.
 
-### Pages du dashboard (19)
+### Pages du dashboard (20)
 
 | Section | Pages |
 |---------|-------|
 | Accueil | Vue d'ensemble, Aujourd'hui |
-| En direct | Bird Flow, Spectrogramme, Journal |
+| En direct | Bird Flow, Live Board, Spectrogramme, Journal |
 | Historique | Calendrier, Timeline, Détections, Révision |
 | Espèces | Fiches, Galerie, Favoris, Raretés, Enregistrements |
 | Indicateurs | Météo, Statistiques, Analyses, Biodiversité, Phénologie, Comparaison |

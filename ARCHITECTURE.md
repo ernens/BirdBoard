@@ -218,6 +218,7 @@ Polls the detections DB every 30 seconds and sends push notifications via **Appr
 - Species count + last-seen cache loaded from DB at startup
 - Favorites loaded from birdash.db
 - Species photo downloaded from `/api/photo` and attached via `--attach`
+- Station name prefix in title: `[Heinsch] Merle noir — Première du jour` (from SITE_NAME, falls back to hostname)
 - Reads config from birdnet.conf (same toggles as UI)
 
 ---
@@ -639,6 +640,7 @@ The shell wraps every page and provides:
 | Today | `today.html` | Home |
 | Bird Flow | `dashboard.html` | Live |
 | Spectrogram | `spectrogram.html` | Live |
+| Live Board | `liveboard.html` | Live |
 | Live Log | `log.html` | Live |
 | Calendar | `calendar.html` | History |
 | Timeline | `timeline.html` | History |
