@@ -72,20 +72,14 @@
       </div>
     </div>
 
-    <!-- Weather widget + Quick links -->
-    <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem;">
-      <a v-if="weatherToday" href="weather.html" class="weather-widget" style="text-decoration:none;">
-        <span style="font-size:1.1rem;"><bird-icon name="thermometer" :size="16" ></bird-icon></span>
+    <!-- Weather widget -->
+    <div v-if="weatherToday" style="margin-bottom:.75rem;">
+      <a href="weather.html" class="weather-widget" style="text-decoration:none;">
+        <span style="font-size:1.1rem;"><bird-icon name="thermometer" :size="16"></bird-icon></span>
         <span style="font-weight:600;font-size:.95rem;">{{weatherToday.temp}}°C</span>
         <span style="color:var(--text-muted);font-size:.78rem;">{{weatherToday.precip}}mm</span>
         <span style="color:var(--text-muted);font-size:.78rem;">💨{{weatherToday.wind}}km/h</span>
       </a>
-      <div class="quick-links" style="margin-bottom:0;">
-        <a href="spectrogram.html" class="quick-link"><bird-icon name="radio" :size="14" ></bird-icon> {{t('nav_spectrogram')}}</a>
-        <a :href="'calendar.html?date='+daysAgo(1)" class="quick-link"><bird-icon name="calendar" :size="14" ></bird-icon> {{t('yesterday')}}</a>
-        <a href="rarities.html" class="quick-link"><bird-icon name="gem" :size="14" ></bird-icon> {{t('nav_rarities')}}</a>
-        <a href="review.html" class="quick-link"><bird-icon name="check-circle" :size="14" ></bird-icon> {{t('nav_review')}}</a>
-      </div>
     </div>
 
     <!-- ═══ What's New — alertes + phénologie ═══ -->

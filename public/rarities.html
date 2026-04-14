@@ -137,11 +137,13 @@
           </div>
         </div>
 
-        <!-- Table complète -->
-        <div class="card" style="padding:0;overflow:hidden;">
-          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);">
-            <div class="card-title" style="margin-bottom:0;">{{t('rare_desc',{n:fMaxDet})}}</div>
-          </div>
+        <!-- Table complète (dépliable) -->
+        <details class="card" style="padding:0;overflow:hidden;">
+          <summary style="padding:.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;">
+            <bird-icon name="chevron-right" :size="14" style="transition:transform .2s;"></bird-icon>
+            <span class="card-title" style="margin-bottom:0;">{{t('rare_desc',{n:fMaxDet})}}</span>
+            <span v-if="table.rows.length" style="font-size:.72rem;color:var(--text-faint);">({{table.rows.length}})</span>
+          </summary>
           <div v-if="table.loading" style="padding:1rem;"><div class="skeleton-row" v-for="i in 5" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:50%"></div><div class="skeleton skeleton-text" style="width:30%"></div></div><div class="skeleton" style="width:60px;height:1rem;"></div></div></div>
           <div v-else-if="!table.rows.length" class="hint-empty" style="padding:1rem;">
             <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
@@ -172,7 +174,7 @@
               </tr>
             </tbody>
           </table>
-        </div>
+        </details>
       </div>
     </div>
   </birdash-shell>

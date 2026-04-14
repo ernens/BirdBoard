@@ -31,16 +31,13 @@
       <!-- ── Filter panel (sidebar) ──────────────────────────────── -->
       <div class="filter-panel" @click.stop>
 
-        <!-- Guild quick-select buttons -->
+        <!-- Guild filter (dropdown instead of buttons to reduce clutter) -->
         <div v-if="taxonomyOrders.length">
           <span class="fp-label">{{t('guild_filter')}}</span>
-          <div class="fp-quick-btns" style="flex-wrap:wrap;">
-            <button class="fp-quick-btn" :class="{active:!fGuild}" @click="fGuild=''" style="font-size:.72rem;">{{t('guild_all')}}</button>
-            <button v-for="g in guildOptions" :key="g.key" class="fp-quick-btn" :class="{active:fGuild===g.key}"
-                    @click="selectGuild(g.key)" :title="g.label" style="font-size:.72rem;">
-              {{g.icon}} {{g.label}}
-            </button>
-          </div>
+          <select class="fp-select" style="width:100%;" :value="fGuild" @change="selectGuild($event.target.value)">
+            <option value="">{{t('guild_all')}}</option>
+            <option v-for="g in guildOptions" :key="g.key" :value="g.key">{{g.icon}} {{g.label}}</option>
+          </select>
         </div>
 
         <!-- Ordre -->

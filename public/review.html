@@ -61,19 +61,18 @@
         <span v-if="confirmedCount" class="rv-pill" style="background:rgba(56,161,105,.15);color:#38a169;">{{confirmedCount}} ✓</span>
       </div>
 
-      <!-- Row 2: Selection + validation actions -->
+      <!-- Row 2: Selection actions -->
       <div class="rv-row">
         <button class="rv-btn-outline" @click="selectAll">
           {{selected.size === flagged.length ? t('review_deselect') : t('review_select_all')}}
         </button>
         <span class="rv-sep"></span>
         <span style="font-size:.72rem;color:var(--text-muted);">{{t('review_conf_select')}} :</span>
-        <button v-for="th in [30,40,50,60,70]" :key="th"
-                class="rv-btn-outline" :class="{active: confThreshold===th}"
-                style="font-size:.72rem;padding:.18rem .45rem;"
-                @click="selectByConfidence(th)">
-          &lt;{{th}}% <span v-if="countBelow(th)" style="font-weight:700;">({{countBelow(th)}})</span>
-        </button>
+        <select style="font-size:.75rem;padding:.2rem .4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-main);cursor:pointer;"
+                @change="selectByConfidence(Number($event.target.value))" :value="confThreshold || ''">
+          <option value="">—</option>
+          <option v-for="th in [30,40,50,60,70]" :key="th" :value="th">&lt;{{th}}% ({{countBelow(th)}})</option>
+        </select>
       </div>
 
       <!-- Row 3: Bulk actions (only visible when items selected) -->
