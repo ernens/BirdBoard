@@ -222,35 +222,30 @@ const app = createApp({
       const from = `${y}-${String(m + 1).padStart(2, '0')}-01`;
       const to = `${y}-${String(m + 1).padStart(2, '0')}-${new Date(y, m + 1, 0).getDate()}`;
       try {
-        // Aggregate daily_stats (per-species table) into per-day totals
+        // Query detections directly with the same confidence threshold
+        // as today.html to ensure numbers match when clicking a day
+        const conf = BIRD_CONFIG.defaultConfidence;
         const rows = await birdQuery(
-          `SELECT date, SUM(count_07) as det, COUNT(DISTINCT com_name) as sp
-           FROM daily_stats WHERE date >= ? AND date <= ?
-           GROUP BY date ORDER BY date`,
-          [from, to]
+          `SELECT Date as date, COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp
+           FROM active_detections WHERE Date >= ? AND Date <= ? AND Confidence >= ?
+           GROUP BY Date ORDER BY Date`,
+          [from, to, conf]
         );
         const map = {};
         let mx = 1;
-        // Collect all distinct species across the month for the KPI
         const allSpecies = new Set();
         for (const r of rows) {
           map[r.date] = { det: r.det, sp: r.sp };
           if (r.det > mx) mx = r.det;
         }
 
-        // Get species names per day for monthly total species KPI
+        // Distinct species for the month KPI
         const spRows = await birdQuery(
-          `SELECT date, com_name FROM daily_stats WHERE date >= ? AND date <= ? AND count_07 > 0`,
-          [from, to]
+          `SELECT DISTINCT Com_Name FROM active_detections WHERE Date >= ? AND Date <= ? AND Confidence >= ?`,
+          [from, to, conf]
         );
-        for (const r of spRows) {
-          allSpecies.add(r.com_name);
-          if (!map[r.date]) map[r.date] = { det: 0, sp: 0, species: [] };
-          if (!map[r.date].species) map[r.date].species = [];
-          map[r.date].species.push(r.com_name);
-        }
+        for (const r of spRows) allSpecies.add(r.Com_Name);
 
-        // Store total unique species for monthly KPI
         map._totalSpecies = allSpecies.size;
         dailyData.value = map;
         maxDet = mx;
