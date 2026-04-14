@@ -5,12 +5,12 @@
 const path = require('path');
 const fs = require('fs');
 
-// ── Query result cache (2 min TTL for read-only queries) ─────────────────
-const _queryCache = new Map();
+// Use centralized result cache (cleared on mutations via clearAll())
+const resultCache = require('../lib/result-cache');
 const QUERY_CACHE_TTL = 2 * 60 * 1000;
 
-// Exported so detections.js can invalidate the cache after DELETE / edit
-function clearQueryCache() { _queryCache.clear(); }
+// Exported so detections.js can invalidate after DELETE / edit
+function clearQueryCache() { resultCache.clearAll(); }
 
 function handle(req, res, pathname, ctx) {
   const { requireAuth, db, dbWrite, readJsonFile, writeJsonFileAtomic, JSON_CT, validateQuery, photoCacheKey, PHOTO_CACHE_DIR, ebirdFreq } = ctx;
@@ -25,7 +25,6 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'GET' && pathname === '/api/rare-today') {
     (async () => {
       try {
-        const resultCache = require('../lib/result-cache');
         const { localDateStr } = require('../lib/local-date');
         const dateStr = new URL(req.url, 'http://x').searchParams.get('date')
           || localDateStr();
@@ -236,7 +235,7 @@ function handle(req, res, pathname, ctx) {
         } else {
           dbWrite.prepare('INSERT OR REPLACE INTO favorites (com_name, sci_name) VALUES (?, ?)').run(com_name, sci_name || '');
         }
-        clearQueryCache(); require('../lib/result-cache').clearAll(); // so pages filtering by favorites see the change immediately
+        clearQueryCache(); // clears resultCache too
         const rows = db.prepare('SELECT com_name, sci_name, added_at FROM favorites ORDER BY added_at DESC').all();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, favorites: rows }));
@@ -320,11 +319,11 @@ function handle(req, res, pathname, ctx) {
         }
 
         // Cache expensive read-only queries for 2 min
-        const qKey = sql + '|' + JSON.stringify(params);
-        const qHit = _queryCache.get(qKey);
-        if (qHit && (Date.now() - qHit.ts) < QUERY_CACHE_TTL) {
+        const qKey = 'q:' + sql + '|' + JSON.stringify(params);
+        const qHit = resultCache.get(qKey);
+        if (qHit) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(qHit.json);
+          res.end(qHit);
           return;
         }
 
@@ -341,7 +340,7 @@ function handle(req, res, pathname, ctx) {
         const data    = rows.map(r => columns.map(c => r[c]));
 
         const json = JSON.stringify({ columns, rows: data });
-        _queryCache.set(qKey, { json, ts: Date.now() });
+        resultCache.set(qKey, json, QUERY_CACHE_TTL);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(json);
 

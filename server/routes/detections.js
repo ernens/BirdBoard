@@ -12,13 +12,12 @@ const aggregates = require('../lib/aggregates');
 const { clearQueryCache } = require('./data');
 const resultCache = require('../lib/result-cache');
 
-// ── In-memory cache for expensive endpoints ──────────────────────────────
-const _cache = new Map();
+// Use the centralized result cache (cleared on mutations via clearAll())
 function cached(key, ttlMs, fn) {
-  const entry = _cache.get(key);
-  if (entry && (Date.now() - entry.ts) < ttlMs) return entry.data;
+  const hit = resultCache.get(key);
+  if (hit) return hit;
   const data = fn();
-  _cache.set(key, { data, ts: Date.now() });
+  resultCache.set(key, data, ttlMs);
   return data;
 }
 
@@ -75,7 +74,6 @@ function handle(req, res, pathname, ctx) {
           // Invalidate caches + refresh aggregates so the UI immediately
           // reflects the deletion without waiting for the 5-min timer.
           clearQueryCache(); resultCache.clearAll();
-          _cache.clear();
           try { aggregates.refreshToday(dbWrite, date); } catch {}
 
           console.log(`[delete] Removed ${result.changes} detection(s): ${comName} ${date} ${time}`);
@@ -158,7 +156,6 @@ function handle(req, res, pathname, ctx) {
           }
 
           clearQueryCache(); resultCache.clearAll();
-          _cache.clear();
           try { aggregates.rebuildAll(dbWrite); } catch {} // full rebuild after bulk delete
 
           console.log(`[delete-species] Removed ${result.changes} detections for "${comName}", ${filesDeleted} files deleted`);
@@ -189,10 +186,10 @@ function handle(req, res, pathname, ctx) {
 
         // Cache taxonomy for 10 min (expensive DISTINCT + N lookups)
         const taxCacheKey = `tax_${lang}`;
-        const taxHit = _cache.get(taxCacheKey);
-        if (taxHit && (Date.now() - taxHit.ts) < 10 * 60 * 1000) {
+        const taxHit = resultCache.get(taxCacheKey);
+        if (taxHit) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(taxHit.json);
+          res.end(taxHit);
           return;
         }
 
@@ -230,7 +227,7 @@ function handle(req, res, pathname, ctx) {
           }
         }
         const json = JSON.stringify({ species: result, orders, families });
-        _cache.set(taxCacheKey, { json, ts: Date.now() });
+        resultCache.set(taxCacheKey, json, 10 * 60 * 1000);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(json);
       } catch(e) {
@@ -395,10 +392,10 @@ function handle(req, res, pathname, ctx) {
         const minConf = parseFloat(qs.get('minConf') || '0.7');
 
         const cacheKey = `mc_${minDate}_${minConf}`;
-        const hit = _cache.get(cacheKey);
-        if (hit && (Date.now() - hit.ts) < 5 * 60 * 1000) {
+        const hit = resultCache.get(cacheKey);
+        if (hit) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(hit.data));
+          res.end(JSON.stringify(hit));
           return;
         }
 
@@ -466,7 +463,7 @@ function handle(req, res, pathname, ctx) {
         `).all(minDate, minConf);
 
         const result = { models, stats, unique, overlap, daily, since: minDate };
-        _cache.set(cacheKey, { data: result, ts: Date.now() });
+        resultCache.set(cacheKey, result, 5 * 60 * 1000);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (e) {
