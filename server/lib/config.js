@@ -210,7 +210,10 @@ const _appriseCandidates = [
 const APPRISE_BIN = _appriseCandidates.find(p => fs.existsSync(p)) || 'apprise';
 if (APPRISE_BIN !== 'apprise') console.log(`[config] Apprise binary: ${APPRISE_BIN}`);
 
+// ── Shared JSON file reader ───────────────────────────────────────────────
+function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+
 module.exports = {
   BIRDNET_CONF, BIRDNET_DIR, ALLOWED_SERVICES, SETTINGS_VALIDATORS, APPRISE_BIN,
-  parseBirdnetConf, writeBirdnetConf, execCmd,
+  parseBirdnetConf, writeBirdnetConf, execCmd, readJsonFile,
 };

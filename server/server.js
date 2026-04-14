@@ -113,7 +113,7 @@ if (!API_TOKEN) console.warn('[BIRDASH] WARNING: No BIRDASH_API_TOKEN set — wr
 
 // ── JSON file helpers ────────────────────────────────────────────────────────
 const safeConfig = require('./lib/safe-config');
-function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+const { readJsonFile } = require('./lib/config');
 // Legacy synchronous helper kept only for code paths that can't yet be made
 // async (e.g. periodic background tasks). All new writes — and any
 // read-modify-write cycle from a route handler — MUST go through

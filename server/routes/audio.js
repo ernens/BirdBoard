@@ -81,7 +81,7 @@ function agUpdate(cfg) {
 // from this module — that defeats the lock and re-introduces lost-update
 // races (see mickey.local 2026-04-11 corruption of engine/config.toml).
 const safeConfig = require('../lib/safe-config');
-function readJsonFile(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+const { readJsonFile } = require('../lib/config');
 
 /**
  * Generic JSON config GET handler.
