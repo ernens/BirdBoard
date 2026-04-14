@@ -41,10 +41,11 @@
 <div id="app">
   <birdash-shell page="stats" :title="tab==='stats' ? t('nav_stats') : t('nav_models')">
 
-    <!-- Tab switcher (no page reload) -->
+    <!-- Tab switcher -->
     <div class="gallery-tabs">
-      <button class="gallery-tab" :class="{active: tab==='stats'}" @click="switchTab('stats')"><bird-icon name="trending-up" :size="14" ></bird-icon> {{t('nav_stats')}}</button>
-      <button class="gallery-tab" :class="{active: tab==='models'}" @click="switchTab('models')"><bird-icon name="cpu" :size="14" ></bird-icon> {{t('nav_models')}}</button>
+      <button class="gallery-tab" :class="{active: tab==='stats'}" @click="switchTab('stats')"><bird-icon name="trending-up" :size="14"></bird-icon> {{t('nav_stats')}}</button>
+      <button class="gallery-tab" :class="{active: tab==='models'}" @click="switchTab('models')"><bird-icon name="cpu" :size="14"></bird-icon> {{t('nav_models')}}</button>
+      <a href="biodiversity.html" class="gallery-tab"><bird-icon name="leaf" :size="14"></bird-icon> {{t('nav_biodiversity')}}</a>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════

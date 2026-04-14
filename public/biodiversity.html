@@ -24,7 +24,14 @@
 </head>
 <body>
 <div id="app">
-  <birdash-shell page="biodiversity" :title="t('nav_biodiversity')">
+  <birdash-shell page="stats" :title="t('nav_biodiversity')">
+
+    <!-- Tab switcher (linked to stats.html) -->
+    <div class="gallery-tabs">
+      <a href="stats.html" class="gallery-tab"><bird-icon name="trending-up" :size="14"></bird-icon> {{t('nav_stats')}}</a>
+      <a href="stats.html#models" class="gallery-tab"><bird-icon name="cpu" :size="14"></bird-icon> {{t('nav_models')}}</a>
+      <button class="gallery-tab active"><bird-icon name="leaf" :size="14"></bird-icon> {{t('nav_biodiversity')}}</button>
+    </div>
 
     <div class="det-layout">
 
