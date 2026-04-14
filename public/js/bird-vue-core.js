@@ -204,6 +204,7 @@
     favorites:    'nav_favorites',
     weather:      'nav_weather',
     log:          'nav_log',
+    liveboard:    'nav_liveboard',
     network:      'nav_network',
   };
 
