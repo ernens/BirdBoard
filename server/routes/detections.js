@@ -41,9 +41,11 @@ function handle(req, res, pathname, ctx) {
             return;
           }
 
-          // Get file names before deleting
+          // Get file names before deleting — use raw table, NOT the VIEW
+          // (rejected items are filtered out of active_detections, so purging
+          // rejected detections would return 0 rows and silently fail)
           const rows = dbWrite.prepare(
-            'SELECT File_Name FROM active_detections WHERE Date=? AND Time=? AND Com_Name=?'
+            'SELECT File_Name FROM detections WHERE Date=? AND Time=? AND Com_Name=?'
           ).all(date, time, comName);
 
           if (rows.length === 0) {
