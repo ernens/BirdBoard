@@ -101,8 +101,8 @@ Raspberry Pi 5 + SSD
 │   ├── Recording service (arecord → WAV 45s)
 │   ├── Audio pipeline: Adaptive Gain → Highpass → Lowpass
 │   │   → Noise Profile Subtraction → RMS Normalize
-│   ├── BirdNET V2.4    (~2s/file, primary)
-│   ├── Perch V2 FP16   (~2s/file, secondary)
+│   ├── BirdNET V2.4    (~1.5s/file, primary)
+│   ├── Perch V2         (~0.7s/file on Pi 5, secondary)
 │   ├── MP3 extraction + spectrograms
 │   └── BirdWeather upload
 │
@@ -122,7 +122,7 @@ Raspberry Pi 5 + SSD
 ## Features
 
 ### Detection Engine (BirdEngine)
-- <img src="docs/icons/cpu.svg" width="16" align="top" alt=""> **Dual-model inference** — BirdNET V2.4 (fast, ~2s) + Perch V2 (precise, ~2s) in parallel
+- <img src="docs/icons/cpu.svg" width="16" align="top" alt=""> **Dual-model inference** — BirdNET V2.4 (~1.5s/file) + Perch V2 (~0.7s/file on Pi 5) in parallel. Model variant auto-selected per Pi: FP32 on Pi 5, FP16 on Pi 4, INT8 on Pi 3
 - <img src="docs/icons/mic.svg" width="16" align="top" alt=""> **Local recording** — any USB audio interface via ALSA with configurable gain
 - <img src="docs/icons/sliders-horizontal.svg" width="16" align="top" alt=""> **Adaptive noise normalization** — automatic software gain based on ambient noise, with clip guard, activity hold, and observer mode
 - <img src="docs/icons/volume-x.svg" width="16" align="top" alt=""> **Audio filters** — configurable highpass + lowpass (bandpass), spectral noise reduction (stationary gating), RMS normalization
@@ -209,13 +209,13 @@ We publish **3 optimized Perch V2 TFLite models** for edge deployment, converted
 
 **[ernensbjorn/perch-v2-int8-tflite](https://huggingface.co/ernensbjorn/perch-v2-int8-tflite)** on HuggingFace
 
-| Model | Size | Speed (Pi 5) | Quality | Best for |
-|-------|------|-------------|---------|----------|
-| `perch_v2_original.tflite` | 409 MB | 435 ms | baseline | Reference |
-| `perch_v2_fp16.tflite` | 205 MB | 384 ms | top-1 100% | **Pi 5** |
-| `perch_v2_dynint8.tflite` | 105 MB | 299 ms | top-1 93% | **Pi 4** |
+| Model | Size | Latency (Pi 5) | Top-1 | Top-5 | Best for |
+|-------|------|---------------|-------|-------|----------|
+| `perch_v2_original.tflite` | 409 MB | 435 ms | baseline | baseline | **Pi 5** (default) |
+| `perch_v2_fp16.tflite` | 205 MB | 384 ms | 100% | 99% | **Pi 4** (default) |
+| `perch_v2_dynint8.tflite` | 105 MB | 299 ms | 93% | 90% | **Pi 3** (default) |
 
-Benchmarked on 20 real bird recordings from 20 species, 4 threads.
+Benchmarked on Raspberry Pi 5 (8 GB, Cortex-A76 @ 2.4 GHz), 20 real bird recordings from 20 species, 5 runs each, 4 threads. The installer auto-selects the optimal variant for your Pi model.
 
 ## Hardware
 
@@ -323,7 +323,7 @@ done
 | 5 | Database bootstrap (birds.db + birdash.db with full schema) |
 | 6 | GeoIP auto-detection (latitude, longitude, language from [ipapi.co](https://ipapi.co)) |
 | 7 | Configuration files (birdnet.conf with Pi-aware defaults, engine config, ALSA dsnoop for shared mic access) |
-| 8 | Model download — Perch V2 from HuggingFace (INT8 on Pi 3, FP16 on Pi 4, FP32 on Pi 5) |
+| 8 | Model download — Perch V2 from HuggingFace (auto: FP32 on Pi 5, FP16 on Pi 4, INT8 on Pi 3) |
 | 9 | Systemd services with `KillMode=process` (engine, recording, dashboard, terminal) |
 | 10 | Caddy reverse proxy |
 | 11 | BirdNET V2.4 download via birdnetlib (CC-BY-NC-SA 4.0) + l18n species labels (38 languages) |

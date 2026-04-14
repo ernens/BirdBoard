@@ -23,8 +23,8 @@ Deep technical reference for the BirdStation (birdash) system — a standalone b
   └──────────────┘        │  │    ├─ Highpass / Lowpass filters     │   │
                           │  │    ├─ Noise Profile / Auto Denoise  │   │
         ┌─────────────────│──│    ├─ RMS Normalize                 │   │
-        │                 │  │    ├─ BirdNET V2.4  (~2s/file)      │   │
-        │                 │  │    ├─ Perch V2 FP16 (~2s/file)      │   │
+        │                 │  │    ├─ BirdNET V2.4  (~1.5s/file)    │   │
+        │                 │  │    ├─ Perch V2 (~0.7s on Pi 5)      │   │
         │                 │  │    ├─ MP3 extraction + spectrograms │   │
         │                 │  │    └─ BirdWeather upload             │   │
         │                 │  └──────────────┬───────────────────────┘   │
@@ -109,7 +109,7 @@ WAV file → engine/audio/incoming/
 │  6. RMS Normalize                                   │
 │  7. Split into 3s overlapping chunks                │
 │  8. ┌─ BirdNET V2.4 inference (primary)             │
-│     └─ Perch V2 FP16 inference (secondary)          │
+│     └─ Perch V2 inference (secondary, variant per Pi)│
 │  9. Merge results → INSERT INTO detections          │
 │ 10. Async: MP3 extraction, spectrogram, BirdWeather │
 └─────────────────────────────────────────────────────┘
@@ -180,8 +180,8 @@ Both models run on every file. Results are merged into `detections` with a `Mode
 
 | Model | Size | Speed (Pi 5) | License |
 |-------|------|-------------|---------|
-| BirdNET V2.4 | ~50 MB | ~2s/file | CC-BY-NC-SA 4.0 |
-| Perch V2 FP16 | 205 MB | ~2s/file | Apache 2.0 |
+| BirdNET V2.4 | ~50 MB | ~1.5s/file | CC-BY-NC-SA 4.0 |
+| Perch V2 (FP32/FP16/INT8) | 105-409 MB | 0.3-0.8s/file | Apache 2.0 |
 
 Model variants adapted to hardware: FP32 on Pi 5, FP16 on Pi 4, INT8 on Pi 3.
 
