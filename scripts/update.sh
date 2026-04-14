@@ -138,18 +138,12 @@ ok "Pulled $(git rev-list --count "$OLD_HEAD..$NEW_HEAD") commit(s)"
 CHANGED=$(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
 
 needs_npm=0
-needs_birdash=0
-needs_birdengine=0
-
 needs_pip=0
 
 while IFS= read -r f; do
     case "$f" in
-        package.json|package-lock.json)     needs_npm=1; needs_birdash=1 ;;
-        server/*|server.js)                 needs_birdash=1 ;;
-        engine/*.py|engine/*.toml|engine/*.sh) needs_birdengine=1 ;;
-        engine/requirements.txt)            needs_pip=1; needs_birdengine=1 ;;
-        public/*|*.html|*.css|*.js)         ;;  # static, browser reload picks up
+        package.json|package-lock.json)  needs_npm=1 ;;
+        engine/requirements.txt)         needs_pip=1 ;;
     esac
 done <<< "$CHANGED"
 
@@ -198,22 +192,21 @@ if [ -d "scripts/migrations" ]; then
     fi
 fi
 
-# ── 5. Restart services if needed ─────────────────────────────────────────
-if [ "$needs_birdash" = "1" ]; then
-    info "Restarting birdash..."
-    sudo systemctl restart birdash
-    sleep 2
-    if systemctl is-active --quiet birdash; then ok "birdash active"
-    else fail "birdash failed to start — check: sudo journalctl -u birdash -n 30"
-    fi
+# ── 5. Always restart services after update ──────────────────────────────
+# Always restart both services to ensure new code, new dependencies
+# (pip/npm), and migration side-effects are all picked up. The restart
+# cost is trivial (~2-3s) vs the risk of running stale code.
+info "Restarting birdash..."
+sudo systemctl restart birdash
+sleep 2
+if systemctl is-active --quiet birdash; then ok "birdash active"
+else fail "birdash failed to start — check: sudo journalctl -u birdash -n 30"
 fi
-if [ "$needs_birdengine" = "1" ]; then
-    info "Restarting birdengine..."
-    sudo systemctl restart birdengine
-    sleep 3
-    if systemctl is-active --quiet birdengine; then ok "birdengine active"
-    else warn "birdengine state: $(systemctl is-active birdengine)"
-    fi
+info "Restarting birdengine..."
+sudo systemctl restart birdengine
+sleep 3
+if systemctl is-active --quiet birdengine; then ok "birdengine active"
+else warn "birdengine state: $(systemctl is-active birdengine)"
 fi
 
 # ── 6. Summary ────────────────────────────────────────────────────────────
