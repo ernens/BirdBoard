@@ -31,19 +31,41 @@
         <span class="ssn-icon">{{seasonIcon}}</span>
         {{seasonLabel}}
       </div>
-      <button class="btn btn-secondary" style="padding:.35rem .6rem;" @click="nextSeason" :disabled="isCurrentSeason">
+      <button class="btn btn-secondary" style="padding:.35rem .6rem;" @click="nextSeason" :disabled="isFutureSeason">
         <bird-icon name="chevron-right" :size="16"></bird-icon>
       </button>
       <div class="ssn-pills">
         <button v-for="s in seasonList" :key="s.key"
-                class="ssn-pill" :class="{active: s.key === season}"
-                @click="season = s.key; loadData()">{{s.label}}</button>
+                class="ssn-pill" :class="{active: s.key === season, disabled: s.future}"
+                :disabled="s.future"
+                @click="!s.future && (season = s.key, loadData())">{{s.label}}</button>
       </div>
+    </div>
+
+    <!-- Season context banner -->
+    <div v-if="data && !loading" class="ssn-context">
+      <span>{{fmtDate(data.dateRange[0])}} — {{fmtDate(data.dateRange[1])}}</span>
+      <span v-if="isInProgress" class="ssn-badge-progress">{{t('ssn_in_progress')}}</span>
+      <span v-if="isFuture" class="ssn-badge-future">{{t('ssn_future')}}</span>
+      <span v-if="isComplete" class="ssn-badge-complete">{{t('ssn_complete')}}</span>
+      <span v-if="data.prevYear" style="opacity:.6;">· vs {{t('ssn_same_season')}} {{data.prevYear}}</span>
     </div>
 
     <!-- Loading -->
     <div v-if="loading" style="padding:2rem;text-align:center;">
       <div class="spinner"><div></div><div></div><div></div></div>
+    </div>
+
+    <!-- Future season: no data yet -->
+    <div v-else-if="data && isFuture" class="hint-empty" style="padding:3rem;">
+      <div class="hint-icon"><bird-icon name="clock" :size="32"></bird-icon></div>
+      <div style="font-size:1rem;font-weight:600;margin:.5rem 0;">{{t('ssn_future_title')}}</div>
+      <div style="font-size:.85rem;color:var(--text-muted);">{{t('ssn_future_desc')}}</div>
+      <!-- Still show multi-year evolution for this season -->
+      <div v-if="data.evolution && data.evolution.filter(e => e.species > 0).length > 1" class="card" style="margin-top:1.5rem;max-width:600px;text-align:left;">
+        <div class="card-title"><bird-icon name="trending-up" :size="16"></bird-icon> {{t('ssn_evolution_title')}} — {{t('ssn_previous_years')}}</div>
+        <div style="height:180px;"><canvas ref="chartEl"></canvas></div>
+      </div>
     </div>
 
     <template v-else-if="data">
@@ -233,9 +255,15 @@ const app = createApp({
     else if (m >= 9 && m <= 11) season.value = 'autumn';
     else season.value = 'winter';
 
-    const seasonList = computed(() => SEASON_ORDER.map(s => ({
-      key: s, label: t('ssn_' + s),
-    })));
+    const seasonList = computed(() => {
+      const curYear = new Date().getFullYear();
+      const curIdx = _seasonIndex(_currentSeasonKey());
+      return SEASON_ORDER.map(s => ({
+        key: s,
+        label: t('ssn_' + s),
+        future: year.value > curYear || (year.value === curYear && _seasonIndex(s) > curIdx),
+      }));
+    });
 
     const seasonLabel = computed(() =>
       t('ssn_' + season.value) + ' ' + year.value
@@ -243,14 +271,48 @@ const app = createApp({
 
     const seasonIcon = computed(() => SEASON_ICONS[season.value] || '');
 
-    const isCurrentSeason = computed(() => {
-      const now = new Date();
-      const curM = now.getMonth() + 1;
-      let curSeason = 'winter';
-      if (curM >= 3 && curM <= 5) curSeason = 'spring';
-      else if (curM >= 6 && curM <= 8) curSeason = 'summer';
-      else if (curM >= 9 && curM <= 11) curSeason = 'autumn';
-      return season.value === curSeason && year.value === now.getFullYear();
+    function _currentSeasonKey() {
+      const curM = new Date().getMonth() + 1;
+      if (curM >= 3 && curM <= 5) return 'spring';
+      if (curM >= 6 && curM <= 8) return 'summer';
+      if (curM >= 9 && curM <= 11) return 'autumn';
+      return 'winter';
+    }
+    function _seasonIndex(s) { return SEASON_ORDER.indexOf(s); }
+
+    const isCurrentSeason = computed(() =>
+      season.value === _currentSeasonKey() && year.value === new Date().getFullYear()
+    );
+
+    // Is the viewed season in the future (hasn't started yet)?
+    const isFuture = computed(() => {
+      if (!data.value) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      return data.value.dateRange[0] > today;
+    });
+
+    // Is the viewed season currently in progress?
+    const isInProgress = computed(() => {
+      if (!data.value) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      return today >= data.value.dateRange[0] && today <= data.value.dateRange[1];
+    });
+
+    // Is the viewed season fully complete?
+    const isComplete = computed(() => {
+      if (!data.value) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      return today > data.value.dateRange[1];
+    });
+
+    // Should the → button be disabled?
+    const isFutureSeason = computed(() => {
+      const curYear = new Date().getFullYear();
+      const curIdx = _seasonIndex(_currentSeasonKey());
+      const viewIdx = _seasonIndex(season.value);
+      if (year.value > curYear) return true;
+      if (year.value === curYear && viewIdx >= curIdx) return true;
+      return false;
     });
 
     function prevSeason() {
@@ -260,7 +322,7 @@ const app = createApp({
       loadData();
     }
     function nextSeason() {
-      if (isCurrentSeason.value) return;
+      if (isFutureSeason.value) return;
       const idx = SEASON_ORDER.indexOf(season.value);
       if (idx === 3) { season.value = 'spring'; year.value++; }
       else season.value = SEASON_ORDER[idx + 1];
@@ -332,7 +394,8 @@ const app = createApp({
 
     return {
       t, lang, season, year, data, loading, chartEl,
-      seasonList, seasonLabel, seasonIcon, isCurrentSeason,
+      seasonList, seasonLabel, seasonIcon,
+      isCurrentSeason, isFuture, isInProgress, isComplete, isFutureSeason,
       prevSeason, nextSeason, loadData,
       spName, navigateTo, photoUrl, fmtDate,
     };

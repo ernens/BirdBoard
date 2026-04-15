@@ -2837,6 +2837,11 @@
     .ssn-best-day { display:block; background:var(--bg-card2); border:1px solid var(--border); border-radius:var(--radius); padding:.5rem .7rem; text-decoration:none; color:inherit; transition:border-color .15s; }
     .ssn-best-day:hover { border-color:var(--accent); }
     .ssn-best-day-date { font-size:.82rem; font-weight:600; }
+    .ssn-pill.disabled { opacity:.35; cursor:not-allowed; }
+    .ssn-context { font-size:.8rem; color:var(--text-muted); margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .ssn-badge-progress { font-size:.68rem; font-weight:600; background:rgba(52,211,153,.15); color:var(--accent); padding:.15rem .45rem; border-radius:4px; }
+    .ssn-badge-future { font-size:.68rem; font-weight:600; background:rgba(239,68,68,.1); color:var(--danger); padding:.15rem .45rem; border-radius:4px; }
+    .ssn-badge-complete { font-size:.68rem; font-weight:600; background:rgba(100,100,100,.1); color:var(--text-muted); padding:.15rem .45rem; border-radius:4px; }
     @media (max-width:640px) {
       .ssn-pills { margin-left:0; width:100%; }
       .ssn-pill { flex:1; text-align:center; }
