@@ -1048,7 +1048,9 @@
       });
       const updateModalOpen = ref(false);
       const updateApplying = ref(false);
-      const updateProgress = ref(null);   // {state, step, detail, newCommit?}
+      const updateProgress = ref(null);   // {state, step, detail, newCommit?, previousCommit?}
+      const updateLog = ref('');           // tail of config/update.log on failure
+      const updateShowLog = ref(false);    // toggle log visibility
       let _updatePollTimer = null;
 
       async function fetchUpdateStatus(force) {
@@ -1061,7 +1063,6 @@
       }
       fetchUpdateStatus();
 
-      // Banner visibility: only when there's an update AND no snooze active.
       const showUpdateBanner = computed(() =>
         updateInfo.value.hasUpdate && !updateInfo.value.snoozed && !updateApplying.value
       );
@@ -1086,23 +1087,8 @@
       function deferUpdate(days) { return _snoozeUpdate('defer', days || 1); }
       function skipUpdate()      { return _snoozeUpdate('skip'); }
 
-      async function applyUpdate() {
-        if (updateApplying.value) return;
-        updateApplying.value = true;
-        updateProgress.value = { state: 'starting', step: 'request', detail: '...' };
-        try {
-          const r = await fetch(`${BIRD_CONFIG.apiUrl}/apply-update`, {
-            method: 'POST', headers: BIRDASH.authHeaders(),
-          });
-          const d = await r.json().catch(() => ({}));
-          if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
-        } catch (e) {
-          updateProgress.value = { state: 'failed', step: 'request', detail: e.message };
-          updateApplying.value = false;
-          return;
-        }
-        // Poll progress every 1.5s. Tolerate network errors during the
-        // birdash restart that the update script triggers mid-flight.
+      // Shared progress polling — used by apply, force-update, and rollback.
+      function _startProgressPoll() {
         let consecutiveErrors = 0;
         _updatePollTimer = setInterval(async () => {
           try {
@@ -1113,19 +1099,19 @@
             if (d.state === 'done' || d.state === 'failed') {
               clearInterval(_updatePollTimer); _updatePollTimer = null;
               if (d.state === 'done') {
-                // Bypass the 5-min server cache so the modal doesn't
-                // keep showing the "update available" state we just
-                // installed. The fresh status will report hasUpdate=false.
                 await fetchUpdateStatus(true);
+              } else {
+                // Fetch update log for debugging
+                _fetchUpdateLog();
               }
             }
           } catch (e) {
             consecutiveErrors++;
-            // Up to ~30s of network errors are tolerated (birdash restart
-            // is the most common cause).
-            if (consecutiveErrors > 20) {
+            // Tolerate up to ~60s of network errors (birdash restart)
+            if (consecutiveErrors > 40) {
               clearInterval(_updatePollTimer); _updatePollTimer = null;
               updateProgress.value = { state: 'failed', step: 'poll', detail: 'Lost contact with backend' };
+              _fetchUpdateLog();
             } else {
               updateProgress.value = { state: 'restarting', step: 'restart', detail: 'Backend redémarre…' };
             }
@@ -1133,13 +1119,68 @@
         }, 1500);
       }
 
+      async function _fetchUpdateLog() {
+        try {
+          const r = await fetch(`${BIRD_CONFIG.apiUrl}/update-log`);
+          if (r.ok) updateLog.value = await r.text();
+        } catch {}
+      }
+
+      async function applyUpdate(force) {
+        if (updateApplying.value) return;
+        updateApplying.value = true;
+        updateLog.value = '';
+        updateShowLog.value = false;
+        updateProgress.value = { state: 'starting', step: 'request', detail: '...' };
+        try {
+          const r = await fetch(`${BIRD_CONFIG.apiUrl}/apply-update`, {
+            method: 'POST', headers: BIRDASH.authHeaders(),
+            body: JSON.stringify({ force: !!force }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+        } catch (e) {
+          updateProgress.value = { state: 'failed', step: 'request', detail: e.message };
+          updateApplying.value = false;
+          return;
+        }
+        _startProgressPoll();
+      }
+
+      function forceUpdate() { return applyUpdate(true); }
+
+      async function rollbackUpdate() {
+        const prev = updateProgress.value && updateProgress.value.previousCommit;
+        if (!prev || updateApplying.value) return;
+        updateApplying.value = true;
+        updateLog.value = '';
+        updateShowLog.value = false;
+        updateProgress.value = { state: 'starting', step: 'rollback', detail: '...' };
+        try {
+          const r = await fetch(`${BIRD_CONFIG.apiUrl}/rollback-update`, {
+            method: 'POST', headers: BIRDASH.authHeaders(),
+            body: JSON.stringify({ commit: prev }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+        } catch (e) {
+          updateProgress.value = { state: 'failed', step: 'rollback', detail: e.message };
+          updateApplying.value = false;
+          return;
+        }
+        _startProgressPoll();
+      }
+
+      // Can we offer rollback? Only if we know the previous commit.
+      const canRollback = computed(() => {
+        const p = updateProgress.value;
+        return p && p.previousCommit && (p.state === 'failed' || p.state === 'done');
+      });
+
       function reloadAfterUpdate() {
         location.reload();
       }
 
-      // Map the raw step/state from update-progress.json (written by
-      // update.sh in English) to user-facing i18n keys. The shell script
-      // doesn't have access to the i18n system, so we translate here.
       function progressLabel(progress) {
         if (!progress) return t('update_starting');
         const { state, step, detail, newCommit } = progress;
@@ -1148,37 +1189,36 @@
             ? t('update_done_version', { v: newCommit })
             : t('update_done');
         }
-        if (state === 'failed') return t('update_failed');
+        if (state === 'failed') return detail || t('update_failed');
         if (state === 'restarting') return t('update_restarting');
-        // Map known step keywords from update.sh info() calls.
         const stepMap = {
           'starting':              'update_step_starting',
           'request':               'update_step_starting',
+          'rollback':              'update_step_rollback',
           'Fetching origin/main':  'update_step_fetching',
           'Updating':              'update_step_downloading',
+          'Rolling back to':       'update_step_rollback',
           'Running migrations':    'update_step_migrating',
           'Installing Node dependencies': 'update_step_npm',
+          'Syncing Python dependencies':  'update_step_pip',
           'Restarting birdash':    'update_restarting',
           'Restarting birdengine': 'update_restarting',
           'complete':              'update_done',
           'up-to-date':            'update_already_uptodate',
         };
-        // Try exact match first, then prefix match
         const key = stepMap[step] || Object.entries(stepMap).find(([k]) => step && step.startsWith(k))?.[1];
         return key ? t(key) : (step || t('update_starting'));
       }
 
-      // Allow the user to dismiss a stuck "in-flight" progress state
-      // (e.g. backend died mid-apply, or polling timed out). Resets the
-      // local apply tracking without touching server state.
       function dismissUpdateProgress() {
         if (_updatePollTimer) { clearInterval(_updatePollTimer); _updatePollTimer = null; }
         updateApplying.value = false;
         updateProgress.value = null;
+        updateLog.value = '';
+        updateShowLog.value = false;
         updateModalOpen.value = false;
       }
 
-      // Group commits by conventional-commit type for the modal display.
       const updateGroupedChanges = computed(() => {
         const groups = {
           feat: { icon: 'sparkles', label: t('update_cat_feat'), commits: [] },
@@ -1264,7 +1304,7 @@
       const drawerOpen = ref(false);
       function toggleDrawer() { drawerOpen.value = !drawerOpen.value; }
       function drawerNavClick(si) { navSectionClick(si); }
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, navGo, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, showUpdateBanner, deferUpdate, skipUpdate, applyUpdate, updateApplying, updateProgress, updateGroupedChanges, reloadAfterUpdate, dismissUpdateProgress, appVersion, progressLabel, bugReportOpen, bugReportForm, bugReportEnabled, openBugReport, closeBugReport, submitBugReport };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, navGo, siteName, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, showUpdateBanner, deferUpdate, skipUpdate, applyUpdate, forceUpdate, rollbackUpdate, canRollback, updateApplying, updateProgress, updateLog, updateShowLog, updateGroupedChanges, reloadAfterUpdate, dismissUpdateProgress, appVersion, progressLabel, bugReportOpen, bugReportForm, bugReportEnabled, openBugReport, closeBugReport, submitBugReport };
     },
     directives: {
       'click-outside': {
@@ -1448,7 +1488,7 @@
         <button class="update-modal-close" @click="closeUpdateModal" aria-label="Close"><bird-icon name="x" :size="16"></bird-icon></button>
       </div>
       <div class="update-modal-body">
-        <!-- Apply progress -->
+        <!-- Apply/rollback progress -->
         <div v-if="updateApplying || updateProgress" class="update-progress-box">
           <div class="update-progress-state">
             <span v-if="updateProgress && updateProgress.state === 'done'"><bird-icon name="check-circle" :size="16" style="color:var(--accent);"></bird-icon></span>
@@ -1456,10 +1496,32 @@
             <span v-else class="update-progress-spinner"></span>
             {{progressLabel(updateProgress)}}
           </div>
-          <button v-if="updateProgress && updateProgress.state === 'done'"
-                  class="update-btn-primary" @click="reloadAfterUpdate" style="margin-top:.8rem;">
-            {{t('update_reload')}}
-          </button>
+          <!-- Success actions -->
+          <div v-if="updateProgress && updateProgress.state === 'done'" style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
+            <button class="update-btn-primary" @click="reloadAfterUpdate">{{t('update_reload')}}</button>
+            <button v-if="canRollback" class="update-btn-secondary" @click="rollbackUpdate" style="font-size:.8rem;">
+              <bird-icon name="rotate-ccw" :size="14"></bird-icon> {{t('update_rollback')}}
+            </button>
+          </div>
+          <!-- Failure actions -->
+          <div v-if="updateProgress && updateProgress.state === 'failed'" style="margin-top:.8rem;">
+            <div v-if="updateProgress.detail" class="update-error-detail">{{updateProgress.detail}}</div>
+            <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap;">
+              <button v-if="canRollback" class="update-btn-danger" @click="rollbackUpdate">
+                <bird-icon name="rotate-ccw" :size="14"></bird-icon> {{t('update_rollback')}}
+              </button>
+              <button class="update-btn-secondary" @click="forceUpdate" style="font-size:.8rem;">
+                <bird-icon name="alert-triangle" :size="14"></bird-icon> {{t('update_force')}}
+              </button>
+              <button class="update-btn-secondary" @click="dismissUpdateProgress" style="font-size:.8rem;">{{t('update_dismiss')}}</button>
+            </div>
+            <div v-if="updateLog" style="margin-top:.6rem;">
+              <button class="update-log-toggle" @click="updateShowLog = !updateShowLog">
+                <bird-icon :name="updateShowLog ? 'chevron-down' : 'chevron-right'" :size="12"></bird-icon> {{t('update_show_log')}}
+              </button>
+              <pre v-if="updateShowLog" class="update-log-pre">{{updateLog}}</pre>
+            </div>
+          </div>
         </div>
         <!-- Release notes (categorized commits) -->
         <div v-else>
@@ -1478,10 +1540,10 @@
           </div>
         </div>
       </div>
-      <div class="update-modal-footer" v-if="!updateApplying && !(updateProgress && updateProgress.state === 'done')">
-        <button class="update-btn-secondary" @click="skipUpdate" :disabled="updateApplying">{{t('update_skip')}}</button>
-        <button class="update-btn-secondary" @click="deferUpdate(1)" :disabled="updateApplying">{{t('update_defer')}}</button>
-        <button class="update-btn-primary" @click="applyUpdate" :disabled="updateApplying" style="margin-left:auto;">{{t('update_install')}}</button>
+      <div class="update-modal-footer" v-if="!updateApplying && !updateProgress">
+        <button class="update-btn-secondary" @click="skipUpdate">{{t('update_skip')}}</button>
+        <button class="update-btn-secondary" @click="deferUpdate(1)">{{t('update_defer')}}</button>
+        <button class="update-btn-primary" @click="applyUpdate" style="margin-left:auto;">{{t('update_install')}}</button>
       </div>
     </div>
   </div>

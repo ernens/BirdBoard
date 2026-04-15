@@ -2680,6 +2680,49 @@ select, input[type="text"], input[type="number"], textarea {
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.update-btn-danger {
+  display: inline-flex; align-items: center; gap: .35em;
+  padding: .45rem .85rem;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.update-btn-danger:hover { opacity: .85; }
+.update-error-detail {
+  font-size: .82rem;
+  color: var(--danger);
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  padding: .5rem .7rem;
+  word-break: break-word;
+}
+.update-log-toggle {
+  display: inline-flex; align-items: center; gap: .3em;
+  background: none; border: none; cursor: pointer;
+  font-size: .78rem; color: var(--text-muted);
+  padding: 0;
+}
+.update-log-toggle:hover { color: var(--text); }
+.update-log-pre {
+  margin: .4rem 0 0;
+  padding: .6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: .72rem;
+  line-height: 1.4;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  text-align: left;
+}
 
 /* ── Share modal (species.html) ──────────────────────────────────── */
 .share-modal-backdrop {

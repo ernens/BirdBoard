@@ -1,6 +1,8 @@
 'use strict';
 /**
- * Update routes — /api/update-status, /api/update-snooze, /api/apply-update
+ * Update routes — /api/update-status, /api/update-snooze,
+ *                 /api/apply-update, /api/force-update,
+ *                 /api/rollback-update, /api/update-log
  *
  * Detection model: compares the locally checked-out commit (git rev-parse
  * HEAD) against the latest commit on origin/main (git ls-remote). When the
@@ -15,8 +17,12 @@
  *
  * Apply: spawns scripts/update.sh in a detached child process so the
  * birdash restart inside the script doesn't kill the parent. Status is
- * written to config/update-status.json at every step; the UI polls
+ * written to config/update-progress.json at every step; the UI polls
  * /api/update-status?progress=1 to follow the run.
+ *
+ * Rollback: spawns scripts/rollback.sh <commit> to revert to a known
+ * good state. Only available when previousCommit is known (from the
+ * last update's progress file).
  */
 
 const path = require('path');
@@ -29,19 +35,32 @@ const safeConfig = require('../lib/safe-config');
 const PROJECT_ROOT  = path.join(__dirname, '..', '..');
 const STATE_PATH    = path.join(PROJECT_ROOT, 'config', 'update-state.json');
 const PROGRESS_PATH = path.join(PROJECT_ROOT, 'config', 'update-progress.json');
+const LOG_PATH      = path.join(PROJECT_ROOT, 'config', 'update.log');
 const REPO          = 'ernens/birdash';
 const BRANCH        = 'main';
 
+// Stale progress timeout: if a progress file says "running" for more than
+// this many ms, we consider the update dead and allow a new attempt.
+const STALE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+
 // 60s in-memory cache so git ls-remote / GitHub aren't hit on every page
 // load, but new updates are detected within a minute of landing on main.
-// Previously 5 minutes, which was too long — the banner didn't appear
-// until the cache expired, confusing testers.
 let _statusCache = null;
 let _statusCacheTs = 0;
 const CACHE_TTL = 60 * 1000;
 
 function _git(args) {
-  return execSync('git ' + args, { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
+  return execSync('git ' + args, { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
+}
+
+// Read version from package.json on every call (not cached at startup)
+// so that after an update lands a new package.json the version is correct
+// even if the server process wasn't restarted.
+function _currentVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
+    return pkg.version || '0.0.0';
+  } catch { return '0.0.0'; }
 }
 
 function _fetchJson(url) {
@@ -63,9 +82,6 @@ function _fetchJson(url) {
   });
 }
 
-// Parse a conventional-commits message into {type, scope, subject, body}.
-//   "feat(audio): bla bla\n\nlonger body" → {type:'feat', scope:'audio', subject:'bla bla', body:'longer body'}
-//   "Fix typo"                              → {type:'other', scope:null, subject:'Fix typo', body:''}
 function _parseCommit(msg) {
   const lines = msg.split('\n');
   const header = lines[0];
@@ -83,27 +99,11 @@ function _parseCommit(msg) {
   return { type: 'other', scope: null, breaking: false, subject: header, body };
 }
 
-// Read the version from package.json (single source of truth).
-// No dependency on git tags being present locally — avoids the
-// chicken-and-egg problem where update.sh needs --tags but the
-// old update.sh (without --tags) ran first.
-const _pkgVersion = (() => {
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
-    return pkg.version || '0.0.0';
-  } catch { return '0.0.0'; }
-})();
-
-function _currentVersion() {
-  return _pkgVersion;
-}
-
 async function _computeStatus() {
   const currentCommit = _git('rev-parse HEAD');
   const currentShort = currentCommit.slice(0, 7);
   const currentVersion = _currentVersion();
 
-  // Latest remote commit on the tracked branch — single round-trip, no fetch.
   let latestCommit, latestShort;
   try {
     const lsRemote = _git(`ls-remote origin ${BRANCH}`);
@@ -123,9 +123,6 @@ async function _computeStatus() {
     };
   }
 
-  // Fetch the commit list between current and latest from GitHub. We could
-  // also do a local `git fetch + git log` but that pulls all the objects
-  // before the user has even decided to update — wasteful on slow links.
   let commits = [];
   try {
     const compare = await _fetchJson(`https://api.github.com/repos/${REPO}/compare/${currentCommit}...${latestCommit}`);
@@ -137,13 +134,9 @@ async function _computeStatus() {
       ...(_parseCommit(c.commit.message)),
     }));
   } catch (e) {
-    // Non-fatal: we still know there's an update, just no notes.
     console.warn('[updates] GitHub compare failed:', e.message);
   }
 
-  // The remote version isn't known until the update is applied, so we
-  // just report commits-behind. The actual version bump will be visible
-  // after the pull lands the new package.json.
   const latestVersion = currentVersion;
 
   return {
@@ -173,20 +166,55 @@ function _isSnoozed(state, latestCommit) {
   return { snoozed: false };
 }
 
+// Check if the progress file indicates a stale "running" state.
+// Returns true if it's safe to start a new update.
+async function _isProgressStale() {
+  try {
+    const raw = await fsp.readFile(PROGRESS_PATH, 'utf8');
+    const prog = JSON.parse(raw);
+    if (prog.state !== 'running') return true; // not running = safe
+    const updated = new Date(prog.updatedAt).getTime();
+    if (!Number.isFinite(updated)) return true;
+    return (Date.now() - updated) > STALE_TIMEOUT;
+  } catch {
+    return true; // no file = safe
+  }
+}
+
+// Spawn a script detached so it survives birdash restart.
+function _spawnDetached(script, args) {
+  const child = spawn('bash', [script, ...args], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: PROJECT_ROOT,
+  });
+  child.unref();
+  return child.pid;
+}
+
 function handle(req, res, pathname, ctx) {
   const { requireAuth, JSON_CT } = ctx;
 
   // ── GET /api/update-status ─────────────────────────────────────────────
-  // Returns the cached check + snooze state. ?progress=1 returns the live
-  // progress of an ongoing apply (if any) instead.
   if (req.method === 'GET' && pathname === '/api/update-status') {
     (async () => {
       try {
         const url = new URL(req.url, 'http://localhost');
+
+        // ?progress=1 — return live progress of an ongoing apply/rollback
         if (url.searchParams.get('progress') === '1') {
           try {
             const raw = await fsp.readFile(PROGRESS_PATH, 'utf8');
-            res.writeHead(200, JSON_CT); res.end(raw); return;
+            const prog = JSON.parse(raw);
+            // Auto-expire stale "running" states
+            if (prog.state === 'running') {
+              const updated = new Date(prog.updatedAt).getTime();
+              if (Number.isFinite(updated) && (Date.now() - updated) > STALE_TIMEOUT) {
+                prog.state = 'failed';
+                prog.detail = 'Update timed out (no progress for 10 minutes)';
+              }
+            }
+            res.writeHead(200, JSON_CT); res.end(JSON.stringify(prog)); return;
           } catch {
             res.writeHead(200, JSON_CT); res.end(JSON.stringify({ state: 'idle' })); return;
           }
@@ -215,8 +243,26 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ── GET /api/update-log ───────────────────────────────────────────────
+  // Returns the last N lines of config/update.log for debugging.
+  if (req.method === 'GET' && pathname === '/api/update-log') {
+    (async () => {
+      try {
+        const raw = await fsp.readFile(LOG_PATH, 'utf8');
+        // Return last 200 lines
+        const lines = raw.split('\n');
+        const tail = lines.slice(Math.max(0, lines.length - 200)).join('\n');
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(tail);
+      } catch {
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('(no update log available)');
+      }
+    })();
+    return true;
+  }
+
   // ── POST /api/update-snooze ───────────────────────────────────────────
-  // Body: {action: "defer"|"skip"|"clear", days?: 1}
   if (req.method === 'POST' && pathname === '/api/update-snooze') {
     if (!requireAuth(req, res)) return true;
     let body = '';
@@ -257,60 +303,101 @@ function handle(req, res, pathname, ctx) {
   }
 
   // ── POST /api/apply-update ────────────────────────────────────────────
-  // Spawns scripts/update.sh in a detached process. The script writes its
-  // own progress to PROGRESS_PATH. We return immediately so the response
-  // isn't killed by the birdash restart inside the script.
+  // Body: (empty) or {force: true}
   if (req.method === 'POST' && pathname === '/api/apply-update') {
     if (!requireAuth(req, res)) return true;
-    (async () => {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
       try {
-        // Make sure no other apply is in flight.
-        try {
-          const raw = await fsp.readFile(PROGRESS_PATH, 'utf8');
-          const prog = JSON.parse(raw);
-          if (prog.state === 'running') {
-            res.writeHead(409, JSON_CT);
-            res.end(JSON.stringify({ error: 'update already in progress' }));
-            return;
-          }
-        } catch {}
+        let force = false;
+        try { force = JSON.parse(body).force === true; } catch {}
 
-        // Reset progress file so the UI sees a fresh start.
+        // Check if another update is already running (with stale timeout)
+        if (!(await _isProgressStale())) {
+          res.writeHead(409, JSON_CT);
+          res.end(JSON.stringify({ error: 'update already in progress' }));
+          return;
+        }
+
         await safeConfig.updateConfig(
           PROGRESS_PATH,
           () => ({
             state: 'running',
             startedAt: new Date().toISOString(),
             step: 'starting',
-            log: [],
           }),
           null,
           { label: 'POST /api/apply-update (init)', defaultValue: {} }
         );
 
-        // Invalidate the status cache so the next /api/update-status
-        // (which the UI calls right after the apply finishes) doesn't
-        // serve a stale "update available" snapshot.
         _statusCache = null;
         _statusCacheTs = 0;
 
-        // Spawn update.sh detached so the birdash restart inside doesn't
-        // take the response down with it. The script handles the rest.
         const script = path.join(PROJECT_ROOT, 'scripts', 'update.sh');
-        const child = spawn('bash', [script, '--write-status', PROGRESS_PATH], {
-          detached: true,
-          stdio: 'ignore',
-          cwd: PROJECT_ROOT,
-        });
-        child.unref();
+        const args = ['--write-status', PROGRESS_PATH];
+        if (force) args.push('--force');
+        const pid = _spawnDetached(script, args);
 
         res.writeHead(202, JSON_CT);
-        res.end(JSON.stringify({ ok: true, jobStarted: true, pid: child.pid }));
+        res.end(JSON.stringify({ ok: true, jobStarted: true, pid }));
       } catch (e) {
         res.writeHead(500, JSON_CT);
         res.end(JSON.stringify({ error: e.message }));
       }
-    })();
+    });
+    return true;
+  }
+
+  // ── POST /api/rollback-update ─────────────────────────────────────────
+  // Body: {commit: "abc123..."} — the full SHA to roll back to.
+  // Only works if the commit exists locally (i.e. was the previous HEAD).
+  if (req.method === 'POST' && pathname === '/api/rollback-update') {
+    if (!requireAuth(req, res)) return true;
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { commit } = JSON.parse(body);
+        if (!commit || !/^[0-9a-f]{7,40}$/.test(commit)) {
+          throw new Error('Invalid commit SHA');
+        }
+
+        // Verify commit exists locally
+        try { _git(`cat-file -e ${commit}`); }
+        catch { throw new Error('Commit not found locally — cannot rollback'); }
+
+        if (!(await _isProgressStale())) {
+          res.writeHead(409, JSON_CT);
+          res.end(JSON.stringify({ error: 'operation already in progress' }));
+          return;
+        }
+
+        await safeConfig.updateConfig(
+          PROGRESS_PATH,
+          () => ({
+            state: 'running',
+            startedAt: new Date().toISOString(),
+            step: 'rollback',
+          }),
+          null,
+          { label: 'POST /api/rollback-update (init)', defaultValue: {} }
+        );
+
+        _statusCache = null;
+        _statusCacheTs = 0;
+
+        const script = path.join(PROJECT_ROOT, 'scripts', 'rollback.sh');
+        const pid = _spawnDetached(script, [commit, '--write-status', PROGRESS_PATH]);
+
+        res.writeHead(202, JSON_CT);
+        res.end(JSON.stringify({ ok: true, jobStarted: true, pid }));
+      } catch (e) {
+        const code = e.message.includes('not found') ? 400 : 500;
+        res.writeHead(code, JSON_CT);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return true;
   }
 
