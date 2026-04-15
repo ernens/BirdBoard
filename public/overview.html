@@ -73,16 +73,6 @@
       </a>
     </div>
 
-    <!-- Weather widget -->
-    <div v-if="weatherToday" style="margin-bottom:.75rem;">
-      <a href="weather.html" class="weather-widget" style="text-decoration:none;">
-        <span style="font-size:1.1rem;"><bird-icon name="thermometer" :size="16"></bird-icon></span>
-        <span style="font-weight:600;font-size:.95rem;">{{weatherToday.temp}}°C</span>
-        <span style="color:var(--text-muted);font-size:.78rem;">{{weatherToday.precip}}mm</span>
-        <span style="color:var(--text-muted);font-size:.78rem;">💨{{weatherToday.wind}}km/h</span>
-      </a>
-    </div>
-
     <!-- ═══ What's New — alertes + phénologie ═══ -->
     <div v-if="whatsNew.loaded" class="wn-section" style="margin-bottom:1rem;">
 
@@ -251,6 +241,14 @@
       <div v-if="whatsNew.loaded" class="card">
         <div class="card-title">{{t('wn_level_context')}}</div>
         <div class="wn-context-grid" style="grid-template-columns:1fr;">
+          <a v-if="weatherToday" href="weather.html" class="wn-ctx-card" style="text-decoration:none;color:inherit;">
+            <div class="wn-ctx-icon"><bird-icon name="thermometer" :size="16"></bird-icon></div>
+            <div class="wn-ctx-body">
+              <div class="wn-ctx-label">{{t('wn_card_weather')}}</div>
+              <div class="wn-ctx-hero">{{weatherToday.temp}}°C</div>
+              <div class="wn-ctx-sub"><bird-icon name="cloud" :size="11"></bird-icon> {{weatherToday.precip}}mm · <bird-icon name="wind" :size="11"></bird-icon> {{weatherToday.wind}}km/h</div>
+            </div>
+          </a>
           <div class="wn-ctx-card" v-if="whatsNew.context.dawn_chorus.data">
             <div class="wn-ctx-icon">☀</div>
             <div class="wn-ctx-body">
