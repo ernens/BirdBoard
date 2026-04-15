@@ -1,6 +1,9 @@
 /* bird-styles.css — BIRDASH · Système de thèmes */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 
+/* Hide Vue templates until mounted — prevents {{moustache}} flash */
+[v-cloak] { display: none !important; }
+
 /* ══════════════════════════════════════════════════════════════════════════════
    THÈMES — data-theme sur <html>
    Valeurs : auto | forest (défaut) | night | paper | ocean | dusk
