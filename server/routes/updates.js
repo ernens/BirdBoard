@@ -83,28 +83,19 @@ function _parseCommit(msg) {
   return { type: 'other', scope: null, breaking: false, subject: header, body };
 }
 
-// Parse `git describe --tags --match "v*"` into a human-readable version.
-//   v1.5.0-30-gde92732  →  "1.5.30"
-//   v1.5.0              →  "1.5.0"    (exactly on a tag)
-// Falls back to "0.0.<commitCount>" if no tag exists at all.
-function _parseVersion(describeOutput) {
-  if (!describeOutput) return null;
-  const m = describeOutput.trim().match(/^v?(\d+\.\d+)\.\d+(?:-(\d+)-g[0-9a-f]+)?$/);
-  if (m) {
-    const [, base, ahead] = m;
-    return `${base}.${ahead || '0'}`;
-  }
-  return null;
-}
+// Read the version from package.json (single source of truth).
+// No dependency on git tags being present locally — avoids the
+// chicken-and-egg problem where update.sh needs --tags but the
+// old update.sh (without --tags) ran first.
+const _pkgVersion = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
+    return pkg.version || '0.0.0';
+  } catch { return '0.0.0'; }
+})();
 
 function _currentVersion() {
-  try {
-    const desc = _git('describe --tags --match "v*" --long');
-    return _parseVersion(desc) || '0.0.0';
-  } catch {
-    // No tags at all — fall back to total commit count
-    try { return '0.0.' + _git('rev-list --count HEAD'); } catch { return '0.0.0'; }
-  }
+  return _pkgVersion;
 }
 
 async function _computeStatus() {
@@ -150,17 +141,10 @@ async function _computeStatus() {
     console.warn('[updates] GitHub compare failed:', e.message);
   }
 
-  // Compute the latest version by adding the commit count to the
-  // current version's patch number. E.g. current = 1.5.30, 3 commits
-  // ahead → latest = 1.5.33.
-  let latestVersion = currentVersion;
-  if (commits.length > 0) {
-    const parts = currentVersion.split('.');
-    if (parts.length === 3) {
-      parts[2] = String(parseInt(parts[2] || '0', 10) + commits.length);
-      latestVersion = parts.join('.');
-    }
-  }
+  // The remote version isn't known until the update is applied, so we
+  // just report commits-behind. The actual version bump will be visible
+  // after the pull lands the new package.json.
+  const latestVersion = currentVersion;
 
   return {
     currentCommit, currentShort, currentVersion,

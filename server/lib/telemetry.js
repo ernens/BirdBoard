@@ -10,7 +10,6 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { execSync } = require('child_process');
 const crypto = require('crypto');
 
 const CONFIG_PATH = path.join(__dirname, '..', '..', 'config', 'telemetry.json');
@@ -56,11 +55,8 @@ function _getHardwareInfo() {
 
 function _getVersion() {
   try {
-    return execSync('git describe --tags --always 2>/dev/null', {
-      cwd: path.join(__dirname, '..', '..'),
-      encoding: 'utf8',
-      timeout: 3000
-    }).trim();
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
+    return pkg.version || 'unknown';
   } catch { return 'unknown'; }
 }
 
