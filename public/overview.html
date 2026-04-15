@@ -33,10 +33,10 @@
 
     <!-- KPIs -->
     <div class="kpi-strip">
-      <div class="kpi-card">
+      <a href="today.html" class="kpi-card" style="text-decoration:none;color:inherit;cursor:pointer;">
         <div class="kpi-value amber">{{kpis.sp || '—'}}</div>
         <div class="kpi-label">{{t('species')}}</div>
-      </div>
+      </a>
       <div class="kpi-card" style="position:relative;cursor:pointer;" @click="toggleRarePanel" :title="t('rare_tooltip')">
         <div class="kpi-value" style="color:var(--danger);">{{rareSpeciesToday.length}}</div>
         <div class="kpi-label">{{t('rare_today')}}</div>
@@ -59,18 +59,18 @@
         <div class="kpi-value blue">{{kpis.conf || '—'}}</div>
         <div class="kpi-label">{{t('avg_confidence')}}</div>
       </div>
-      <div class="kpi-card">
+      <a href="today.html" class="kpi-card" style="text-decoration:none;color:inherit;cursor:pointer;">
         <div class="kpi-value">{{kpis.det || '—'}}</div>
         <div class="kpi-label">{{t('detections')}}</div>
-      </div>
-      <div class="kpi-card">
+      </a>
+      <a href="today.html" class="kpi-card" style="text-decoration:none;color:inherit;cursor:pointer;">
         <div class="kpi-value" style="color:var(--accent);">{{kpis.lastHour || '—'}}</div>
         <div class="kpi-label">{{t('last_hour')}}</div>
-      </div>
-      <div class="kpi-card">
+      </a>
+      <a href="stats.html" class="kpi-card" style="text-decoration:none;color:inherit;cursor:pointer;">
         <div class="kpi-value muted">{{kpis.total || '—'}}</div>
         <div class="kpi-label">{{t('all_time')}}</div>
-      </div>
+      </a>
     </div>
 
     <!-- Weather widget -->

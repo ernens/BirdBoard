@@ -115,10 +115,10 @@
 
     <!-- ════ KPIs ═══════════════════════════════════════════════ -->
     <div class="bf-kpis">
-      <div class="bf-kpi"><div class="bf-kpi-icon"><bird-icon name="bird" :size="20" ></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :class="{bump:kpiBump.total}">{{kpi.total}}</div><div class="bf-kpi-label">{{t('dash_kpi_detections')}}</div></div></div>
-      <div class="bf-kpi"><div class="bf-kpi-icon"><bird-icon name="bird" :size="20" ></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :class="{bump:kpiBump.species}">{{kpi.species}}</div><div class="bf-kpi-label">{{t('dash_kpi_species')}}</div></div></div>
-      <div class="bf-kpi"><div class="bf-kpi-icon" :style="kpi.review>0?'background:rgba(255,152,0,.12)':''"><bird-icon name="check-circle" :size="20" ></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :style="kpi.review>0?'color:#ff9800':''">{{kpi.review}}</div><div class="bf-kpi-label">{{t('dash_kpi_review')}}</div></div></div>
-      <div class="bf-kpi"><div class="bf-kpi-icon"><bird-icon name="activity" :size="20" ></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :style="kpi.healthStyle">{{kpi.healthLabel}}</div><div class="bf-kpi-label">{{t('dash_kpi_health')}}</div><div class="bf-kpi-sub" v-if="kpi.healthDetail">{{kpi.healthDetail}}</div></div></div>
+      <a href="today.html" class="bf-kpi" style="text-decoration:none;color:inherit;"><div class="bf-kpi-icon"><bird-icon name="bird" :size="20"></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :class="{bump:kpiBump.total}">{{kpi.total}}</div><div class="bf-kpi-label">{{t('dash_kpi_detections')}}</div></div></a>
+      <a href="today.html" class="bf-kpi" style="text-decoration:none;color:inherit;"><div class="bf-kpi-icon"><bird-icon name="bird" :size="20"></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :class="{bump:kpiBump.species}">{{kpi.species}}</div><div class="bf-kpi-label">{{t('dash_kpi_species')}}</div></div></a>
+      <a href="review.html" class="bf-kpi" style="text-decoration:none;color:inherit;"><div class="bf-kpi-icon" :style="kpi.review>0?'background:rgba(255,152,0,.12)':''"><bird-icon name="check-circle" :size="20"></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :style="kpi.review>0?'color:#ff9800':''">{{kpi.review}}</div><div class="bf-kpi-label">{{t('dash_kpi_review')}}</div></div></a>
+      <a href="system.html" class="bf-kpi" style="text-decoration:none;color:inherit;"><div class="bf-kpi-icon"><bird-icon name="activity" :size="20"></bird-icon></div><div class="bf-kpi-body"><div class="bf-kpi-val" :style="kpi.healthStyle">{{kpi.healthLabel}}</div><div class="bf-kpi-label">{{t('dash_kpi_health')}}</div><div class="bf-kpi-sub" v-if="kpi.healthDetail">{{kpi.healthDetail}}</div></div></a>
     </div>
 
     <!-- ════ BOTTOM ═════════════════════════════════════════════ -->
