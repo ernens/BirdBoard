@@ -1155,6 +1155,7 @@
   "update_starting": "Wird gestartet…",
   "update_no_notes": "Keine Versionshinweise verfügbar.",
   "update_reload": "Seite neu laden",
+  "update_success_msg": "Update erfolgreich installiert. Laden Sie die Seite neu, um die neue Version zu nutzen.",
   "bell_critical": "Kritisch",
   "bell_warning": "Achtung",
   "bell_birds": "Vögel",

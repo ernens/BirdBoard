@@ -1497,11 +1497,17 @@
             {{progressLabel(updateProgress)}}
           </div>
           <!-- Success actions -->
-          <div v-if="updateProgress && updateProgress.state === 'done'" style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
-            <button class="update-btn-primary" @click="reloadAfterUpdate">{{t('update_reload')}}</button>
-            <button v-if="canRollback" class="update-btn-secondary" @click="rollbackUpdate" style="font-size:.8rem;">
-              <bird-icon name="rotate-ccw" :size="14"></bird-icon> {{t('update_rollback')}}
-            </button>
+          <div v-if="updateProgress && updateProgress.state === 'done'" style="margin-top:.8rem;">
+            <div style="color:var(--accent);font-size:.85rem;margin-bottom:.7rem;">
+              <bird-icon name="check-circle" :size="14" style="vertical-align:-2px;"></bird-icon> {{t('update_success_msg')}}
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:space-between;align-items:center;">
+              <button v-if="canRollback" class="update-btn-secondary" @click="rollbackUpdate" style="font-size:.8rem;">
+                <bird-icon name="rotate-ccw" :size="14"></bird-icon> {{t('update_rollback')}}
+              </button>
+              <div v-else></div>
+              <button class="update-btn-primary" @click="reloadAfterUpdate">{{t('update_reload')}}</button>
+            </div>
           </div>
           <!-- Failure actions -->
           <div v-if="updateProgress && updateProgress.state === 'failed'" style="margin-top:.8rem;">

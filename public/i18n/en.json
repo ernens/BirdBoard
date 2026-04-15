@@ -1155,6 +1155,7 @@
   "update_starting": "Starting…",
   "update_no_notes": "No release notes available.",
   "update_reload": "Reload page",
+  "update_success_msg": "Update installed successfully. Reload the page to enjoy the new version.",
   "bell_critical": "Critical",
   "bell_warning": "Attention",
   "bell_birds": "Birds",

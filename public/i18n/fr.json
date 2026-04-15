@@ -1155,6 +1155,7 @@
   "update_starting": "Démarrage…",
   "update_no_notes": "Pas de notes de version disponibles.",
   "update_reload": "Recharger la page",
+  "update_success_msg": "Mise à jour installée avec succès. Rechargez la page pour profiter de la nouvelle version.",
   "bell_critical": "Critique",
   "bell_warning": "Attention",
   "bell_birds": "Oiseaux",

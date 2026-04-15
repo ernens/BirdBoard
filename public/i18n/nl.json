@@ -1155,6 +1155,7 @@
   "update_starting": "Bezig met starten…",
   "update_no_notes": "Geen release-aantekeningen beschikbaar.",
   "update_reload": "Pagina herladen",
+  "update_success_msg": "Update succesvol geïnstalleerd. Herlaad de pagina om de nieuwe versie te gebruiken.",
   "bell_critical": "Kritiek",
   "bell_warning": "Let op",
   "bell_birds": "Vogels",
