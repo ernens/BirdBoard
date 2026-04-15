@@ -1,11 +1,18 @@
 'use strict';
 /**
- * Telemetry — opt-in station registration + daily reports to Supabase.
+ * Telemetry — two independent layers:
  *
- * - On opt-in: registers the station (UUID, GPS, hardware, version)
- * - Daily cron: sends heartbeat + detection summary (top species, rare)
- * - All data is public and queryable via Supabase REST API
- * - Fully opt-in: nothing is sent until the user explicitly enables it
+ * 1. Anonymous pings (opt-out) — lightweight, no PII:
+ *    - Install ping: sent once by bootstrap.sh (curl)
+ *    - Alive ping: sent monthly at startup {version, hardware, os, country}
+ *    - Stored in `pings` table (write-only, no UUID, no GPS)
+ *    - Disableable in Settings → Station → "Anonymous usage statistics"
+ *
+ * 2. Community network (opt-in) — full station registration:
+ *    - On opt-in: registers the station (UUID, GPS, hardware, version)
+ *    - Daily cron: sends heartbeat + detection summary (top species, rare)
+ *    - Stored in `stations` + `daily_reports` tables
+ *    - Fully opt-in: nothing is sent until the user explicitly enables it
  */
 const fs = require('fs');
 const path = require('path');
@@ -94,6 +101,81 @@ function _supabaseRequest(method, table, body, query) {
     if (postData) req.write(postData);
     req.end();
   });
+}
+
+// ── Anonymous pings (opt-out) ───────────────────────────────────────────────
+// Lightweight monthly ping: {event, version, hardware, os, country}.
+// No UUID, no GPS, no station name. Write-only to Supabase `pings` table.
+// Disabled by setting anonymousPings: false in telemetry.json.
+
+function _getCountry() {
+  // Best-effort: read from birdnet.conf or GeoIP cache
+  try {
+    const confPath = path.join(__dirname, '..', '..', 'config', 'telemetry.json');
+    const conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
+    if (conf.country) return conf.country;
+  } catch {}
+  // Fallback: try ipapi.co (same as install.sh)
+  return new Promise(resolve => {
+    const req = https.get('https://ipapi.co/country_name/', {
+      headers: { 'User-Agent': 'birdash/1.0' },
+      timeout: 5000,
+    }, res => {
+      let d = ''; res.on('data', c => d += c);
+      res.on('end', () => resolve(d.trim() || 'unknown'));
+    });
+    req.on('error', () => resolve('unknown'));
+    req.on('timeout', () => { req.destroy(); resolve('unknown'); });
+  });
+}
+
+async function sendAnonymousPing(event = 'alive') {
+  _loadConfig();
+  // Respect opt-out
+  if (_config.anonymousPings === false) return;
+
+  // Monthly throttle: don't send more than once per 30 days
+  if (event === 'alive' && _config.lastAlivePing) {
+    const last = new Date(_config.lastAlivePing).getTime();
+    if (Date.now() - last < 30 * 24 * 60 * 60 * 1000) return;
+  }
+
+  try {
+    const { hardware, os } = _getHardwareInfo();
+    const version = _getVersion();
+    const country = typeof _getCountry === 'function'
+      ? await _getCountry()
+      : 'unknown';
+
+    await _supabaseRequest('POST', 'pings', {
+      event,
+      version,
+      hardware,
+      os,
+      country,
+    });
+
+    // Save timestamp + country for next time
+    _config.lastAlivePing = new Date().toISOString();
+    if (country && country !== 'unknown') _config.country = country;
+    _saveConfig();
+    console.log(`[telemetry] Anonymous ${event} ping sent`);
+  } catch (e) {
+    // Silent failure — this is best-effort, must never break the app
+    console.warn(`[telemetry] Anonymous ping failed: ${e.message}`);
+  }
+}
+
+function setAnonymousPings(enabled) {
+  _loadConfig();
+  _config.anonymousPings = enabled !== false;
+  _saveConfig();
+  console.log(`[telemetry] Anonymous pings ${_config.anonymousPings ? 'enabled' : 'disabled'}`);
+}
+
+function getAnonymousPingsEnabled() {
+  _loadConfig();
+  return _config.anonymousPings !== false;  // default: enabled
 }
 
 // ── Registration ────────────────────────────────────────────────────────────
@@ -256,9 +338,14 @@ function getStatus() {
 // ── Start daily cron ────────────────────────────────────────────────────────
 function startDailyCron(db, parseBirdnetConf) {
   _loadConfig();
+
+  // Anonymous alive ping — runs regardless of opt-in community network.
+  // Sends at most once per 30 days, disabled by anonymousPings: false.
+  setTimeout(() => sendAnonymousPing('alive').catch(() => {}), 15000);
+
   if (!_config.enabled) return;
 
-  // Send once at startup (catches up if missed), then every 6 hours
+  // Opt-in community reports: send once at startup, then every 6 hours
   setTimeout(() => sendDailyReport(db, parseBirdnetConf).catch(e => console.error('[telemetry]', e.message)), 10000);
   _dailyTimer = setInterval(() => {
     sendDailyReport(db, parseBirdnetConf).catch(e => console.error('[telemetry]', e.message));
@@ -270,4 +357,4 @@ function stopDailyCron() {
   if (_dailyTimer) { clearInterval(_dailyTimer); _dailyTimer = null; }
 }
 
-module.exports = { register, disable, getStatus, sendDailyReport, startDailyCron, stopDailyCron };
+module.exports = { register, disable, getStatus, sendDailyReport, startDailyCron, stopDailyCron, sendAnonymousPing, setAnonymousPings, getAnonymousPingsEnabled };

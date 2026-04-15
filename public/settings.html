@@ -1725,6 +1725,22 @@ const app = createApp({
       telemetryStatus.enabled = false;
     }
 
+    // Anonymous usage pings (opt-out)
+    const anonPingsEnabled = ref(true);
+    fetch(`${API}/telemetry/anonymous-pings`).then(r => r.json()).then(d => {
+      anonPingsEnabled.value = d.enabled !== false;
+    }).catch(() => {});
+
+    async function toggleAnonPings(enabled) {
+      anonPingsEnabled.value = enabled;
+      try {
+        await fetch(`${API}/telemetry/anonymous-pings`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
+      } catch(e) { console.error(e); }
+    }
+
     // ── Provide context to lazy-loaded tab components ──────────────
     const settingsCtx = {
       t, lang, safeHtml, conf, models, analysisStatus, languages, services,
@@ -1760,6 +1776,7 @@ const app = createApp({
       bkpSchedule, bkpHistory,
       tabComponents,
       telemetryStatus, telemetryLoading, telemetryName, telemetryJoining, enableTelemetry, disableTelemetry,
+      anonPingsEnabled, toggleAnonPings,
     };
     // ── Station map (Leaflet) ──────────────────────────────────────
     let _stationMap = null, _stationMarker = null, _leafletLoaded = false;
@@ -1876,6 +1893,7 @@ const app = createApp({
       pauseBackup, stopBackup, fmtSize, fmtDateTimeFull,
       bkpSchedule, bkpHistory,
       telemetryStatus, telemetryLoading, telemetryName, telemetryJoining, enableTelemetry, disableTelemetry,
+      anonPingsEnabled, toggleAnonPings,
     };
   }
 });

@@ -246,7 +246,24 @@ else
     fail "birdengine failed to start — check: sudo journalctl -u birdengine -n 30"
 fi
 
-# ── 7. Summary ────────────────────────────────────────────────────────────
+# ── 7. Anonymous update ping (best-effort, background) ────────────────────
+_ping_update() {
+    local version hardware os_name country
+    version=$(grep -o '"version": *"[^"]*"' "$REPO_DIR/package.json" 2>/dev/null | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*' || echo "unknown")
+    hardware=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "unknown")
+    os_name=$(grep -oP 'PRETTY_NAME="\K[^"]+' /etc/os-release 2>/dev/null || echo "unknown")
+    country=$(curl -s -m 3 https://ipapi.co/country_name/ 2>/dev/null || echo "unknown")
+    curl -s -m 5 -X POST "https://ujuaoogpthdlyvyphgpc.supabase.co/rest/v1/pings" \
+        -H "apikey: sb_publishable_aM2y1SE0B42oXD05wuGmJQ_FsqmzSHa" \
+        -H "Authorization: Bearer sb_publishable_aM2y1SE0B42oXD05wuGmJQ_FsqmzSHa" \
+        -H "Content-Type: application/json" \
+        -H "Prefer: return=minimal" \
+        -d "{\"event\":\"update\",\"version\":\"$version\",\"hardware\":\"$hardware\",\"os\":\"$os_name\",\"country\":\"$country\"}" \
+        >/dev/null 2>&1 || true
+}
+_ping_update &
+
+# ── 8. Summary ────────────────────────────────────────────────────────────
 echo ""
 echo "Updated to $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
 echo "Changed files:"

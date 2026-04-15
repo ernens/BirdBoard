@@ -110,3 +110,19 @@
           </div>
         </div>
       </div>
+
+      <!-- Anonymous usage statistics -->
+      <div class="set-section">
+        <div class="set-section-title"><bird-icon name="bar-chart-3" :size="15"></bird-icon> {{t('set_anon_pings_title')}}</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.8rem;">{{t('set_anon_pings_desc')}}</p>
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <label class="set-toggle">
+            <input type="checkbox" :checked="anonPingsEnabled" @change="toggleAnonPings($event.target.checked)">
+            <span class="set-toggle-slider"></span>
+          </label>
+          <span style="font-size:.85rem;">{{anonPingsEnabled ? t('set_anon_pings_on') : t('set_anon_pings_off')}}</span>
+        </div>
+        <div style="font-size:.72rem;color:var(--text-faint);margin-top:.5rem;">
+          {{t('set_anon_pings_detail')}}
+        </div>
+      </div>

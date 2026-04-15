@@ -52,6 +52,31 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ── GET /api/telemetry/anonymous-pings ────────────────────────────────────
+  if (req.method === 'GET' && pathname === '/api/telemetry/anonymous-pings') {
+    res.writeHead(200, JSON_CT);
+    res.end(JSON.stringify({ enabled: telemetry.getAnonymousPingsEnabled() }));
+    return true;
+  }
+
+  // ── POST /api/telemetry/anonymous-pings ───────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/telemetry/anonymous-pings') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { enabled } = JSON.parse(body || '{}');
+        telemetry.setAnonymousPings(enabled);
+        res.writeHead(200, JSON_CT);
+        res.end(JSON.stringify({ ok: true, enabled: telemetry.getAnonymousPingsEnabled() }));
+      } catch (e) {
+        res.writeHead(400, JSON_CT);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return true;
+  }
+
   return false;
 }
 

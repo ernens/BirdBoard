@@ -88,6 +88,25 @@ info "Launching install.sh --yes ..."
 echo ""
 ./install.sh --yes
 
+# ── Anonymous install ping (best-effort, silent) ─────────────────────────
+# One-shot anonymous ping: {event, version, hardware, os, country}.
+# No PII, no GPS, no UUID. Helps track adoption. Disable in Settings.
+_ping_install() {
+    local version hardware os_name country
+    version=$(grep -o '"version": *"[^"]*"' "$TARGET_DIR/package.json" 2>/dev/null | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*' || echo "unknown")
+    hardware=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "unknown")
+    os_name=$(grep -oP 'PRETTY_NAME="\K[^"]+' /etc/os-release 2>/dev/null || echo "unknown")
+    country=$(curl -s -m 3 https://ipapi.co/country_name/ 2>/dev/null || echo "unknown")
+    curl -s -m 5 -X POST "https://ujuaoogpthdlyvyphgpc.supabase.co/rest/v1/pings" \
+        -H "apikey: sb_publishable_aM2y1SE0B42oXD05wuGmJQ_FsqmzSHa" \
+        -H "Authorization: Bearer sb_publishable_aM2y1SE0B42oXD05wuGmJQ_FsqmzSHa" \
+        -H "Content-Type: application/json" \
+        -H "Prefer: return=minimal" \
+        -d "{\"event\":\"install\",\"version\":\"$version\",\"hardware\":\"$hardware\",\"os\":\"$os_name\",\"country\":\"$country\"}" \
+        >/dev/null 2>&1 || true
+}
+_ping_install &
+
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  Bootstrap complete${NC}"

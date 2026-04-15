@@ -486,6 +486,24 @@ birdash/
 - Worker threads for heavy computation (event-loop non-blocking)
 - Auto-download of species translation labels when missing (BirdNET GitHub fallback)
 
+## Telemetry & Privacy
+
+BirdStation has two independent telemetry layers:
+
+**Anonymous usage pings** (opt-out) — enabled by default, disableable in Settings → Station:
+- Sends a monthly ping with: `version`, `Pi model`, `OS`, `country`
+- **No** GPS, UUID, station name, IP, or any personal data
+- Install and update events also recorded (same anonymous data)
+- Helps us track adoption and which platforms to prioritize
+- Disable anytime in Settings → Station → "Anonymous usage statistics"
+
+**Community network** (opt-in) — disabled by default:
+- Registers your station on the [live map](https://ernens.github.io/birdash-network/) with GPS + station name
+- Sends daily detection summaries (top species, rare species)
+- Enable in Settings → Station → "Join the network"
+
+Both layers use Supabase with a public anon key (write-only RLS). No data is collected until the service starts, and anonymous pings can be fully disabled.
+
 ## Community
 
 - **[Live Station Map](https://ernens.github.io/birdash-network/)** — see all registered BirdStation installations worldwide

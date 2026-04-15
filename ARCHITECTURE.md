@@ -263,7 +263,7 @@ Directory: `server/routes/`
 | `photos.js` | Photo resolution/caching (iNaturalist, Wikipedia), species name translation | `/api/photo`, `/api/species-names` |
 | `settings.js` | Settings CRUD, Apprise notifications, alerts config, log streaming (SSE) | `/api/settings`, `/api/apprise`, `/api/alerts`, `/api/logs` |
 | `system.js` | Service management, health metrics, hardware info, model management | `/api/services`, `/api/health`, `/api/models` |
-| `telemetry.js` | Opt-in telemetry registration and status | `/api/telemetry/register`, `/api/telemetry/status` |
+| `telemetry.js` | Telemetry: registration, anonymous pings toggle | `/api/telemetry/register`, `/api/telemetry/status`, `/api/telemetry/anonymous-pings` |
 | `timeline.js` | Timeline data with SunCalc astronomy (sunrise/sunset/moon) | `/api/timeline` |
 | `updates.js` | Update system: status, apply, rollback, force, log | `/api/update-status`, `/api/apply-update`, `/api/rollback-update`, `/api/update-snooze`, `/api/update-log` |
 | `whats-new.js` | Daily overview cards (delegates to worker thread) | `/api/whats-new` |
@@ -767,11 +767,28 @@ BirdStation C ──┘         │
                           └── daily_reports table (summaries)
 ```
 
-### Supabase Telemetry (Opt-In)
+### Telemetry — Two Independent Layers
 
 File: `server/lib/telemetry.js`
 
-Fully opt-in. Nothing is sent until the user explicitly enables it from Settings.
+#### 1. Anonymous Usage Pings (opt-out)
+
+Lightweight adoption tracking. Enabled by default, disableable in Settings → Station.
+
+**Data sent**: `{event, version, hardware, os, country}` — no UUID, no GPS, no station name.
+
+| Event | When | Source |
+|-------|------|--------|
+| `install` | Once, at bootstrap | `bootstrap.sh` (curl) |
+| `update` | After each successful update | `update.sh` (curl) |
+| `alive` | Monthly, at startup | `telemetry.js` (throttled to 30 days) |
+
+Stored in Supabase `pings` table (write-only RLS, anon key cannot read).
+Toggle: `config/telemetry.json` → `anonymousPings: false`.
+
+#### 2. Community Network (opt-in)
+
+Full station registration. Nothing sent until the user explicitly enables it from Settings.
 
 **Registration** (`/api/telemetry/register`):
 - Generates a UUID (`crypto.randomUUID()`)
@@ -970,16 +987,24 @@ Auto-flagging rules for the Review page:
 
 Path: `config/telemetry.json`
 
-Telemetry opt-in state:
+Telemetry state (both layers):
 
 ```json
 {
   "enabled": false,
   "stationId": null,
   "stationName": "",
-  "optInDate": null
+  "optInDate": null,
+  "anonymousPings": true,
+  "lastAlivePing": "2026-04-15T12:00:00.000Z",
+  "country": "Belgium"
 }
 ```
+
+- `enabled` / `stationId` / `stationName` / `optInDate` — community network (opt-in)
+- `anonymousPings` — anonymous usage pings (opt-out, default `true`)
+- `lastAlivePing` — timestamp of last monthly alive ping (throttle)
+- `country` — cached from GeoIP (used for anonymous pings)
 
 ### birdash-local.js
 
