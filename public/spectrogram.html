@@ -256,8 +256,8 @@
         </div>
         <p v-if="status==='idle'">
           {{t('spectro_idle_msg')}}<br>
-          {{t('spectro_idle_desc')}}<br>
-          {{t('spectro_idle_overlay')}}
+          <template v-if="liveMode==='clips'">{{t('spectro_idle_desc')}}<br>{{t('spectro_idle_overlay')}}</template>
+          <template v-else>{{t('spectro_idle_mic_desc')}}</template>
         </p>
         <p v-else-if="status==='connecting'">
           {{t('spectro_connecting_msg')}}

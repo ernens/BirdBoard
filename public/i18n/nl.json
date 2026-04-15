@@ -839,6 +839,7 @@
   "spectro_idle_msg": "Klik op Starten om het spectrogram te activeren.",
   "spectro_idle_desc": "Audio komt van recente BirdNET MP3's — geen conflict met lopende analyse.",
   "spectro_idle_overlay": "Detecties verschijnen automatisch als overlay.",
+  "spectro_idle_mic_desc": "De microfoon wordt live vastgelegd — het spectrogram wordt in realtime weergegeven.",
   "spectro_connecting_msg": "Verbinden met de audiostream van de Pi…",
   "colorbar_max": "max",
   "colorbar_min": "min",
