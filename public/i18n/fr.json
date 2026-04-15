@@ -838,7 +838,7 @@
   "spectro_close": "Fermer spectrogramme",
   "spectro_show": "Afficher spectrogramme",
   "spectro_idle_msg": "Cliquez sur Démarrer pour activer le spectrogramme.",
-  "spectro_idle_desc": "L'audio provient des MP3 récents de BirdNET — aucun conflit avec l'analyse en cours.",
+  "spectro_idle_desc": "Rejoue les extraits audio des détections récentes de BirdNET.",
   "spectro_idle_overlay": "Les détections apparaissent en overlay automatiquement.",
   "spectro_idle_mic_desc": "Le micro sera capturé en direct — le spectrogramme s'affiche en temps réel.",
   "spectro_connecting_msg": "Connexion au flux audio du Pi…",
