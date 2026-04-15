@@ -61,24 +61,40 @@
 
       <!-- ── Contenu ─────────────────────────────────────────────── -->
       <div>
-        <!-- KPIs -->
-        <div class="kpi-grid" style="margin-bottom:1rem;">
-          <div v-if="kpis.loading" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;">
+        <!-- KPIs — pleine largeur, cliquables -->
+        <div class="rar-kpi-grid">
+          <template v-if="kpis.loading">
             <div class="skeleton skeleton-kpi"></div><div class="skeleton skeleton-kpi"></div><div class="skeleton skeleton-kpi"></div><div class="skeleton skeleton-kpi"></div>
-          </div>
+          </template>
           <template v-else>
-            <div class="kpi-card"><div class="kpi-value">{{kpis.total}}</div><div class="kpi-label">{{t('species')}}</div></div>
-            <div class="kpi-card"><div class="kpi-value amber">{{kpis.rare}}</div><div class="kpi-label">{{t('rare_species')}} (≤{{fMaxDet}})</div></div>
-            <div class="kpi-card"><div class="kpi-value blue">{{kpis.once}}</div><div class="kpi-label">{{t('rarity_seen_once').replace('💎 ','')}}</div></div>
-            <div class="kpi-card"><div class="kpi-value">{{kpis.newThisYear}}</div><div class="kpi-label">{{t('first_seen')}} {{thisYear}}</div></div>
+            <a class="rar-kpi" :class="{active: activeKpi==='total'}" @click="scrollToSection('table')">
+              <div class="rar-kpi-val">{{kpis.total}}</div>
+              <div class="rar-kpi-label">{{t('species')}}</div>
+            </a>
+            <a class="rar-kpi" :class="{active: activeKpi==='rare'}" @click="scrollToSection('table')">
+              <div class="rar-kpi-val amber">{{kpis.rare}}</div>
+              <div class="rar-kpi-label">{{t('rare_species')}} (&le;{{fMaxDet}})</div>
+            </a>
+            <a class="rar-kpi" :class="{active: activeKpi==='once'}" @click="scrollToSection('once')">
+              <div class="rar-kpi-val blue">{{kpis.once}}</div>
+              <div class="rar-kpi-label">{{t('rarity_seen_once').replace('\uD83D\uDC8E ','')}}</div>
+            </a>
+            <a class="rar-kpi" :class="{active: activeKpi==='new'}" @click="scrollToSection('table'); tableFilter='new'">
+              <div class="rar-kpi-val">{{kpis.newThisYear}}</div>
+              <div class="rar-kpi-label">{{t('first_seen')}} {{thisYear}}</div>
+            </a>
           </template>
         </div>
 
         <div class="grid-2" style="margin-bottom:1rem;">
 
           <!-- Vues une seule fois -->
-          <div class="card">
-            <div class="card-title">{{t('rarity_seen_once')}}</div>
+          <div class="card" ref="onceSection">
+            <div class="card-title" style="display:flex;align-items:center;">
+              {{t('rarity_seen_once')}}
+              <span v-if="!once.loading" style="font-size:.72rem;color:var(--text-faint);margin-left:.4rem;">({{once.rows.length}})</span>
+              <button v-if="once.rows.length" class="rar-section-link" @click="scrollToSection('table'); tableFilter='once'">{{t('rarity_show_all')}}</button>
+            </div>
             <div v-if="once.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:60%"></div><div class="skeleton skeleton-text" style="width:40%"></div></div></div></div>
             <div v-else-if="!once.rows.length" class="hint-empty">
               <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
@@ -87,7 +103,6 @@
             <div v-else>
               <div v-for="r in once.rows" :key="r.Com_Name" class="det-item"
                    style="cursor:pointer;gap:.5rem;" @click="navigateTo('species.html',{species:r.Com_Name})">
-                <!-- Miniature -->
                 <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" ></bird-img>
                 <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
                 <div style="font-size:.85rem;flex:1;min-width:0;">
@@ -103,9 +118,12 @@
             </div>
           </div>
 
-          <!-- Dernières détections rares avec player + download -->
+          <!-- Dernières détections rares -->
           <div class="card">
-            <div class="card-title">{{t('rarity_last_rare')}}</div>
+            <div class="card-title" style="display:flex;align-items:center;">
+              {{t('rarity_last_rare')}}
+              <span v-if="!recent.loading" style="font-size:.72rem;color:var(--text-faint);margin-left:.4rem;">({{recent.rows.length}})</span>
+            </div>
             <div v-if="recent.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:55%"></div><div class="skeleton skeleton-text" style="width:35%"></div></div></div></div>
             <div v-else-if="!recent.rows.length" class="hint-empty">
               <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
@@ -115,18 +133,15 @@
               <div v-for="d in recent.rows" :key="d.Date+d.Time+d.Com_Name"
                    class="det-item" style="gap:.5rem;cursor:pointer;"
                    @click="navigateTo('species.html',{species:d.Com_Name})">
-                <!-- Miniature -->
                 <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name" ></bird-img>
                 <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
-                <!-- Play -->
                 <button v-if="d.File_Name" class="play-btn"
                         style="width:24px;height:24px;font-size:.65rem;"
                         @click.stop="BIRDASH.openSpectroModal({fileName:d.File_Name, speciesName:d.Com_Name, sciName:d.Sci_Name||d.sci, confidence:d.Confidence, date:d.Date, time:d.Time})"
-                        title="Spectrogramme">▶</button>
-                <!-- Download -->
+                        title="Spectrogramme">&#x25B6;</button>
                 <a v-if="d.File_Name" :href="buildAudioUrl(d.File_Name)"
                    :download="d.Com_Name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+d.Date+'.mp3'"
-                   class="dl-btn" :title="t('download')" @click.stop>⬇</a>
+                   class="dl-btn" :title="t('download')" @click.stop>&#x2B07;</a>
                 <div class="det-time">{{fmtDate(d.Date)}}</div>
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(d.Com_Name, d.Sci_Name)}} <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(d.Com_Name)">&#x1F50A;</button></div>
@@ -138,15 +153,21 @@
           </div>
         </div>
 
-        <!-- Table complète (dépliable) -->
-        <details class="card" style="padding:0;overflow:hidden;">
-          <summary style="padding:.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;">
-            <bird-icon name="chevron-right" :size="14" style="transition:transform .2s;"></bird-icon>
+        <!-- Table complète — ouverte par défaut -->
+        <div class="card" ref="tableSection" style="padding:0;overflow:hidden;">
+          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;">
             <span class="card-title" style="margin-bottom:0;">{{t('rare_desc',{n:fMaxDet})}}</span>
-            <span v-if="table.rows.length" style="font-size:.72rem;color:var(--text-faint);">({{table.rows.length}})</span>
-          </summary>
+            <span v-if="filteredTable.length" style="font-size:.72rem;color:var(--text-faint);">({{filteredTable.length}})</span>
+            <div style="margin-left:auto;display:flex;gap:.4rem;align-items:center;">
+              <button v-if="tableFilter" class="rar-section-link" @click="tableFilter=null" style="font-size:.72rem;">
+                <bird-icon name="x" :size="11"></bird-icon> {{t('reset_filter')}}
+              </button>
+              <span v-if="tableFilter==='once'" style="font-size:.7rem;background:var(--accent-dim);color:var(--accent);padding:.15rem .45rem;border-radius:4px;">= 1</span>
+              <span v-if="tableFilter==='new'" style="font-size:.7rem;background:var(--accent-dim);color:var(--accent);padding:.15rem .45rem;border-radius:4px;">{{t('first_seen')}} {{thisYear}}</span>
+            </div>
+          </div>
           <div v-if="table.loading" style="padding:1rem;"><div class="skeleton-row" v-for="i in 5" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:50%"></div><div class="skeleton skeleton-text" style="width:30%"></div></div><div class="skeleton" style="width:60px;height:1rem;"></div></div></div>
-          <div v-else-if="!table.rows.length" class="hint-empty" style="padding:1rem;">
+          <div v-else-if="!filteredTable.length" class="hint-empty" style="padding:1rem;">
             <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
             <div>{{t('no_data')}}</div>
           </div>
@@ -161,12 +182,12 @@
               <th>{{t('max_confidence')}}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="r in table.rows" :key="r.Com_Name" style="cursor:pointer;" @click="navigateTo('species.html',{species:r.Com_Name})">
+              <tr v-for="r in filteredTable" :key="r.Com_Name" style="cursor:pointer;" @click="navigateTo('species.html',{species:r.Com_Name})">
                 <td style="padding:.3rem .4rem;">
                   <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" ></bird-img>
                   <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
                 </td>
-                <td><span style="margin-right:.3rem;">{{r.n===1?'💎':r.n<=3?'🔶':'🔹'}}</span><strong>{{spName(r.Com_Name, r.sci)}}</strong> <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button></td>
+                <td><span style="margin-right:.3rem;">{{r.n===1?'\uD83D\uDC8E':r.n<=3?'\uD83D\uDD36':'\uD83D\uDD39'}}</span><strong>{{spName(r.Com_Name, r.sci)}}</strong> <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button></td>
                 <td style="font-style:italic;color:var(--text-muted);font-size:.8rem;" class="hide-sm">{{r.sci}}</td>
                 <td style="text-align:center;"><span :class="'conf-badge '+(r.n===1?'conf-low':r.n<=5?'conf-mid':'conf-high')">{{r.n}}</span></td>
                 <td style="font-size:.8rem;">{{fmtDate(r.first_date)}}</td>
@@ -175,7 +196,7 @@
               </tr>
             </tbody>
           </table>
-        </details>
+        </div>
       </div>
     </div>
   </birdash-shell>
@@ -217,6 +238,26 @@ const app = createApp({
     const once   = ref({ loading:true, rows:[] });
     const recent = ref({ loading:true, rows:[] });
     const table  = ref({ loading:true, rows:[] });
+    const tableFilter = ref(null);  // null | 'once' | 'new'
+    const activeKpi   = ref(null);
+    const onceSection  = ref(null);
+    const tableSection = ref(null);
+
+    const filteredTable = computed(() => {
+      if (!table.value.rows.length) return [];
+      if (tableFilter.value === 'once') return table.value.rows.filter(r => r.n === 1);
+      if (tableFilter.value === 'new') return table.value.rows.filter(r => r.first_date && r.first_date.startsWith(thisYear));
+      return table.value.rows;
+    });
+
+    function scrollToSection(section) {
+      activeKpi.value = section === 'once' ? 'once' : (tableFilter.value || 'rare');
+      nextTick(() => {
+        const el = section === 'once' ? onceSection.value : tableSection.value;
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => { activeKpi.value = null; }, 1500);
+      });
+    }
 
     function buildDateWhere(alias) {
       const p = alias ? alias+'.' : '';
@@ -301,6 +342,8 @@ const app = createApp({
       fp,fc,fMaxDet,
       resetFilters,thisYear,
       kpis,once,recent,table,
+      tableFilter,activeKpi,filteredTable,
+      onceSection,tableSection,scrollToSection,
       playingFile,toggleAudio,buildAudioUrl,
       fmtDate,fmtConf,navigateTo,spName,load,
       quickPlay(comName) { quickPlaySpecies(comName); },

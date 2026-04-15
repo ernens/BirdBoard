@@ -708,6 +708,7 @@
   "sys_hourly_distrib": "🕐 Global hourly distribution",
   "rarity_threshold_label": "Rarity threshold (max detections)",
   "rarity_seen_once": "💎 Seen only once",
+  "rarity_show_all": "Show all ›",
   "rarity_last_rare": "🕐 Latest rare detections",
   "latin_name": "Latin name",
   "bio_total": "Total",
