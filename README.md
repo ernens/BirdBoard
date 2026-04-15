@@ -21,12 +21,13 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 </details>
 
 <details>
-<summary><b>Live</b> — Dashboard · Spectrogram · Log</summary>
+<summary><b>Live</b> — Dashboard · Spectrogram · Log · Live Board</summary>
 
 <p align="center">
   <img src="screenshots/dashboard.png"   width="240" alt="Dashboard">
   <img src="screenshots/spectrogram.png" width="240" alt="Spectrogram">
   <img src="screenshots/log.png"         width="240" alt="Live log">
+  <img src="screenshots/liveboard.png"   width="240" alt="Live Board">
 </p>
 </details>
 
@@ -47,22 +48,22 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 <p align="center">
   <img src="screenshots/species.png"    width="240" alt="Species">
   <img src="screenshots/recordings.png" width="240" alt="Recordings">
-  <img src="screenshots/gallery.png"    width="240" alt="Gallery">
   <img src="screenshots/rarities.png"   width="240" alt="Rarities">
   <img src="screenshots/favorites.png"  width="240" alt="Favorites">
 </p>
 </details>
 
 <details>
-<summary><b>Indicators</b> — Weather · Statistics · Models · Analyses · Biodiversity · Phenology</summary>
+<summary><b>Indicators</b> — Weather · Statistics · Models · Analyses · Biodiversity · Phenology · Comparison</summary>
 
 <p align="center">
   <img src="screenshots/weather.png"      width="240" alt="Weather">
   <img src="screenshots/stats.png"        width="240" alt="Statistics">
-  <img src="screenshots/models.png"       width="240" alt="Models">
+  <img src="screenshots/system-model.png" width="240" alt="Models">
   <img src="screenshots/analyses.png"     width="240" alt="Analyses">
   <img src="screenshots/biodiversity.png" width="240" alt="Biodiversity">
   <img src="screenshots/phenology.png"    width="240" alt="Phenology">
+  <img src="screenshots/comparison.png"   width="240" alt="Comparison">
 </p>
 </details>
 
