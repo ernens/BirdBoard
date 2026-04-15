@@ -39,7 +39,7 @@ Raspberry Pi 5 + SSD
 | Komponente | Technologie | Rolle |
 |-----------|------------|------|
 | **BirdEngine** | Python 3 + TFLite | Audioaufnahme, Filterung, Dual-Model-Inferenz |
-| **Birdash** | Node.js + better-sqlite3 | REST-API, 20 Vue-3-Seiten, Cache, Aggregate |
+| **Birdash** | Node.js + better-sqlite3 | REST-API, 18 Vue-3-Seiten, Cache, Aggregate |
 | **Caddy** | Go | Reverse-Proxy HTTPS, Gzip, statische Dateien |
 | **SQLite** | C | Erkennung, Validierung, Taxonomie |
 | **Supabase** | PostgreSQL | Community-Netzwerk (Opt-in-Telemetrie) |
@@ -50,15 +50,15 @@ Raspberry Pi 5 + SSD
 🎤 Mikrofon → Adaptive Verstärkung → Hochpass → Tiefpass → Geräuschprofil / Auto-Denoise → RMS → 🐦 BirdNET + Perch
 ```
 
-### Dashboard-Seiten (20)
+### Dashboard-Seiten (18)
 
 | Bereich | Seiten |
 |---------|--------|
 | Startseite | Übersicht, Heute |
 | Live | Bird Flow, Live Board, Spektrogramm, Protokoll |
-| Verlauf | Kalender, Timeline, Erkennungen, Überprüfung |
-| Arten | Artenkarten, Galerie, Favoriten, Seltenheiten, Aufnahmen |
-| Indikatoren | Wetter, Statistiken, Analysen, Biodiversität, Phänologie, Vergleich |
+| Verlauf | Kalender (Monatsraster), Timeline, Erkennungen, Überprüfung |
+| Arten | Artenkarten, Aufnahmen (Bibliothek + Beste), Seltenheiten, Favoriten |
+| Indikatoren | Wetter, Statistiken + Diversität (Tabs), Analysen, Phänologie, Vergleich |
 | Station | Einstellungen (9 Tabs), System |
 
 → **[Vollständige technische Dokumentation lesen (EN)](ARCHITECTURE.md)**

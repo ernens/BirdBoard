@@ -648,7 +648,6 @@ The shell wraps every page and provides:
 | Review | `review.html` | History |
 | Species | `species.html` | Species |
 | Rarities | `rarities.html` | Species |
-| Gallery | `gallery.html` | Species |
 | Recordings | `recordings.html` | Species |
 | Favorites | `favorites.html` | Species |
 | Weather | `weather.html` | Indicators |
@@ -710,14 +709,15 @@ The Overview page's "What's New" section runs 10 heavy queries. These are offloa
 
 ### Result Cache (Cleared on Mutations)
 
-`result-cache.js` provides an in-memory key-value cache with TTL:
+`result-cache.js` is the **single centralized cache** for all expensive endpoints. Previously there were 3 separate caches (`_cache`, `_queryCache`, `resultCache`) — now consolidated into one.
 
 ```javascript
 resultCache.set('whats-new', data, 5 * 60 * 1000);  // 5 min TTL
+resultCache.get('whats-new');                         // null if expired
 resultCache.clearAll();  // after any mutation (delete, validate, etc.)
 ```
 
-Every mutation handler calls `clearAll()` to prevent stale data.
+Every mutation handler calls `clearAll()` to prevent stale data. Query results, taxonomy lookups, model comparisons, and rare-today data all share this single cache.
 
 ### Pre-Aggregated Statistics Tables
 

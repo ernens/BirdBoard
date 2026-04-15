@@ -42,7 +42,7 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 </details>
 
 <details>
-<summary><b>Species</b> — Species · Recordings · Gallery · Rarities · Favorites</summary>
+<summary><b>Species</b> — Species · Recordings · Rarities · Favorites</summary>
 
 <p align="center">
   <img src="screenshots/species.png"    width="240" alt="Species">
@@ -130,7 +130,7 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Smart push notifications** — via Apprise (ntfy, Telegram, Discord, Slack, email, 100+ services) with species photo attached, station name prefix (`[Heinsch] Merle noir`). 5 configurable rules: rare species, first-of-season, new species, first-of-day, favorites
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **Async post-processing** — MP3 extraction, spectrogram generation, DB sync don't block inference
 
-### Dashboard (20 pages)
+### Dashboard (18 pages)
 
 **Home**
 - <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Overview** (landing page) — 6 KPIs, bird of the day, weather context, hourly activity, "What's New" alerts, latest detections
@@ -144,7 +144,7 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/monitor.svg" width="16" align="top" alt=""> **Live Board** — full-screen kiosk display for a dedicated screen: large species photo, KPIs, today's species list, weather, auto-refresh 30s, discreet back button
 
 **History**
-- <img src="docs/icons/calendar-days.svg" width="16" align="top" alt=""> **Calendar** — unified day-by-day view with timeline visualization, species list, audio player
+- <img src="docs/icons/calendar-days.svg" width="16" align="top" alt=""> **Calendar** — monthly grid with per-day species count, detection count and activity heatmap. Click any day to open the detail view
 - <img src="docs/icons/sunrise.svg" width="16" align="top" alt=""> **Timeline** — full-page interactive timeline with drag-to-zoom, unified bird density slider (0-100%), SVG sunrise/sunset/moon icons, type filter badges with blink highlight, confidence-mapped vertical layout
 - <img src="docs/icons/list.svg" width="16" align="top" alt=""> **Detections** — full filterable table with favorites, new species filter, per-detection delete, CSV/eBird export
 - <img src="docs/icons/check-circle.svg" width="16" align="top" alt=""> **Review** — auto-flagged detections with spectro modal, bulk confirm/reject/delete with preview, purge rejected
@@ -153,7 +153,7 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/bird.svg" width="16" align="top" alt=""> Species cards with photos (iNaturalist + Wikipedia), IUCN status, favorites (SQLite-backed), personal notes (per-species and per-detection), phenology calendar (12-month dot map), year-over-year monthly comparison, chart PNG export, Web Share API
 - <img src="docs/icons/star.svg" width="16" align="top" alt=""> **Favorites** — dedicated page with KPIs, search, sort; heart toggle on all species lists
 - <img src="docs/icons/gem.svg" width="16" align="top" alt=""> Rare species tracking
-- <img src="docs/icons/trophy.svg" width="16" align="top" alt=""> Best recordings gallery with audio library tab
+- <img src="docs/icons/music.svg" width="16" align="top" alt=""> **Recordings** — unified audio library with two tabs: "Library" (all recordings, sortable/filterable) and "Best" (top recordings grouped by species)
 
 **Indicators**
 - <img src="docs/icons/cloud-sun.svg" width="16" align="top" alt=""> **Weather** — dedicated page with correlation analysis (Pearson r), tomorrow's forecast, species by weather conditions
@@ -164,7 +164,7 @@ Raspberry Pi 5 + SSD
 
 **Navigation**
 - 6 intent-based sections: Home, Live, History, Species, Indicators, Station
-- Mobile bottom nav (4 quick links + hamburger drawer with all 20 pages)
+- Mobile bottom nav (4 quick links + hamburger drawer with all 18 pages)
 - Global species+date search, notification bell, review badge counter
 - Keyboard shortcuts on 5 pages, swipe gestures on species photos
 - Skeleton loading states for data-heavy pages
@@ -372,12 +372,12 @@ birdash/
 │   ├── overview.html               # Landing page — KPIs, bird of the day, weather
 │   ├── dashboard.html              # Bird Flow — live pipeline visualization
 │   ├── today.html                 # Today's detections with audio filters
-│   ├── calendar.html              # Calendar (timeline + species + audio)
+│   ├── calendar.html              # Monthly calendar grid with activity heatmap
 │   ├── timeline.html              # Full-page timeline with drag-to-zoom
 │   ├── detections.html            # Filterable detection table
 │   ├── review.html                # Detection review + bulk actions
 │   ├── species.html               # Species cards + favorites + notes
-│   ├── gallery.html               # Best recordings + audio library
+│   ├── gallery.html               # Redirect → recordings.html
 │   ├── favorites.html             # Favorites with stats + management
 │   ├── weather.html               # Weather/activity correlation
 │   ├── stats.html                 # Statistics + integrated Models tab
@@ -400,8 +400,9 @@ birdash/
 │   │   ├── bird-shared.js         # Utilities, DSP, favorites, notes API
 │   │   ├── bird-vue-core.js       # Vue composables, i18n (4 langs), shell
 │   │   ├── bird-timeline.js       # Timeline rendering (sky, stars, markers)
-│   │   ├── vue.global.prod.min.js # Vue 3 (vendored CDN)
-│   │   └── chart.umd.min.js      # Chart.js (vendored CDN)
+│   │   ├── vue.global.prod.min.js # Vue 3 (vendored)
+│   │   ├── chart.umd.min.js      # Chart.js (vendored)
+│   │   └── echarts.min.js        # ECharts (vendored)
 │   ├── i18n/                      # Translation files (fr/en/de/nl.json)
 │   ├── css/                       # Styles + 11 themes (see docs/THEMES.md)
 │   ├── settings/                  # Lazy-loaded settings tab fragments
