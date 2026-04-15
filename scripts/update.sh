@@ -82,7 +82,7 @@ fi
 
 # ── 2. Fetch and fast-forward ─────────────────────────────────────────────
 info "Fetching origin/$BRANCH..."
-git fetch --quiet origin "$BRANCH"
+git fetch --quiet --tags origin "$BRANCH"
 
 OLD_HEAD=$(git rev-parse HEAD)
 NEW_HEAD=$(git rev-parse "origin/$BRANCH")
