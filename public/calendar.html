@@ -43,6 +43,14 @@
         <div class="cal-kpi-val blue">{{monthKpis.activeDays}}</div>
         <div class="cal-kpi-label">{{t('cal_active_days')}}</div>
       </div>
+      <div class="cal-kpi">
+        <div class="cal-kpi-val" style="color:#f59e0b;">{{monthKpis.newSpecies}}</div>
+        <div class="cal-kpi-label">{{t('cal_new_species')}}</div>
+      </div>
+      <div class="cal-kpi">
+        <div class="cal-kpi-val" style="color:var(--danger);">{{monthKpis.rareSpecies}}</div>
+        <div class="cal-kpi-label">{{t('cal_rare_species')}}</div>
+      </div>
     </div>
 
     <!-- Calendar header: ← Month Year → -->
@@ -66,15 +74,19 @@
     <div v-else class="cal-grid">
       <div v-for="(cell, i) in cells" :key="i"
            class="cal-cell"
-           :class="{ empty: !cell.day, today: cell.isToday, future: cell.isFuture }"
+           :class="{ empty: !cell.day, today: cell.isToday, future: cell.isFuture, 'has-new': cell.newSp > 0, 'has-rare': cell.rareSp > 0 }"
            @click="cell.day && !cell.isFuture ? openDay(cell.date) : null">
         <template v-if="cell.day">
           <div class="cal-day">{{cell.day}}</div>
           <div v-if="cell.sp > 0" class="cal-sp">
-            <bird-icon name="bird" :size="11"></bird-icon> {{cell.sp}}
+            <bird-icon name="bird" :size="12"></bird-icon> {{cell.sp}}
           </div>
           <div v-if="cell.det > 0" class="cal-det">{{cell.det.toLocaleString()}} det.</div>
           <div v-else-if="!cell.isFuture" class="cal-det" style="opacity:.3;">—</div>
+          <div v-if="cell.newSp > 0 || cell.rareSp > 0" class="cal-badges">
+            <span v-if="cell.newSp > 0" class="cal-badge cal-badge-new">★ {{cell.newSp}}</span>
+            <span v-if="cell.rareSp > 0" class="cal-badge cal-badge-rare">◆ {{cell.rareSp}}</span>
+          </div>
           <div class="cal-bar" :style="{ background: cell.det > 0 ? barColor(cell.det) : 'transparent', width: barWidth(cell.det) + '%' }"></div>
         </template>
       </div>
@@ -85,6 +97,8 @@
       <span style="display:flex;align-items:center;gap:.3rem;"><span class="cal-legend-swatch" style="background:rgba(52,211,153,.3);"></span> {{t('cal_few')}}</span>
       <span style="display:flex;align-items:center;gap:.3rem;"><span class="cal-legend-swatch" style="background:rgba(52,211,153,.6);"></span> {{t('cal_moderate')}}</span>
       <span style="display:flex;align-items:center;gap:.3rem;"><span class="cal-legend-swatch" style="background:rgba(52,211,153,1);"></span> {{t('cal_many')}}</span>
+      <span style="display:flex;align-items:center;gap:.3rem;"><span class="cal-badge cal-badge-new" style="font-size:.65rem;">★</span> {{t('cal_legend_new')}}</span>
+      <span style="display:flex;align-items:center;gap:.3rem;"><span class="cal-badge cal-badge-rare" style="font-size:.65rem;">◆</span> {{t('cal_legend_rare')}}</span>
     </div>
 
   </birdash-shell>
@@ -127,7 +141,8 @@ const app = createApp({
     });
 
     // Daily data from DB
-    const dailyData = ref({}); // { 'YYYY-MM-DD': { det, sp } }
+    const dailyData = ref({}); // { 'YYYY-MM-DD': { det, sp, newSp, rareSp } }
+    const monthMeta = ref({ totalSpecies: 0, newSpecies: 0, rareSpecies: 0 });
     let maxDet = 1;
 
     // Build calendar cells
@@ -137,12 +152,10 @@ const app = createApp({
       const lastDay = new Date(y, m + 1, 0);
       const daysInMonth = lastDay.getDate();
 
-      // Monday = 0 offset
       let startDow = firstDay.getDay() - 1;
       if (startDow < 0) startDow = 6;
 
       const result = [];
-      // Empty cells before first day
       for (let i = 0; i < startDow; i++) result.push({ day: 0 });
 
       for (let d = 1; d <= daysInMonth; d++) {
@@ -153,6 +166,8 @@ const app = createApp({
           date,
           det: data.det || 0,
           sp: data.sp || 0,
+          newSp: data.newSp || 0,
+          rareSp: data.rareSp || 0,
           isToday: date === todayStr,
           isFuture: date > todayStr,
         });
@@ -163,14 +178,16 @@ const app = createApp({
     // Monthly KPIs
     const monthKpis = computed(() => {
       const prefix = `${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}`;
-      const data = Object.entries(dailyData.value).filter(([d]) => d.startsWith(prefix) && d !== '_totalSpecies');
+      const data = Object.entries(dailyData.value).filter(([d]) => d.startsWith(prefix));
       const totalDet = data.reduce((s, [, v]) => s + (v.det || 0), 0);
       const activeDays = data.filter(([, v]) => v.det > 0).length;
       return {
-        species: dailyData.value._totalSpecies || '—',
+        species: monthMeta.value.totalSpecies || '—',
         detections: totalDet ? totalDet.toLocaleString() : '—',
         avgPerDay: activeDays > 0 ? Math.round(totalDet / activeDays).toLocaleString() : '—',
         activeDays: activeDays || '—',
+        newSpecies: monthMeta.value.newSpecies || 0,
+        rareSpecies: monthMeta.value.rareSpecies || 0,
       };
     });
 
@@ -190,9 +207,9 @@ const app = createApp({
       const from = `${y}-${String(m + 1).padStart(2, '0')}-01`;
       const to = `${y}-${String(m + 1).padStart(2, '0')}-${new Date(y, m + 1, 0).getDate()}`;
       try {
-        // Query detections directly with the same confidence threshold
-        // as today.html to ensure numbers match when clicking a day
         const conf = BIRD_CONFIG.defaultConfidence;
+
+        // 1. Daily counts
         const rows = await birdQuery(
           `SELECT Date as date, COUNT(*) as det, COUNT(DISTINCT Com_Name) as sp
            FROM active_detections WHERE Date >= ? AND Date <= ? AND Confidence >= ?
@@ -201,20 +218,54 @@ const app = createApp({
         );
         const map = {};
         let mx = 1;
-        const allSpecies = new Set();
         for (const r of rows) {
-          map[r.date] = { det: r.det, sp: r.sp };
+          map[r.date] = { det: r.det, sp: r.sp, newSp: 0, rareSp: 0 };
           if (r.det > mx) mx = r.det;
         }
 
-        // Distinct species for the month KPI
+        // 2. New species: first-ever detection date per species, keep those in this month
+        const newRows = await birdQuery(
+          `SELECT Com_Name, MIN(Date) as first_date
+           FROM active_detections WHERE Confidence >= ?
+           GROUP BY Com_Name
+           HAVING first_date >= ? AND first_date <= ?`,
+          [conf, from, to]
+        );
+        const newSpeciesSet = new Set();
+        for (const r of newRows) {
+          if (map[r.first_date]) map[r.first_date].newSp++;
+          newSpeciesSet.add(r.Com_Name);
+        }
+
+        // 3. Rare species (≤5 total detections ever) detected this month
+        const rareRows = await birdQuery(
+          `SELECT d.Date as date, d.Com_Name
+           FROM active_detections d
+           INNER JOIN (
+             SELECT Com_Name FROM active_detections WHERE Confidence >= ?
+             GROUP BY Com_Name HAVING COUNT(*) <= 5
+           ) rare ON d.Com_Name = rare.Com_Name
+           WHERE d.Date >= ? AND d.Date <= ? AND d.Confidence >= ?
+           GROUP BY d.Date, d.Com_Name`,
+          [conf, from, to, conf]
+        );
+        const rareSpeciesSet = new Set();
+        for (const r of rareRows) {
+          if (map[r.date]) map[r.date].rareSp++;
+          rareSpeciesSet.add(r.Com_Name);
+        }
+
+        // 4. Distinct species for the month KPI
         const spRows = await birdQuery(
           `SELECT DISTINCT Com_Name FROM active_detections WHERE Date >= ? AND Date <= ? AND Confidence >= ?`,
           [from, to, conf]
         );
-        for (const r of spRows) allSpecies.add(r.Com_Name);
 
-        map._totalSpecies = allSpecies.size;
+        monthMeta.value = {
+          totalSpecies: spRows.length,
+          newSpecies: newSpeciesSet.size,
+          rareSpecies: rareSpeciesSet.size,
+        };
         dailyData.value = map;
         maxDet = mx;
       } catch (e) { console.error('[calendar]', e); }
@@ -242,7 +293,7 @@ const app = createApp({
     return {
       t, lang, loading,
       viewYear, viewMonth, isCurrentMonth, monthLabel, dowLabels,
-      cells, monthKpis, dailyData,
+      cells, monthKpis, monthMeta, dailyData,
       barColor, barWidth,
       prevMonth, nextMonth, openDay,
     };
