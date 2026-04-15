@@ -296,7 +296,7 @@ function handle(req, res, pathname, ctx) {
           if (secMatch && secMatch.length > 0) {
             secondaryInferenceTime = parseFloat(secMatch[secMatch.length - 1].match(/in ([\d.]+)s/)[1]);
           }
-        } catch(e) {}
+        } catch(e) { console.warn('[system] model log parse:', e.message); }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({

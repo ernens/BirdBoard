@@ -456,6 +456,155 @@
       }
       return buckets;
     },
+
+    // ═══════════════════════════════════════════════════════════
+    //  ANALYSES — Deep per-species/group analysis
+    // ═══════════════════════════════════════════════════════════
+
+    /** IN-clause placeholder helper: returns '?,?,?' for N items */
+    _inPh(arr) { return arr.map(() => '?').join(','); },
+
+    /** Resample expression for detection counting modes */
+    _resampleExpr(mode) {
+      switch (mode) {
+        case 'raw':    return 'COUNT(*) as n';
+        case 'hourly': return "COUNT(DISTINCT Date || SUBSTR(Time,1,2)) as n";
+        case 'daily':  return "COUNT(DISTINCT Date) as n";
+        default:       return "COUNT(DISTINCT Date || SUBSTR(Time,1,2) || CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)) as n";
+      }
+    },
+
+    /** Species list with resample count — analyses filter panel */
+    analysesSpeciesList(dateFrom, dateTo, resampleMode, c) {
+      const expr = Q._resampleExpr(resampleMode);
+      return [
+        'SELECT Com_Name, MIN(Sci_Name) as Sci_Name, ' + expr + ' FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC',
+        [dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Aggregate KPIs for a set of species (by sci name) */
+    analysesKpis(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT COUNT(*) as total, ROUND(AVG(Confidence)*100,1) as avg_conf, COUNT(DISTINCT Com_Name) as sp_count, COUNT(DISTINCT Date) as days FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=?',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Resample count for species (single-species KPI) */
+    analysesResampleCount(sciNames, dateFrom, dateTo, resampleMode, c) {
+      const ph = Q._inPh(sciNames);
+      const expr = Q._resampleExpr(resampleMode);
+      return [
+        'SELECT ' + expr + ' FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=?',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Per-species breakdown (multi-species analysis) */
+    analysesBreakdown(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT Com_Name, Sci_Name, COUNT(*) as count, ROUND(AVG(Confidence)*100,0) as avg_conf FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY count DESC',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Hourly distribution for species group (polar chart) */
+    analysesHourly(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY h ORDER BY h ASC',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Quarter-hourly distribution (peak analysis) */
+    analysesQuarterHourly(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)*15 as m, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY h, m ORDER BY n DESC',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Quarter breakdown for a specific hour (polar detail click) */
+    analysesHourQuarters(comName, dateFrom, dateTo, hour, c) {
+      return [
+        'SELECT CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)*15 as m, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? AND CAST(SUBSTR(Time,1,2) AS INTEGER)=? GROUP BY m ORDER BY m ASC',
+        [comName, dateFrom, dateTo, (c != null ? c : C()), hour]
+      ];
+    },
+
+    /** Top detections for a specific hour (polar detail) */
+    analysesHourTopDetections(comName, dateFrom, dateTo, hour, limit, c) {
+      return [
+        'SELECT Time, Confidence, File_Name FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? AND CAST(SUBSTR(Time,1,2) AS INTEGER)=? ORDER BY Confidence DESC LIMIT ?',
+        [comName, dateFrom, dateTo, (c != null ? c : C()), hour, limit || 5]
+      ];
+    },
+
+    /** Daily counts for a species group (series chart) */
+    analysesDailyByGroup(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT Date, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Monthly counts for a species group (series chart) */
+    analysesMonthlyByGroup(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Daily counts for a single species (series chart) */
+    analysesDailySingle(comName, dateFrom, dateTo, c) {
+      return [
+        'SELECT Date, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC',
+        [comName, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Monthly counts for a single species (series chart) */
+    analysesMonthlySingle(comName, dateFrom, dateTo, c) {
+      return [
+        'SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC',
+        [comName, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Hourly distribution for a single species (circadian chart) */
+    analysesCircadian(comName, dateFrom, dateTo, c) {
+      return [
+        'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date BETWEEN ? AND ? AND Confidence>=? GROUP BY hour',
+        [comName, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** 6-hourly heatmap slots (daily heatmap) */
+    analysesHeatmapSlots(sciNames, dateFrom, dateTo, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT Date, CAST(SUBSTR(Time,1,2) AS INTEGER)*4+CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER) as slot, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date, slot ORDER BY Date ASC, slot ASC',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** CSV export of detections for species group */
+    analysesExport(sciNames, dateFrom, dateTo, limit, c) {
+      const ph = Q._inPh(sciNames);
+      return [
+        'SELECT Date, Time, Com_Name, Sci_Name, ROUND(Confidence*100,1) as Confidence FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? ORDER BY Date DESC, Time DESC LIMIT ?',
+        [...sciNames, dateFrom, dateTo, (c != null ? c : C()), limit || 10000]
+      ];
+    },
+
   };
 
   window.BIRDASH_QUERIES = Q;

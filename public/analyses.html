@@ -488,22 +488,12 @@ const app = createApp({
       const sp = speciesList.value.find(s => s.name === comName);
       return sp ? sp.sci : '';
     }
-    function resampleExpr(r) {
-      switch (r) {
-        case 'raw':    return 'COUNT(*) as n';
-        case 'hourly': return "COUNT(DISTINCT Date || SUBSTR(Time,1,2)) as n";
-        case 'daily':  return "COUNT(DISTINCT Date) as n";
-        default:       return "COUNT(DISTINCT Date || SUBSTR(Time,1,2) || CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)) as n";
-      }
-    }
+    const Q = BIRDASH_QUERIES;
     function selectedSciNames() {
       return selectedSpecies.value.map(name => {
         const sp = speciesList.value.find(s => s.name === name);
         return sp ? sp.sci : name;
       }).filter(Boolean);
-    }
-    function sqlInClause(arr) {
-      return arr.map(() => '?').join(',');
     }
     // photoUrl imported from BIRDASH
     function zeroPad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -564,11 +554,7 @@ const app = createApp({
       pickerOpen.value = false;
       try {
         const conf = fc.confidence.value;
-        const expr = resampleExpr(resample.value);
-        const rows = await birdQuery(
-          'SELECT Com_Name, MIN(Sci_Name) as Sci_Name, ' + expr + ' FROM detections WHERE Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY n DESC',
-          [fp.dateFrom.value, fp.dateTo.value, conf]
-        );
+        const rows = await birdQuery(...Q.analysesSpeciesList(fp.dateFrom.value, fp.dateTo.value, resample.value, conf));
         speciesList.value = rows.map(r => ({ name: r.Com_Name, sci: r.Sci_Name || '', n: r.n }));
         // Auto-select all if none selected, otherwise keep valid selection
         const available = new Set(rows.map(r => r.Com_Name));
@@ -599,20 +585,12 @@ const app = createApp({
       const sciNames = selectedSciNames();
       if (!sciNames.length) return;
       const conf = fc.confidence.value;
-      const ph = sqlInClause(sciNames);
       try {
-        const [r] = await birdQuery(
-          'SELECT COUNT(*) as total, ROUND(AVG(Confidence)*100,1) as avg_conf, COUNT(DISTINCT Com_Name) as sp_count, COUNT(DISTINCT Date) as days FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=?',
-          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
-        );
+        const [r] = await birdQuery(...Q.analysesKpis(sciNames, fp.dateFrom.value, fp.dateTo.value, conf));
         if (!r) return;
 
         if (selectedSpecies.value.length === 1) {
-          const expr = resampleExpr(resample.value);
-          const [sampled] = await birdQuery(
-            'SELECT ' + expr + ' FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=?',
-            [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
-          );
+          const [sampled] = await birdQuery(...Q.analysesResampleCount(sciNames, fp.dateFrom.value, fp.dateTo.value, resample.value, conf));
           const avgPerDay = r.days > 0 ? (r.total / r.days).toFixed(1) : '—';
           kpis.value = [
             { val: r.total.toLocaleString(),            label: t('analyses_kpi_raw'),       cls: ''      },
@@ -632,10 +610,7 @@ const app = createApp({
             { val: grpAvgPerDay,                         label: t('grp_kpi_avg_day'),    cls: 'green' },
           ];
           // Build breakdown
-          const bdRows = await birdQuery(
-            'SELECT Com_Name, Sci_Name, COUNT(*) as count, ROUND(AVG(Confidence)*100,0) as avg_conf FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Com_Name ORDER BY count DESC',
-            [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
-          );
+          const bdRows = await birdQuery(...Q.analysesBreakdown(sciNames, fp.dateFrom.value, fp.dateTo.value, conf));
           const totalCount = bdRows.reduce((s, r) => s + r.count, 0);
           breakdown.value = bdRows.map(row => {
             const tax = taxonomyData.value.find(s => s.sciName === row.Sci_Name);
@@ -654,18 +629,11 @@ const app = createApp({
       const sciNames = selectedSciNames();
       if (!sciNames.length) return;
       const conf = fc.confidence.value;
-      const ph = sqlInClause(sciNames);
       narrativeLoading.value = true;
       polarDetail.value.visible = false;
       try {
-        const rows = await birdQuery(
-          'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY h ORDER BY h ASC',
-          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
-        );
-        const rowsMin = await birdQuery(
-          'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)*15 as m, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY h, m ORDER BY n DESC',
-          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
-        );
+        const rows = await birdQuery(...Q.analysesHourly(sciNames, fp.dateFrom.value, fp.dateTo.value, conf));
+        const rowsMin = await birdQuery(...Q.analysesQuarterHourly(sciNames, fp.dateFrom.value, fp.dateTo.value, conf));
         const byHour = Array(24).fill(0);
         rows.forEach(r => { byHour[r.h] = r.n; });
         const totalDet = byHour.reduce((a,b)=>a+b,0);
@@ -702,18 +670,12 @@ const app = createApp({
       const pct   = _totalDetCache ? Math.round(count / _totalDetCache * 100) : 0;
       polarDetail.value = { visible: true, hour: h, count, pct, quarters: [], qMax: 0, topDets: [], loadingDets: true };
       try {
-        const qRows = await birdQuery(
-          'SELECT CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER)*15 as m, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? AND CAST(SUBSTR(Time,1,2) AS INTEGER)=? GROUP BY m ORDER BY m ASC',
-          [sp, fp.dateFrom.value, fp.dateTo.value, conf, h]
-        );
+        const qRows = await birdQuery(...Q.analysesHourQuarters(sp, fp.dateFrom.value, fp.dateTo.value, h, conf));
         const qMap = { 0:0, 15:0, 30:0, 45:0 };
         qRows.forEach(r => { qMap[r.m] = r.n; });
         const quarters = [0, 15, 30, 45].map(m => ({ m, n: qMap[m] || 0 }));
         const qMax = Math.max(...quarters.map(q => q.n)) || 1;
-        const topDets = await birdQuery(
-          'SELECT Time, Confidence, File_Name FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? AND CAST(SUBSTR(Time,1,2) AS INTEGER)=? ORDER BY Confidence DESC LIMIT 5',
-          [sp, fp.dateFrom.value, fp.dateTo.value, conf, h]
-        );
+        const topDets = await birdQuery(...Q.analysesHourTopDetections(sp, fp.dateFrom.value, fp.dateTo.value, h, 5, conf));
         polarDetail.value = { visible: true, hour: h, count, pct, quarters, qMax, topDets, loadingDets: false };
       } catch(e) { polarDetail.value.loadingDets = false; }
     }
@@ -842,15 +804,14 @@ const app = createApp({
           }
           const families = Object.values(famGroups);
           const dsPromises = families.map((fam, idx) => (async () => {
-            const fph = sqlInClause(fam.sciNames);
             let data;
             if (!byMonth) {
-              const rows = await birdQuery('SELECT Date, COUNT(*) as n FROM detections WHERE Sci_Name IN ('+fph+') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC', [...fam.sciNames, fp.dateFrom.value, fp.dateTo.value, conf]);
+              const rows = await birdQuery(...Q.analysesDailyByGroup(fam.sciNames, fp.dateFrom.value, fp.dateTo.value, conf));
               const map = {}; rows.forEach(r => { map[r.Date] = r.n; });
               if (idx === 0) { labels = []; let cur=new Date(fp.dateFrom.value), end=new Date(fp.dateTo.value); while(cur<=end){ labels.push(cur.getDate()+' '+t('months_short')[cur.getMonth()]+' '+cur.getFullYear().toString().slice(2)); cur.setDate(cur.getDate()+1); } }
               data = []; let cur2=new Date(fp.dateFrom.value), end2=new Date(fp.dateTo.value); while(cur2<=end2){ data.push(map[cur2.toISOString().slice(0,10)]||0); cur2.setDate(cur2.getDate()+1); }
             } else {
-              const rows = await birdQuery('SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM detections WHERE Sci_Name IN ('+fph+') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC', [...fam.sciNames, fp.dateFrom.value, fp.dateTo.value, conf]);
+              const rows = await birdQuery(...Q.analysesMonthlyByGroup(fam.sciNames, fp.dateFrom.value, fp.dateTo.value, conf));
               if (idx === 0) labels = rows.map(r => { const p=r.ym.split('-'); return t('months_short')[parseInt(p[1])-1]+' '+p[0].slice(2); });
               data = rows.map(r => r.n);
             }
@@ -863,12 +824,12 @@ const app = createApp({
           const dsPromises = species.map((sp, idx) => (async () => {
             let data;
             if (!byMonth) {
-              const rows = await birdQuery('SELECT Date, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date ORDER BY Date ASC', [sp, fp.dateFrom.value, fp.dateTo.value, conf]);
+              const rows = await birdQuery(...Q.analysesDailySingle(sp, fp.dateFrom.value, fp.dateTo.value, conf));
               const map = {}; rows.forEach(r => { map[r.Date] = r.n; });
               if (idx === 0) { labels = []; let cur=new Date(fp.dateFrom.value), end=new Date(fp.dateTo.value); while(cur<=end){ labels.push(cur.getDate()+' '+t('months_short')[cur.getMonth()]+' '+cur.getFullYear().toString().slice(2)); cur.setDate(cur.getDate()+1); } }
               data = []; let cur2=new Date(fp.dateFrom.value), end2=new Date(fp.dateTo.value); while(cur2<=end2){ data.push(map[cur2.toISOString().slice(0,10)]||0); cur2.setDate(cur2.getDate()+1); }
             } else {
-              const rows = await birdQuery('SELECT SUBSTR(Date,1,7) as ym, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date>=? AND Date<=? AND Confidence>=? GROUP BY ym ORDER BY ym ASC', [sp, fp.dateFrom.value, fp.dateTo.value, conf]);
+              const rows = await birdQuery(...Q.analysesMonthlySingle(sp, fp.dateFrom.value, fp.dateTo.value, conf));
               if (idx === 0) labels = rows.map(r => { const p=r.ym.split('-'); return t('months_short')[parseInt(p[1])-1]+' '+p[0].slice(2); });
               data = rows.map(r => r.n);
             }
@@ -909,10 +870,7 @@ const app = createApp({
       const COLORS = BIRD_CONFIG.chartColors;
       try {
         const dsPromises = species.map((sp, idx) => (async () => {
-          const rows = await birdQuery(
-            'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as hour, COUNT(*) as n FROM detections WHERE Com_Name=? AND Date BETWEEN ? AND ? AND Confidence>=? GROUP BY hour',
-            [sp, fp.dateFrom.value, fp.dateTo.value, conf]
-          );
+          const rows = await birdQuery(...Q.analysesCircadian(sp, fp.dateFrom.value, fp.dateTo.value, conf));
           const byHour = Array(24).fill(0);
           rows.forEach(r => { byHour[r.hour] = r.n; });
           const hex = COLORS[idx % COLORS.length];
@@ -959,15 +917,11 @@ const app = createApp({
       const sciNames = selectedSciNames();
       if (!sciNames.length) return;
       const conf = fc.confidence.value;
-      const ph = sqlInClause(sciNames);
       heatmapLoading.value = true;
       try {
         const daysDiff = (new Date(fp.dateTo.value)-new Date(fp.dateFrom.value))/86400000;
         const from = daysDiff > 120 ? daysAgo(89) : fp.dateFrom.value;
-        const rows = await birdQuery(
-          'SELECT Date, CAST(SUBSTR(Time,1,2) AS INTEGER)*4+CAST(CAST(SUBSTR(Time,4,2) AS INTEGER)/15 AS INTEGER) as slot, COUNT(*) as n FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? GROUP BY Date, slot ORDER BY Date ASC, slot ASC',
-          [...sciNames, from, fp.dateTo.value, conf]
-        );
+        const rows = await birdQuery(...Q.analysesHeatmapSlots(sciNames, from, fp.dateTo.value, conf));
         if (!rows.length) {
           heatmapHtml.value = '<p style="color:var(--text-faint);font-size:.8rem;padding:.5rem;">' + t('analyses_no_data_period') + '</p>';
           heatmapLoading.value = false; return;
@@ -1028,12 +982,8 @@ const app = createApp({
       const sciNames = selectedSciNames();
       if (!sciNames.length) return;
       const conf = fc.confidence.value;
-      const ph = sqlInClause(sciNames);
       try {
-        const data = await birdQuery(
-          'SELECT Date, Time, Com_Name, Sci_Name, ROUND(Confidence*100,1) as Confidence FROM detections WHERE Sci_Name IN (' + ph + ') AND Date>=? AND Date<=? AND Confidence>=? ORDER BY Date DESC, Time DESC LIMIT 10000',
-          [...sciNames, fp.dateFrom.value, fp.dateTo.value, conf]
-        );
+        const data = await birdQuery(...Q.analysesExport(sciNames, fp.dateFrom.value, fp.dateTo.value, 10000, conf));
         if (!data.length) return;
         const headers = ['Date','Time','Species','Scientific_Name','Confidence'];
         const csvRows = [headers.join(',')];
