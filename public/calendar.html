@@ -19,39 +19,6 @@
   <script src="js/bird-queries.js"></script>
   <script src="js/bird-icons.js"></script>
   <script src="js/bird-vue-core.js"></script>
-  <style>
-    .cal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
-    .cal-title { font-family:var(--font-display); font-size:1.4rem; font-weight:700; text-transform:capitalize; }
-    .cal-nav { display:flex; gap:.3rem; align-items:center; }
-    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
-    .cal-dow { text-align:center; font-size:.7rem; color:var(--text-faint); padding:.3rem 0; font-weight:600; text-transform:uppercase; }
-    .cal-cell {
-      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
-      padding:.5rem .4rem; min-height:80px; cursor:pointer; transition:border-color .15s, transform .15s;
-      display:flex; flex-direction:column; gap:.2rem; position:relative;
-    }
-    .cal-cell:hover { border-color:var(--accent); transform:translateY(-1px); }
-    .cal-cell.today { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
-    .cal-cell.empty { background:transparent; border-color:transparent; cursor:default; min-height:auto; }
-    .cal-cell.empty:hover { transform:none; border-color:transparent; }
-    .cal-cell.future { opacity:.35; cursor:default; }
-    .cal-cell.future:hover { transform:none; border-color:var(--border); }
-    .cal-day { font-size:.85rem; font-weight:600; }
-    .cal-sp { font-size:.72rem; color:var(--accent); display:flex; align-items:center; gap:.2rem; }
-    .cal-det { font-size:.68rem; color:var(--text-muted); }
-    .cal-bar { height:4px; border-radius:2px; margin-top:auto; }
-    .cal-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.6rem; margin-bottom:1rem; }
-    .cal-kpi { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:.6rem .8rem; text-align:center; }
-    .cal-kpi-val { font-family:var(--font-display); font-size:1.6rem; font-weight:700; }
-    .cal-kpi-label { font-size:.72rem; color:var(--text-muted); }
-    .cal-legend { display:flex; gap:1rem; justify-content:center; margin-top:.6rem; font-size:.7rem; color:var(--text-faint); align-items:center; }
-    .cal-legend-swatch { width:12px; height:12px; border-radius:2px; }
-    @media (max-width:640px) {
-      .cal-cell { min-height:60px; padding:.3rem; }
-      .cal-day { font-size:.75rem; }
-      .cal-sp, .cal-det { font-size:.65rem; }
-    }
-  </style>
 </head>
 <body>
 <div id="app">

@@ -19,42 +19,6 @@
   <script src="js/bird-shared.js"></script>
   <script src="js/bird-icons.js"></script>
   <script src="js/bird-vue-core.js"></script>
-  <style>
-    .sys-tabs{display:flex;gap:.25rem;padding:.25rem;background:var(--bg-card2);border-radius:.5rem;margin-bottom:1.25rem;overflow-x:auto;}
-    .sys-tab-btn{display:flex;align-items:center;gap:.35rem;padding:.5rem .9rem;border:none;background:transparent;color:var(--text-muted);font-size:.82rem;font-family:inherit;cursor:pointer;border-radius:.4rem;transition:all .2s;white-space:nowrap;}
-    .sys-tab-btn:hover{background:var(--bg-card);color:var(--text-main);}
-    .sys-tab-btn.active{background:var(--bg-card);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12);}
-    .sys-tab-icon{font-size:1rem;}
-    .sys-tab-label{font-size:.78rem;}
-
-    .health-bar{flex:1;height:8px;background:var(--bg-card2);border-radius:4px;overflow:hidden;min-width:80px;}
-    .health-fill{height:100%;border-radius:4px;transition:width .4s;}
-    .health-fill.bar-ok{background:var(--accent);}
-    .health-fill.bar-warn{background:var(--warning);}
-    .health-fill.bar-danger{background:var(--danger);}
-    .health-pct{font-size:.75rem;font-family:monospace;min-width:36px;text-align:right;}
-
-    .svc-card{border:1px solid var(--border);border-radius:.4rem;margin-bottom:.5rem;overflow:hidden;}
-    .svc-header{display:flex;align-items:center;gap:.5rem;padding:.5rem .65rem;cursor:pointer;transition:background .15s;}
-    .svc-header:hover{background:var(--bg-card2);}
-    .svc-name{flex:1;font-size:.82rem;font-weight:600;color:var(--text-main);}
-    .svc-state-badge{font-size:.68rem;padding:.12rem .4rem;border-radius:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
-    .svc-active{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);}
-    .svc-failed{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
-    .svc-inactive,.svc-dead,.svc-stopped{background:var(--bg-card2);color:var(--text-faint);}
-    .svc-chevron{font-size:.6rem;color:var(--text-faint);transition:transform .2s;display:inline-block;}
-    .svc-chevron.open{transform:rotate(90deg);}
-    .svc-detail{padding:.65rem;border-top:1px solid var(--border);background:var(--bg-deep);}
-    .svc-info-grid{display:flex;flex-wrap:wrap;gap:.75rem;font-size:.78rem;color:var(--text-muted);margin-bottom:.65rem;}
-    .svc-actions{display:flex;gap:.4rem;margin-bottom:.65rem;}
-    .svc-btn{padding:.25rem .55rem;border:1px solid var(--border);border-radius:.3rem;font-size:.72rem;font-family:inherit;cursor:pointer;background:var(--bg-card);color:var(--text-main);transition:all .15s;}
-    .svc-btn:disabled{opacity:.4;cursor:not-allowed;}
-    .svc-btn-start:not(:disabled):hover{border-color:var(--accent);color:var(--accent);}
-    .svc-btn-stop:not(:disabled):hover{border-color:var(--danger);color:var(--danger);}
-    .svc-btn-restart:not(:disabled):hover{border-color:var(--warning);color:var(--warning);}
-    .svc-logs{max-height:200px;overflow-y:auto;}
-    .svc-logs pre{font-size:.68rem;line-height:1.45;color:var(--text-muted);margin:0;white-space:pre-wrap;word-break:break-all;}
-  </style>
 </head>
 <body>
 <div id="app">
