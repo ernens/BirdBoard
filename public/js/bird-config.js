@@ -53,10 +53,10 @@ const BIRD_CONFIG = {
       { id: 'today',        icon: 'calendar-days', file: 'today.html'        },
     ]},
     { section: 'nav_sec_realtime', icon: 'circle-dot', items: [
-      { id: 'dashboard',   icon: 'zap', file: 'dashboard.html'   },
-      { id: 'liveboard',   icon: 'monitor', file: 'liveboard.html'  },
-      { id: 'spectrogram',  icon: 'radio', file: 'spectrogram.html'  },
-      { id: 'log',          icon: 'scroll-text', file: 'log.html'          },
+      { id: 'dashboard',       icon: 'zap', file: 'dashboard.html'   },
+      { id: 'liveboard',       icon: 'monitor', file: 'liveboard.html'  },
+      { id: 'dashboard_kiosk', icon: 'activity', file: 'dashboard-kiosk.html' },
+      { id: 'spectrogram',     icon: 'radio', file: 'spectrogram.html'  },
     ]},
     { section: 'nav_sec_history', icon: 'history', items: [
       { id: 'calendar',     icon: 'calendar', file: 'calendar.html'     },
@@ -82,6 +82,7 @@ const BIRD_CONFIG = {
     { section: 'nav_sec_system', icon: 'settings', items: [
       { id: 'settings',     icon: 'settings', file: 'settings.html'    },
       { id: 'system',       icon: 'monitor', file: 'system.html'      },
+      { id: 'log',          icon: 'scroll-text', file: 'log.html'     },
     ]},
   ],
   // Flat pages array (built from nav sections)

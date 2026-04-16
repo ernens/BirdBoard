@@ -205,6 +205,7 @@
     weather:      'nav_weather',
     log:          'nav_log',
     liveboard:    'nav_liveboard',
+    dashboard_kiosk: 'nav_dashboard_kiosk',
     network:      'nav_network',
   };
 
