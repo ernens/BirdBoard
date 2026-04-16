@@ -130,13 +130,14 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/volume-x.svg" width="16" align="top" alt=""> **Audio filters** — configurable highpass + lowpass (bandpass), spectral noise reduction (stationary gating), RMS normalization
 - <img src="docs/icons/radio.svg" width="16" align="top" alt=""> **BirdWeather** — automatic upload of soundscapes + detections
 - <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Smart push notifications** — via Apprise (ntfy, Telegram, Discord, Slack, email, 100+ services) with species photo attached, station name prefix (`[Heinsch] Merle noir`). 5 configurable rules: rare species, first-of-season, new species, first-of-day, favorites
+- <img src="docs/icons/bird.svg" width="16" align="top" alt=""> **Weekly editorial digest** — Monday 8am, 5 curated lines via Apprise: numbers + delta vs N-1, highlight (rare > first-of-year > notable), best moment, phenology shift, top 3 species. Opt-in, optional tag routing
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **Async post-processing** — MP3 extraction, spectrogram generation, DB sync don't block inference
 
-### Dashboard (18 pages)
+### Dashboard (20 pages)
 
 **Home**
-- <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Overview** (landing page) — 6 KPIs, bird of the day, weather context, hourly activity, "What's New" alerts, latest detections
-- <img src="docs/icons/calendar.svg" width="16" align="top" alt=""> **Today** — species list with audio player, spectrograms, gain/highpass/lowpass filters, new species filter
+- <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Overview** (landing page) — 6 KPIs (incl. first-detection time), "What's New" alerts, weather context, hourly activity. Featured-detection card with two tabs: **Last detection** (station-alive signal) and **Best of today** (highest-confidence pick of the day)
+- <img src="docs/icons/calendar.svg" width="16" align="top" alt=""> **Today** — species list with sort (count / first heard / max conf / new first) and separated count/confidence pills. Per-species **interpretive summary** (single deterministic status: needs review / single weak / isolated burst / repeated high-confidence / mostly dawn active / present all day). Spectrogram with **expected frequency band overlay** (~95 species, toggleable). Audio player with gain/HP/LP filters. Direct deep-link to **Review** with species + date pre-filtered
 - <img src="docs/icons/globe.svg" width="16" align="top" alt=""> **Species name translation** — bird names displayed in the user's chosen language across all pages
 
 **Live**
@@ -168,7 +169,7 @@ Raspberry Pi 5 + SSD
 
 **Navigation**
 - 6 intent-based sections: Home, Live, History, Species, Indicators, Station
-- Mobile bottom nav (4 quick links + hamburger drawer with all 19 pages)
+- Mobile bottom nav (4 quick links + hamburger drawer with all 20 pages)
 - Global species+date search, notification bell, review badge counter
 - Keyboard shortcuts on 5 pages, swipe gestures on species photos
 - Skeleton loading states for data-heavy pages
@@ -370,6 +371,16 @@ npm test
 
 # Python engine tests (13 tests)
 cd engine && ../engine/venv/bin/python -m unittest test_engine -v
+
+# Smoke test — loads every page in a headless browser, captures pageerror
+# + console.error + 5xx, exits non-zero on any failure. Catches the
+# silent regressions screenshot-only runs miss (broken JS, missing icons,
+# pages that fail to mount).
+npm run smoke                       # local
+npm run smoke http://biloute.local  # against any Pi station
+
+# Refresh README screenshots (Paper theme, EN, 1440x900)
+npm run screenshots
 ```
 
 ## Project Structure

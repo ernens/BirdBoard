@@ -286,7 +286,7 @@ Directory: `server/lib/`
 | `result-cache.js` | In-memory TTL cache for expensive GET endpoints. `get(key)`, `set(key, data, ttl)`, `clearAll()` on any mutation. |
 | `safe-config.js` | Mutex-protected read-modify-write for config files. Per-file Promise-chain locking, deep clone before mutation, validation, atomic write (tmp + rename). ETag support for optimistic concurrency (409 Conflict). |
 | `telemetry.js` | Supabase telemetry: station registration (UUID, GPS, hardware), daily reports (top species, rare species), 6-hour heartbeat cycle. |
-| `weekly-report.js` | Weekly summary generation (species, detections, highlights). Sent via Apprise. Checked hourly, fires on Sunday evening. |
+| `weekly-digest.js` | Editorial weekly digest sent via Apprise every Monday 08:00 local. 5 curated lines (numbers, highlight by priority rare>first-of-year>notable, best moment, phenology shift, top 3). Idempotent via `config/digest.json` (lastSentAt). Replaces the legacy weekly-report data dump. |
 | `whats-new-worker.js` | Worker thread script: runs 10 heavy SQLite queries in isolation. Computes alerts (out-of-season, activity spikes, species return), phenology (first-of-year, streaks, seasonal peaks), context (dawn chorus, acoustic quality, species richness, moon phase). |
 
 ### Worker Thread Architecture
@@ -1032,6 +1032,6 @@ Loaded both server-side (by `db.js` via `require()`) and client-side (as global 
 | `config/backup.json` | Backup target configuration (NFS/SMB/SFTP/S3/GDrive/WebDAV) |
 | `config/stations.json` | Multi-station comparison configuration |
 | `config/ebird-frequency.json` | Cached eBird regional frequency data |
-| `config/weekly-reports.json` | Weekly report tracking state |
+| `config/digest.json` | Weekly digest idempotency state (lastSentAt) |
 | `config/noise_profile.wav` | Recorded ambient noise for spectral subtraction |
 | `engine/config.toml` | Engine-specific TOML configuration |
