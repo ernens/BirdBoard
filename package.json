@@ -1,11 +1,13 @@
 {
   "name": "birdash",
-  "version": "1.14.0",
+  "version": "1.14.1",
   "private": true,
   "scripts": {
     "start": "node server/server.js",
     "test": "node --test tests/server.test.js",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "npx playwright test",
+    "smoke": "node scripts/smoke.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
