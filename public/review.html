@@ -41,7 +41,7 @@
       <!-- Row 2: Selection actions -->
       <div class="rv-row">
         <button class="rv-btn-outline" @click="selectAll">
-          {{selected.size === flagged.length ? t('review_deselect') : t('review_select_all')}}
+          {{selected.size === filteredFlagged.length ? t('review_deselect') : t('review_select_all')}}
         </button>
         <span class="rv-sep"></span>
         <span style="font-size:.72rem;color:var(--text-muted);">{{t('review_conf_select')}} :</span>
@@ -78,11 +78,28 @@
       </div>
     </div>
 
+    <!-- Active species filter banner -->
+    <div v-if="speciesFilter" style="margin:.5rem 1rem;padding:.5rem .75rem;border-radius:6px;
+                                     background:rgba(74,138,181,.1);border:1px solid rgba(74,138,181,.3);
+                                     display:flex;align-items:center;gap:.5rem;font-size:.82rem;">
+      <bird-icon name="filter" :size="14" style="color:#4a8ab5;"></bird-icon>
+      <span>{{t('review_filter_species')}}:</span>
+      <strong>{{speciesFilter}}</strong>
+      <span style="opacity:.6;">({{filteredFlagged.length}} / {{flagged.length}})</span>
+      <button @click="clearSpeciesFilter" style="margin-left:auto;background:none;border:none;cursor:pointer;
+                                                   color:var(--text-muted);font-size:.72rem;text-decoration:underline;">
+        {{t('clear_filter')}}
+      </button>
+    </div>
+
     <!-- Loading -->
     <div v-if="loading" style="text-align:center;padding:3rem;"><div class="spinner"></div></div>
 
     <!-- Empty -->
-    <div v-else-if="!flagged.length" style="text-align:center;padding:3rem;opacity:.6;">{{t('review_none')}}</div>
+    <div v-else-if="!filteredFlagged.length" style="text-align:center;padding:3rem;opacity:.6;">
+      <span v-if="speciesFilter">{{t('review_none_for_species', {species: speciesFilter})}}</span>
+      <span v-else>{{t('review_none')}}</span>
+    </div>
 
     <!-- Detection list -->
     <div v-else style="padding:.5rem 1rem;">
@@ -113,9 +130,9 @@
           </div>
         </div>
       </div>
-      <div v-if="flagged.length > pageLimit" style="text-align:center;padding:.75rem;">
+      <div v-if="filteredFlagged.length > pageLimit" style="text-align:center;padding:.75rem;">
         <button class="rv-btn-outline" @click="pageLimit += 50" style="padding:.4rem 1.2rem;">
-          {{t('review_show_more')}} ({{flagged.length - pageLimit}})
+          {{t('review_show_more')}} ({{filteredFlagged.length - pageLimit}})
         </button>
       </div>
     </div>
@@ -190,21 +207,33 @@ const app = createApp({
     const totalDets = ref(0);
     const loading = ref(false);
     const pageLimit = ref(50);
-    const pagedFlagged = computed(() => flagged.value.slice(0, pageLimit.value));
+    const speciesFilter = ref(''); // Com_Name — pre-filled via ?species= URL param
+    const filteredFlagged = computed(() => {
+      if (!speciesFilter.value) return flagged.value;
+      const sp = speciesFilter.value.toLowerCase();
+      return flagged.value.filter(d => (d.com_name || '').toLowerCase() === sp);
+    });
+    const pagedFlagged = computed(() => filteredFlagged.value.slice(0, pageLimit.value));
     const selected = reactive(new Set());
     let _audio = null;
     const playingDet = ref(null);
     const validatingKey = ref(null);
     const fp = useFilterPeriod({ default: '7d', buttons: ['1d','7d','30d','90d','all'], onChange: loadFlagged });
+    function clearSpeciesFilter() {
+      speciesFilter.value = '';
+      const u = new URL(window.location.href);
+      u.searchParams.delete('species');
+      window.history.replaceState({}, '', u);
+    }
 
     function detKey(d) { return `${d.date}|${d.time}|${d.sci_name}`; }
-    const unreviewed = computed(() => flagged.value.filter(d => d.validation === 'unreviewed').length);
-    const rejectedList = computed(() => flagged.value.filter(d => d.validation === 'rejected'));
+    const unreviewed = computed(() => filteredFlagged.value.filter(d => d.validation === 'unreviewed').length);
+    const rejectedList = computed(() => filteredFlagged.value.filter(d => d.validation === 'rejected'));
     const rejectedCount = computed(() => rejectedList.value.length);
-    const confirmedCount = computed(() => flagged.value.filter(d => d.validation === 'confirmed').length);
+    const confirmedCount = computed(() => filteredFlagged.value.filter(d => d.validation === 'confirmed').length);
     const reasonGroups = computed(() => {
       const g = {};
-      for (const d of flagged.value) { if (d.validation !== 'unreviewed') continue; for (const r of d.reasons) g[r] = (g[r]||0)+1; }
+      for (const d of filteredFlagged.value) { if (d.validation !== 'unreviewed') continue; for (const r of d.reasons) g[r] = (g[r]||0)+1; }
       return Object.entries(g).map(([reason,count]) => ({reason,count})).sort((a,b) => b.count-a.count);
     });
 
@@ -283,7 +312,7 @@ const app = createApp({
     }
 
     function toggleSelect(det) { const k=detKey(det); selected.has(k)?selected.delete(k):selected.add(k); }
-    function selectAll() { selected.size===flagged.value.length ? selected.clear() : flagged.value.forEach(d => selected.add(detKey(d))); }
+    function selectAll() { selected.size===filteredFlagged.value.length ? selected.clear() : filteredFlagged.value.forEach(d => selected.add(detKey(d))); }
 
     // ── Confidence-based selection ────────────────────────────
     const confThreshold = ref(null);
@@ -375,11 +404,23 @@ const app = createApp({
       delDone.value = true;
     }
 
-    onMounted(loadFlagged);
+    onMounted(() => {
+      // Deep-link support: ?species=CommonName&date=YYYY-MM-DD
+      const u = new URL(window.location.href);
+      const sp = u.searchParams.get('species');
+      const d  = u.searchParams.get('date');
+      if (sp) speciesFilter.value = sp;
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        fp.setCustomRange(d, d); // onChange fires loadFlagged
+      } else {
+        loadFlagged();
+      }
+    });
 
     return {
       t, spName, fp, API, fmtDate, fmtConf,
-      flagged, pagedFlagged, loading, pageLimit, selected, playingDet,
+      flagged, filteredFlagged, pagedFlagged, loading, pageLimit, selected, playingDet,
+      speciesFilter, clearSpeciesFilter,
       unreviewed, rejectedList, rejectedCount, confirmedCount, reasonGroups,
       delOpen, delItems, delDeleting, delDone, delResults, delProgress,
       detKey, loadFlagged, validate, bulkAction, bulkRejectByReason, validatingKey,

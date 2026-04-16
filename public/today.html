@@ -232,6 +232,12 @@
                    style="padding:.1rem .5rem;font-size:.72rem;">
                   {{t('phenology_title') || 'Phénologie'}} →
                 </a>
+                <a class="btn btn-secondary"
+                   :href="'review.html?species='+encodeURIComponent(selected.Com_Name)+'&date='+today"
+                   style="padding:.1rem .5rem;font-size:.72rem;"
+                   :title="t('review_open_for_species_tip')">
+                  <bird-icon name="filter" :size="11" style="vertical-align:-1px;"></bird-icon> {{t('review_open_for_species')}} →
+                </a>
               </div>
             </div>
           </div>
