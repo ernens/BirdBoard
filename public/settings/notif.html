@@ -47,16 +47,19 @@
             {{t('notif_bird_alerts_desc')}}
           </p>
 
-          <!-- Global: minimum confidence filter -->
-          <div style="padding:.55rem .7rem;border-radius:6px;background:var(--bg-deep);border:1px solid var(--border);margin-bottom:.7rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
-            <bird-icon name="gauge" :size="14"></bird-icon>
-            <span style="font-size:.82rem;flex:1;min-width:160px;">{{t('notif_min_confidence')}}</span>
-            <input type="number" v-model="notifyMinConfPct" min="0" max="100" step="1"
-                   :placeholder="Math.round((parseFloat(conf.BIRDNET_CONFIDENCE) || 0) * 100)"
-                   style="width:70px;font-size:.82em;background:var(--bg-main);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
-            <span style="font-size:.72em;color:var(--text-faint);">%</span>
+          <!-- Global: minimum confidence filter (slider, same style as rarities.html) -->
+          <div style="padding:.55rem .7rem;border-radius:6px;background:var(--bg-deep);border:1px solid var(--border);margin-bottom:.4rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;">
+              <bird-icon name="gauge" :size="14"></bird-icon>
+              <span style="font-size:.82rem;">{{t('notif_min_confidence')}}</span>
+            </div>
+            <div class="bf-conf-row">
+              <input type="range" class="bf-conf-slider" min="0" max="100" step="5"
+                     v-model.number="notifyMinConfPct" :aria-label="t('notif_min_confidence')">
+              <span class="bf-conf-pct">{{notifyMinConfPct}}%</span>
+            </div>
           </div>
-          <p style="font-size:.72rem;color:var(--text-faint);margin:-.4rem 0 .7rem .2rem;">{{t('notif_min_confidence_hint')}}</p>
+          <p style="font-size:.72rem;color:var(--text-faint);margin:0 0 .7rem .2rem;">{{t('notif_min_confidence_hint')}}</p>
 
           <!-- Rule 1: Rare species -->
           <div style="padding:.6rem .7rem;border-radius:6px;border:1px solid var(--border);margin-bottom:.5rem;"

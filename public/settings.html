@@ -1474,15 +1474,19 @@ const app = createApp({
     const audioTesting = ref(false);
     const audioTestImg = ref(null);
 
-    // Notif min-confidence: stored as float 0-1 in birdnet.conf, edited as % in UI
+    // Notif min-confidence: stored as float 0-1 in birdnet.conf, edited as % in UI.
+    // When unset, the slider reflects the BirdNET detection threshold (which is
+    // also the runtime default applied by the notification watcher).
     const notifyMinConfPct = computed({
       get() {
-        const v = parseFloat(conf.NOTIFY_MIN_CONFIDENCE);
-        return isNaN(v) ? '' : Math.round(v * 100);
+        const explicit = parseFloat(conf.NOTIFY_MIN_CONFIDENCE);
+        if (!isNaN(explicit)) return Math.round(explicit * 100);
+        const birdnet = parseFloat(conf.BIRDNET_CONFIDENCE);
+        return isNaN(birdnet) ? 70 : Math.round(birdnet * 100);
       },
       set(val) {
-        conf.NOTIFY_MIN_CONFIDENCE = (val === '' || val == null)
-          ? '' : (Math.max(0, Math.min(100, parseFloat(val))) / 100).toFixed(2);
+        const n = parseInt(val, 10);
+        conf.NOTIFY_MIN_CONFIDENCE = isNaN(n) ? '' : (Math.max(0, Math.min(100, n)) / 100).toFixed(2);
       },
     });
 
