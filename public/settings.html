@@ -1856,17 +1856,24 @@ const app = createApp({
       });
     }
 
+    function _waitForElement(id, timeoutMs = 15000) {
+      return new Promise((resolve) => {
+        const existing = document.getElementById(id);
+        if (existing) return resolve(existing);
+        const obs = new MutationObserver(() => {
+          const el = document.getElementById(id);
+          if (el) { obs.disconnect(); resolve(el); }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(() => { obs.disconnect(); resolve(document.getElementById(id)); }, timeoutMs);
+      });
+    }
+
     async function initStationMap() {
       try { await _loadLeaflet(); } catch (e) { console.warn('[station-map] Leaflet failed to load:', e); return; }
       if (typeof L === 'undefined') { console.warn('[station-map] Leaflet global L not defined after load'); return; }
-      // The station tab is an async component — poll for its DOM to mount
-      let el = null;
-      for (let i = 0; i < 30; i++) {
-        el = document.getElementById('station-map');
-        if (el) break;
-        await new Promise(r => setTimeout(r, 150));
-      }
-      if (!el) { console.warn('[station-map] #station-map element never appeared'); return; }
+      const el = await _waitForElement('station-map');
+      if (!el) { console.warn('[station-map] #station-map element never appeared after 15s'); return; }
       if (_stationMap) return;
       const lat = parseFloat(conf.LATITUDE) || 50.5;
       const lon = parseFloat(conf.LONGITUDE) || 4.5;
