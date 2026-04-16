@@ -164,21 +164,6 @@
           </label></div>
         </div>
 
-        <!-- ═══ Rapport hebdomadaire ═══ -->
-        <div class="card" :style="{opacity: notifGlobalEnabled ? 1 : 0.5}">
-          <div class="section-title">
-            <bird-icon name="bar-chart-3" :size="16"></bird-icon>
-            {{t('notif_report')}}
-          </div>
-          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .6rem;">
-            {{t('notif_report_desc')}}
-          </p>
-          <label class="set-check" style="cursor:pointer;">
-            <input type="checkbox" v-model="conf.APPRISE_WEEKLY_REPORT" true-value="1" false-value="0">
-            <span>{{t('notif_report_enable')}}</span>
-          </label>
-        </div>
-
         <!-- ═══ Digest hebdomadaire (éditorialisé) ═══ -->
         <div class="card" :style="{opacity: notifGlobalEnabled ? 1 : 0.5}">
           <div class="section-title">

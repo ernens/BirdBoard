@@ -206,7 +206,6 @@ const app = createApp({
           APPRISE_NOTIFY_NEW_SPECIES: String(conf.APPRISE_NOTIFY_NEW_SPECIES || 0),
           NOTIFY_FAVORITES: String(conf.NOTIFY_FAVORITES || 0),
           APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: String(conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY || 0),
-          APPRISE_WEEKLY_REPORT: String(conf.APPRISE_WEEKLY_REPORT || 0),
           APPRISE_NOTIFICATION_TITLE: conf.APPRISE_NOTIFICATION_TITLE || '',
           APPRISE_NOTIFICATION_BODY: conf.APPRISE_NOTIFICATION_BODY || '',
           APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES: String(conf.APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES || 0),
@@ -1479,14 +1478,14 @@ const app = createApp({
       return conf.APPRISE_NOTIFY_EACH_DETECTION == 1 ||
              conf.APPRISE_NOTIFY_NEW_SPECIES == 1 ||
              conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY == 1 ||
-             conf.APPRISE_WEEKLY_REPORT == 1;
+             conf.NOTIFY_DIGEST_ENABLED == 1;
     });
     function toggleAllApprise(on) {
       const v = on ? '1' : '0';
       conf.APPRISE_NOTIFY_EACH_DETECTION = '0';
       conf.APPRISE_NOTIFY_NEW_SPECIES = v;
       conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY = v;
-      conf.APPRISE_WEEKLY_REPORT = v;
+      conf.NOTIFY_DIGEST_ENABLED = v;
     }
 
     const notifGlobalEnabled = computed(() => conf.NOTIFY_ENABLED == 1);
@@ -1524,7 +1523,7 @@ const app = createApp({
         conf.APPRISE_NOTIFY_EACH_DETECTION = '0';
         conf.APPRISE_NOTIFY_NEW_SPECIES = '0';
         conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY = '0';
-        conf.APPRISE_WEEKLY_REPORT = '0';
+        conf.NOTIFY_DIGEST_ENABLED = '0';
       }
     }
     async function saveNotifSettings() {
@@ -1542,7 +1541,6 @@ const app = createApp({
             APPRISE_NOTIFY_EACH_DETECTION: String(conf.APPRISE_NOTIFY_EACH_DETECTION || 0),
             APPRISE_NOTIFY_NEW_SPECIES: String(conf.APPRISE_NOTIFY_NEW_SPECIES || 0),
             APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: String(conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY || 0),
-            APPRISE_WEEKLY_REPORT: String(conf.APPRISE_WEEKLY_REPORT || 0),
             NOTIFY_DIGEST_ENABLED: String(conf.NOTIFY_DIGEST_ENABLED || 0),
             NOTIFY_DIGEST_TAG: String(conf.NOTIFY_DIGEST_TAG || ''),
           }})

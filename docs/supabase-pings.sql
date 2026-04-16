@@ -21,12 +21,15 @@ CREATE INDEX IF NOT EXISTS idx_pings_created ON pings(created_at);
 -- RLS: allow anonymous inserts only (no read, no update, no delete)
 ALTER TABLE pings ENABLE ROW LEVEL SECURITY;
 
--- Allow inserts from the anon key
-CREATE POLICY "anon_insert_pings" ON pings
-  FOR INSERT TO anon
-  WITH CHECK (true);
+-- Allow inserts from anon AND authenticated roles. Both publishable
+-- (sb_publishable_*) and the legacy anon key need to be covered;
+-- the new publishable key format also satisfies "authenticated" in
+-- some contexts, so granting both keeps the policy permissive enough
+-- without exposing reads/updates/deletes.
+CREATE POLICY "pings_insert_anon"          ON pings FOR INSERT TO anon          WITH CHECK (true);
+CREATE POLICY "pings_insert_authenticated" ON pings FOR INSERT TO authenticated WITH CHECK (true);
 
--- No SELECT for anon (only service_role can read)
+-- No SELECT for anon/authenticated (only service_role can read)
 -- This means the data is write-only from the client side.
 
 COMMENT ON TABLE pings IS 'Anonymous usage pings — install events and monthly alive heartbeats. No PII, no GPS, no UUID.';
