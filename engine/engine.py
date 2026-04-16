@@ -785,13 +785,18 @@ class BirdEngine:
             from queue import Queue
             self._secondary_queue = Queue()
 
-        # Load species names
-        lang = self.config["station"].get("language", "en")
+        # Load species names — prefer birdnet.conf DATABASE_LANG (source of
+        # truth, shared with birdash UI), fallback to config.toml station.language
+        lang = (birdnet_settings.get("DATABASE_LANG")
+                or self.config["station"].get("language")
+                or "en")[:2]
         try:
             self.names = load_language(lang, self.models_dir)
+            self._current_lang = lang
         except FileNotFoundError:
             log.warning("Language '%s' not found, falling back to 'en'", lang)
             self.names = load_language("en", self.models_dir)
+            self._current_lang = "en"
 
         # Init database
         db_path = self.config["output"]["local_db"]
@@ -1060,6 +1065,16 @@ class BirdEngine:
                 det["sensitivity"] = float(conf["SENSITIVITY"])
             if "OVERLAP" in conf:
                 det["overlap"] = float(conf["OVERLAP"])
+
+            # Hot-reload species-name language if DATABASE_LANG changed
+            new_lang = (conf.get("DATABASE_LANG") or "")[:2]
+            if new_lang and new_lang != getattr(self, "_current_lang", None):
+                try:
+                    self.names = load_language(new_lang, self.models_dir)
+                    self._current_lang = new_lang
+                    log.info("Species-name language reloaded: %s", new_lang)
+                except FileNotFoundError:
+                    log.warning("Language '%s' not available", new_lang)
 
             sens = det.get("sensitivity", 1.0)
             sf_val = det.get("sf_thresh", 0.03)
