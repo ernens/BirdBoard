@@ -76,6 +76,7 @@ const BIRD_CONFIG = {
       { id: 'analyses',     icon: 'microscope', file: 'analyses.html'     },
       { id: 'models',       icon: 'cpu', file: 'stats.html?tab=models' },
       { id: 'comparison',   icon: 'git-compare', file: 'comparison.html'  },
+      { id: 'compare',      icon: 'split', file: 'compare.html'      },
       { id: 'phenology',    icon: 'calendar-days', file: 'phenology.html'    },
     ]},
     { section: 'nav_sec_system', icon: 'settings', items: [

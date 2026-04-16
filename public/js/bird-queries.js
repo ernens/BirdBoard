@@ -605,6 +605,42 @@
       ];
     },
 
+    // ═══════════════════════════════════════════════════════════
+    //  COMPARE (species disambiguation page)
+    // ═══════════════════════════════════════════════════════════
+
+    /** Identity card for one species over a date range — compare page */
+    compareIdentity(sciName, dateFrom, dateTo, c) {
+      return [
+        'SELECT MAX(Com_Name) as com_name, COUNT(*) as total, MIN(Date) as first_date, MAX(Date) as last_date, COUNT(DISTINCT Date) as active_days, ROUND(AVG(Confidence),3) as avg_conf, ROUND(MIN(Confidence),3) as min_conf, ROUND(MAX(Confidence),3) as max_conf FROM detections WHERE Sci_Name=? AND Date BETWEEN ? AND ? AND Confidence>=?',
+        [sciName, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** 24-hour distribution for a species over a date range — compare page */
+    compareHourlyProfile(sciName, dateFrom, dateTo, c) {
+      return [
+        'SELECT CAST(SUBSTR(Time,1,2) AS INTEGER) as h, COUNT(*) as n FROM detections WHERE Sci_Name=? AND Date BETWEEN ? AND ? AND Confidence>=? GROUP BY h ORDER BY h ASC',
+        [sciName, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Weekly phenology for a species over a date range — compare page */
+    compareWeeklyPhenology(sciName, dateFrom, dateTo, c) {
+      return [
+        "SELECT MIN(CAST(strftime('%W', Date) AS INTEGER), 52) as week, COUNT(*) as n FROM detections WHERE Sci_Name=? AND Date BETWEEN ? AND ? AND Confidence>=? GROUP BY week ORDER BY week ASC",
+        [sciName, dateFrom, dateTo, (c != null ? c : C())]
+      ];
+    },
+
+    /** Confidence histogram (18 bins of 0.05) for a species — compare page */
+    compareConfidenceHist(sciName, dateFrom, dateTo, c) {
+      return [
+        'SELECT CAST((Confidence - 0.10) / 0.05 AS INTEGER) as bin, COUNT(*) as n FROM detections WHERE Sci_Name=? AND Date BETWEEN ? AND ? AND Confidence>=0.10 GROUP BY bin ORDER BY bin ASC',
+        [sciName, dateFrom, dateTo]
+      ];
+    },
+
   };
 
   window.BIRDASH_QUERIES = Q;

@@ -54,7 +54,7 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
 </details>
 
 <details>
-<summary><b>Indicators</b> — Weather · Statistics · Models · Analyses · Biodiversity · Phenology · Seasons</summary>
+<summary><b>Indicators</b> — Weather · Statistics · Models · Analyses · Biodiversity · Phenology · Seasons · Compare</summary>
 
 <p align="center">
   <img src="screenshots/weather.png"      width="240" alt="Weather">
@@ -64,6 +64,7 @@ Modern bird detection dashboard and engine for Raspberry Pi 5. Standalone dual-m
   <img src="screenshots/biodiversity.png" width="240" alt="Biodiversity">
   <img src="screenshots/phenology.png"    width="240" alt="Phenology">
   <img src="screenshots/comparison.png"   width="240" alt="Seasons">
+  <img src="screenshots/compare.png"      width="240" alt="Compare 2 species">
 </p>
 </details>
 
@@ -163,10 +164,11 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/dna.svg" width="16" align="top" alt=""> Biodiversity — Shannon index, adaptive richness chart, taxonomy heatmap
 - <img src="docs/icons/calendar.svg" width="16" align="top" alt=""> **Phenology calendar** — observed annual cycle per species (presence/abundance/hourly modes), inferred phases (active period, peak abundance, dawn chorus, migrant detection), 53-week ribbon visualization, species suggestions on empty state
 - <img src="docs/icons/sunrise.svg" width="16" align="top" alt=""> **Seasons** — seasonal ornithological report (spring/summer/autumn/winter). Migratory arrivals with date comparison vs previous year (earlier/later), departures, season-exclusive species, multi-year evolution chart, best days, top species with year-over-year delta
+- <img src="docs/icons/git-compare.svg" width="16" align="top" alt=""> **Compare** — side-by-side disambiguation of 2 species. Identity cards, deterministic verdict (not enough data / possible model confusion / strong seasonal separation / distinct profiles), 24h activity overlay, weekly phenology overlay, confidence histogram, reliability badge. Hardcoded "often confused" pairs (Chiffchaff/Willow Warbler, Marsh/Willow Tit…)
 
 **Navigation**
 - 6 intent-based sections: Home, Live, History, Species, Indicators, Station
-- Mobile bottom nav (4 quick links + hamburger drawer with all 18 pages)
+- Mobile bottom nav (4 quick links + hamburger drawer with all 19 pages)
 - Global species+date search, notification bell, review badge counter
 - Keyboard shortcuts on 5 pages, swipe gestures on species photos
 - Skeleton loading states for data-heavy pages
@@ -420,6 +422,7 @@ birdash/
 │   ├── biodiversity.html          # Shannon index, adaptive richness chart
 │   ├── phenology.html             # Observed phenology calendar (per species)
 │   ├── comparison.html            # Seasonal report (migratory arrivals, departures, evolution)
+│   ├── compare.html               # Compare 2 species (disambiguation: identity, verdict, 24h, phenology, confidence)
 │   ├── spectrogram.html           # Live spectrogram + clip playback
 │   ├── settings.html              # Full settings (9 tabs)
 │   ├── system.html                # System health + terminal

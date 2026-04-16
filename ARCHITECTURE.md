@@ -635,7 +635,7 @@ The shell wraps every page and provides:
 - **Spectrogram modal**: full-screen spectrogram viewer with gain/highpass/lowpass filters, loop selection
 - **Theme switcher**: mini page previews, smooth cross-fade
 
-### Pages (19 + redirects)
+### Pages (20 + redirects)
 
 | Page | File | Section |
 |------|------|---------|
@@ -659,6 +659,7 @@ The shell wraps every page and provides:
 | Biodiversity | `biodiversity.html` | Indicators |
 | Phenology | `phenology.html` | Indicators |
 | Seasons | `comparison.html` | Indicators |
+| Compare | `compare.html` | Indicators |
 | Settings | `settings.html` | Station |
 | System | `system.html` | Station |
 
