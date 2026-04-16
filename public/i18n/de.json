@@ -318,7 +318,7 @@
   "notif_bird_alerts_desc": "Erhalten Sie Push-Benachrichtigungen wenn ein bemerkenswerter Vogel erkannt wird. Benachrichtigungen werden über Apprise gesendet mit 5 Minuten Abklingzeit pro Art.",
   "notif_min_confidence": "Mindest-Konfidenz",
   "notif_min_confidence_hint": "Gemeinsamer Filter für alle Regeln. Standardmäßig die BirdNET-Erkennungsschwelle.",
-  "notif_rare_long": "Benachrichtigung wenn eine Art mit wenigen Gesamterkennungen gehört wird. Ideal für seltene Arten in Ihrer Region.",
+  "notif_rare_long": "Benachrichtigung wenn eine als selten kategorisierte Art erkannt wird — basierend auf eBird-Regionallisten (Fallback: ≤3 lokale Beobachtungen im letzten Jahr).",
   "notif_rare_threshold": "Schwellenwert",
   "notif_rare_unit": "max. Erkennungen insgesamt",
   "notif_season_long": "Benachrichtigung wenn eine Art nach langer Abwesenheit wieder auftaucht. Nützlich um die Rückkehr von Zugvögeln zu erkennen.",

@@ -25,7 +25,9 @@ const POLL_INTERVAL = 30 * 1000;   // 30 seconds
 // Notification message templates (4 languages)
 const MESSAGES = {
   fr: {
-    rare: (n) => `Espèce rare (${n} détection${n > 1 ? 's' : ''} au total)`,
+    rare: (src) => src === 'ebird'
+      ? 'Espèce rare (hors check-list eBird régionale)'
+      : 'Espèce rare (≤3 observations locales sur 1 an)',
     season: (d) => `Première de saison (absente depuis ${d} jours)`,
     new_species: 'Nouvelle espèce — jamais détectée',
     daily: 'Première du jour',
@@ -33,7 +35,9 @@ const MESSAGES = {
     conf: 'Confiance',
   },
   en: {
-    rare: (n) => `Rare species (${n} detection${n > 1 ? 's' : ''} total)`,
+    rare: (src) => src === 'ebird'
+      ? 'Rare species (not in eBird regional checklist)'
+      : 'Rare species (≤3 local observations in past year)',
     season: (d) => `First of season (absent for ${d} days)`,
     new_species: 'New species — never detected before',
     daily: 'First of the day',
@@ -41,7 +45,9 @@ const MESSAGES = {
     conf: 'Confidence',
   },
   de: {
-    rare: (n) => `Seltene Art (${n} Erkennung${n > 1 ? 'en' : ''} insgesamt)`,
+    rare: (src) => src === 'ebird'
+      ? 'Seltene Art (nicht in eBird-Regionalliste)'
+      : 'Seltene Art (≤3 lokale Beobachtungen im letzten Jahr)',
     season: (d) => `Erste der Saison (seit ${d} Tagen abwesend)`,
     new_species: 'Neue Art — noch nie erkannt',
     daily: 'Erste des Tages',
@@ -49,7 +55,9 @@ const MESSAGES = {
     conf: 'Konfidenz',
   },
   nl: {
-    rare: (n) => `Zeldzame soort (${n} detectie${n > 1 ? 's' : ''} totaal)`,
+    rare: (src) => src === 'ebird'
+      ? 'Zeldzame soort (niet op eBird regionale checklist)'
+      : 'Zeldzame soort (≤3 lokale waarnemingen afgelopen jaar)',
     season: (d) => `Eerste van het seizoen (${d} dagen afwezig)`,
     new_species: 'Nieuwe soort — nooit eerder gedetecteerd',
     daily: 'Eerste van de dag',
@@ -61,6 +69,7 @@ const MESSAGES = {
 let _db = null;
 let _birdashDb = null;
 let _parseBirdnetConf = null;
+let _ebirdFreq = null;
 let _pollTimer = null;
 let _lastPollTime = null;   // ISO time string of last poll
 let _speciesToday = new Set();
@@ -68,6 +77,10 @@ let _currentDay = null;
 let _lastNotif = {};         // sci_name → timestamp
 let _speciesCounts = null;   // sci_name → total count (loaded once)
 let _speciesLastSeen = null; // sci_name → last date (loaded once)
+let _speciesHistCount = null; // sci_name → past-year count (for checkRarity)
+let _totalDays = 0;           // span of DB data, in days
+let _rarityRefreshedAt = 0;   // ms timestamp of last hist refresh
+const RARITY_CACHE_TTL = 3600 * 1000; // 1h
 
 // ── Cache loaders ─────────────────────────────────────────────────────────
 function _loadSpeciesCache() {
@@ -83,6 +96,30 @@ function _loadSpeciesCache() {
     console.log(`[notif-watcher] Species cache loaded: ${rows.length} species`);
   } catch (e) {
     console.error('[notif-watcher] Failed to load species cache:', e.message);
+  }
+}
+
+function _loadRarityCache() {
+  // Refresh past-year counts + totalDays once an hour. Used by checkRarity()
+  // to decide whether a detection qualifies as a rare species.
+  if (Date.now() - _rarityRefreshedAt < RARITY_CACHE_TTL) return;
+  try {
+    const oneYearAgo = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
+    const rows = _db.prepare(
+      'SELECT Sci_Name, COUNT(*) as n FROM detections WHERE Date >= ? GROUP BY Sci_Name'
+    ).all(oneYearAgo);
+    const next = {};
+    for (const r of rows) next[r.Sci_Name] = r.n;
+    _speciesHistCount = next;
+    const span = _db.prepare('SELECT MIN(Date) as first, MAX(Date) as last FROM detections').get();
+    if (span && span.first && span.last) {
+      _totalDays = Math.max(0, Math.floor(
+        (new Date(span.last) - new Date(span.first)) / 86400000
+      ));
+    }
+    _rarityRefreshedAt = Date.now();
+  } catch (e) {
+    console.error('[notif-watcher] Failed to load rarity cache:', e.message);
   }
 }
 
@@ -183,6 +220,7 @@ async function _poll() {
   if (!conf.enabled) return;
 
   _loadSpeciesCache();
+  _loadRarityCache();
   const msgs = MESSAGES[conf.lang] || MESSAGES.en;
 
   // Day rollover
@@ -226,9 +264,13 @@ async function _poll() {
     const totalCount = _speciesCounts[sci] || 1;
     const lastSeen = _speciesLastSeen[sci];
 
-    // Rule 1: Rare species
-    if (conf.rareSpecies && totalCount <= conf.rareThreshold) {
-      reason = msgs.rare(totalCount);
+    // Rule 1: Rare species — based on ornithological categorization (eBird
+    // regional checklist, with ≤3 local observations as fallback after 30d),
+    // not on cumulative detection count.
+    if (conf.rareSpecies && _ebirdFreq) {
+      const histCount = (_speciesHistCount && _speciesHistCount[sci]) || 0;
+      const rarity = _ebirdFreq.checkRarity(sci, histCount, _totalDays);
+      if (rarity.isRare) reason = msgs.rare(rarity.source);
     }
     // Rule 2: First of season
     else if (conf.firstSeason && isNewToday && lastSeen) {
@@ -276,10 +318,11 @@ async function _poll() {
 }
 
 // ── Public API ────────────────────────────────────────────────────────────
-function start(db, birdashDb, parseBirdnetConf) {
+function start(db, birdashDb, parseBirdnetConf, ebirdFreq) {
   _db = db;
   _birdashDb = birdashDb;
   _parseBirdnetConf = parseBirdnetConf;
+  _ebirdFreq = ebirdFreq || null;
   // First poll after 10s (let server finish booting)
   setTimeout(() => _poll().catch(e => console.error('[notif-watcher]', e.message)), 10000);
   _pollTimer = setInterval(() => _poll().catch(e => console.error('[notif-watcher]', e.message)), POLL_INTERVAL);

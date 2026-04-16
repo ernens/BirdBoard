@@ -69,12 +69,6 @@
               <span><bird-icon name="gem" :size="14"></bird-icon> <strong>{{t('notif_rare')}}</strong></span>
             </label>
             <p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0 1.5rem;">{{t('notif_rare_long')}}</p>
-            <div v-if="conf.NOTIFY_RARE_SPECIES == 1" style="margin:.4rem 0 0 1.5rem;display:flex;align-items:center;gap:.5rem;">
-              <span style="font-size:.78em;">{{t('notif_rare_threshold')}} :</span>
-              <input type="number" v-model.number="conf.NOTIFY_RARE_THRESHOLD" min="1" max="100" step="1"
-                     style="width:55px;font-size:.82em;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.2rem .4rem;text-align:right;">
-              <span style="font-size:.72em;color:var(--text-faint);">{{t('notif_rare_unit')}}</span>
-            </div>
           </div>
 
           <!-- Rule 2: First of season -->

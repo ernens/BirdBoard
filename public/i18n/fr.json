@@ -318,7 +318,7 @@
   "notif_bird_alerts_desc": "Recevez une notification push quand un oiseau remarquable est détecté. Les notifications sont envoyées via Apprise avec un délai de 5 min entre deux alertes pour la même espèce.",
   "notif_min_confidence": "Seuil de confiance minimum",
   "notif_min_confidence_hint": "Filtre commun à toutes les règles. Par défaut, le seuil de détection BirdNET.",
-  "notif_rare_long": "Notification quand une espèce avec peu de détections au total est entendue. Idéal pour les espèces peu communes dans votre région.",
+  "notif_rare_long": "Notification quand une espèce catégorisée comme rare est détectée — basé sur les check-lists eBird régionales (ou ≤3 observations locales sur 1 an en secours).",
   "notif_rare_threshold": "Seuil",
   "notif_rare_unit": "détections max au total",
   "notif_season_long": "Notification quand une espèce réapparaît après une longue absence. Utile pour détecter le retour des migrateurs au printemps.",

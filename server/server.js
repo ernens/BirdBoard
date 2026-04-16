@@ -172,7 +172,7 @@ setTimeout(() => {
 // Telemetry: opt-in daily reports to Supabase
 _telemetry.startDailyCron(db, parseBirdnetConf);
 // Notification watcher: polls detections, sends via Apprise
-_notifWatcher.start(db, birdashDb, parseBirdnetConf);
+_notifWatcher.start(db, birdashDb, parseBirdnetConf, ebirdFreq);
 // Weekly digest: every Monday 08:00 local (opt-in via NOTIFY_DIGEST_ENABLED)
 _weeklyDigest.startWeeklyDigestCron(db, parseBirdnetConf);
 
