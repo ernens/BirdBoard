@@ -1492,6 +1492,30 @@ const app = createApp({
     const notifGlobalEnabled = computed(() => conf.NOTIFY_ENABLED == 1);
     const notifSaveMsg = ref('');
     const notifSaveErr = ref(false);
+
+    // Weekly digest preview / send-now
+    const digestMsg = ref('');
+    const digestErr = ref(false);
+    const digestPreviewText = ref('');
+    async function digestPreview() {
+      digestMsg.value = ''; digestErr.value = false; digestPreviewText.value = '';
+      try {
+        const r = await fetch(API + '/digest/preview', { method: 'POST' });
+        const d = await r.json();
+        if (!d.ok) throw new Error(d.error || 'unknown');
+        digestPreviewText.value = (d.title || '') + '\n\n' + (d.body || '');
+      } catch(e) { digestMsg.value = e.message; digestErr.value = true; }
+    }
+    async function digestSendNow() {
+      digestMsg.value = ''; digestErr.value = false;
+      try {
+        const r = await fetch(API + '/digest/send-now', { method: 'POST' });
+        const d = await r.json();
+        if (d.sent) { digestMsg.value = t('notif_digest_sent_ok'); }
+        else { digestMsg.value = t('notif_digest_sent_fail', { reason: d.reason || d.error || '?' }); digestErr.value = true; }
+      } catch(e) { digestMsg.value = e.message; digestErr.value = true; }
+    }
+
     function toggleNotifGlobal(on) {
       conf.NOTIFY_ENABLED = on ? '1' : '0';
       if (!on) {
@@ -1519,6 +1543,8 @@ const app = createApp({
             APPRISE_NOTIFY_NEW_SPECIES: String(conf.APPRISE_NOTIFY_NEW_SPECIES || 0),
             APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY: String(conf.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY || 0),
             APPRISE_WEEKLY_REPORT: String(conf.APPRISE_WEEKLY_REPORT || 0),
+            NOTIFY_DIGEST_ENABLED: String(conf.NOTIFY_DIGEST_ENABLED || 0),
+            NOTIFY_DIGEST_TAG: String(conf.NOTIFY_DIGEST_TAG || ''),
           }})
         });
         // Save alert thresholds
@@ -1764,6 +1790,7 @@ const app = createApp({
       birdnetLicenseAccepted, birdnetDownloading, downloadBirdnet,
       appriseEnabled, toggleAllApprise,
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
+      digestPreview, digestSendNow, digestMsg, digestErr, digestPreviewText,
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
@@ -1882,6 +1909,7 @@ const app = createApp({
       birdnetLicenseAccepted, birdnetDownloading, downloadBirdnet,
       appriseEnabled, toggleAllApprise,
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
+      digestPreview, digestSendNow, digestMsg, digestErr, digestPreviewText,
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,

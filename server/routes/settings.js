@@ -177,6 +177,56 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ── Route : POST /api/digest/preview ──────────────────────────────────────
+  // Builds the weekly digest WITHOUT sending — for UI preview
+  if (req.method === 'POST' && pathname === '/api/digest/preview') {
+    (async () => {
+      try {
+        const _digest = require('../lib/weekly-digest');
+        const { db } = ctx;
+        let lang = 'en';
+        try { const m = fs.readFileSync(BIRDNET_CONF, 'utf8').match(/^DATABASE_LANG=(.+)/m); if (m) lang = m[1].replace(/"/g, '').trim().slice(0, 2); } catch {}
+        const result = _digest.buildDigest(db, lang);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, ...result }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    })();
+    return true;
+  }
+
+  // ── Route : POST /api/digest/send-now ─────────────────────────────────────
+  // Builds + sends the digest immediately via Apprise
+  if (req.method === 'POST' && pathname === '/api/digest/send-now') {
+    (async () => {
+      try {
+        const _digest = require('../lib/weekly-digest');
+        const { db } = ctx;
+        const result = await _digest.sendWeeklyDigest(db, async () => {
+          const conf = {};
+          try {
+            const txt = fs.readFileSync(BIRDNET_CONF, 'utf8');
+            for (const line of txt.split('\n')) {
+              const m = line.match(/^([A-Z_0-9]+)=(.*)$/);
+              if (m) conf[m[1]] = m[2].replace(/^"|"$/g, '').trim();
+            }
+          } catch {}
+          // Force-enable for the manual test
+          conf.NOTIFY_DIGEST_ENABLED = '1';
+          return conf;
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    })();
+    return true;
+  }
+
   // ── Route : GET /api/alert-thresholds ───────────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/alert-thresholds') {
     res.writeHead(200, { 'Content-Type': 'application/json' });

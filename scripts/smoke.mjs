@@ -37,6 +37,11 @@ const IGNORE_PATTERNS = [
   // would never reach this rate.
   /\bHTTP 429\b/i,
   /status of 429/i,
+  // 502/504 from Caddy = upstream cancelled by client navigation
+  // (broken pipe / timeout). Same root cause as Failed to fetch —
+  // already filtered server-side in the response handler.
+  /status of 502/i,
+  /status of 504/i,
 ];
 
 function shouldIgnore(text) {

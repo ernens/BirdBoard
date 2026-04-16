@@ -179,3 +179,34 @@
           </label>
         </div>
 
+        <!-- ═══ Digest hebdomadaire (éditorialisé) ═══ -->
+        <div class="card" :style="{opacity: notifGlobalEnabled ? 1 : 0.5}">
+          <div class="section-title">
+            <bird-icon name="bird" :size="16"></bird-icon>
+            {{t('notif_digest')}}
+          </div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .6rem;">
+            {{t('notif_digest_desc')}}
+          </p>
+          <label class="set-check" style="cursor:pointer;">
+            <input type="checkbox" v-model="conf.NOTIFY_DIGEST_ENABLED" true-value="1" false-value="0">
+            <span>{{t('notif_digest_enable')}}</span>
+          </label>
+          <div style="margin-top:.6rem;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;">
+            <label style="font-size:.78rem;color:var(--text-muted);">
+              {{t('notif_digest_tag')}}:
+              <input type="text" v-model="conf.NOTIFY_DIGEST_TAG"
+                     :placeholder="t('notif_digest_tag_placeholder')"
+                     style="margin-left:.4rem;padding:.18rem .4rem;font-size:.78rem;
+                            border:1px solid var(--border);border-radius:4px;width:120px;">
+            </label>
+            <button class="btn btn-secondary" style="font-size:.72rem;padding:.25rem .55rem;"
+                    @click="digestPreview">{{t('notif_digest_preview')}}</button>
+            <button class="btn btn-secondary" style="font-size:.72rem;padding:.25rem .55rem;"
+                    @click="digestSendNow">{{t('notif_digest_send_now')}}</button>
+            <span v-if="digestMsg" :style="{color: digestErr ? 'var(--danger)' : 'var(--accent)', fontSize:'.72rem'}">{{digestMsg}}</span>
+          </div>
+          <pre v-if="digestPreviewText" style="margin-top:.6rem;padding:.5rem;background:var(--bg-card2);
+                                                border-radius:4px;font-size:.72rem;white-space:pre-wrap;">{{digestPreviewText}}</pre>
+        </div>
+

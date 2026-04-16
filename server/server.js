@@ -31,6 +31,7 @@ const _bugReportRoutes = require('./routes/bug-report');
 const _telemetryRoutes = require('./routes/telemetry');
 const _telemetry = require('./lib/telemetry');
 const _notifWatcher = require('./lib/notification-watcher');
+const _weeklyDigest = require('./lib/weekly-digest');
 const _weeklyReport = require('./lib/weekly-report');
 
 const JSON_CT = { 'Content-Type': 'application/json' };
@@ -173,6 +174,8 @@ setTimeout(() => {
 _telemetry.startDailyCron(db, parseBirdnetConf);
 // Notification watcher: polls detections, sends via Apprise
 _notifWatcher.start(db, birdashDb, parseBirdnetConf);
+// Weekly digest: every Monday 08:00 local (opt-in via NOTIFY_DIGEST_ENABLED)
+_weeklyDigest.startWeeklyDigestCron(db, parseBirdnetConf);
 // Weekly report: check every hour if it's Sunday evening
 setInterval(() => {
   try { _weeklyReport.checkAndSend(db, birdashDb, 'BirdStation'); } catch(e) {}
