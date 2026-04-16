@@ -10,7 +10,7 @@ const safeConfig = require('../lib/safe-config');
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
 function handle(req, res, pathname, ctx) {
-  const { requireAuth, parseBirdnetConf, writeBirdnetConf, SETTINGS_VALIDATORS, BIRDNET_CONF, _alerts } = ctx;
+  const { requireAuth, parseBirdnetConf, writeBirdnetConf, SETTINGS_VALIDATORS, BIRDNET_CONF, _alerts, reloadEbirdFreq } = ctx;
 
   // Cross-tab safety (Phase 3): GET /api/settings advertises an etag of
   // the on-disk birdnet.conf, POST /api/settings honours an If-Match
@@ -83,6 +83,10 @@ function handle(req, res, pathname, ctx) {
           await writeBirdnetConf(validated);
           const newEtag = await safeConfig.etagOfFile(BIRDNET_CONF);
           console.log(`[settings] Updated: ${Object.keys(validated).join(', ')}`);
+          // Refresh eBird regional data if GPS or API key changed (affects rare-species detection)
+          if (reloadEbirdFreq && (validated.LATITUDE || validated.LONGITUDE || validated.EBIRD_API_KEY !== undefined)) {
+            reloadEbirdFreq({ force: true }).catch(e => console.warn('[settings] eBird refresh:', e.message));
+          }
           res.writeHead(200, { 'Content-Type': 'application/json', 'ETag': newEtag });
           res.end(JSON.stringify({
             ok: true,

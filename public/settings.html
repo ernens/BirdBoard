@@ -882,6 +882,14 @@ const app = createApp({
             <strong>Vide</strong> = désactivé.`,
           rec: 'Optionnel mais recommandé pour contribuer à la communauté scientifique.'
         },
+        ebird: {
+          title: 'Clé API eBird',
+          body: `Clé personnelle pour interroger l'API eBird et obtenir la <strong>check-list régionale</strong> autour de tes coordonnées GPS (rayon ~25 km, 30 derniers jours).<br><br>
+            Utilisée par les notifications "Espèce rare", la page Raretés et la timeline — une espèce absente de cette liste est considérée comme rare ici et maintenant.<br><br>
+            Obtiens ta clé gratuite sur <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">ebird.org/api/keygen</a> (30 secondes, connexion Cornell Lab).<br><br>
+            <strong>Vide</strong> = fallback sur l'heuristique locale (≤3 observations en 1 an), activée après 30 jours de données.`,
+          rec: 'Fortement recommandé pour une détection pertinente des raretés, surtout hors Europe.'
+        },
         rtsp: {
           title: 'Flux RTSP',
           body: `URL d'un flux audio RTSP externe à utiliser comme source au lieu du microphone USB.<br><br>
@@ -1070,6 +1078,14 @@ const app = createApp({
           body: 'Your BirdWeather station ID to share detections on <a href="https://app.birdweather.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">birdweather.com</a>. Empty = disabled.',
           rec: 'Optional but recommended to contribute to citizen science.'
         },
+        ebird: {
+          title: 'eBird API key',
+          body: `Personal key to query the eBird API for the <strong>regional checklist</strong> around your GPS coordinates (~25 km radius, last 30 days).<br><br>
+            Used by the "Rare species" notification, the Rarities page and the timeline — a species absent from this list is considered rare here and now.<br><br>
+            Get your free key at <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">ebird.org/api/keygen</a> (30 seconds, Cornell Lab login).<br><br>
+            <strong>Empty</strong> = falls back to the local heuristic (≤3 observations in past year), active after 30 days of data.`,
+          rec: 'Strongly recommended for accurate rarity detection, especially outside Europe.'
+        },
         rtsp: {
           title: 'RTSP Stream',
           body: 'External RTSP audio stream URL. Format: <code>rtsp://user:pass@ip:port/stream</code>. Empty = use local microphone.',
@@ -1135,6 +1151,7 @@ const app = createApp({
         database_lang: { title:'Artensprache', body:'Sprache für die Artnamen in der Datenbank. Unabhängig von der Oberflächensprache.', rec:'Wählen Sie Ihre bevorzugte Sprache.' },
         image_provider: { title:'Bildquelle', body:'<strong>Wikipedia</strong>: kostenlos. <strong>Flickr</strong>: mehr Vielfalt, API-Schlüssel nötig.', rec:'Empfohlen: <strong>Flickr</strong>.' },
         birdweather: { title:'BirdWeather Station ID', body:'Ihre BirdWeather-Stations-ID. Leer = deaktiviert.', rec:'Optional aber empfohlen.' },
+        ebird: { title:'eBird API-Schlüssel', body:'Persönlicher Schlüssel zur Abfrage der eBird-Regionalliste (~25 km Radius, letzte 30 Tage). Wird für Seltenheitserkennung verwendet. Schlüssel holen: <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">ebird.org/api/keygen</a>. Leer = lokale Heuristik nach 30 Tagen Daten.', rec:'Empfohlen für genaue Seltenheitserkennung, besonders außerhalb Europas.' },
         rtsp: { title:'RTSP-Stream', body:'Externe RTSP-Audio-URL. Leer = lokales Mikrofon.', rec:'Leer lassen, außer bei Netzwerkmikrofon.' },
         full_disk: { title:'Festplatte voll', body:'<strong>Purge</strong>: älteste Aufnahmen automatisch löschen. <strong>Keep</strong>: Aufnahme stoppen.', rec:'Empfohlen: <strong>Purge</strong>.' },
         purge_threshold: { title:'Bereinigungsschwelle (%)', body:'Festplattennutzung, ab der automatisch bereinigt wird (50–99%).', rec:'Empfohlen: <strong>90–95%</strong>.' },
@@ -1162,6 +1179,7 @@ const app = createApp({
         database_lang: { title:'Soortnaamtaal', body:'Taal voor soortnamen in de database. Onafhankelijk van de interfacetaal.', rec:'Kies uw voorkeurstaal.' },
         image_provider: { title:'Afbeeldingsbron', body:'<strong>Wikipedia</strong>: gratis. <strong>Flickr</strong>: meer variatie, API-sleutel nodig.', rec:'Aanbevolen: <strong>Flickr</strong>.' },
         birdweather: { title:'BirdWeather Station ID', body:'Uw BirdWeather station-ID. Leeg = uitgeschakeld.', rec:'Optioneel maar aanbevolen.' },
+        ebird: { title:'eBird API-sleutel', body:'Persoonlijke sleutel om de eBird regionale checklist op te vragen (~25 km straal, laatste 30 dagen). Gebruikt voor zeldzaamheidsdetectie. Sleutel ophalen: <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">ebird.org/api/keygen</a>. Leeg = lokale fallback na 30 dagen data.', rec:'Aanbevolen voor nauwkeurige zeldzaamheidsdetectie, vooral buiten Europa.' },
         rtsp: { title:'RTSP-stream', body:'Externe RTSP-audio-URL. Leeg = lokale microfoon.', rec:'Leeg laten tenzij netwerkmicrofoon.' },
         full_disk: { title:'Schijf vol', body:'<strong>Purge</strong>: oudste opnames verwijderen. <strong>Keep</strong>: opname stoppen.', rec:'Aanbevolen: <strong>Purge</strong>.' },
         purge_threshold: { title:'Opruimdrempel (%)', body:'Schijfgebruik waarbij automatisch opgeruimd wordt (50–99%).', rec:'Aanbevolen: <strong>90–95%</strong>.' },

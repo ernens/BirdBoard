@@ -69,6 +69,21 @@
 
         </div>
 
+        <!-- eBird — regional rarity + species enrichment -->
+        <div class="card" style="margin-top:1rem;">
+          <div class="section-title"><bird-icon name="globe" :size="14"></bird-icon> {{t('set_ebird')}}</div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .6rem;">{{t('set_ebird_desc')}}</p>
+          <div class="set-row">
+            <span class="set-label">API key <button class="info-btn" @click="helpKey='ebird'">i</button></span>
+            <input v-model="conf.EBIRD_API_KEY" class="set-input" type="password" autocomplete="off"
+                   :placeholder="t('set_ebird_placeholder')" style="font-family:var(--font-mono);">
+          </div>
+          <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--accent);text-decoration:none;margin-top:.3rem;">
+            <bird-icon name="external-link" :size="13"></bird-icon> {{t('set_ebird_get_key')}}
+          </a>
+        </div>
+
       </div><!-- /settings-grid -->
 
       <!-- ═══ BirdStation Network — Telemetry opt-in ═══ -->

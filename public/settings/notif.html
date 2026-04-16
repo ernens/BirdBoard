@@ -67,8 +67,24 @@
             <label class="set-check" style="cursor:pointer;">
               <input type="checkbox" v-model="conf.NOTIFY_RARE_SPECIES" true-value="1" false-value="0">
               <span><bird-icon name="gem" :size="14"></bird-icon> <strong>{{t('notif_rare')}}</strong></span>
+              <span v-if="conf.NOTIFY_RARE_SPECIES == 1 && conf.EBIRD_API_KEY"
+                    style="margin-left:auto;font-size:.68rem;padding:.1rem .45rem;border-radius:10px;background:rgba(52,211,153,.12);color:var(--accent);display:inline-flex;align-items:center;gap:.2rem;"
+                    :title="t('notif_rare_ebird_active_title')">
+                <bird-icon name="check-circle" :size="11"></bird-icon> eBird
+              </span>
             </label>
             <p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0 1.5rem;">{{t('notif_rare_long')}}</p>
+            <!-- Friendly reminder when eBird key is missing — makes the rule much more accurate -->
+            <div v-if="conf.NOTIFY_RARE_SPECIES == 1 && !conf.EBIRD_API_KEY"
+                 style="margin:.5rem 0 0 1.5rem;padding:.5rem .6rem;border-radius:6px;background:rgba(255,193,7,.08);border:1px dashed rgba(255,193,7,.4);display:flex;align-items:flex-start;gap:.45rem;">
+              <bird-icon name="lightbulb" :size="14" style="flex-shrink:0;margin-top:.1rem;color:#fbbf24;"></bird-icon>
+              <div style="font-size:.74rem;line-height:1.35;">
+                {{t('notif_rare_ebird_tip')}}
+                <a href="#/station" @click.prevent="switchTab('station')" style="color:var(--accent);text-decoration:none;font-weight:600;">
+                  {{t('notif_rare_ebird_cta')}} →
+                </a>
+              </div>
+            </div>
           </div>
 
           <!-- Rule 2: First of season -->

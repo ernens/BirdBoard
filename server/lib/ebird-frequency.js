@@ -155,4 +155,26 @@ function checkRarity(sciName, localHistCount, totalDays) {
   };
 }
 
-module.exports = { loadFrequency, checkRarity, fetchRegionalFrequency };
+/**
+ * Force a cache refresh (e.g. after the user changes GPS or API key).
+ * Bypasses both in-memory and on-disk caches — re-hits eBird.
+ */
+async function refresh(lat, lon, apiKey) {
+  _freqMap = null;
+  _freqTs = 0;
+  const fresh = await fetchRegionalFrequency(lat, lon, apiKey);
+  if (fresh && Object.keys(fresh).length > 0) {
+    fresh._ts = Date.now();
+    _freqMap = fresh;
+    _freqTs = fresh._ts;
+    await fsp.writeFile(CACHE_PATH, JSON.stringify(fresh, null, 2)).catch(() => {});
+    console.log(`[ebird-frequency] force-refreshed: ${Object.keys(fresh).length - 1} species from eBird`);
+  } else {
+    console.warn('[ebird-frequency] force refresh returned no data — keeping previous cache');
+    // Fall back to whatever was on disk
+    return loadFrequency(lat, lon, apiKey);
+  }
+  return _freqMap;
+}
+
+module.exports = { loadFrequency, refresh, checkRarity, fetchRegionalFrequency };

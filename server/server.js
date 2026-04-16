@@ -135,14 +135,30 @@ setTimeout(() => refreshTaxonomy().catch(e => console.error('[BIRDASH] Taxonomy 
 // ornithological data instead of the naive "≤3 local observations" heuristic
 // that flagged Blackbirds as rare on every fresh install.
 const ebirdFreq = require('./lib/ebird-frequency');
-setTimeout(async () => {
+// Prefer birdnet.conf (UI-editable) over env/local for the API key so changes
+// in Settings propagate without a service restart.
+async function _resolveEbirdKey() {
   try {
     const conf = await parseBirdnetConf();
-    const lat = parseFloat(conf.LATITUDE || '0');
-    const lon = parseFloat(conf.LONGITUDE || '0');
-    await ebirdFreq.loadFrequency(lat, lon, EBIRD_API_KEY);
-  } catch(e) { console.warn('[BIRDASH] eBird frequency init:', e.message); }
+    return (conf.EBIRD_API_KEY || '').trim() || EBIRD_API_KEY || '';
+  } catch { return EBIRD_API_KEY || ''; }
+}
+async function _reloadEbirdFreq({ force = false } = {}) {
+  const conf = await parseBirdnetConf();
+  const lat = parseFloat(conf.LATITUDE || '0');
+  const lon = parseFloat(conf.LONGITUDE || '0');
+  const apiKey = (conf.EBIRD_API_KEY || '').trim() || EBIRD_API_KEY || '';
+  return force
+    ? ebirdFreq.refresh(lat, lon, apiKey)
+    : ebirdFreq.loadFrequency(lat, lon, apiKey);
+}
+setTimeout(() => {
+  _reloadEbirdFreq().catch(e => console.warn('[BIRDASH] eBird frequency init:', e.message));
 }, 4000);
+// Daily refresh — the regional species list shifts with seasons (migrants).
+setInterval(() => {
+  _reloadEbirdFreq({ force: true }).catch(e => console.warn('[BIRDASH] eBird daily refresh:', e.message));
+}, 24 * 3600 * 1000);
 // Pre-aggregated stats: smart rebuild on startup.
 // Full rebuild takes ~14s on 1M+ rows and BLOCKS the event loop (better-sqlite3
 // is synchronous), causing 502s for every request during that window. So we
@@ -179,7 +195,7 @@ _weeklyDigest.startWeeklyDigestCron(db, parseBirdnetConf);
 // ── Route context ────────────────────────────────────────────────────────────
 const _routeCtx = {
   requireAuth, execCmd, readJsonFile, writeJsonFileAtomic, JSON_CT, jsonOk, jsonErr,
-  safeConfig, ebirdFreq,
+  safeConfig, ebirdFreq, reloadEbirdFreq: _reloadEbirdFreq,
   db, dbWrite, birdashDb, taxonomyDb, parseBirdnetConf, SONGS_DIR,
   ALLOWED_SERVICES, BIRDNET_DIR, validateQuery,
   photoCacheKey: _photoRoutes.photoCacheKey, PHOTO_CACHE_DIR: _photoRoutes.PHOTO_CACHE_DIR,
