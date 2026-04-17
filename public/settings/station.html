@@ -141,3 +141,18 @@
           {{t('set_anon_pings_detail')}}
         </div>
       </div>
+
+      <!-- ═══ Power management ═══ -->
+      <div class="set-section">
+        <div class="set-section-title"><bird-icon name="power" :size="15"></bird-icon> {{t('power_title')}}</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.8rem;">{{t('power_desc')}}</p>
+        <button class="btn btn-secondary" @click="power.open()" style="font-size:.82rem;">
+          <bird-icon name="power" :size="14"></bird-icon> {{t('power_open')}}
+        </button>
+        <div v-if="!power.available.sudoReady && power.probed" style="font-size:.72rem;color:var(--text-faint);margin-top:.6rem;line-height:1.5;">
+          <bird-icon name="info" :size="12" style="vertical-align:-2px;"></bird-icon>
+          {{t('power_sudo_hint')}}
+          <code style="display:block;margin-top:.35rem;padding:.35rem .5rem;background:var(--bg-deep);border-radius:4px;font-family:var(--font-mono);font-size:.7rem;white-space:pre-wrap;">birdash ALL=(root) NOPASSWD: /sbin/shutdown, /bin/systemctl restart birdash</code>
+        </div>
+      </div>
+
