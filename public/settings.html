@@ -145,7 +145,7 @@
                 <div class="pw-back-check"><bird-icon name="check-circle" :size="56"></bird-icon></div>
                 <div class="pw-back-title">{{t('power_back_title')}}</div>
                 <div class="pw-applying-sub">{{t('power_back_sub')}}</div>
-                <button class="pw-btn pw-btn-primary" @click="location.reload()">{{t('power_reload')}}</button>
+                <button class="pw-btn pw-btn-primary" @click="power.reload()">{{t('power_reload')}}</button>
               </div>
             </div>
           </div>
@@ -1959,6 +1959,7 @@ const app = createApp({
         this.step = 'choose';
         this.sliderValue = 0;
       },
+      reload() { window.location.reload(); },
       async apply() {
         this.step = 'applying';
         try {
