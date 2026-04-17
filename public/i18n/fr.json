@@ -1496,6 +1496,7 @@
   "tft_mode": "Mode",
   "tft_mode_pulse": "Bird Pulse — flux du jour",
   "tft_mode_headline": "Dernier oiseau — grande photo",
+  "tft_mode_leaderboard": "Top du jour — classement",
   "tft_saving": "Enregistrement…",
   "tft_service_title": "Service",
   "tft_service_state": "État",

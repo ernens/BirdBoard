@@ -87,9 +87,17 @@ def tier_color(tier):
 
 def compose(data, fonts, photo_img=None, mode='pulse'):
     """Dispatcher — picks the right layout based on config.mode."""
-    if mode == 'headline':
-        return compose_headline(data, fonts, photo_img)
+    if mode == 'headline':    return compose_headline(data, fonts, photo_img)
+    if mode == 'leaderboard': return compose_leaderboard(data, fonts, photo_img)
     return compose_pulse(data, fonts, photo_img)
+
+
+def _photo_sci_for(mode, data):
+    """Which species photo to fetch, given the current mode."""
+    if mode == 'leaderboard':
+        top = data.get('topToday') or []
+        return (top[0].get('sciName') if top else None)
+    return (data.get('latestDet') or {}).get('sciName')
 
 
 def compose_pulse(data, fonts, photo_img=None):
@@ -284,6 +292,98 @@ def compose_headline(data, fonts, photo_img=None):
     return img
 
 
+def compose_leaderboard(data, fonts, photo_img=None):
+    """Top-6 species today, photo of #1 on the left, ranked list on the right.
+
+    Trend arrow next to each count compares today-so-far vs same time
+    yesterday — small triangle up (green), down (red), or flat bar (muted).
+    """
+    img = Image.new('RGB', (W, H), COLOR_BG)
+    draw = ImageDraw.Draw(img)
+
+    # Top bar
+    station = data.get('stationName') or 'BirdStation'
+    now = datetime.now().strftime('%H:%M')
+    draw.rectangle((0, 0, W, 34), fill=COLOR_PANEL)
+    draw.text((10, 9), station, fill=COLOR_TEXT, font=fonts.smallB)
+    title = 'TOP TODAY'
+    tw = draw.textlength(title, font=fonts.smallB)
+    draw.text(((W - tw) / 2, 9), title, fill=COLOR_ACCENT, font=fonts.smallB)
+    cw = draw.textlength(now, font=fonts.smallB)
+    draw.text((W - cw - 10, 9), now, fill=COLOR_TEXT, font=fonts.smallB)
+
+    top = data.get('topToday') or []
+    if not top:
+        msg = 'No detections yet today'
+        mw = draw.textlength(msg, font=fonts.med)
+        draw.text(((W - mw) / 2, H / 2 - 8), msg, fill=COLOR_MUTED, font=fonts.med)
+        return img
+
+    # Photo of #1 (left column) — square-ish panel.
+    box_x, box_y, box_w, box_h = 10, 44, 150, 266
+    draw.rectangle((box_x, box_y, box_x + box_w, box_y + box_h),
+                   fill=COLOR_PANEL, outline=COLOR_FAINT)
+    if photo_img:
+        src_r = photo_img.width / photo_img.height
+        dst_r = box_w / box_h
+        if src_r > dst_r:
+            new_h = box_h
+            new_w = int(src_r * new_h)
+        else:
+            new_w = box_w
+            new_h = int(new_w / src_r)
+        thumb = photo_img.resize((new_w, new_h), Image.LANCZOS)
+        ox = (new_w - box_w) // 2
+        oy = (new_h - box_h) // 2
+        thumb = thumb.crop((ox, oy, ox + box_w, oy + box_h))
+        img.paste(thumb, (box_x, box_y))
+    # #1 badge over photo corner
+    draw.rounded_rectangle((box_x + 6, box_y + 6, box_x + 38, box_y + 26),
+                           radius=10, fill=COLOR_ACCENT)
+    draw.text((box_x + 11, box_y + 8), '#1', fill=(255, 255, 255), font=fonts.smallB)
+
+    # Ranked list (right column)
+    list_x = box_x + box_w + 18
+    row_y0 = 44
+    row_h = 44
+    for i, sp in enumerate(top[:6]):
+        y = row_y0 + i * row_h
+        if i > 0:
+            draw.line((list_x, y, W - 10, y), fill=COLOR_FAINT)
+        # Rank
+        rank = f"{i + 1}"
+        rc = COLOR_ACCENT if i == 0 else COLOR_MUTED
+        draw.text((list_x, y + 13), rank, fill=rc, font=fonts.medB)
+        # Name — truncate with ellipsis if too wide
+        name_x = list_x + 22
+        max_w = W - name_x - 78
+        name = sp.get('comName') or '—'
+        orig = name
+        while name and draw.textlength(name, font=fonts.med) > max_w:
+            name = name[:-1]
+        if name != orig:
+            name = name[:-1] + '…'
+        draw.text((name_x, y + 14), name, fill=COLOR_TEXT, font=fonts.med)
+        # Count (right-aligned before the arrow)
+        count = str(sp.get('count') or 0)
+        cw2 = int(draw.textlength(count, font=fonts.medB))
+        draw.text((W - 46 - cw2, y + 11), count, fill=COLOR_ACCENT, font=fonts.medB)
+        # Trend arrow
+        trend = sp.get('trend') or 'flat'
+        tx = W - 26
+        ty = y + row_h // 2
+        if trend == 'up':
+            draw.polygon([(tx, ty - 7), (tx - 6, ty + 4), (tx + 6, ty + 4)],
+                         fill=COLOR_HIGH)
+        elif trend == 'down':
+            draw.polygon([(tx, ty + 7), (tx - 6, ty - 4), (tx + 6, ty - 4)],
+                         fill=COLOR_LOW)
+        else:
+            draw.line((tx - 6, ty, tx + 6, ty), fill=COLOR_MUTED, width=2)
+
+    return img
+
+
 def rgb_to_rgb565_bytes(img):
     """Convert PIL RGB image → little-endian RGB565 bytes for fb1."""
     # numpy path is 50× faster; fall back to pure Python only if missing.
@@ -318,7 +418,7 @@ def main():
     ap.add_argument('--once', action='store_true', help='Render once then exit')
     ap.add_argument('--base', default='http://localhost/birds',
                     help='birdash base URL (default: http://localhost/birds)')
-    ap.add_argument('--mode', choices=['pulse', 'headline'],
+    ap.add_argument('--mode', choices=['pulse', 'headline', 'leaderboard'],
                     help='Override mode (bypasses server config, useful for preview)')
     args = ap.parse_args()
 
@@ -341,7 +441,7 @@ def main():
             print(f"[tft] frame-data fetch failed: {e}", file=sys.stderr)
             return
 
-        sci = (data.get('latestDet') or {}).get('sciName')
+        sci = _photo_sci_for(mode, data)
         if sci and sci != last_sci:
             photo_cache = fetch_photo(args.base, sci)
             last_sci = sci

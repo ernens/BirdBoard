@@ -40,7 +40,7 @@ function _saveConfig(cfg) {
   merged.enabled = !!merged.enabled;
   merged.rotation = [0, 90, 180, 270].includes(+merged.rotation) ? +merged.rotation : 90;
   merged.refreshSec = Math.max(1, Math.min(60, +merged.refreshSec || 3));
-  merged.mode = ['pulse', 'headline'].includes(merged.mode) ? merged.mode : 'pulse';
+  merged.mode = ['pulse', 'headline', 'leaderboard'].includes(merged.mode) ? merged.mode : 'pulse';
   fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
   const tmp = CONFIG_PATH + '.' + process.pid + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf8');
@@ -138,7 +138,7 @@ function _frameData(ctx) {
   const { db, parseBirdnetConf } = ctx;
   const today = _localDateStr();
   const conf = 0.7;
-  const out = { time: new Date().toISOString(), stationName: '', pulseRate: 0, river: [], nowFrac: 0, latestDet: null, kpis: { species: 0, total: 0, lastHour: 0 } };
+  const out = { time: new Date().toISOString(), stationName: '', pulseRate: 0, river: [], nowFrac: 0, latestDet: null, topToday: [], kpis: { species: 0, total: 0, lastHour: 0 } };
 
   try {
     const bn = parseBirdnetConf();
@@ -193,6 +193,34 @@ function _frameData(ctx) {
         confidence: Math.round((ld.Confidence || 0) * 100),
         model: ld.Model || '',
       };
+    }
+  } catch {}
+
+  // Top 6 species today, with trend vs. same time yesterday (fair comparison
+  // — at 9am today vs 9am yesterday, not vs yesterday's full day).
+  try {
+    const top = db.prepare(
+      'SELECT Com_Name as comName, Sci_Name as sciName, COUNT(*) as count ' +
+      'FROM active_detections WHERE Date=? AND Confidence>=? ' +
+      'GROUP BY Com_Name ORDER BY count DESC LIMIT 6'
+    ).all(today, conf);
+    if (top.length) {
+      const yd = new Date(now.getTime() - 86400000);
+      const pad = n => String(n).padStart(2, '0');
+      const yesterday = `${yd.getFullYear()}-${pad(yd.getMonth() + 1)}-${pad(yd.getDate())}`;
+      const nowHHMM = `${pad(now.getHours())}:${pad(now.getMinutes())}:59`;
+      const placeholders = top.map(() => '?').join(',');
+      const yRows = db.prepare(
+        'SELECT Com_Name as comName, COUNT(*) as count ' +
+        'FROM active_detections WHERE Date=? AND Confidence>=? AND Time<=? ' +
+        `AND Com_Name IN (${placeholders}) GROUP BY Com_Name`
+      ).all(yesterday, conf, nowHHMM, ...top.map(t => t.comName));
+      const yMap = Object.fromEntries(yRows.map(r => [r.comName, r.count]));
+      out.topToday = top.map(t => {
+        const y = yMap[t.comName] || 0;
+        const trend = t.count > y ? 'up' : t.count < y ? 'down' : 'flat';
+        return { comName: t.comName, sciName: t.sciName, count: t.count, yesterdayCount: y, trend };
+      });
     }
   } catch {}
 
