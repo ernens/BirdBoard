@@ -205,7 +205,8 @@ function handle(req, res, pathname, ctx) {
     const sys = _probeSystem();
     const svc = _serviceStatus();
     const cfg = _loadConfig();
-    jsonOk(res, { ...sys, service: svc, config: cfg, sudoReady: _sudoAvailable() });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ ...sys, service: svc, config: cfg, sudoReady: _sudoAvailable() }));
     return true;
   }
 

@@ -4,7 +4,7 @@
  * Stratégie : cache-first pour les assets, network-first pour l'API.
  */
 
-const CACHE_NAME = 'birdash-v119';
+const CACHE_NAME = 'birdash-v120';
 
 // Assets statiques à pré-cacher à l'installation
 const PRECACHE = [
@@ -65,6 +65,13 @@ self.addEventListener('fetch', (event) => {
 
   // Assets locaux (JS, CSS, SVG) : network-first (toujours à jour, cache fallback)
   if (CACHEABLE_ASSET.test(url.pathname) && url.origin === self.location.origin) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  // Partials HTML (settings/*.html chargés via fetch()) : network-first.
+  // Sans ça, le navigateur sert un cache HTTP stale après une mise à jour.
+  if (url.pathname.endsWith('.html') && url.origin === self.location.origin) {
     event.respondWith(networkFirst(event.request));
     return;
   }
