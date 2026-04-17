@@ -134,7 +134,7 @@ function execCmd(cmd, args) {
   });
 }
 
-const ALLOWED_SERVICES = ['birdengine', 'birdengine-recording', 'birdash', 'caddy', 'ttyd'];
+const ALLOWED_SERVICES = ['birdengine', 'birdengine-recording', 'birdash', 'caddy', 'ttyd', 'birdash-tft'];
 
 const SETTINGS_VALIDATORS = {
   SITE_NAME:       v => typeof v === 'string' && v.length <= 100,

@@ -535,6 +535,7 @@
   "svc_recording": "Audio capture",
   "svc_web": "Web server",
   "svc_terminal": "Web terminal",
+  "svc_tft": "External display (PiTFT)",
   "sys_tab_health": "Health",
   "sys_tab_model": "Model",
   "sys_tab_data": "Data",

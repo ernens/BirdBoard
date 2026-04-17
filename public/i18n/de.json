@@ -535,6 +535,7 @@
   "svc_recording": "Audioaufnahme",
   "svc_web": "Webserver",
   "svc_terminal": "Webterminal",
+  "svc_tft": "Externer Bildschirm (PiTFT)",
   "sys_tab_health": "Zustand",
   "sys_tab_model": "Modell",
   "sys_tab_data": "Daten",

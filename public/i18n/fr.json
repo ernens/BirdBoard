@@ -535,6 +535,7 @@
   "svc_recording": "Capture audio",
   "svc_web": "Serveur web",
   "svc_terminal": "Terminal web",
+  "svc_tft": "Écran externe (PiTFT)",
   "sys_tab_health": "Santé",
   "sys_tab_model": "Modèle",
   "sys_tab_data": "Données",

@@ -535,6 +535,7 @@
   "svc_recording": "Audio-opname",
   "svc_web": "Webserver",
   "svc_terminal": "Webterminal",
+  "svc_tft": "Extern scherm (PiTFT)",
   "sys_tab_health": "Status",
   "sys_tab_model": "Model",
   "sys_tab_data": "Gegevens",

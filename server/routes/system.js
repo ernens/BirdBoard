@@ -19,6 +19,12 @@ function handle(req, res, pathname, ctx) {
       try {
         const services = [];
         for (const name of ALLOWED_SERVICES) {
+          // Skip units that aren't installed on this Pi (e.g. birdash-tft on
+          // a host without the PiTFT HAT) so they don't appear as "inactive".
+          const unitExists = fs.existsSync(`/etc/systemd/system/${name}.service`) ||
+                             fs.existsSync(`/lib/systemd/system/${name}.service`) ||
+                             fs.existsSync(`/usr/lib/systemd/system/${name}.service`);
+          if (!unitExists) continue;
           try {
             const state = await execCmd('systemctl', ['is-active', name]);
             let pid = null, memory = 0, uptime = 0;
