@@ -1360,6 +1360,8 @@
         // opacity:0 is unreliable — the hit area collapses to the thumb,
         // which users can't see. This grabs the whole track.
         sliderDragging: false,
+        _sliderHasMoved: false,
+        _sliderStartX: 0,
         _sliderTrackEl: null,
         _onPointerMove: null,
         _onPointerUp: null,
@@ -1368,8 +1370,10 @@
           const track = ev.currentTarget;
           this._sliderTrackEl = track;
           this.sliderDragging = true;
+          this._sliderHasMoved = false;
+          this._sliderStartX = ev.clientX;
           track.setPointerCapture && track.setPointerCapture(ev.pointerId);
-          this.sliderUpdate(ev);
+          // Don't jump to pointer on initial down — only on drag.
           this._onPointerMove = (e) => this.sliderUpdate(e);
           this._onPointerUp   = (e) => this.sliderEnd(e);
           track.addEventListener('pointermove', this._onPointerMove);
@@ -1378,9 +1382,13 @@
         },
         sliderUpdate(ev) {
           if (!this.sliderDragging || !this._sliderTrackEl) return;
+          if (Math.abs(ev.clientX - this._sliderStartX) > 3) this._sliderHasMoved = true;
           const rect = this._sliderTrackEl.getBoundingClientRect();
-          const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
-          this.sliderValue = pct;
+          // Map thumb center to pointer, clamped so the thumb stays inside
+          // the track (48px wide + 4px left/right padding = 52px reserve).
+          const travel = rect.width - 52;
+          const thumbLeft = Math.max(0, Math.min(travel, ev.clientX - rect.left - 24 - 4));
+          this.sliderValue = travel > 0 ? (thumbLeft / travel) * 100 : 0;
         },
         sliderEnd(ev) {
           if (!this.sliderDragging) return;
@@ -1393,7 +1401,10 @@
             try { track.releasePointerCapture && track.releasePointerCapture(ev.pointerId); } catch {}
           }
           this._sliderTrackEl = null;
-          if (this.sliderValue >= 95) { this.apply(); return; }
+          // Only fire if user actually dragged AND made it to the threshold.
+          // This prevents a single tap near the right edge from shutting
+          // the station down by accident.
+          if (this._sliderHasMoved && this.sliderValue >= 95) { this.apply(); return; }
           const start = this.sliderValue;
           const t0 = performance.now();
           const tick = (now) => {
@@ -1834,7 +1845,7 @@
           <div class="pw-confirm-sub">{{t('power_slide_hint')}}</div>
           <div class="pw-slider-track" @pointerdown="power.sliderBegin($event)">
             <div class="pw-slider-fill" :style="{width: power.sliderValue + '%'}"></div>
-            <div class="pw-slider-thumb" :style="{left: 'calc(' + power.sliderValue + '% - 24px)'}">
+            <div class="pw-slider-thumb" :style="{left: 'calc(4px + (100% - 52px) * ' + (power.sliderValue / 100) + ')'}">
               <bird-icon name="power" :size="18"></bird-icon>
             </div>
             <div class="pw-slider-label" :class="{dim: power.sliderValue > 40}">{{t('power_slide_label')}}</div>
