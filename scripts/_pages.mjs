@@ -64,7 +64,7 @@ export const pages = [
   { name: 'favorites',   path: '/birds/favorites.html',   wait: 6000 },
 
   // Indicators
-  { name: 'weather',     path: '/birds/weather.html',     wait: 4000 },
+  { name: 'weather',     path: '/birds/weather.html',     wait: 6000, ready: '.chart-wrap canvas, .kpi-card .kpi-value' },
   { name: 'stats',       path: '/birds/stats.html',       wait: 4000 },
   // Analyses needs species selected. The Top-N button picks the N most
   // detected species (default N=10) and triggers all charts to render.
@@ -77,11 +77,20 @@ export const pages = [
     }
   }},
   { name: 'biodiversity',path: '/birds/biodiversity.html', wait: 4000 },
-  { name: 'phenology',   path: '/birds/phenology.html',   wait: 3000, action: async (page) => {
-    const btn = page.locator('.ph-empty button').first();
-    if (await btn.isVisible().catch(() => false)) {
-      await btn.click();
-      await page.waitForTimeout(6000);
+  // Phenology: pre-select Verdier d'Europe, year 2025, and open week 22 zoom.
+  { name: 'phenology',   path: "/birds/phenology.html?species=Verdier%20d'Europe",
+                         wait: 4000, ready: '.ph-ribbon .ph-cell', action: async (page) => {
+    // Switch year dropdown to 2025 if available
+    const yearSel = page.locator('.ph-year-select').first();
+    if (await yearSel.isVisible().catch(() => false)) {
+      await yearSel.selectOption('2025').catch(() => {});
+      await page.waitForTimeout(3000);
+    }
+    // Click week 22 cell in the ribbon
+    const wk22 = page.locator('.ph-ribbon .ph-cell').nth(22);
+    if (await wk22.isVisible().catch(() => false)) {
+      await wk22.click().catch(() => {});
+      await page.waitForTimeout(2500);
     }
   }},
   { name: 'comparison',  path: '/birds/comparison.html',  wait: 4000 },
