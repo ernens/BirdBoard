@@ -416,8 +416,14 @@ function handle(req, res, pathname, ctx) {
         const clamped = Math.max(info.min_db, Math.min(info.max_db, db));
         const { execSync } = require('child_process');
         execSync(`amixer -c ${info.card} sset Boost ${clamped.toFixed(2)}dB`, { encoding: 'utf8' });
-        // Best-effort persist; sudoers may or may not allow alsactl without password
-        try { execSync(`sudo -n alsactl store ${info.card} 2>/dev/null || alsactl store ${info.card} 2>/dev/null || true`); } catch {}
+        // Best-effort persist. alsactl lives in /usr/sbin (not on the
+        // service's PATH) and writing /var/lib/alsa/asound.state needs
+        // root, so we must sudo. Sudoers is expected to allow this
+        // NOPASSWD for the birdash user; if not, the value still applies
+        // to the live session and sticks until the next reboot.
+        try {
+          execSync(`sudo -n /usr/sbin/alsactl store ${info.card} 2>/dev/null || /usr/sbin/alsactl store ${info.card} 2>/dev/null || true`);
+        } catch {}
         const fresh = _readBoost();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, ...fresh }));
