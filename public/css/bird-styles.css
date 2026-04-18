@@ -1,5 +1,9 @@
 /* bird-styles.css — BIRDASH · Système de thèmes */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
+/* Colonial theme fonts — loaded only if the user picks the colonial theme.
+   Google Fonts fetches the .woff2 files lazily when an element references
+   these families, so shipping the import for free doesn't hurt other themes. */
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Special+Elite&family=Pinyon+Script&display=swap');
 
 /* Hide Vue templates until mounted — prevents {{moustache}} flash */
 [v-cloak] { display: none !important; }
@@ -269,6 +273,146 @@
   --data-abundance-1: #6b6b3a;
   --data-abundance-2: #4d4920;
   --data-abundance-3: #2e2810;
+}
+
+/* ── Colonial — Carnet 1930, parchemin vieilli, encre fer-gallique ────────
+   Ambiance "coffre colonial belge" : papier parchemin teinté de thé, encre
+   walnut, accents terreux (mousse/ocre/rouille/baie/ciel). Typographie
+   IM Fell English + Special Elite. Contraste ink/paper = 10.8 (AAA). */
+[data-theme="colonial"] {
+  --bg-deep:      #2a1a0c;
+  --bg-page:      #e5d6b0;
+  --bg-card:      #ebdec0;
+  --bg-card2:     #d9c79a;
+  --bg-hover:     #d0bf8d;
+  --bg-input:     #e5d6b0;
+  --border:       #9e8551;
+  --border-light: #c8b483;
+
+  --accent:     #4a5a20;       /* moss */
+  --accent-dim: #384616;
+  --on-accent:  #ebdec0;
+
+  --amber:     #a46818;        /* ochre */
+  --amber-dim: #72470f;
+  --warning:   #a46818;
+
+  --danger:  #8a3a14;          /* rust */
+  --success: #4a5a20;          /* moss */
+  --info:    #2a4a6a;          /* sky */
+  --blue:    #2a4a6a;
+
+  --text-main:  #1d1205;       /* iron-gall ink */
+  --text-muted: #6b5330;       /* faded ink */
+  --text-faint: #8e7340;       /* very faint — decorative only */
+
+  --bg-spectro:      #1d1205;
+  --text-spectro:    #4a5a2080;
+  --scrollbar-thumb: #9e8551;
+  --scrollbar-track: #d9c79a;
+
+  --shadow:        0 4px 24px rgba(42,20,8,.18);
+  --shadow-card:   0 1px 0 rgba(42,20,8,.08), 0 2px 6px rgba(42,20,8,.12);
+  --overlay-scrim: rgba(42,20,8,.45);
+  --overlay-line:  rgba(42,20,8,.12);
+
+  /* 1930 typography — corpus + display share IM Fell English. */
+  --font-body:    'IM Fell English', 'Newsreader', Georgia, serif;
+  --font-display: 'IM Fell English', 'Newsreader', Georgia, serif;
+}
+
+/* Colonial data-viz — muted earth tones */
+[data-theme="colonial"] {
+  --data-night: #2a4a6a;
+  --data-dawn:  #a46818;
+  --data-day:   #4a5a20;
+  --data-dusk:  #8a3a14;
+
+  --data-abundance-0: #c0bf6a;
+  --data-abundance-1: #8c9a40;
+  --data-abundance-2: #4a5a20;
+  --data-abundance-3: #2a3a10;
+
+  --data-cat-1: #4a5a20;
+  --data-cat-2: #2a4a6a;
+  --data-cat-3: #8a3a14;
+  --data-cat-4: #a46818;
+  --data-cat-5: #5a1a22;
+  --data-cat-6: #6b5330;
+  --data-cat-7: #b88a3a;
+  --data-cat-8: #7a1e14;
+}
+
+/* Wood-trunk body background — outside the content frame. */
+[data-theme="colonial"] body {
+  background-color: #3a2412;
+  background-image:
+    radial-gradient(ellipse 140px 22px at 18% 14%, rgba(20,8,0,.55), transparent 60%),
+    radial-gradient(ellipse 180px 28px at 78% 42%, rgba(20,8,0,.45), transparent 60%),
+    radial-gradient(ellipse 120px 18px at 32% 72%, rgba(20,8,0,.40), transparent 60%),
+    radial-gradient(ellipse 200px 24px at 88% 88%, rgba(20,8,0,.50), transparent 60%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(30,14,4,.35) 0 1px,
+      transparent 1px 5px,
+      rgba(50,28,12,.25) 5px 6px,
+      transparent 6px 11px,
+      rgba(20,10,2,.45) 11px 12px,
+      transparent 12px 19px
+    ),
+    linear-gradient(180deg, #4a2e16, #2a1808);
+}
+
+/* Paper-grain overlay on cards — tea-staining + fibre dots. */
+[data-theme="colonial"] .card {
+  background-color: var(--bg-card);
+  background-image:
+    radial-gradient(ellipse 90px 60px at 12% 18%, rgba(120,70,20,.14), transparent 65%),
+    radial-gradient(ellipse 140px 80px at 82% 24%, rgba(120,70,20,.10), transparent 60%),
+    radial-gradient(ellipse 60px 40px at 48% 62%, rgba(140,80,20,.10), transparent 65%),
+    radial-gradient(ellipse 110px 70px at 18% 88%, rgba(100,60,15,.12), transparent 65%),
+    radial-gradient(rgba(80,50,20,.07) 1px, transparent 1.2px),
+    linear-gradient(135deg, rgba(200,160,90,.05), rgba(100,60,20,.04));
+  background-size: auto, auto, auto, auto, 3px 3px, auto;
+  border-color: var(--border);
+  box-shadow:
+    0 1px 0 rgba(42,20,8,.12),
+    0 6px 16px rgba(42,20,8,.18),
+    inset 0 0 40px rgba(80,40,10,.05);
+}
+
+/* Typewriter treatment on section/card labels. */
+[data-theme="colonial"] .card-title,
+[data-theme="colonial"] .section-title,
+[data-theme="colonial"] .sec-label {
+  font-family: 'Special Elite', 'Courier Prime', ui-monospace, monospace;
+  font-weight: 400;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Scientific / Latin names always italic. */
+[data-theme="colonial"] .sci-name,
+[data-theme="colonial"] .species-sci,
+[data-theme="colonial"] em.sci {
+  font-style: italic;
+}
+
+/* Inputs as pre-printed carnet fields. */
+[data-theme="colonial"] input[type="text"],
+[data-theme="colonial"] input[type="search"],
+[data-theme="colonial"] input[type="number"],
+[data-theme="colonial"] input[type="email"],
+[data-theme="colonial"] input[type="password"],
+[data-theme="colonial"] textarea,
+[data-theme="colonial"] select {
+  background: var(--bg-card2);
+  border-radius: 0;
+  color: var(--text-main);
+  color-scheme: light;
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
 }
 
 /* ── High-contrast — Pure black, saturated accent ─────────────────────────

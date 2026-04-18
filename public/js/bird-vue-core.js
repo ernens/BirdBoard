@@ -131,6 +131,7 @@
     { id:'ocean',       label:'Ocean',        colors:['#22d3ee','#0a1220'] },
     { id:'dusk',        label:'Dusk',         colors:['#f472b6','#161218'] },
     { id:'sepia',       label:'Sepia',        colors:['#8b5a2b','#f5ecd9'] },
+    { id:'colonial',    label:'Colonial',     colors:['#7a1e14','#e5d6b0'] },
     { id:'solar-light', label:'Solar Light',  colors:['#2aa198','#fdf6e3'] },
     { id:'solar-dark',  label:'Solar Dark',   colors:['#2aa198','#002b36'] },
     { id:'nord',        label:'Nord',         colors:['#88c0d0','#2e3440'] },
