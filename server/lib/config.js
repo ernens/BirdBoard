@@ -117,6 +117,24 @@ async function _writeBirdnetConfImpl(updates) {
       if (updates.CONFIDENCE) {
         toml = toml.replace(/^birdnet_confidence\s*=\s*[\d.]+/m, `birdnet_confidence = ${updates.CONFIDENCE}`);
       }
+      if ('LATITUDE' in updates) {
+        const lat = Number(updates.LATITUDE);
+        if (Number.isFinite(lat)) {
+          const before = toml.match(/^latitude\s*=\s*-?[\d.]+/m)?.[0];
+          toml = toml.replace(/^latitude\s*=\s*-?[\d.]+/m, `latitude = ${lat}`);
+          const after = toml.match(/^latitude\s*=\s*-?[\d.]+/m)?.[0];
+          console.log(`[config] config.toml LATITUDE sync: ${before} → ${after}`);
+        }
+      }
+      if ('LONGITUDE' in updates) {
+        const lon = Number(updates.LONGITUDE);
+        if (Number.isFinite(lon)) {
+          const before = toml.match(/^longitude\s*=\s*-?[\d.]+/m)?.[0];
+          toml = toml.replace(/^longitude\s*=\s*-?[\d.]+/m, `longitude = ${lon}`);
+          const after = toml.match(/^longitude\s*=\s*-?[\d.]+/m)?.[0];
+          console.log(`[config] config.toml LONGITUDE sync: ${before} → ${after}`);
+        }
+      }
       const tomlTmp = `${configToml}.${process.pid}.${Date.now()}.tmp`;
       await fsp.writeFile(tomlTmp, toml);
       await fsp.rename(tomlTmp, configToml);  // atomic on POSIX
