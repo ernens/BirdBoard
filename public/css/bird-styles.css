@@ -1016,6 +1016,18 @@ select, input[type="text"], input[type="number"], textarea {
 .theme-dot[data-t="solar-dark"]  { --preview-accent:#2aa198; --preview-card:#073642; --preview-bg:#002b36; }
 .theme-dot[data-t="solar-light"] { --preview-accent:#2aa198; --preview-card:#ffffff; --preview-bg:#fdf6e3; }
 .theme-dot[data-t="nord"]        { --preview-accent:#88c0d0; --preview-card:#3b4252; --preview-bg:#2e3440; }
+/* Colonial: three earth bands (moss / paper / darker paper) with a tiny red
+   stamp dot in the top-right corner — evokes the carnet's defining marks. */
+.theme-dot[data-t="colonial"] {
+  background:
+    radial-gradient(circle 2.5px at 82% 24%, #7a1e14 55%, transparent 60%),
+    linear-gradient(
+      to bottom,
+      #4a5a20 0% 28%,
+      #ebdec0 28% 62%,
+      #c8b483 62% 100%
+    );
+}
 /* Auto: vertical split between dark (forest) and light (paper) — the
    horizontal cut contrasts with the 3-band horizontal layout of every
    other theme so it's visually obvious that this entry is "different". */
