@@ -207,6 +207,7 @@ Raspberry Pi 5 + SSD
 - <img src="docs/icons/image.svg" width="16" align="top" alt=""> **Photo management** — ban/replace photos, set preferred photo per species
 - <img src="docs/icons/flag.svg" width="16" align="top" alt=""> **Customizable branding** — configurable station name and header brand via settings
 - <img src="docs/icons/globe.svg" width="16" align="top" alt=""> 4 UI languages (FR/EN/NL/DE) + 36 languages for species names
+- <img src="docs/icons/scale.svg" width="16" align="top" alt=""> **Locale-aware units & formats** — auto-detected from browser locale (°C/°F, km/h/mph, 12h/24h, DMY/MDY/ISO dates, Mon/Sun week start), overridable in Settings → Station
 
 ## Optimized Perch V2 Models
 

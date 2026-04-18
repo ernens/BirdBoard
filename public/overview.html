@@ -266,8 +266,8 @@
             <div class="wn-ctx-icon"><bird-icon name="thermometer" :size="16"></bird-icon></div>
             <div class="wn-ctx-body">
               <div class="wn-ctx-label">{{t('wn_card_weather')}}</div>
-              <div class="wn-ctx-hero">{{weatherToday.temp}}°C</div>
-              <div class="wn-ctx-sub"><bird-icon name="cloud" :size="11"></bird-icon> {{weatherToday.precip}}mm · <bird-icon name="wind" :size="11"></bird-icon> {{weatherToday.wind}}km/h</div>
+              <div class="wn-ctx-hero">{{fmtTemp(weatherToday.temp)}}</div>
+              <div class="wn-ctx-sub"><bird-icon name="cloud" :size="11"></bird-icon> {{weatherToday.precip}}mm · <bird-icon name="wind" :size="11"></bird-icon> {{fmtWind(weatherToday.wind)}}</div>
             </div>
           </a>
           <div class="wn-ctx-card" v-if="whatsNew.context.dawn_chorus.data">

@@ -147,6 +147,193 @@
     return { theme: _theme, themes: THEMES, setTheme };
   }
 
+  // ── Format / locale / units preferences ───────────────────────────────────
+  // Reactive prefs — changes flow through templates via Vue's Proxy tracking.
+  // "auto" = derive from navigator.language.
+  const _units      = ref(localStorage.getItem('birdash_units')       || 'auto'); // auto|metric|imperial
+  const _timeFormat = ref(localStorage.getItem('birdash_time_format') || 'auto'); // auto|24h|12h
+  const _dateFormat = ref(localStorage.getItem('birdash_date_format') || 'auto'); // auto|dmy|mdy|iso
+  const _weekStart  = ref(localStorage.getItem('birdash_week_start')  || 'auto'); // auto|monday|sunday
+
+  // Countries that still use US customary units day-to-day.
+  const _IMPERIAL_REGIONS = new Set(['US', 'LR', 'MM']);
+
+  function _region() {
+    try { return new Intl.Locale(navigator.language || 'en-US').region || ''; } catch { return ''; }
+  }
+  function autoUnits()      { return _IMPERIAL_REGIONS.has(_region()) ? 'imperial' : 'metric'; }
+  function autoTimeFormat() {
+    try {
+      const cycles = new Intl.Locale(navigator.language || 'en-US').hourCycles || [];
+      if (cycles[0]) return cycles[0].startsWith('h1') && cycles[0] !== 'h23' ? '12h' : '24h';
+    } catch {}
+    return autoUnits() === 'imperial' ? '12h' : '24h';
+  }
+  function autoDateFormat() {
+    const r = _region();
+    if (r === 'US') return 'mdy';
+    if (['CA','CN','JP','KR','TW','HK','SE'].includes(r)) return 'iso';
+    return 'dmy';
+  }
+  function autoWeekStart() {
+    const r = _region();
+    return (r === 'US' || r === 'CA' || r === 'JP' || r === 'IL') ? 'sunday' : 'monday';
+  }
+
+  const effUnits      = computed(() => _units.value      === 'auto' ? autoUnits()      : _units.value);
+  const effTimeFormat = computed(() => _timeFormat.value === 'auto' ? autoTimeFormat() : _timeFormat.value);
+  const effDateFormat = computed(() => _dateFormat.value === 'auto' ? autoDateFormat() : _dateFormat.value);
+  const effWeekStart  = computed(() => _weekStart.value  === 'auto' ? autoWeekStart()  : _weekStart.value);
+
+  function _activeLang() {
+    return localStorage.getItem('birdash_lang') || (navigator.language || 'en').slice(0, 2);
+  }
+
+  // Formatters — tolerant to null / NaN / strings-that-parse.
+  function fmtTemp(celsius) {
+    const c = Number(celsius);
+    if (!Number.isFinite(c)) return '—';
+    return effUnits.value === 'imperial'
+      ? Math.round(c * 9 / 5 + 32) + '°F'
+      : Math.round(c) + '°C';
+  }
+  function fmtWind(kmh) {
+    const v = Number(kmh);
+    if (!Number.isFinite(v)) return '—';
+    return effUnits.value === 'imperial'
+      ? Math.round(v / 1.60934) + ' mph'
+      : Math.round(v) + ' km/h';
+  }
+  function fmtPressure(hpa) {
+    const v = Number(hpa);
+    if (!Number.isFinite(v)) return '—';
+    return effUnits.value === 'imperial'
+      ? (v * 0.02953).toFixed(2) + ' inHg'
+      : Math.round(v) + ' hPa';
+  }
+  function fmtSize(bytes) {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n < 0) return '—';
+    const lang = _activeLang();
+    const units = (lang === 'fr')
+      ? ['o', 'Ko', 'Mo', 'Go', 'To']
+      : ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0, val = n;
+    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+    const digits = i === 0 ? 0 : (val < 10 ? 1 : 0);
+    return new Intl.NumberFormat(lang, { maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(val) + ' ' + units[i];
+  }
+  // Backward-compatible: accepts Date, ISO "YYYY-MM-DD...", or "HH:MM[:SS]" string.
+  function fmtTime(val) {
+    if (val == null || val === '') return '\u2014';
+    let h, m;
+    if (val instanceof Date) {
+      h = val.getHours(); m = val.getMinutes();
+    } else if (typeof val === 'string' && /^\d{1,2}:\d{2}/.test(val)) {
+      [h, m] = val.split(':').map(Number);
+    } else {
+      const d = new Date(val);
+      if (isNaN(d)) return '\u2014';
+      h = d.getHours(); m = d.getMinutes();
+    }
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return '\u2014';
+    if (effTimeFormat.value === '12h') {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+    }
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  // Backward-compatible: accepts Date, plain "YYYY-MM-DD" string, or timestamp.
+  // Default short form honours the user's date-format preference (dmy/mdy/iso).
+  // Pass { style:'long' } or { style:'medium' } for the localised word form.
+  function fmtDate(val, opts) {
+    opts = opts || {};
+    if (val == null || val === '') return '\u2014';
+    let d;
+    if (val instanceof Date) {
+      d = val;
+    } else if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+      const [y, m, day] = val.slice(0, 10).split('-').map(Number);
+      d = new Date(y, m - 1, day);
+    } else {
+      d = new Date(val);
+    }
+    if (isNaN(d)) return '\u2014';
+    const lang = _activeLang();
+    if (opts.style === 'long') {
+      return d.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    if (opts.style === 'medium') {
+      return d.toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    const y   = d.getFullYear();
+    const mm  = String(d.getMonth() + 1).padStart(2, '0');
+    const dd  = String(d.getDate()).padStart(2, '0');
+    const f   = effDateFormat.value;
+    if (f === 'iso') return `${y}-${mm}-${dd}`;
+    if (f === 'mdy') return `${mm}/${dd}/${y}`;
+    return `${dd}/${mm}/${y}`; // dmy (default)
+  }
+  function fmtDateTime(date) {
+    return fmtDate(date) + ' ' + fmtTime(date);
+  }
+  function fmtNumber(n, digits) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '—';
+    const d = digits == null ? 0 : digits;
+    return new Intl.NumberFormat(_activeLang(), {
+      minimumFractionDigits: d,
+      maximumFractionDigits: d,
+    }).format(v);
+  }
+  function fmtPercent(n, digits) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '—';
+    return fmtNumber(v, digits == null ? 0 : digits) + '%';
+  }
+  function firstDayOfWeek() {
+    return effWeekStart.value === 'sunday' ? 0 : 1;
+  }
+  function unitLabel(kind) {
+    const imp = effUnits.value === 'imperial';
+    if (kind === 'temp')     return imp ? '°F'   : '°C';
+    if (kind === 'wind')     return imp ? 'mph'  : 'km/h';
+    if (kind === 'pressure') return imp ? 'inHg' : 'hPa';
+    if (kind === 'precip')   return 'mm';
+    return '';
+  }
+
+  function _persistPref(key, val) {
+    if (val === 'auto' || val == null || val === '') localStorage.removeItem(key);
+    else localStorage.setItem(key, val);
+  }
+  // Watchers keep localStorage in sync for both v-model bindings and programmatic setters.
+  watch(_units,      v => _persistPref('birdash_units',       v));
+  watch(_timeFormat, v => _persistPref('birdash_time_format', v));
+  watch(_dateFormat, v => _persistPref('birdash_date_format', v));
+  watch(_weekStart,  v => _persistPref('birdash_week_start',  v));
+
+  function setUnits(v)      { _units.value      = v; }
+  function setTimeFormat(v) { _timeFormat.value = v; }
+  function setDateFormat(v) { _dateFormat.value = v; }
+  function setWeekStart(v)  { _weekStart.value  = v; }
+
+  function useFormat() {
+    return {
+      units: _units, timeFormat: _timeFormat, dateFormat: _dateFormat, weekStart: _weekStart,
+      effUnits, effTimeFormat, effDateFormat, effWeekStart,
+      fmtTemp, fmtWind, fmtPressure, fmtSize, fmtTime, fmtDate, fmtDateTime, fmtNumber, fmtPercent,
+      firstDayOfWeek, unitLabel,
+      setUnits, setTimeFormat, setDateFormat, setWeekStart,
+      autoUnits, autoTimeFormat, autoDateFormat, autoWeekStart,
+    };
+  }
+
+  // Global alias for vanilla-JS call sites (charts, non-Vue helpers).
+  window.BirdFmt = useFormat();
+
   // ── Global site identity (shared across all useNav calls) ────────────────
   const _siteName  = ref('BirdStation');
   const _brandName = ref('BirdStation');
@@ -1476,7 +1663,7 @@
       <img src="img/robin-logo.svg" class="brand-logo" :alt="brandName">
       <div class="brand-text">
         <span class="brand-name">{{brandName}}</span>
-        <span class="brand-sub">Poste bioacoustique · Heinsch (BE) · 49.6700° N / 5.8267° E<span v-if="siteElev != null"> · Alt. {{siteElev}} m</span><span v-if="appVersion" class="brand-version"> · v{{appVersion}}</span></span>
+        <span class="brand-sub">Poste bioacoustique · {{siteName}} · 49.6700° N / 5.8267° E<span v-if="siteElev != null"> · Alt. {{siteElev}} m</span><span v-if="appVersion" class="brand-version"> · v{{appVersion}}</span></span>
       </div>
     </div>
     <div class="header-right">
@@ -2104,13 +2291,22 @@
     app.component('filter-period', FilterPeriod);
     app.component('filter-confidence', FilterConfidence);
     app.component('filter-species', FilterSpecies);
+    // Inject format helpers into every template so pages can use
+    // {{fmtTemp(x)}} / {{fmtWind(x)}} / {{fmtSize(b)}} directly — reactive
+    // because each helper reads effUnits/effTimeFormat/… at call time and
+    // template renders are tracked effects.
+    Object.assign(app.config.globalProperties, {
+      fmtTemp, fmtWind, fmtPressure, fmtSize,
+      fmtNumber, fmtPercent, fmtDate, fmtTime, fmtDateTime,
+      unitLabel, firstDayOfWeek,
+    });
     return app;
   }
 
   // ── Export global ─────────────────────────────────────────────────────────
   window.BIRDASH = {
     // Vue composables
-    useI18n, useTheme, useNav, useChart, useAudio, useAudioPlayer, useFavorites, useSpeciesNames, useToast, updateSiteIdentity, exportChart,
+    useI18n, useTheme, useNav, useChart, useAudio, useAudioPlayer, useFavorites, useSpeciesNames, useToast, useFormat, updateSiteIdentity, exportChart,
     // Filter composables
     useFilterPeriod, useFilterConfidence, useFilterSpecies, buildWhereClause,
     // Vue components
@@ -2125,8 +2321,11 @@
     escHtml:          U.escHtml,
     safeHtml:         U.safeHtml,
     authHeaders:      U.authHeaders,
-    fmtDate:          U.fmtDate,
-    fmtTime:          U.fmtTime,
+    // fmtDate / fmtTime — upgraded to reactive, locale-aware versions (see
+    // useFormat above). Backward-compatible signatures: accept "YYYY-MM-DD"
+    // and "HH:MM[:SS]" strings just like the originals in bird-shared.js.
+    fmtDate,
+    fmtTime,
     fmtConf:          U.fmtConf,
     localDateStr:     U.localDateStr,
     daysAgo:          U.daysAgo,

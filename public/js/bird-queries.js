@@ -449,7 +449,9 @@
       for (const r of rows) {
         const d = new Date(r.bucket + 'T12:00:00');
         const weekStart = new Date(d);
-        weekStart.setDate(d.getDate() - d.getDay() + 1); // Monday
+        // Bucket by user's "first day of week" pref (Monday/Sunday).
+        const fd = (window.BirdFmt && window.BirdFmt.firstDayOfWeek) ? window.BirdFmt.firstDayOfWeek() : 1;
+        weekStart.setDate(d.getDate() - ((d.getDay() - fd + 7) % 7));
         const key = weekStart.toISOString().split('T')[0];
         if (!current || current.bucket !== key) {
           current = { bucket: key, det: 0, sp: 0, _species: new Set() };

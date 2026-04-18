@@ -71,11 +71,12 @@
 </div>
 <script>
 const { createApp, ref, reactive, onMounted, computed, watch, defineAsyncComponent, provide, inject } = Vue;
-const { useI18n, registerComponents, safeHtml, authHeaders } = BIRDASH;
+const { useI18n, useFormat, registerComponents, safeHtml, authHeaders } = BIRDASH;
 
 const app = createApp({
   setup() {
     const { lang, t } = useI18n();
+    const fmt = useFormat();
     const API = BIRD_CONFIG.apiUrl;
 
     const conf = reactive({});
@@ -376,20 +377,10 @@ const app = createApp({
       } catch(e) {}
     }
 
-    function fmtDateTimeFull(iso) {
-      if (!iso) return '—';
-      const d = new Date(iso);
-      const pad = n => (n < 10 ? '0' : '') + n;
-      return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() +
-             ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-    }
-
-    function fmtSize(bytes) {
-      if (!bytes || bytes <= 0) return '0 B';
-      const units = ['B', 'Ko', 'Mo', 'Go', 'To'];
-      const i = Math.floor(Math.log(bytes) / Math.log(1024));
-      return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
-    }
+    // fmtSize / fmtDateTimeFull now delegate to the locale-aware useFormat
+    // helpers so file sizes and timestamps follow the Region & units prefs.
+    const fmtSize         = fmt.fmtSize;
+    const fmtDateTimeFull = fmt.fmtDateTime;
 
     async function pauseBackup() {
       try {
@@ -2095,6 +2086,11 @@ const app = createApp({
       openPower,
       tftStatus, tftInstalling, tftInstallMsg, tftInstallErr, tftInstallCmds,
       tftSaving, tftConfirmInstall, loadTftStatus, saveTftConfig, runTftInstall, tftServiceAction,
+      // Region & units prefs (reactive refs, watchers persist to localStorage)
+      unitsPref: fmt.units, timeFormatPref: fmt.timeFormat,
+      dateFormatPref: fmt.dateFormat, weekStartPref: fmt.weekStart,
+      effUnits: fmt.effUnits, effTimeFormat: fmt.effTimeFormat,
+      effDateFormat: fmt.effDateFormat, effWeekStart: fmt.effWeekStart,
     };
   }
 });

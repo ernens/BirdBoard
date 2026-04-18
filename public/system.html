@@ -82,7 +82,7 @@
             <div class="sys-row">
               <span class="sys-label">{{t('sys_temp')}}</span>
               <span class="sys-value" :style="{color: health.temp > 70 ? 'var(--danger)' : health.temp > 55 ? 'var(--warning)' : 'var(--accent)'}">
-                {{health.temp}}°C
+                {{fmtTemp(health.temp)}}
               </span>
             </div>
             <div v-if="health.fan" class="sys-row">
@@ -1001,12 +1001,10 @@ const app = createApp({
     }
 
     // ── Helper functions ──────────────────────────────────────────
-    function fmtBytes(b) {
-      if (!b || b === 0) return '0 B';
-      const u = ['B','KB','MB','GB','TB'];
-      const i = Math.floor(Math.log(b) / Math.log(1024));
-      return (b / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + u[i];
-    }
+    // fmtBytes is now provided as a locale-aware fmtSize via globalProperties
+    // (bird-vue-core.js useFormat). Kept as a local alias for the few non-
+    // template call sites below.
+    const fmtBytes = window.BirdFmt ? window.BirdFmt.fmtSize : (b => (b/1024/1024).toFixed(1) + ' MB');
 
     function fmtUptime(secs) {
       if (!secs) return '\u2014';

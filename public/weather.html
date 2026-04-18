@@ -29,7 +29,7 @@
     <!-- Today + Tomorrow KPIs -->
     <div class="kpi-strip" v-if="todayWeather">
       <div class="kpi-card">
-        <div class="kpi-value">{{todayWeather.temp}}°C</div>
+        <div class="kpi-value">{{fmtTemp(todayWeather.temp)}}</div>
         <div class="kpi-label">{{t('temperature')}}</div>
       </div>
       <div class="kpi-card">
@@ -37,7 +37,7 @@
         <div class="kpi-label">{{t('precipitation')}}</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-value">{{todayWeather.wind}} km/h</div>
+        <div class="kpi-value">{{fmtWind(todayWeather.wind)}}</div>
         <div class="kpi-label">{{t('wind')}}</div>
       </div>
       <div class="kpi-card">
@@ -51,9 +51,9 @@
       <div class="card-title">{{t('weather_forecast')}}</div>
       <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
         <div>
-          <span style="font-size:1.4rem;font-weight:700;">{{forecast.temp}}°C</span>
+          <span style="font-size:1.4rem;font-weight:700;">{{fmtTemp(forecast.temp)}}</span>
           <span style="margin-left:.5rem;color:var(--text-muted);">{{forecast.precip}} mm</span>
-          <span style="margin-left:.5rem;color:var(--text-muted);">{{forecast.wind}} km/h</span>
+          <span style="margin-left:.5rem;color:var(--text-muted);">{{fmtWind(forecast.wind)}}</span>
         </div>
         <div style="font-size:.85rem;" :style="{color: forecast.trend > 0 ? '#5a9e3a' : forecast.trend < -15 ? '#e53e3e' : 'var(--text-muted)'}">
           {{forecast.trend > 0 ? '↑' : '↓'}} {{t('weather_trend', {pct: Math.abs(forecast.trend)})}}
@@ -96,7 +96,7 @@
           <bird-img :src="photoUrl(sp.sci)" :alt="sp.name" style="width:32px;height:32px;border-radius:50%;flex-shrink:0;"></bird-img>
           <div style="flex:1;min-width:0;">
             <div style="font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(sp.name, sp.sci)}}</div>
-            <div style="font-size:.7rem;color:var(--text-muted);">{{sp.avgTemp}}°C · {{sp.avgPrecip}}mm · {{sp.count}} det.</div>
+            <div style="font-size:.7rem;color:var(--text-muted);">{{fmtTemp(sp.avgTemp)}} · {{sp.avgPrecip}}mm · {{sp.count}} det.</div>
           </div>
         </div>
       </div>
@@ -218,7 +218,7 @@ const app = createApp({
           const avgT2 = Math.round(top.reduce((s,d)=>s+d.temp,0)/top.length);
           const avgP2 = Math.round(top.reduce((s,d)=>s+d.precip,0)/top.length*10)/10;
           const avgW2 = Math.round(top.reduce((s,d)=>s+d.wind,0)/top.length);
-          bestText = t('weather_best_full', {temp:avgT2, precip:avgP2, wind:avgW2});
+          bestText = t('weather_best_full', {temp: BirdFmt.fmtTemp(avgT2), precip: avgP2, wind: BirdFmt.fmtWind(avgW2)});
         }
         corr.value = { temp: rT, precip: rP, wind: rW, bestConditions: bestText };
 
@@ -246,23 +246,29 @@ const app = createApp({
             }));
         } catch(e) {}
 
-        // Render chart
+        // Render chart — convert temp/wind to display units at render time.
+        // (Chart.js captures labels at build; a preference change requires a reload.)
         loading.value = false;
         await nextTick();
         if (!canvasWeather.value) return;
         const base = chartDefaults();
+        const imperial = BirdFmt.effUnits.value === 'imperial';
+        const tempChart = tempData.map(v => v == null ? null : (imperial ? Math.round((v * 9/5 + 32) * 10) / 10 : v));
+        const windChart = windData.map(v => v == null ? null : (imperial ? Math.round(v / 1.60934 * 10) / 10 : v));
+        const tempUnit = BirdFmt.unitLabel('temp');
+        const windUnit = BirdFmt.unitLabel('wind');
         mountWeather(canvasWeather, () => ({
           type: 'bar',
           data: { labels, datasets: [
             { label: t('precipitation')+' (mm)', data: precipData, backgroundColor:'rgba(100,180,255,.35)', borderColor:'rgba(100,180,255,.6)', borderWidth:1, borderRadius:2, yAxisID:'yPrecip', order:3 },
             { label: t('detections'), data: detData, backgroundColor:'rgba(90,158,58,.6)', borderColor:'#5a9e3a', borderWidth:1, borderRadius:2, yAxisID:'y', order:1 },
-            { label: t('temperature')+' (\u00B0C)', data: tempData, type:'line', borderColor:'#e6a23c', backgroundColor:'transparent', pointRadius:1.5, tension:.3, borderWidth:2, yAxisID:'yTemp', order:0 },
-            { label: t('wind')+' (km/h)', data: windData, type:'line', borderColor:'#94a3b8', backgroundColor:'transparent', pointRadius:0, tension:.3, borderWidth:1.5, borderDash:[4,3], yAxisID:'yWind', order:2 },
+            { label: t('temperature')+' ('+tempUnit+')', data: tempChart, type:'line', borderColor:'#e6a23c', backgroundColor:'transparent', pointRadius:1.5, tension:.3, borderWidth:2, yAxisID:'yTemp', order:0 },
+            { label: t('wind')+' ('+windUnit+')', data: windChart, type:'line', borderColor:'#94a3b8', backgroundColor:'transparent', pointRadius:0, tension:.3, borderWidth:1.5, borderDash:[4,3], yAxisID:'yWind', order:2 },
           ]},
           options: { ...base, scales: {
             x: { ...base.scales.x, ticks:{maxTicksLimit:15,font:{size:9}} },
             y: { ...base.scales.y, beginAtZero:true, position:'left', title:{display:true,text:t('detections'),color:'#5a9e3a',font:{size:10}} },
-            yTemp: { position:'right', beginAtZero:false, ticks:{color:'#e6a23c',font:{size:9}}, grid:{drawOnChartArea:false}, title:{display:true,text:'\u00B0C',color:'#e6a23c',font:{size:10}} },
+            yTemp: { position:'right', beginAtZero:false, ticks:{color:'#e6a23c',font:{size:9}}, grid:{drawOnChartArea:false}, title:{display:true,text:tempUnit,color:'#e6a23c',font:{size:10}} },
             yPrecip: { position:'right', beginAtZero:true, ticks:{color:'rgba(100,180,255,.7)',font:{size:9}}, grid:{drawOnChartArea:false}, title:{display:true,text:'mm',color:'rgba(100,180,255,.7)',font:{size:10}} },
             yWind: { display:false, beginAtZero:true },
           }},

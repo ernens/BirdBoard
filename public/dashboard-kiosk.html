@@ -293,9 +293,9 @@
     <div class="k-footer">
       <div class="k-weather" v-if="weather">
         <bird-icon name="thermometer" :size="14"></bird-icon>
-        <span class="k-weather-temp">{{weather.temp}}°C</span>
+        <span class="k-weather-temp">{{fmtTemp(weather.temp)}}</span>
         <span>{{weather.precip}}mm</span>
-        <span>{{weather.wind}}km/h</span>
+        <span>{{fmtWind(weather.wind)}}</span>
       </div>
       <div v-else></div>
       <div>{{t('display_auto_refresh')}} · v{{appVersion}}</div>

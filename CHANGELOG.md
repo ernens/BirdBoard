@@ -2,6 +2,30 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.22.0] — 2026-04-18
+
+### Locale-aware units & formats
+- New **"Région & unités"** card in Settings → Station with four preferences:
+  - **Unit system** (auto / metric / imperial) — auto-detected from `navigator.language` (US / LR / MM → imperial, rest → metric)
+  - **Time format** (auto / 24h / 12h)
+  - **Date format** (auto / DD/MM/YYYY / MM/DD/YYYY / ISO)
+  - **First day of week** (auto / Monday / Sunday) — drives the calendar grid and the weekly aggregation in `bird-queries.js`
+- Prefs persist in `localStorage` (client-side, per-viewer) like `theme` / `lang`; `auto` clears the key
+- Reactive: changing a preference updates every template that calls `fmtTemp()` / `fmtWind()` / `fmtSize()` / `fmtDate()` / `fmtTime()` without a reload
+- New `useFormat()` composable (inlined in `bird-vue-core.js`) exposes: `fmtTemp`, `fmtWind`, `fmtPressure`, `fmtSize`, `fmtDate`, `fmtTime`, `fmtDateTime`, `fmtNumber`, `fmtPercent`, `firstDayOfWeek`, `unitLabel`
+- `registerComponents(app)` now injects all formatters into `app.config.globalProperties` — pages can `{{fmtTemp(x)}}` directly without touching their `setup()`
+- `fmtDate` / `fmtTime` backward-compatible with the previous string signatures from `bird-shared.js` (the re-exports on `BIRDASH.*` now point at the locale-aware versions)
+- Weather (°C / km/h), overview kiosk strip, liveboard, dashboard-kiosk, system health temp, file-size displays in Settings & System, and the Calendar week layout all migrated
+- Weather `weather_best` / `weather_best_full` i18n keys de-unitized — callers pass pre-formatted strings via `fmtTemp` / `fmtWind`
+- Imperial unit deductions in weather chart convert `°C → °F` and `km/h → mph` at render; axis titles + tooltip labels follow `unitLabel('temp')` / `unitLabel('wind')`
+
+### Header
+- "Nom du site" (`SITE_NAME`) now drives the sub-line instead of the hardcoded `Heinsch (BE)` (replacement of brand-name → site-name after user correction)
+
+### Deferred
+- Notification threshold inputs in `settings/notif.html` still hardcode `°C` for the value label — threshold is always stored in Celsius, the display unit mismatch is minor and the conversion needs a round-trip proxy that's out of scope for this pass
+- `recordings.html`, `settings/audio.html`, `spectro-test.html` keep their local `KB / MB` math (low traffic, self-contained)
+
 ## [1.21.4] — 2026-04-18
 
 ### Header station identity

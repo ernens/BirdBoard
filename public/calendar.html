@@ -201,11 +201,15 @@ const app = createApp({
       return d.toLocaleDateString(lang.value, { month: 'long', year: 'numeric' });
     });
 
-    // Day-of-week labels (Monday first)
+    // Day-of-week labels — respect the user's "first day of week" preference.
+    // 2024-01-01 is a Monday; 2023-12-31 is a Sunday — we pick the anchor date
+    // so the 7-day walk starts on the preferred weekday.
     const dowLabels = computed(() => {
+      const fd = BirdFmt.firstDayOfWeek(); // 0 = Sunday, 1 = Monday
+      const anchor = fd === 0 ? new Date(2023, 11, 31) : new Date(2024, 0, 1);
       const labels = [];
       for (let i = 0; i < 7; i++) {
-        const d = new Date(2024, 0, i + 1); // 2024-01-01 is a Monday
+        const d = new Date(anchor); d.setDate(anchor.getDate() + i);
         labels.push(d.toLocaleDateString(lang.value, { weekday: 'short' }));
       }
       return labels;
@@ -223,8 +227,10 @@ const app = createApp({
       const lastDay = new Date(y, m + 1, 0);
       const daysInMonth = lastDay.getDate();
 
-      let startDow = firstDay.getDay() - 1;
-      if (startDow < 0) startDow = 6;
+      // Compute leading blanks based on the preferred first day of week.
+      // JS Date.getDay(): 0=Sunday…6=Saturday. We want Mon-first → shift by 1.
+      const fd = BirdFmt.firstDayOfWeek();
+      let startDow = (firstDay.getDay() - fd + 7) % 7;
 
       const result = [];
       for (let i = 0; i < startDow; i++) result.push({ day: 0 });

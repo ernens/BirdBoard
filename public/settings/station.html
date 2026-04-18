@@ -90,6 +90,47 @@
 
       </div><!-- /settings-grid -->
 
+      <!-- ═══ Region & units ═══ -->
+      <div class="card" style="margin-top:1rem;">
+        <div class="section-title"><bird-icon name="globe" :size="14"></bird-icon> {{t('set_region_title')}}</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_region_desc')}}</p>
+        <div class="settings-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem;">
+          <div>
+            <span class="set-label">{{t('set_units')}}</span>
+            <select v-model="unitsPref" class="set-select" style="width:100%;">
+              <option value="auto">{{t('set_units_auto')}} (<span v-if="effUnits==='imperial'">{{t('set_units_imperial')}}</span><span v-else>{{t('set_units_metric')}}</span>)</option>
+              <option value="metric">{{t('set_units_metric')}}</option>
+              <option value="imperial">{{t('set_units_imperial')}}</option>
+            </select>
+          </div>
+          <div>
+            <span class="set-label">{{t('set_time_format')}}</span>
+            <select v-model="timeFormatPref" class="set-select" style="width:100%;">
+              <option value="auto">{{t('set_units_auto')}} ({{effTimeFormat==='12h' ? t('set_time_12h') : t('set_time_24h')}})</option>
+              <option value="24h">{{t('set_time_24h')}}</option>
+              <option value="12h">{{t('set_time_12h')}}</option>
+            </select>
+          </div>
+          <div>
+            <span class="set-label">{{t('set_date_format')}}</span>
+            <select v-model="dateFormatPref" class="set-select" style="width:100%;">
+              <option value="auto">{{t('set_units_auto')}} ({{effDateFormat==='mdy' ? t('set_date_mdy') : effDateFormat==='iso' ? t('set_date_iso') : t('set_date_dmy')}})</option>
+              <option value="dmy">{{t('set_date_dmy')}}</option>
+              <option value="mdy">{{t('set_date_mdy')}}</option>
+              <option value="iso">{{t('set_date_iso')}}</option>
+            </select>
+          </div>
+          <div>
+            <span class="set-label">{{t('set_week_start')}}</span>
+            <select v-model="weekStartPref" class="set-select" style="width:100%;">
+              <option value="auto">{{t('set_units_auto')}} ({{effWeekStart==='sunday' ? t('set_week_sunday') : t('set_week_monday')}})</option>
+              <option value="monday">{{t('set_week_monday')}}</option>
+              <option value="sunday">{{t('set_week_sunday')}}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ BirdStation Network — Telemetry opt-in ═══ -->
       <div class="card" style="margin-top:1rem;">
         <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
