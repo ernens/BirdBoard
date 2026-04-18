@@ -343,24 +343,17 @@
   --data-cat-8: #7a1e14;
 }
 
-/* Wood-trunk body background — outside the content frame. */
+/* Aged parchment body — "inside the open trunk" vibe, warm but bright.
+   Slightly darker than the cards so they visibly sit on the page. */
 [data-theme="colonial"] body {
-  background-color: #3a2412;
+  background-color: #d9c79a;   /* paper-2 */
   background-image:
-    radial-gradient(ellipse 140px 22px at 18% 14%, rgba(20,8,0,.55), transparent 60%),
-    radial-gradient(ellipse 180px 28px at 78% 42%, rgba(20,8,0,.45), transparent 60%),
-    radial-gradient(ellipse 120px 18px at 32% 72%, rgba(20,8,0,.40), transparent 60%),
-    radial-gradient(ellipse 200px 24px at 88% 88%, rgba(20,8,0,.50), transparent 60%),
-    repeating-linear-gradient(
-      180deg,
-      rgba(30,14,4,.35) 0 1px,
-      transparent 1px 5px,
-      rgba(50,28,12,.25) 5px 6px,
-      transparent 6px 11px,
-      rgba(20,10,2,.45) 11px 12px,
-      transparent 12px 19px
-    ),
-    linear-gradient(180deg, #4a2e16, #2a1808);
+    radial-gradient(ellipse 220px 140px at 10% 12%, rgba(120,70,20,.10), transparent 60%),
+    radial-gradient(ellipse 260px 180px at 88% 22%, rgba(120,70,20,.08), transparent 60%),
+    radial-gradient(ellipse 180px 120px at 52% 86%, rgba(100,60,15,.09), transparent 65%),
+    radial-gradient(rgba(80,50,20,.05) 1px, transparent 1.2px),
+    linear-gradient(135deg, rgba(210,170,100,.04), rgba(100,60,20,.03));
+  background-size: auto, auto, auto, 4px 4px, auto;
 }
 
 /* Paper-grain overlay on cards — tea-staining + fibre dots. */
