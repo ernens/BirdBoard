@@ -60,6 +60,7 @@
   "set_elevation": "Höhe (m)",
   "set_region_title": "Region & Einheiten",
   "set_region_desc": "Anzeigeeinheiten und -formate. «\u00a0Auto\u00a0» übernimmt die Wahl aus der Browser-Sprache.",
+  "set_region_instant": "(sofort wirksam, kein Speichern nötig)",
   "set_units": "Einheitensystem",
   "set_units_auto": "Auto",
   "set_units_metric": "Metrisch (°C, km/h)",

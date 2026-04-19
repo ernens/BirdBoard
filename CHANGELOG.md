@@ -2,6 +2,17 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.22.1] — 2026-04-19
+
+### Fixes to the Region & units card
+- Prefs now reach the Station tab: the refs (`unitsPref`, `timeFormatPref`, `dateFormatPref`, `weekStartPref` + matching `eff*` computeds) were added to the root `settingsCtx` provide, not just the root return — the async child component renders `settings/station.html` via `inject('settingsCtx')`, so the selectors were binding to `undefined` and appeared empty
+- Labels wrap above each selector instead of inline — `.set-label` is a `<span>` inline by default; added `display:block;margin-bottom:.3rem` so the four selects stack vertically like the rest of the form
+- New hint under the card title clarifies that region prefs apply immediately (they persist to `localStorage`, not `birdnet.conf`, so Save stays inactive) — new i18n key `set_region_instant` in fr/en/de/nl
+
+### Station tab layout
+- eBird card moved from a separate row below the grid into the right column beneath BirdWeather
+- eBird uses `flex:1` + `margin-top:auto` on the "Get API key" link so its bottom aligns with the Location card on the left (map grows to match the taller right column)
+
 ## [1.22.0] — 2026-04-18
 
 ### Locale-aware units & formats

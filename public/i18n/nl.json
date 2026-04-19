@@ -60,6 +60,7 @@
   "set_elevation": "Hoogte (m)",
   "set_region_title": "Regio & eenheden",
   "set_region_desc": "Weergave-eenheden en -formaten. «\u00a0Auto\u00a0» neemt de keuze over uit de browser-taal.",
+  "set_region_instant": "(direct toegepast, geen Opslaan nodig)",
   "set_units": "Eenhedenstelsel",
   "set_units_auto": "Auto",
   "set_units_metric": "Metrisch (°C, km/h)",

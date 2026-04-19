@@ -60,6 +60,7 @@
   "set_elevation": "Elevation (m)",
   "set_region_title": "Region & units",
   "set_region_desc": "Display units and formats. \"Auto\" derives the choice from your browser language.",
+  "set_region_instant": "(applied immediately, no Save needed)",
   "set_units": "Unit system",
   "set_units_auto": "Auto",
   "set_units_metric": "Metric (°C, km/h)",

@@ -1954,6 +1954,13 @@ const app = createApp({
       openPower,
       tftStatus, tftInstalling, tftInstallMsg, tftInstallErr, tftInstallCmds,
       tftSaving, tftConfirmInstall, loadTftStatus, saveTftConfig, runTftInstall, tftServiceAction,
+      // Region & units prefs — reactive refs, watchers persist to localStorage.
+      // Note: these don't participate in isDirty/saveAll; they take effect
+      // immediately on change (no server round-trip).
+      unitsPref: fmt.units, timeFormatPref: fmt.timeFormat,
+      dateFormatPref: fmt.dateFormat, weekStartPref: fmt.weekStart,
+      effUnits: fmt.effUnits, effTimeFormat: fmt.effTimeFormat,
+      effDateFormat: fmt.effDateFormat, effWeekStart: fmt.effWeekStart,
     };
     // ── Station map (Leaflet) ──────────────────────────────────────
     let _stationMap = null, _stationMarker = null, _leafletLoaded = false;
