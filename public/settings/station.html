@@ -1,7 +1,7 @@
       <div class="settings-grid" style="align-items:stretch;">
 
         <!-- ═══ Location (left column) ═══ -->
-        <div class="card">
+        <div class="card" style="display:flex;flex-direction:column;">
           <div class="section-title"><bird-icon name="map-pin" :size="14" ></bird-icon> {{t('set_location')}}</div>
           <div class="set-row">
             <span class="set-label">{{t('set_site_brand')}} <button class="info-btn" @click="helpKey='site_brand'">i</button></span>
@@ -12,7 +12,7 @@
             <input v-model="conf.SITE_NAME" class="set-input">
           </div>
           <!-- Interactive map for GPS coordinates -->
-          <div id="station-map" style="height:240px;border-radius:8px;border:1px solid var(--border);margin:.6rem 0;background:var(--bg-card2);flex:1;min-height:200px;"></div>
+          <div id="station-map" style="border-radius:8px;border:1px solid var(--border);margin:.6rem 0;background:var(--bg-card2);flex:1;min-height:220px;"></div>
           <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;">
             <div style="flex:1;min-width:100px;">
               <span class="set-label">{{t('set_latitude')}}</span>
@@ -33,7 +33,7 @@
         </div>
 
         <!-- ═══ Right column: Language + BirdWeather stacked ═══ -->
-        <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div style="display:flex;flex-direction:column;gap:.6rem;">
 
           <!-- Language & Images -->
           <div class="card">

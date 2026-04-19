@@ -2,6 +2,12 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.22.2] — 2026-04-19
+
+### Station tab layout polish
+- Location card becomes a flex column — the map grows vertically to fill the remaining space instead of staying fixed at 240 px, eliminating the empty gap between the coordinate row and the card bottom
+- Right column card gap reduced from 1 rem to .6 rem so Language / BirdWeather / eBird sit closer together
+
 ## [1.22.1] — 2026-04-19
 
 ### Fixes to the Region & units card
