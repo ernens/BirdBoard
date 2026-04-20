@@ -513,6 +513,12 @@ function handle(req, res, pathname, ctx) {
         const modelDir = path.join(BIRDNET_DIR, 'models');
         const files = await fsp.readdir(modelDir);
         const models = [];
+        // Some .tflite files in models/ are NOT bird-detection models —
+        // they're auxiliary classifiers (YAMNet for privacy/dog filters)
+        // or BirdNET's own geographic-probability companion (MData).
+        // Excluded so they don't appear in the primary/secondary model
+        // picker.
+        const NON_DETECTION = /^(yamnet|.*_MData_Model)/i;
         for (const f of files) {
           if (!f.endsWith('.tflite')) continue;
           // Skip symlinks (e.g. FP16 → FP32 compatibility link)
@@ -521,7 +527,9 @@ function handle(req, res, pathname, ctx) {
             const stat = await fsp.lstat(fullPath);
             if (stat.isSymbolicLink()) continue;
           } catch(e) {}
-          models.push(f.replace('.tflite', ''));
+          const name = f.replace('.tflite', '');
+          if (NON_DETECTION.test(name)) continue;
+          models.push(name);
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ models }));
