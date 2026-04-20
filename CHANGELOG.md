@@ -2,6 +2,24 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.27.0] — 2026-04-20
+
+### Privacy filter + dog bark filter (YAMNet pre-analysis)
+
+Two new opt-in filters that run BEFORE BirdNET / Perch inference, powered by Google's YAMNet (AudioSet, 521 audio classes, 4 MB TFLite). One model, two use cases:
+
+- **Privacy filter (RGPD-friendly)**: human voice in the recording → drop the entire detection pass. By default the WAV file is also deleted from disk so no recording of the human ever leaves the station. Toggle in Settings → Detection → "Filtres de pré-analyse" with adjustable threshold.
+- **Dog bark filter**: bark / howl / growl detected → drop the recording AND start a configurable cooldown (default 15 s) during which no detections are recorded. Stops the cascade of false positives that dogs trigger across consecutive recording windows.
+
+Implementation:
+- New `engine/yamnet_filter.py` wrapper — loads the TFLite model once, exposes `analyze(samples, sr)` returning `(voice_score, dog_score, top_label, top_score)` over 3 non-overlapping 0.975 s windows (max-aggregation per class)
+- New `engine/models/yamnet.tflite` (4 MB, Apache 2.0, sourced from Google's MediaPipe public bucket) and `yamnet_class_map.csv` (521 labels)
+- `engine.py` runs YAMNet on the raw audio BEFORE adaptive gain / filters / inference, so we classify what the user actually recorded
+- ~30 ms added latency per file on Pi 5 — negligible vs the ~1.5 s BirdNET inference
+- New validators in `config.js`: `PRIVACY_FILTER_{ENABLED,THRESHOLD,DELETE_AUDIO}`, `DOG_FILTER_{ENABLED,THRESHOLD,COOLDOWN_SEC}`
+- New "Filtres de pré-analyse" card in Settings → Detection — sliders, toggles, RGPD warning, latency hint, all in 4 languages
+- `update.sh` syncs `yamnet_filter.py` + the model files to `$HOME/birdengine/` for legacy install layouts
+
 ## [1.26.0] — 2026-04-20
 
 ### Range Filter — visibility for BirdNET, new eBird filter for Perch

@@ -205,9 +205,19 @@ if [ -d "$HOME/birdengine" ] && [ "$HOME/birdengine" != "$REPO_DIR/engine" ]; th
     if grep -q "$HOME/birdengine/engine.py" /etc/systemd/system/birdengine.service 2>/dev/null \
        || systemctl show birdengine.service -p ExecStart 2>/dev/null | grep -q "$HOME/birdengine/engine.py"; then
         info "Syncing engine .py files to $HOME/birdengine (legacy runtime path)..."
-        for f in engine.py range_filter_cli.py filter_preview.py; do
+        for f in engine.py range_filter_cli.py filter_preview.py yamnet_filter.py; do
             [ -f "$REPO_DIR/engine/$f" ] && cp -f "$REPO_DIR/engine/$f" "$HOME/birdengine/$f"
         done
+        # YAMNet model + labels (only sync if newer or missing — they're 4 MB)
+        if [ -d "$REPO_DIR/engine/models" ] && [ -d "$HOME/birdengine/models" ]; then
+            for f in yamnet.tflite yamnet_class_map.csv; do
+                src="$REPO_DIR/engine/models/$f"
+                dst="$HOME/birdengine/models/$f"
+                if [ -f "$src" ] && [ ! "$dst" -nt "$src" ]; then
+                    cp -f "$src" "$dst"
+                fi
+            done
+        fi
         ok "Engine files synced to $HOME/birdengine"
     fi
 fi

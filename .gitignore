@@ -16,7 +16,10 @@ birdash.db
 .claude/
 engine/venv/
 engine/audio/
-engine/models/
+engine/models/*
+# But DO ship the YAMNet model — used by the bundled privacy/dog filter
+!engine/models/yamnet.tflite
+!engine/models/yamnet_class_map.csv
 engine/config.toml
 engine/__pycache__/
 config/audio_config.json

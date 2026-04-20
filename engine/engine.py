@@ -828,6 +828,55 @@ class BirdEngine:
         if self.perch_ebird_filter:
             self._reload_perch_ebird()
 
+        # ── YAMNet pre-filter (privacy + dog) ─────────────────────────────
+        # When privacy or dog filter is enabled, run YAMNet on each WAV
+        # BEFORE BirdNET / Perch inference. Voice → drop the file (and
+        # optionally delete the audio for RGPD); barks → set a cooldown
+        # window during which we skip detections (dogs trigger streams of
+        # false positives across consecutive chunks).
+        self.privacy_filter_enabled = (
+            birdnet_settings.get("PRIVACY_FILTER_ENABLED", "0") == "1"
+        )
+        try:
+            self.privacy_threshold = float(
+                birdnet_settings.get("PRIVACY_FILTER_THRESHOLD", "0.5"))
+        except ValueError:
+            self.privacy_threshold = 0.5
+        self.privacy_delete_audio = (
+            birdnet_settings.get("PRIVACY_FILTER_DELETE_AUDIO", "1") == "1"
+        )
+        self.dog_filter_enabled = (
+            birdnet_settings.get("DOG_FILTER_ENABLED", "0") == "1"
+        )
+        try:
+            self.dog_threshold = float(
+                birdnet_settings.get("DOG_FILTER_THRESHOLD", "0.5"))
+        except ValueError:
+            self.dog_threshold = 0.5
+        try:
+            self.dog_cooldown_sec = float(
+                birdnet_settings.get("DOG_FILTER_COOLDOWN_SEC", "15"))
+        except ValueError:
+            self.dog_cooldown_sec = 15.0
+        self._dog_silence_until = 0.0
+        self._yamnet = None
+        if self.privacy_filter_enabled or self.dog_filter_enabled:
+            try:
+                from yamnet_filter import YAMNetFilter, find_default_paths
+                model, labels = find_default_paths(self.models_dir)
+                if not os.path.exists(model):
+                    log.warning("[yamnet] model not found at %s — pre-filter disabled", model)
+                else:
+                    self._yamnet = YAMNetFilter(model, labels)
+                    log.info("[yamnet] loaded — privacy=%s (>%.2f, delete_audio=%s) dog=%s (>%.2f, cooldown=%.0fs)",
+                             self.privacy_filter_enabled, self.privacy_threshold,
+                             self.privacy_delete_audio,
+                             self.dog_filter_enabled, self.dog_threshold,
+                             self.dog_cooldown_sec)
+            except Exception as e:
+                log.warning("[yamnet] init failed: %s — pre-filter disabled", e)
+                self._yamnet = None
+
     def _analyze_with_model(self, model, file_path, file_date, week, tag,
                             raw_sig=None, raw_sr=None):
         """Run inference on a file with a given model. Returns list of detections.
@@ -1009,6 +1058,47 @@ class BirdEngine:
             raw_sig, raw_sr = sf.read(file_path, dtype="float32", always_2d=False)
             if raw_sig.ndim > 1:
                 raw_sig = raw_sig.mean(axis=1)
+
+            # ── YAMNet pre-filter (privacy + dog) ─────────────────────
+            # Runs BEFORE adaptive gain so we classify the original audio
+            # the user actually recorded — gain shouldn't change YAMNet's
+            # mind, but we don't want to risk it amplifying speech to the
+            # detection threshold either.
+            if self._yamnet is not None:
+                try:
+                    voice, dog, top_label, top_score = self._yamnet.analyze(raw_sig, raw_sr)
+                    if (self.privacy_filter_enabled
+                            and voice >= self.privacy_threshold):
+                        log.info("[privacy] DROP %s — voice=%.2f (top=%s %.2f)",
+                                 basename, voice, top_label, top_score)
+                        if self.privacy_delete_audio:
+                            try:
+                                os.unlink(file_path)
+                                log.info("[privacy] deleted %s (RGPD)", basename)
+                            except OSError as e:
+                                log.warning("[privacy] could not delete %s: %s", basename, e)
+                        self.processed_files.add(basename)
+                        return
+                    if (self.dog_filter_enabled
+                            and dog >= self.dog_threshold):
+                        self._dog_silence_until = time.time() + self.dog_cooldown_sec
+                        log.info("[dog] DROP %s — bark=%.2f (top=%s %.2f) cooldown %.0fs",
+                                 basename, dog, top_label, top_score,
+                                 self.dog_cooldown_sec)
+                        self.processed_files.add(basename)
+                        return
+                except Exception as e:
+                    log.warning("[yamnet] analyze failed on %s: %s — proceeding without filter", basename, e)
+
+            # If we're inside a dog-bark cooldown from a previous file,
+            # skip detection entirely (dogs bark in bursts that span
+            # multiple recording windows).
+            if self._yamnet is not None and time.time() < self._dog_silence_until:
+                remaining = self._dog_silence_until - time.time()
+                log.info("[dog] cooldown active — skip %s (%.0fs remaining)",
+                         basename, remaining)
+                self.processed_files.add(basename)
+                return
 
             # Apply adaptive gain if enabled (Phase 2)
             raw_sig, gain_applied = apply_adaptive_gain(raw_sig)

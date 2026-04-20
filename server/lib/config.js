@@ -237,6 +237,12 @@ const SETTINGS_VALIDATORS = {
   AUTH_SECRET:         v => typeof v === 'string' && /^[a-f0-9]{32,128}$/.test(v),
   AUTH_SESSION_HOURS:  v => !isNaN(v) && v >= 1 && v <= 720,
   RANGE_FILTER_PERCH_EBIRD: v => v == 0 || v == 1,
+  PRIVACY_FILTER_ENABLED:    v => v == 0 || v == 1,
+  PRIVACY_FILTER_THRESHOLD:  v => !isNaN(v) && v >= 0.05 && v <= 0.95,
+  PRIVACY_FILTER_DELETE_AUDIO: v => v == 0 || v == 1,
+  DOG_FILTER_ENABLED:        v => v == 0 || v == 1,
+  DOG_FILTER_THRESHOLD:      v => !isNaN(v) && v >= 0.05 && v <= 0.95,
+  DOG_FILTER_COOLDOWN_SEC:   v => !isNaN(v) && v >= 0 && v <= 600,
 };
 
 // ── Apprise binary discovery (cached at startup) ─────────────────────────

@@ -167,6 +167,64 @@
           </div>
         </div>
 
+        <!-- ═══ Pre-analysis filters (YAMNet: privacy + dog) ═══ -->
+        <div class="card">
+          <div class="section-title"><bird-icon name="shield" :size="14"></bird-icon> {{t('set_yamnet_title')}}</div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_yamnet_desc')}}</p>
+
+          <!-- Privacy filter -->
+          <div style="padding:.6rem .7rem;border-radius:6px;border:1px solid var(--border);margin-bottom:.5rem;"
+               :style="{borderColor: conf.PRIVACY_FILTER_ENABLED == 1 ? 'var(--accent)' : 'var(--border)', background: conf.PRIVACY_FILTER_ENABLED == 1 ? 'rgba(52,211,153,.05)' : 'transparent'}">
+            <label class="set-check" style="cursor:pointer;">
+              <input type="checkbox" v-model="conf.PRIVACY_FILTER_ENABLED" true-value="1" false-value="0">
+              <span><bird-icon name="user-check" :size="14"></bird-icon> <strong>{{t('set_yamnet_privacy')}}</strong></span>
+            </label>
+            <p style="font-size:.74rem;color:var(--text-muted);margin:.25rem 0 0 1.5rem;">{{t('set_yamnet_privacy_desc')}}</p>
+            <div v-if="conf.PRIVACY_FILTER_ENABLED == 1" style="margin:.5rem 0 0 1.5rem;">
+              <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                <span style="font-size:.78rem;color:var(--text-muted);min-width:90px;">{{t('set_yamnet_threshold')}}</span>
+                <input type="range" min="0.05" max="0.95" step="0.05" v-model.number="conf.PRIVACY_FILTER_THRESHOLD" class="set-range" style="flex:1;">
+                <span style="font-size:.78rem;font-family:monospace;min-width:36px;text-align:right;">{{Number(conf.PRIVACY_FILTER_THRESHOLD).toFixed(2)}}</span>
+              </div>
+              <label class="set-check" style="cursor:pointer;font-size:.78rem;">
+                <input type="checkbox" v-model="conf.PRIVACY_FILTER_DELETE_AUDIO" true-value="1" false-value="0">
+                <span><bird-icon name="trash-2" :size="13"></bird-icon> {{t('set_yamnet_delete_audio')}}</span>
+              </label>
+              <p style="font-size:.7rem;color:var(--text-faint);margin:.2rem 0 0 1.5rem;">{{t('set_yamnet_delete_audio_hint')}}</p>
+            </div>
+          </div>
+
+          <!-- Dog bark filter -->
+          <div style="padding:.6rem .7rem;border-radius:6px;border:1px solid var(--border);margin-bottom:.5rem;"
+               :style="{borderColor: conf.DOG_FILTER_ENABLED == 1 ? 'var(--accent)' : 'var(--border)', background: conf.DOG_FILTER_ENABLED == 1 ? 'rgba(52,211,153,.05)' : 'transparent'}">
+            <label class="set-check" style="cursor:pointer;">
+              <input type="checkbox" v-model="conf.DOG_FILTER_ENABLED" true-value="1" false-value="0">
+              <span><bird-icon name="filter" :size="14"></bird-icon> <strong>{{t('set_yamnet_dog')}}</strong></span>
+            </label>
+            <p style="font-size:.74rem;color:var(--text-muted);margin:.25rem 0 0 1.5rem;">{{t('set_yamnet_dog_desc')}}</p>
+            <div v-if="conf.DOG_FILTER_ENABLED == 1" style="margin:.5rem 0 0 1.5rem;">
+              <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                <span style="font-size:.78rem;color:var(--text-muted);min-width:90px;">{{t('set_yamnet_threshold')}}</span>
+                <input type="range" min="0.05" max="0.95" step="0.05" v-model.number="conf.DOG_FILTER_THRESHOLD" class="set-range" style="flex:1;">
+                <span style="font-size:.78rem;font-family:monospace;min-width:36px;text-align:right;">{{Number(conf.DOG_FILTER_THRESHOLD).toFixed(2)}}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:.5rem;">
+                <span style="font-size:.78rem;color:var(--text-muted);min-width:90px;">{{t('set_yamnet_dog_cooldown')}}</span>
+                <input type="number" min="0" max="600" step="5" v-model.number="conf.DOG_FILTER_COOLDOWN_SEC"
+                       style="width:70px;font-size:.82rem;background:var(--bg-input);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.25rem .4rem;text-align:right;">
+                <span style="font-size:.72rem;color:var(--text-faint);">{{t('unit_seconds')}}</span>
+              </div>
+              <p style="font-size:.7rem;color:var(--text-faint);margin:.3rem 0 0 .2rem;">{{t('set_yamnet_dog_cooldown_hint')}}</p>
+            </div>
+          </div>
+
+          <p v-if="conf.PRIVACY_FILTER_ENABLED == 1 || conf.DOG_FILTER_ENABLED == 1"
+             style="font-size:.72rem;color:var(--text-faint);margin-top:.5rem;">
+            <bird-icon name="info" :size="12" style="vertical-align:-2px;"></bird-icon>
+            {{t('set_yamnet_perf_hint')}}
+          </p>
+        </div>
+
         <!-- ═══ Range Filter — Perch / eBird (Part B) ═══ -->
         <div class="card">
           <div class="section-title"><bird-icon name="filter" :size="14"></bird-icon> {{t('set_range_perch_title')}}</div>

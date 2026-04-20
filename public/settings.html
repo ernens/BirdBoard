@@ -598,6 +598,12 @@ const app = createApp({
           AUTH_USERNAME: '',
           AUTH_SESSION_HOURS: '168',
           RANGE_FILTER_PERCH_EBIRD: '0',
+          PRIVACY_FILTER_ENABLED: '0',
+          PRIVACY_FILTER_THRESHOLD: '0.5',
+          PRIVACY_FILTER_DELETE_AUDIO: '1',
+          DOG_FILTER_ENABLED: '0',
+          DOG_FILTER_THRESHOLD: '0.5',
+          DOG_FILTER_COOLDOWN_SEC: '15',
         };
         Object.assign(conf, defaults, confData);
         // Mirror AUTH_USERNAME into the dedicated authUser ref so the form
