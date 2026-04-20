@@ -2,6 +2,16 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.28.2] — 2026-04-20
+
+### Fix: missing MP3 clips for Perch detections after engine restart
+
+"Erreur de décodage audio" on the spectrogram modal. Cause: post-processing for the secondary model (Perch) was spawned as a daemon thread but — unlike the primary model — was not tracked in `self._post_threads`. So when the engine received SIGTERM (update, restart, settings reload), the shutdown handler only waited for primary-model post-processing and exited while Perch's `extract_clip` was still running, killing the daemon thread mid-ffmpeg. Perch detections were already written to the DB, but the MP3 clips were never produced → the dashboard showed the detection but the spectrogram modal reported a decode error.
+
+Fix: track secondary post-threads in `_post_threads` as well (guarded by a new `_post_lock` since primary and secondary workers both append). Shutdown join timeout bumped from 10 s to 30 s to give room for ffmpeg + spectrogram generation on files with many detections.
+
+Existing orphan references (detections in the DB whose MP3 was lost to this bug before the fix) remain. They're rare — expect a sprinkle per engine restart prior to 1.28.2. The dashboard degrades gracefully (error overlay in the modal), no other functional impact.
+
 ## [1.28.1] — 2026-04-20
 
 ### Fix: engine was analyzing only ~2 s out of every 45 s recording

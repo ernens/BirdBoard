@@ -894,6 +894,7 @@ class BirdEngine:
         self.processed_files = set()
         self._db_lock = threading.Lock()
         self._post_threads = []  # Track post-processing threads for clean shutdown
+        self._post_lock = threading.Lock()  # Guards _post_threads (primary + secondary workers both append)
 
         # ── Perch eBird range filter ──────────────────────────────────────
         # Perch has no MData equivalent for geographic filtering, so its
@@ -1094,6 +1095,13 @@ class BirdEngine:
                                          args=(dets, file_path, self.config),
                                          daemon=True)
                     t.start()
+                    # Track so the shutdown handler waits for this too —
+                    # otherwise the Perch MP3 clips are never extracted and
+                    # every detection in the DB for this file becomes an
+                    # "Erreur de décodage audio" on the dashboard.
+                    with self._post_lock:
+                        self._post_threads[:] = [pt for pt in self._post_threads if pt.is_alive()]
+                        self._post_threads.append(t)
             except Exception as e:
                 log.exception("[%s] Error on %s: %s",
                               self.secondary_model.name, basename, e)
@@ -1233,8 +1241,9 @@ class BirdEngine:
                                      args=(detections, dest, self.config),
                                      daemon=True)
                 t.start()
-                self._post_threads = [pt for pt in self._post_threads if pt.is_alive()]
-                self._post_threads.append(t)
+                with self._post_lock:
+                    self._post_threads[:] = [pt for pt in self._post_threads if pt.is_alive()]
+                    self._post_threads.append(t)
 
             # Queue for secondary model with raw audio (avoids re-reading file)
             if self.secondary_model and self._secondary_queue is not None:
@@ -1450,12 +1459,16 @@ class BirdEngine:
                 log.info("Waiting for secondary model to finish...")
                 self._secondary_queue.put(None)
                 self._secondary_thread.join(timeout=120)
-            # Wait for post-processing threads
-            active = [t for t in self._post_threads if t.is_alive()]
+            # Wait for post-processing threads (both primary and secondary
+            # model post-processing append to this list now). Each thread
+            # loops over detections → ffmpeg + spectrogram, so 30 s total is
+            # comfortably over the worst observed case on Pi 5.
+            with self._post_lock:
+                active = [t for t in self._post_threads if t.is_alive()]
             if active:
                 log.info("Waiting for %d post-processing threads...", len(active))
                 for t in active:
-                    t.join(timeout=10)
+                    t.join(timeout=30)
             self.db.close()
             log.info("Shutdown complete. Processed %d files, %d detections.",
                      self.files_processed, self.detections_total)
