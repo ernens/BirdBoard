@@ -4,6 +4,9 @@
  * Extracted from server.js for modularity.
  */
 const path = require('path');
+const fs = require('fs');
+const fsp = fs.promises;
+const { BIRDNET_CONF } = require('./config');
 
 /**
  * Start the alert monitoring system.
@@ -42,9 +45,13 @@ const ALERT_DEFAULTS = {
   backlog_warn: 50,                  // files
   no_detection_hours: 4,             // hours
   service_down: 1,                   // 1=enabled
+  sound_low_dbfs: -90,               // dBFS — below = "mic dead / unplugged"
+  sound_high_dbfs: -5,               // dBFS — above = "clipping / overdriven"
+  sound_sustained_min: 15,           // minutes of sustained condition before alerting
   // Per-alert enable/disable (1=on, 0=off)
   alert_temp: 1, alert_temp_crit: 1, alert_disk: 1,
   alert_ram: 1, alert_backlog: 1, alert_no_det: 1,
+  alert_sound: 1,
   // Bird smart alerts (1=on, 0=off)
   alert_influx: 0, alert_missing: 0, alert_rare_visitor: 0,
 };
@@ -73,6 +80,11 @@ function getAlertThresholds() {
     if (match('BIRDASH_ALERT_ON_MISSING'))      t.alert_missing = parseInt(match('BIRDASH_ALERT_ON_MISSING'));
     if (match('BIRDASH_ALERT_ON_RARE_VISITOR')) t.alert_rare_visitor = parseInt(match('BIRDASH_ALERT_ON_RARE_VISITOR'));
     if (match('BIRDASH_ALERT_ON_SVC_DOWN'))    t.service_down = parseInt(match('BIRDASH_ALERT_ON_SVC_DOWN'));
+    // Sound-level alerts
+    if (match('BIRDASH_ALERT_ON_SOUND'))       t.alert_sound = parseInt(match('BIRDASH_ALERT_ON_SOUND'));
+    if (match('BIRDASH_ALERT_SOUND_LOW_DBFS'))  t.sound_low_dbfs = parseFloat(match('BIRDASH_ALERT_SOUND_LOW_DBFS'));
+    if (match('BIRDASH_ALERT_SOUND_HIGH_DBFS')) t.sound_high_dbfs = parseFloat(match('BIRDASH_ALERT_SOUND_HIGH_DBFS'));
+    if (match('BIRDASH_ALERT_SOUND_SUSTAINED_MIN')) t.sound_sustained_min = parseInt(match('BIRDASH_ALERT_SOUND_SUSTAINED_MIN'));
   } catch(e) {}
   return t;
 }
@@ -179,6 +191,43 @@ async function checkSystemAlerts() {
           await sendAlert('backlog', t.backlog_title, t.backlog_body(files.length, th.backlog_warn));
         }
       } catch(e) {}
+    }
+
+    // ── Sound level (mic dead / clipping) ──
+    // Reads config/sound_level.json (written per-WAV by the engine). We
+    // compute the energy-average Leq over the sustained window and compare
+    // against the configured thresholds. If the engine hasn't written a
+    // reading in 2× the sustained window, we skip — the service-down alert
+    // already covers engine offline, no need to double-notify.
+    if (th.alert_sound) {
+      try {
+        const soundPath = path.join(process.env.HOME, 'birdash', 'config', 'sound_level.json');
+        const raw = await fsp.readFile(soundPath, 'utf8');
+        const state = JSON.parse(raw);
+        const buf = Array.isArray(state.buffer) ? state.buffer : [];
+        const windowSec = Math.max(1, th.sound_sustained_min) * 60;
+        const cutoff = Date.now() / 1000 - windowSec;
+        const recent = buf.filter(e => typeof e.leq === 'number' && typeof e.ts === 'number' && e.ts >= cutoff);
+        const latestTs = recent.length ? recent[recent.length - 1].ts : 0;
+        const newestAge = Date.now() / 1000 - latestTs;
+        // Require at least ~60 % window coverage (chunks arrive every ~45 s
+        // so a 15 min window holds ~20; insist on at least 12 to avoid
+        // false positives right after engine restart) AND recent data.
+        const expected = Math.floor(windowSec / 45);
+        const minSamples = Math.max(3, Math.floor(expected * 0.6));
+        if (recent.length >= minSamples && newestAge < windowSec) {
+          // Energy-average Leq (convert dB -> linear power, mean, dB -> back)
+          const sumPow = recent.reduce((s, e) => s + Math.pow(10, e.leq / 10), 0);
+          const leqAvg = 10 * Math.log10(sumPow / recent.length);
+          if (leqAvg <= th.sound_low_dbfs) {
+            await sendAlert('sound_low', t.sound_low_title,
+              t.sound_low_body(leqAvg.toFixed(1), th.sound_low_dbfs, th.sound_sustained_min));
+          } else if (leqAvg >= th.sound_high_dbfs) {
+            await sendAlert('sound_high', t.sound_high_title,
+              t.sound_high_body(leqAvg.toFixed(1), th.sound_high_dbfs, th.sound_sustained_min));
+          }
+        }
+      } catch(e) { /* file missing = feature off, or engine just started */ }
     }
 
     // ── No detection for X hours ──

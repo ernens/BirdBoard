@@ -303,6 +303,10 @@ const app = createApp({
           BIRDASH_ALERT_ON_MISSING: String(alertThresholds.alert_missing || 0),
           BIRDASH_ALERT_ON_RARE_VISITOR: String(alertThresholds.alert_rare_visitor || 0),
           BIRDASH_ALERT_ON_SVC_DOWN: String(alertThresholds.service_down || 0),
+          BIRDASH_ALERT_ON_SOUND: String(alertThresholds.alert_sound || 0),
+          BIRDASH_ALERT_SOUND_LOW_DBFS: String(alertThresholds.sound_low_dbfs),
+          BIRDASH_ALERT_SOUND_HIGH_DBFS: String(alertThresholds.sound_high_dbfs),
+          BIRDASH_ALERT_SOUND_SUSTAINED_MIN: String(alertThresholds.sound_sustained_min),
         };
         const res = await fetch(API + '/settings', {
           method: 'POST',

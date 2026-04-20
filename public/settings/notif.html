@@ -186,6 +186,35 @@
             <input type="checkbox" v-model="alertThresholds.service_down" true-value="1" false-value="0">
             <span><bird-icon name="alert-triangle" :size="14"></bird-icon> {{t('set_alert_svc_down')}}</span>
           </label></div>
+
+          <!-- Sound-level alert (mic dead + clipping, one toggle drives both) -->
+          <div class="set-row" style="gap:.4rem;margin-top:.3rem;">
+            <label class="set-check" style="flex:1;">
+              <input type="checkbox" v-model="alertThresholds.alert_sound" true-value="1" false-value="0">
+              <span><bird-icon name="mic" :size="14"></bird-icon> {{t('set_alert_sound')}}</span>
+            </label>
+          </div>
+          <div v-if="alertThresholds.alert_sound == 1"
+               style="margin:.1rem 0 .3rem 1.6rem;padding:.4rem .6rem;border-left:2px solid var(--border);display:flex;flex-wrap:wrap;gap:.4rem .8rem;font-size:.72rem;color:var(--text-muted);align-items:center;">
+            <label style="display:flex;align-items:center;gap:.3rem;">
+              {{t('set_alert_sound_low')}}
+              <input type="number" v-model.number="alertThresholds.sound_low_dbfs" min="-120" max="-20" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.15rem .3rem;text-align:right;">
+              <span style="color:var(--text-faint);">dBFS</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:.3rem;">
+              {{t('set_alert_sound_high')}}
+              <input type="number" v-model.number="alertThresholds.sound_high_dbfs" min="-30" max="0" step="1"
+                     style="width:55px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.15rem .3rem;text-align:right;">
+              <span style="color:var(--text-faint);">dBFS</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:.3rem;">
+              {{t('set_alert_sound_minutes')}}
+              <input type="number" v-model.number="alertThresholds.sound_sustained_min" min="1" max="120" step="1"
+                     style="width:50px;font-size:.78rem;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);border-radius:4px;padding:.15rem .3rem;text-align:right;">
+              <span style="color:var(--text-faint);">min</span>
+            </label>
+          </div>
         </div>
 
         <!-- ═══ Digest hebdomadaire (éditorialisé) ═══ -->

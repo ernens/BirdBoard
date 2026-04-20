@@ -2,6 +2,27 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.29.0] — 2026-04-20
+
+### Sound-level alerts (mic dead / clipping)
+
+Closes the loop on the Leq monitor added in 1.28.0 — the station now notifies via Apprise when the audio input goes abnormal.
+
+- **Silent microphone**: energy-average Leq ≤ `-90 dBFS` (default) sustained for 15 min (default) → Apprise notification. Catches an unplugged USB mic, a muted card, a failed cable, or a boom stand that fell into a foam pad overnight.
+- **Clipping / overdriven**: energy-average Leq ≥ `-5 dBFS` (default) sustained for 15 min → Apprise notification. Catches overdriven input: wrong gain after a calibration, mic moved next to a fan, electrical interference.
+- All three values are configurable in Settings → Notifications → Alertes système.
+- Skips when no recent data (< 60 % of window covered or last reading > window old) — avoids a false "silent" spam at engine restart. The existing `svc_birdengine` alert already covers engine-down.
+- Uses the standard 10 min same-type cooldown; Apprise config / tags shared with all other system alerts.
+- i18n for all 4 message strings (titles + bodies) in EN / FR / DE / NL.
+
+Also fixed an import bug in `alerts.js` that silently broke *every* system alert: `fs`, `fsp`, and `BIRDNET_CONF` were referenced but never required. Every check threw a caught ReferenceError and returned. Adding explicit imports at the top of the file brings back temperature, disk, RAM, backlog, and no-detection alerts.
+
+New config keys in `birdnet.conf`:
+- `BIRDASH_ALERT_ON_SOUND` (0/1, default 1)
+- `BIRDASH_ALERT_SOUND_LOW_DBFS` (default -90)
+- `BIRDASH_ALERT_SOUND_HIGH_DBFS` (default -5)
+- `BIRDASH_ALERT_SOUND_SUSTAINED_MIN` (default 15)
+
 ## [1.28.2] — 2026-04-20
 
 ### Fix: missing MP3 clips for Perch detections after engine restart
