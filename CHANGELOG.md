@@ -2,6 +2,20 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.29.3] — 2026-04-20
+
+### Fix: 0-byte MP3 clips left behind by ffmpeg crashes (esp. Pi 3 / SD card)
+
+The dashboard would show "Erreur de décodage audio" for some detections forever. Root cause: `extract_clip` runs ffmpeg as a subprocess, and on resource-constrained hosts (Pi 3 + SD card, OOM killer, broken pipe) ffmpeg can crash *after* opening the output file but *before* writing any data — leaving a 0-byte MP3 (and sometimes a 0-byte spectrogram PNG) on disk. The error was logged but the empty file persisted: every dashboard click on that detection then re-tried the decode and failed.
+
+Surfaced on mickey.local (Pi 3, SD-card-only): `Content-Length: 0` on the served MP3.
+
+Two-part fix in `engine.py`:
+- `extract_clip` now (a) deletes any 0-byte output on ffmpeg failure, (b) verifies a non-zero file size after a "successful" return — some failure modes return 0 but write nothing, (c) cleans up after `subprocess.TimeoutExpired` too (logged as likely SD-card I/O saturation).
+- New `_sweep_empty_clips()` runs once at engine startup, walking `~/BirdSongs/Extracted/By_Date/` and removing any 0-byte `*.mp3` / `*.png` files. Bird discovered 24 historical leftovers on first deploy.
+
+mickey will pick this up on its next in-app update — no SSH push.
+
 ## [1.29.2] — 2026-04-20
 
 ### Bug-hunt sweep across today's work

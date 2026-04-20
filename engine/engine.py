@@ -755,10 +755,22 @@ def extract_clip(wav_path, det, config):
     start = max(0, det.get("_start", 0) - 1.5)
     stop = det.get("_stop", start + 3) + 1.5
 
-    try:
-        mp3_path = os.path.join(local_dir, clip_name)
-        png_path = mp3_path + ".png"
+    mp3_path = os.path.join(local_dir, clip_name)
+    png_path = mp3_path + ".png"
 
+    def _cleanup_empty():
+        # ffmpeg can leave a 0-byte file behind when it crashes mid-write
+        # (OOM killer on Pi 3, SD card I/O contention, broken pipe). Don't
+        # leave that around — the dashboard would just show "Erreur de
+        # décodage audio" and the entry would never self-heal.
+        for p in (mp3_path, png_path):
+            try:
+                if os.path.exists(p) and os.path.getsize(p) == 0:
+                    os.unlink(p)
+            except OSError:
+                pass
+
+    try:
         # Extract MP3 clip
         result = subprocess.run(
             ["ffmpeg", "-y", "-i", wav_path,
@@ -769,6 +781,16 @@ def extract_clip(wav_path, det, config):
         )
         if result.returncode != 0:
             log.error("ffmpeg extract failed: %s", result.stderr.strip())
+            _cleanup_empty()
+            return None
+        # Defensive: on slow / contended I/O, ffmpeg sometimes returns 0 but
+        # writes nothing measurable. Treat that as a failure too.
+        try:
+            if os.path.getsize(mp3_path) == 0:
+                log.warning("ffmpeg produced empty MP3 for %s — discarding", clip_name)
+                _cleanup_empty()
+                return None
+        except OSError:
             return None
 
         # Generate spectrogram from the clip (Python, matching dashboard colormap)
@@ -777,9 +799,15 @@ def extract_clip(wav_path, det, config):
         except Exception as e:
             log.warning("Spectrogram generation failed: %s", e)
 
+        _cleanup_empty()  # In case the spectrogram step left a 0-byte PNG
         return clip_name
+    except subprocess.TimeoutExpired:
+        log.error("ffmpeg timeout (>30s) extracting %s — likely SD-card I/O saturation", clip_name)
+        _cleanup_empty()
+        return None
     except Exception as e:
         log.error("Extract clip error: %s", e)
+        _cleanup_empty()
         return None
 
 
@@ -1394,10 +1422,49 @@ class BirdEngine:
         if count:
             log.info("Purged %d old processed WAV files", count)
 
+    def _sweep_empty_clips(self):
+        """Remove 0-byte MP3/PNG files in BirdSongs/Extracted — leftovers
+        from ffmpeg crashes (OOM, SD-card I/O contention). Without this
+        sweep, the dashboard keeps showing "Erreur de décodage audio" for
+        detections that will never have a usable clip.
+        """
+        root = os.path.join(os.path.expanduser("~"), "BirdSongs", "Extracted", "By_Date")
+        if not os.path.isdir(root):
+            return
+        removed = 0
+        for date_dir in os.listdir(root):
+            date_path = os.path.join(root, date_dir)
+            if not os.path.isdir(date_path):
+                continue
+            for sp_dir in os.listdir(date_path):
+                sp_path = os.path.join(date_path, sp_dir)
+                if not os.path.isdir(sp_path):
+                    continue
+                for f in os.listdir(sp_path):
+                    if not (f.endswith(".mp3") or f.endswith(".png")):
+                        continue
+                    fp = os.path.join(sp_path, f)
+                    try:
+                        if os.path.getsize(fp) == 0:
+                            os.unlink(fp)
+                            removed += 1
+                    except OSError:
+                        pass
+        if removed:
+            log.info("Swept %d empty clip files (ffmpeg leftovers)", removed)
+
     def run(self):
         """Main loop: rsync + watch for new files."""
         incoming_dir = self.config["audio"]["incoming_dir"]
         os.makedirs(incoming_dir, exist_ok=True)
+
+        # One-shot startup cleanup of any 0-byte MP3/PNG files left behind
+        # by previous ffmpeg crashes — these are otherwise sticky errors
+        # in the dashboard.
+        try:
+            self._sweep_empty_clips()
+        except Exception as e:
+            log.debug("[startup-sweep] %s", e)
 
         # Build the watcher first so we can seed its "pending" with an
         # in-progress file if the engine restarted mid-recording.
