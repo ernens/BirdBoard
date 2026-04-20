@@ -196,6 +196,22 @@ if [ "$needs_pip" = "1" ]; then
     fi
 fi
 
+# ── 4b. Sync engine *.py to ~/birdengine if that's the runtime path ──────
+# Some installs (older layouts, BirdNET-Pi descendants) run the engine out
+# of $HOME/birdengine instead of $REPO_DIR/engine. The systemd service
+# was set up that way at install time and we don't want to rewrite it on
+# update. Just rsync the python files so the new code actually runs.
+if [ -d "$HOME/birdengine" ] && [ "$HOME/birdengine" != "$REPO_DIR/engine" ]; then
+    if grep -q "$HOME/birdengine/engine.py" /etc/systemd/system/birdengine.service 2>/dev/null \
+       || systemctl show birdengine.service -p ExecStart 2>/dev/null | grep -q "$HOME/birdengine/engine.py"; then
+        info "Syncing engine .py files to $HOME/birdengine (legacy runtime path)..."
+        for f in engine.py range_filter_cli.py filter_preview.py; do
+            [ -f "$REPO_DIR/engine/$f" ] && cp -f "$REPO_DIR/engine/$f" "$HOME/birdengine/$f"
+        done
+        ok "Engine files synced to $HOME/birdengine"
+    fi
+fi
+
 # ── 5. Run migrations ────────────────────────────────────────────────────
 if [ -d "scripts/migrations" ]; then
     info "Running migrations..."

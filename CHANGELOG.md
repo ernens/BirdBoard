@@ -2,6 +2,28 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.26.0] — 2026-04-20
+
+### Range Filter — visibility for BirdNET, new eBird filter for Perch
+
+The BirdNET MData range filter was already there (engine.py uses `species_list` from the MData TFLite to drop out-of-region predictions, configurable via `SF_THRESH`), but the user couldn't see what it was doing. Perch had no equivalent at all.
+
+**Part A — visibility (BirdNET MData)**:
+- New `engine/range_filter_cli.py` — standalone Python that loads MData TFLite for given lat/lon/week/threshold and prints the expected species list as JSON
+- New `GET /api/range-filter/preview?week=N&threshold=T` route — runs the CLI, caches 5 min by (lat, lon, week, threshold, lang)
+- Settings → Detection → **Range Filter** card: live count "✓ 156 species expected here in week 16" + collapsible full list (sci + com names), refreshes when you move the SF_THRESH slider (debounced 500ms)
+- Existing `SF_THRESH` slider preserved with the same range/step — UI just got a brain
+
+**Part B — eBird filter for Perch**:
+- New opt-in flag `RANGE_FILTER_PERCH_EBIRD=0/1` in `birdnet.conf`. When enabled, engine.py loads `config/ebird-frequency.json` (already maintained by birdash) at startup and drops Perch predictions whose `sci_name` isn't in the local eBird "recent observations" set. Stops Perch from reporting tropical species in Belgium.
+- mtime-based reload of the eBird map so engine picks up daily refreshes without restart
+- Fail-open: no eBird data → no filtering (better than silently dropping every Perch detection)
+- New "Filtre eBird pour Perch" card in Settings → Detection with the toggle and a warning when no eBird API key is set
+- New validator `RANGE_FILTER_PERCH_EBIRD` in config.js
+
+**Update.sh fix**:
+- Engine `.py` files are now rsynced to `$HOME/birdengine/` on update if the systemd service points there (legacy install layout). Prevents the "git pull but the engine still runs the old code" trap.
+
 ## [1.25.1] — 2026-04-20
 
 ### Auth fixes — no more lockout, login page text resolved

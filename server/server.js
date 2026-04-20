@@ -39,6 +39,7 @@ const _metrics = require('./lib/metrics');
 const _metricsRoutes = require('./routes/metrics');
 const _auth = require('./lib/auth');
 const _authRoutes = require('./routes/auth');
+const _rangeFilterRoutes = require('./routes/range-filter');
 
 const JSON_CT = { 'Content-Type': 'application/json' };
 
@@ -293,6 +294,7 @@ const server = http.createServer((req, res) => {
   if (_powerRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_tftDisplayRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_metricsRoutes.handle(req, res, pathname, _routeCtx)) return;
+  if (_rangeFilterRoutes.handle(req, res, pathname, _routeCtx)) return;
 
   console.warn(`[BIRDASH] 404 — route inconnue : ${req.method} ${pathname}`);
   if (res.headersSent) return;

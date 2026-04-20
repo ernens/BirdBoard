@@ -812,6 +812,22 @@ class BirdEngine:
         self._db_lock = threading.Lock()
         self._post_threads = []  # Track post-processing threads for clean shutdown
 
+        # ── Perch eBird range filter ──────────────────────────────────────
+        # Perch has no MData equivalent for geographic filtering, so its
+        # outputs include species that can't possibly be at this location
+        # (Cornell trained on global data). When RANGE_FILTER_PERCH_EBIRD=1
+        # in birdnet.conf, we drop Perch predictions whose sci_name is
+        # absent from the eBird "recently observed near here" map that
+        # birdash already maintains in config/ebird-frequency.json.
+        self.perch_ebird_filter = (
+            birdnet_settings.get("RANGE_FILTER_PERCH_EBIRD", "0") == "1"
+        )
+        self.perch_ebird_set = set()
+        self._perch_ebird_path = None
+        self._perch_ebird_mtime = 0
+        if self.perch_ebird_filter:
+            self._reload_perch_ebird()
+
     def _analyze_with_model(self, model, file_path, file_date, week, tag,
                             raw_sig=None, raw_sr=None):
         """Run inference on a file with a given model. Returns list of detections.
@@ -838,6 +854,11 @@ class BirdEngine:
             return []
 
         species_list = model.get_species_list(lat, lon, week)
+        # Refresh the per-Perch eBird presence set if the cache file on
+        # disk was rewritten by birdash since we last read it (cheap mtime
+        # check, no IO if unchanged).
+        if self.perch_ebird_filter:
+            self._reload_perch_ebird()
         detections = []
 
         # Model-specific thresholds
@@ -866,6 +887,13 @@ class BirdEngine:
                         break  # ambiguous detection, skip entire chunk
                 if species_list and sci_name not in species_list:
                     continue
+                # Perch eBird range filter — opt-in via RANGE_FILTER_PERCH_EBIRD.
+                # Drops sci_names absent from the eBird "recently observed
+                # near here" set, so Perch can't report tropical species
+                # that BirdNET's MData filter would have caught.
+                if is_perch and self.perch_ebird_filter and self.perch_ebird_set:
+                    if sci_name not in self.perch_ebird_set:
+                        continue
 
                 det_time = file_date + datetime.timedelta(seconds=pred_start)
                 com_name = self.names.get(sci_name, sci_name)
@@ -1035,6 +1063,39 @@ class BirdEngine:
 
         except Exception as e:
             log.exception("Error processing %s: %s", file_path, e)
+
+    def _reload_perch_ebird(self):
+        """Load (or reload if stale) the eBird presence map used to filter
+        Perch detections. Map lives at ~/birdash/config/ebird-frequency.json
+        — refreshed daily by birdash from the eBird API.
+        """
+        candidates = [
+            os.path.expanduser("~/birdash/config/ebird-frequency.json"),
+            os.path.join(os.path.dirname(__file__), "..", "config",
+                         "ebird-frequency.json"),
+        ]
+        path_used = next((p for p in candidates if os.path.exists(p)), None)
+        if not path_used:
+            log.warning("[range-perch] ebird-frequency.json not found — "
+                        "Perch range filter disabled until birdash refreshes it")
+            self.perch_ebird_set = set()
+            return
+        try:
+            mtime = os.path.getmtime(path_used)
+            if (path_used == self._perch_ebird_path
+                    and mtime == self._perch_ebird_mtime):
+                return
+            with open(path_used) as f:
+                data = json.load(f)
+            # File is { sciName: 1, _ts: <epoch> }. Skip the _ts marker.
+            self.perch_ebird_set = {k for k in data.keys() if not k.startswith("_")}
+            self._perch_ebird_path = path_used
+            self._perch_ebird_mtime = mtime
+            log.info("[range-perch] eBird filter: %d species loaded from %s",
+                     len(self.perch_ebird_set), path_used)
+        except Exception as e:
+            log.warning("[range-perch] failed to load %s: %s", path_used, e)
+            self.perch_ebird_set = set()
 
     def _read_birdnet_conf(self):
         """Parse birdnet.conf and return a dict of key=value pairs."""

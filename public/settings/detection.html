@@ -128,14 +128,59 @@
           </div>
         </div>
 
-        <!-- ═══ Shared Parameters ═══ -->
+        <!-- ═══ Range Filter (Shared Parameters) ═══ -->
         <div class="card">
-          <div class="section-title"><bird-icon name="globe" :size="14" ></bird-icon> {{t('set_shared_params')}}</div>
+          <div class="section-title"><bird-icon name="globe" :size="14" ></bird-icon> {{t('set_range_filter')}}</div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_range_filter_desc')}}</p>
+
+          <!-- Slider — same SF_THRESH as before, but now with live preview -->
           <div class="set-row">
-            <span class="set-label">{{t('set_species_freq_thresh')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
+            <span class="set-label">{{t('set_range_threshold')}} <button class="info-btn" @click="helpKey='sf_thresh'">i</button></span>
             <span class="set-range-val">{{conf.SF_THRESH}}</span>
-            <input v-model="conf.SF_THRESH" type="range" min="0" max="0.5" step="0.01" class="set-range">
+            <input v-model="conf.SF_THRESH" @input="onRangePreviewDebounced" type="range" min="0" max="0.5" step="0.01" class="set-range">
           </div>
+
+          <!-- Live preview: count + collapsible species list -->
+          <div style="margin-top:.7rem;padding:.6rem .7rem;border-radius:6px;background:var(--bg-deep);border:1px solid var(--border);">
+            <div v-if="rangePreview.loading" style="font-size:.78rem;color:var(--text-muted);">
+              <bird-icon name="loader-circle" :size="12"></bird-icon> {{t('set_range_loading')}}
+            </div>
+            <div v-else-if="rangePreview.error" style="font-size:.78rem;color:var(--warning);">
+              <bird-icon name="alert-triangle" :size="12"></bird-icon> {{rangePreview.error}}
+            </div>
+            <div v-else-if="rangePreview.data">
+              <div style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;">
+                <bird-icon name="check-circle" :size="14" style="color:var(--accent);"></bird-icon>
+                <strong>{{rangePreview.data.species_count}}</strong>
+                <span style="color:var(--text-muted);">{{t('set_range_count_suffix', { week: rangePreview.data.week })}}</span>
+              </div>
+              <details style="margin-top:.5rem;">
+                <summary style="font-size:.74rem;color:var(--text-muted);cursor:pointer;">{{t('set_range_show_list')}}</summary>
+                <div style="max-height:240px;overflow-y:auto;margin-top:.4rem;padding:.3rem .4rem;background:var(--bg-card);border-radius:4px;font-size:.72rem;line-height:1.6;">
+                  <div v-for="sp in rangePreview.data.species" :key="sp.sci">
+                    {{sp.com}} <span style="color:var(--text-faint);font-style:italic;">({{sp.sci}})</span>
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div v-else style="font-size:.78rem;color:var(--text-faint);">{{t('set_range_will_load')}}</div>
+          </div>
+        </div>
+
+        <!-- ═══ Range Filter — Perch / eBird (Part B) ═══ -->
+        <div class="card">
+          <div class="section-title"><bird-icon name="filter" :size="14"></bird-icon> {{t('set_range_perch_title')}}</div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_range_perch_desc')}}</p>
+          <label class="set-check" style="cursor:pointer;">
+            <input type="checkbox" v-model="conf.RANGE_FILTER_PERCH_EBIRD" true-value="1" false-value="0">
+            <span><bird-icon name="check-circle" :size="14"></bird-icon> <strong>{{t('set_range_perch_enable')}}</strong></span>
+          </label>
+          <p v-if="conf.RANGE_FILTER_PERCH_EBIRD == 1 && !conf.EBIRD_API_KEY"
+             style="margin:.5rem 0 0 1.5rem;padding:.5rem .6rem;border-radius:6px;background:rgba(255,193,7,.08);border:1px dashed rgba(255,193,7,.4);font-size:.74rem;line-height:1.4;">
+            <bird-icon name="lightbulb" :size="13" style="color:#fbbf24;vertical-align:-2px;"></bird-icon>
+            {{t('set_range_perch_no_ebird_warn')}}
+          </p>
+          <p style="margin:.5rem 0 0 1.5rem;font-size:.72rem;color:var(--text-faint);">{{t('set_range_perch_hint')}}</p>
         </div>
 
         <!-- ═══ Recording ═══ -->

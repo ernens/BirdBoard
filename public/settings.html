@@ -145,6 +145,35 @@ const app = createApp({
     const excludeList = ref('');
     const savingLists = ref(false);
 
+    // ── Range Filter preview (Detection tab) ───────────────────
+    const rangePreview = reactive({ loading: false, error: '', data: null });
+    let _rangePreviewTimer = null;
+    async function loadRangePreview() {
+      const threshold = parseFloat(conf.SF_THRESH);
+      if (isNaN(threshold)) return;
+      rangePreview.loading = true; rangePreview.error = '';
+      try {
+        const r = await fetch(`${API}/range-filter/preview?threshold=${threshold}`);
+        const d = await r.json();
+        if (!r.ok || d.error) {
+          rangePreview.error = d.message || d.error || ('HTTP ' + r.status);
+        } else {
+          rangePreview.data = d;
+        }
+      } catch (e) {
+        rangePreview.error = e.message;
+      }
+      rangePreview.loading = false;
+    }
+    function onRangePreviewDebounced() {
+      if (_rangePreviewTimer) clearTimeout(_rangePreviewTimer);
+      _rangePreviewTimer = setTimeout(loadRangePreview, 500);
+    }
+    // Trigger initial load when settings finish loading and we know SF_THRESH
+    watch(() => conf.SF_THRESH, (v, old) => {
+      if (old === undefined && v !== undefined) loadRangePreview();
+    });
+
     // ── Auth (security card in Station tab) ────────────────────
     const authUser        = ref('');
     const authCurrentPw   = ref('');
@@ -568,6 +597,7 @@ const app = createApp({
           AUTH_MODE: 'off',
           AUTH_USERNAME: '',
           AUTH_SESSION_HOURS: '168',
+          RANGE_FILTER_PERCH_EBIRD: '0',
         };
         Object.assign(conf, defaults, confData);
         // Mirror AUTH_USERNAME into the dedicated authUser ref so the form
@@ -2057,6 +2087,7 @@ const app = createApp({
       digestPreview, digestSendNow, digestMsg, digestErr, digestPreviewText,
       mqttMinConfPct, testingMqtt, mqttMsg, mqttErr, testMqtt,
       authUser, authCurrentPw, authNewPw, authNewPw2, authSaving, authMsg, authErr, authConfigured, saveAuthCreds,
+      rangePreview, onRangePreviewDebounced,
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,
@@ -2199,6 +2230,7 @@ const app = createApp({
       digestPreview, digestSendNow, digestMsg, digestErr, digestPreviewText,
       mqttMinConfPct, testingMqtt, mqttMsg, mqttErr, testMqtt,
       authUser, authCurrentPw, authNewPw, authNewPw2, authSaving, authMsg, authErr, authConfigured, saveAuthCreds,
+      rangePreview, onRangePreviewDebounced,
       agConf, agState, loadAgState,
       dbTables, dbSelectedTable, dbSchema, dbSql, dbSqlWarning, dbColumns, dbRows, dbLoading, dbError, dbExecTime,
       dbLoadTables, dbSelectTable, dbExec,

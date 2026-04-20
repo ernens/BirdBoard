@@ -236,6 +236,7 @@ const SETTINGS_VALIDATORS = {
   AUTH_PASSWORD_HASH:  v => typeof v === 'string' && v.length <= 200,
   AUTH_SECRET:         v => typeof v === 'string' && /^[a-f0-9]{32,128}$/.test(v),
   AUTH_SESSION_HOURS:  v => !isNaN(v) && v >= 1 && v <= 720,
+  RANGE_FILTER_PERCH_EBIRD: v => v == 0 || v == 1,
 };
 
 // ── Apprise binary discovery (cached at startup) ─────────────────────────
