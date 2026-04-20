@@ -2,6 +2,20 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.30.0] — 2026-04-20
+
+### Bundled real BirdNET FP16 model — FP16 selection is no longer a lie
+
+`download_birdnet.sh` only ever downloaded the FP32 model and created a `BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite → FP32.tflite` symlink for engine name compatibility. So users picking "FP16" in the Settings model picker were silently running FP32 inference (50 MB binary instead of 26 MB, no smaller-RAM / faster-load benefit).
+
+Now:
+- The real FP16 model (~26 MB) is bundled in `engine/models/` (gitignore exception, same pattern as `yamnet.tflite`)
+- `download_birdnet.sh` prefers the bundled binary, falls back to the symlink only if the file is missing (older clones)
+- `update.sh` syncs the FP16 to legacy `~/birdengine/models/` install layouts on every update — replaces an existing symlink properly via `cp --remove-destination` (without it, `cp -f` would follow the symlink and overwrite FP32)
+- mickey, biloute, and any future install pick this up automatically through the in-app update flow — no SSH push, no model re-download
+
+Real-world impact: FP16 is ~50 % smaller on disk and loads faster, with identical inference accuracy. The speed gain on inference itself is modest on Pi 3 / 4 ARM (XNNPACK still upcasts internally) but the smaller RAM footprint matters when several models share a 1 GB Pi 3.
+
 ## [1.29.3] — 2026-04-20
 
 ### Fix: 0-byte MP3 clips left behind by ffmpeg crashes (esp. Pi 3 / SD card)

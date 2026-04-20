@@ -20,6 +20,9 @@ engine/models/*
 # But DO ship the YAMNet model — used by the bundled privacy/dog filter
 !engine/models/yamnet.tflite
 !engine/models/yamnet_class_map.csv
+# And the real BirdNET FP16 — without it download_birdnet.sh creates a
+# symlink to FP32, so users selecting "FP16" actually run FP32.
+!engine/models/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite
 engine/config.toml
 engine/__pycache__/
 config/audio_config.json

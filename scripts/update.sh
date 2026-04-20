@@ -212,13 +212,20 @@ if [ -d "$HOME/birdengine" ] && [ "$HOME/birdengine" != "$REPO_DIR/engine" ]; th
                 case "$f" in *.sh) chmod +x "$HOME/birdengine/$f" ;; esac
             fi
         done
-        # YAMNet model + labels (only sync if newer or missing — they're 4 MB)
+        # Bundled models: YAMNet (4 MB) + real BirdNET FP16 (26 MB).
+        # The FP16 dst may exist as a symlink to FP32 from a previous
+        # download_birdnet.sh run — replace the symlink with the real
+        # file so users selecting "FP16" actually get FP16 inference.
         if [ -d "$REPO_DIR/engine/models" ] && [ -d "$HOME/birdengine/models" ]; then
-            for f in yamnet.tflite yamnet_class_map.csv; do
+            for f in yamnet.tflite yamnet_class_map.csv \
+                     BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite; do
                 src="$REPO_DIR/engine/models/$f"
                 dst="$HOME/birdengine/models/$f"
-                if [ -f "$src" ] && [ ! "$dst" -nt "$src" ]; then
-                    cp -f "$src" "$dst"
+                if [ ! -f "$src" ]; then continue; fi
+                if [ -L "$dst" ] || [ ! -f "$dst" ] || [ "$src" -nt "$dst" ]; then
+                    # --remove-destination so we replace symlinks instead of
+                    # following them (which would overwrite FP32!).
+                    cp --remove-destination -f "$src" "$dst"
                 fi
             done
         fi

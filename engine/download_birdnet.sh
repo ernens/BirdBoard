@@ -58,9 +58,19 @@ cp "$ANALYZER_DIR/BirdNET_GLOBAL_6K_V2.4_MData_Model_V2_FP16.tflite" "$MODELS_DI
 cp "$ANALYZER_DIR/BirdNET_GLOBAL_6K_V2.4_Labels.txt" \
    "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16_Labels.txt"
 
-# FP16 symlink for engine compatibility
-ln -sf "BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite" \
-       "$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite"
+# Real FP16 model: bundled in the repo (~26 MB) so users selecting "FP16"
+# in the UI actually get FP16 inference instead of a symlink to FP32.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_FP16="$SCRIPT_DIR/models/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite"
+DST_FP16="$MODELS_DIR/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite"
+if [ -f "$REPO_FP16" ] && [ ! -L "$REPO_FP16" ]; then
+    cp --remove-destination "$REPO_FP16" "$DST_FP16"
+    echo "  ✓ Real FP16 model installed (smaller + faster than FP32)"
+else
+    # Fallback when running an older clone without the bundled FP16: keep
+    # the legacy symlink so the model picker still resolves the name.
+    ln -sf "BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite" "$DST_FP16"
+fi
 
 echo "▶ Downloading l18n species label translations..."
 "$VENV_DIR/bin/python3" - "$L18N_DIR" <<'PY'
