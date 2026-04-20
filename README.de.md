@@ -92,6 +92,7 @@ Modernes Vogelerkennungs-Dashboard und Engine fur Raspberry Pi 5. Eigenstandige 
 - <img src="docs/icons/monitor.svg" width="16" align="top" alt=""> **Mobil** — Bottom-Navigation, Touch-Gesten, globale Suche (Art + Datum)
 - <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Benachrichtigungen** — ntfy.sh + In-App-Glocke
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **MQTT** — veroffentlicht jede Erkennung an einen MQTT-Broker (Mosquitto, Home Assistant…) mit Home-Assistant-Auto-Discovery
+- <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Prometheus `/metrics`** — Scrape-Ziel fur Prometheus / Grafana / VictoriaMetrics mit Erkennungs-, System- und Feature-Metriken
 - <img src="docs/icons/list.svg" width="16" align="top" alt=""> **Live-Log** — Echtzeit-Dashboard (SSE) mit farbcodierten Kategorien, Filtern, KPIs
 - <img src="docs/icons/terminal.svg" width="16" align="top" alt=""> **Web-Terminal** — Bash im Browser
 - <img src="docs/icons/save.svg" width="16" align="top" alt=""> **Backup** — NFS/SMB/SFTP/S3/GDrive/WebDAV

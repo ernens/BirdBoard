@@ -92,6 +92,7 @@ Modern vogeldetectie-dashboard en engine voor Raspberry Pi 5. Zelfstandige dual-
 - <img src="docs/icons/monitor.svg" width="16" align="top" alt=""> **Mobiel** — navigatiebalk onderaan, veeggebaren, globale zoekfunctie (soort + datum)
 - <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Meldingen** — ntfy.sh + in-app belletje
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **MQTT** — publiceert elke detectie naar een MQTT-broker (Mosquitto, Home Assistant…) met Home Assistant auto-discovery
+- <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Prometheus `/metrics`** — scrape-doel voor Prometheus / Grafana / VictoriaMetrics met detectie-, systeem- en feature-metrieken
 - <img src="docs/icons/list.svg" width="16" align="top" alt=""> **Live log** — realtime dashboard (SSE) met kleurgecodeerde categorieën, filters, KPIs
 - <img src="docs/icons/terminal.svg" width="16" align="top" alt=""> **Web terminal** — bash in browser
 - <img src="docs/icons/save.svg" width="16" align="top" alt=""> **Backup** — NFS/SMB/SFTP/S3/GDrive/WebDAV

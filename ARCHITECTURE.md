@@ -42,7 +42,9 @@ Deep technical reference for the BirdStation (birdash) system — a standalone b
         │  PCM/MP3 stream │  │       Birdash (Node.js :7474)       │   │
         │  ◄──────────────│──│  HTTP API, SSE, worker threads      │   │
         │                 │  │  Notification watcher → Apprise     │   │
-        │                 │  │  15 route modules, 12 lib modules   │   │
+        │                 │  │  MQTT publisher → broker (HA-ready) │   │
+        │                 │  │  Prometheus /metrics scrape target  │   │
+        │                 │  │  16 route modules, 14 lib modules   │   │
         │                 │  └──────────────┬───────────────────────┘   │
         │                 │                 │                           │
         │                 │  ┌──────────────┴───────────────────────┐   │
@@ -223,6 +225,82 @@ Polls the detections DB every 30 seconds and sends push notifications via **Appr
 
 ---
 
+### MQTT Publisher (mqtt-publisher.js)
+
+File: `server/lib/mqtt-publisher.js`
+
+Opt-in publisher (`MQTT_ENABLED=1` in `birdnet.conf`) that pushes each new detection to an MQTT broker. Aimed primarily at the Home Assistant / Node-RED / domotic crowd. Same poll-the-DB pattern as the notification watcher (15s interval, no engine changes required).
+
+**Topics** (configurable prefix, default `birdash`, station slug derived from `SITE_NAME`):
+
+| Topic | Retention | Payload | Purpose |
+|-------|-----------|---------|---------|
+| `<prefix>/<station>/status` | retained, LWT | `online` / `offline` | Home Assistant availability tracking |
+| `<prefix>/<station>/detection` | configurable | JSON per detection | Per-event automations |
+| `<prefix>/<station>/last_species` | retained | JSON of latest detection | Ready-to-use HA sensor |
+| `<prefix>/<station>/test` | non-retained | JSON test payload | Triggered by `POST /api/mqtt/test` |
+| `homeassistant/sensor/birdash_<station>/...` | retained | HA discovery JSON | If `MQTT_HASS_DISCOVERY=1` |
+
+**Detection payload**:
+```json
+{
+  "station": "Heinsch",
+  "timestamp": "2026-04-20T13:31:04",
+  "common_name": "Moineau domestique",
+  "scientific_name": "Passer domesticus",
+  "confidence": 0.8075,
+  "model": "perch_v2_original",
+  "file": "Moineau_domestique-81-...mp3"
+}
+```
+
+**Connection management**:
+- Reconnect with exponential backoff (2s → 60s, capped)
+- Transport-affecting setting changes (`broker`, `port`, `username`, `password`, `tls`) trigger a clean disconnect + reconnect on the next poll tick
+- LWT publishes `offline` to `status` if the TCP connection drops without a clean disconnect
+- Graceful shutdown publishes `offline` explicitly
+
+**Home Assistant auto-discovery** publishes two sensors per station under a single device:
+- `Last species` — value template extracts `common_name` from the retained `last_species` topic; full payload available as JSON attributes
+- `Last confidence` — value template multiplies confidence by 100, unit `%`
+
+The Test button in Settings → Notifications calls `POST /api/mqtt/test`, which connects with a one-shot client, publishes a synthetic message to `<prefix>/<station>/test`, and reports the broker result back to the UI without leaving a long-lived connection behind.
+
+### Prometheus Metrics (metrics.js)
+
+File: `server/lib/metrics.js` + `server/routes/metrics.js`
+
+Standard Prometheus exposition format on `GET /metrics` (and `/api/metrics` for consistency with the rest of birdash). Built on `prom-client`; no auth (the server already binds to `127.0.0.1`, gate via Caddy if exposing publicly).
+
+**Custom gauges**:
+- `birdash_detections_total` / `_today` / `_last_hour`
+- `birdash_species_today` / `_30d`
+- `birdash_last_detection_age_seconds` (alert when station goes silent)
+- `birdash_db_size_bytes`
+- `birdash_cpu_temp_celsius` / `_usage_percent`
+- `birdash_memory_used_bytes` / `_total_bytes`
+- `birdash_disk_used_bytes` / `_total_bytes`
+- `birdash_fan_rpm`
+- `birdash_system_uptime_seconds`
+- `birdash_feature_enabled{feature="mqtt|notifications|dual_model|birdweather|weekly_digest"}`
+- `birdash_version_info{version="x.y.z"}` (always 1 — useful for `count by (version)`)
+
+**Default Node.js process metrics** (eventloop lag, GC, heap, RSS, file descriptors, …) under the `birdash_node_` prefix from `prom-client`'s `collectDefaultMetrics`.
+
+**Refresh strategy**: gauges are refreshed lazily on each scrape rather than via a background timer. The DB refresh runs ~5 indexed `COUNT()` aggregates against a 1M-row table — sub-millisecond — and the system reads (`/proc/meminfo`, `/proc/loadavg`, `df`, thermal zone) cost a few hundred microseconds. Total scrape latency stays well under 50 ms even on Pi 3, so the standard 30-60s Prometheus scrape interval is fine.
+
+**Suggested Prometheus scrape config**:
+```yaml
+scrape_configs:
+  - job_name: birdash
+    static_configs:
+      - targets: ['bird.local:80']
+    metrics_path: /birds/metrics
+    scrape_interval: 30s
+```
+
+---
+
 ## 3. Backend Architecture (Node.js)
 
 ### server.js — HTTP Server
@@ -261,7 +339,8 @@ Directory: `server/routes/`
 | `detections.js` | Detections CRUD, validations, auto-flagging, CSV/eBird export | `/api/detections`, `/api/validate`, `/api/flag`, `/api/export` |
 | `external.js` | BirdWeather, eBird, weather API proxies | `/api/birdweather/*`, `/api/ebird/*`, `/api/weather` |
 | `photos.js` | Photo resolution/caching (iNaturalist, Wikipedia), species name translation | `/api/photo`, `/api/species-names` |
-| `settings.js` | Settings CRUD, Apprise notifications, alerts config, log streaming (SSE) | `/api/settings`, `/api/apprise`, `/api/alerts`, `/api/logs` |
+| `settings.js` | Settings CRUD, Apprise notifications, MQTT test, alerts config, log streaming (SSE) | `/api/settings`, `/api/apprise`, `/api/mqtt/test`, `/api/alerts`, `/api/logs` |
+| `metrics.js` | Prometheus scrape endpoint (text exposition format) | `/metrics`, `/api/metrics` |
 | `system.js` | Service management, health metrics, hardware info, model management | `/api/services`, `/api/health`, `/api/models` |
 | `telemetry.js` | Telemetry: registration, anonymous pings toggle | `/api/telemetry/register`, `/api/telemetry/status`, `/api/telemetry/anonymous-pings` |
 | `timeline.js` | Timeline data with SunCalc astronomy (sunrise/sunset/moon) | `/api/timeline` |
@@ -288,6 +367,8 @@ Directory: `server/lib/`
 | `telemetry.js` | Supabase telemetry: station registration (UUID, GPS, hardware), daily reports (top species, rare species), 6-hour heartbeat cycle. |
 | `weekly-digest.js` | Editorial weekly digest sent via Apprise every Monday 08:00 local. 5 curated lines (numbers, highlight by priority rare>first-of-year>notable, best moment, phenology shift, top 3). Idempotent via `config/digest.json` (lastSentAt). Replaces the legacy weekly-report data dump. |
 | `whats-new-worker.js` | Worker thread script: runs 10 heavy SQLite queries in isolation. Computes alerts (out-of-season, activity spikes, species return), phenology (first-of-year, streaks, seasonal peaks), context (dawn chorus, acoustic quality, species richness, moon phase). |
+| `mqtt-publisher.js` | Opt-in MQTT publisher (`MQTT_ENABLED=1`). Polls detections DB every 15s, publishes JSON per detection on `<prefix>/<station>/detection`, retained `last_species`, LWT `status`. Optional Home Assistant auto-discovery (`MQTT_HASS_DISCOVERY=1`) creates Last species + Last confidence sensor entities. Reconnect with exponential backoff (2s → 60s); disconnects + reconnects when broker/credentials change. |
+| `metrics.js` | Prometheus exposition. Custom gauges (detections total/today/last-hour, species today/30d, last-detection age, DB size), system gauges (CPU temp/usage, RAM, disk, fan, uptime), feature toggles, version info. Default Node.js process metrics under `birdash_node_` prefix. Refreshed lazily on each scrape — no background timer. |
 
 ### Worker Thread Architecture
 
