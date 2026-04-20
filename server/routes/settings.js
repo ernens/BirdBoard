@@ -80,6 +80,14 @@ function handle(req, res, pathname, ctx) {
             res.end(JSON.stringify({ error: errors.join('; ') }));
             return;
           }
+          // Snapshot the values that drive side-effect reloads BEFORE we
+          // write. The settings UI re-sends the full set of keys on every
+          // save, so "key in validated" by itself fires the side effect on
+          // every save — we only want to fire when the value actually changed.
+          let prevRecordingLength;
+          if ('RECORDING_LENGTH' in validated) {
+            try { prevRecordingLength = (await parseBirdnetConf()).RECORDING_LENGTH; } catch {}
+          }
           await writeBirdnetConf(validated);
           const newEtag = await safeConfig.etagOfFile(BIRDNET_CONF);
           console.log(`[settings] Updated: ${Object.keys(validated).join(', ')}`);
@@ -91,10 +99,14 @@ function handle(req, res, pathname, ctx) {
           if (Object.keys(validated).some(k => k.startsWith('AUTH_'))) {
             require('../lib/auth').refreshConfig().catch(e => console.warn('[settings] auth refresh:', e.message));
           }
-          // Restart the recording service when chunk length changes — arecord
-          // reads it at process start, so the new value only takes effect on
-          // the next systemd cycle.
-          if ('RECORDING_LENGTH' in validated) {
+          // Restart the recording service when chunk length actually changes
+          // — arecord reads it at process start, so the new value only takes
+          // effect on the next systemd cycle. Skip when the value is unchanged
+          // (the UI re-sends every key on save) to avoid a 5-7 s recording
+          // gap on every Save click.
+          if ('RECORDING_LENGTH' in validated
+              && String(validated.RECORDING_LENGTH) !== String(prevRecordingLength)) {
+            console.log(`[settings] RECORDING_LENGTH ${prevRecordingLength} -> ${validated.RECORDING_LENGTH}, restarting birdengine-recording`);
             require('child_process').exec('sudo systemctl restart birdengine-recording',
               (err) => { if (err) console.warn('[settings] recording restart:', err.message); });
           }

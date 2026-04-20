@@ -542,8 +542,13 @@ def init_db(db_path):
     """Create the detections database if it doesn't exist."""
     import sqlite3
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    # timeout=30 gives us a 30 s busy-wait when birdash is holding the
+    # write lock (aggregates rebuild, alerts query, etc.) — well beyond
+    # Node's busy_timeout=5000 so we're the patient party rather than
+    # the one raising "database is locked".
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS detections (
             Date DATE,

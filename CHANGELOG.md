@@ -2,6 +2,18 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.29.2] — 2026-04-20
+
+### Bug-hunt sweep across today's work
+
+Two regressions surfaced when auditing today's changes end-to-end:
+
+- **`sqlite3.OperationalError: database is locked`** in the Perch worker. Cause: Python's default `sqlite3.connect` uses a 5 s timeout, same as Node's `busy_timeout`. When birdash's writer (aggregates rebuild, alert queries) holds the lock for >5 s during a Perch insert, the engine raises and the in-flight detections lose their MP3 clips. Fix: `sqlite3.connect(timeout=30)` + `PRAGMA busy_timeout=30000` so the engine is the patient party.
+
+- **`birdengine-recording` restarts on every Save click.** The 1.29.1 hook fired whenever `RECORDING_LENGTH` was in the validated payload — but the settings UI re-sends the full key set on every save. Each click caused a 5–7 s gap in audio capture even when the value hadn't changed. Fix: snapshot the previous value via `parseBirdnetConf()` before writing, only restart if `prev !== new`.
+
+Both fixes verified live: 0 DB locks since deployment, sound-level monitor still flowing, settings save no longer interrupts recording.
+
 ## [1.29.1] — 2026-04-20
 
 ### YAMNet pre-filter UX polish + recording length actually configurable
