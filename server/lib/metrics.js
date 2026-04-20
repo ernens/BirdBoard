@@ -131,6 +131,34 @@ const featureEnabled = new promClient.Gauge({
   registers: [register],
 });
 
+// ── Sound level (dBFS, uncalibrated) ──────────────────────────────────────
+// Written per WAV by the Python engine into config/sound_level.json.
+// Trend-only: reflects relative input loudness, not absolute SPL.
+
+const soundLeq = new promClient.Gauge({
+  name: 'birdash_sound_leq_dbfs',
+  help: 'Leq (RMS) over the last processed WAV, in dBFS (0 = full scale)',
+  registers: [register],
+});
+
+const soundPeak = new promClient.Gauge({
+  name: 'birdash_sound_peak_dbfs',
+  help: 'Peak amplitude of the last processed WAV, in dBFS',
+  registers: [register],
+});
+
+const soundLeqAvg1h = new promClient.Gauge({
+  name: 'birdash_sound_leq_1h_avg_dbfs',
+  help: 'Energy-average Leq over the last hour, in dBFS',
+  registers: [register],
+});
+
+const soundAgeSec = new promClient.Gauge({
+  name: 'birdash_sound_last_reading_age_seconds',
+  help: 'Seconds since the last sound-level reading was written by the engine',
+  registers: [register],
+});
+
 // ── Refresh helpers ───────────────────────────────────────────────────────
 
 let _db = null;
@@ -218,6 +246,35 @@ async function _refreshSystem() {
   } catch {}
 }
 
+function _refreshSoundLevel() {
+  try {
+    const soundPath = path.join(process.env.HOME || '/home/bjorn', 'birdash/config/sound_level.json');
+    if (!fs.existsSync(soundPath)) return;
+    const raw = fs.readFileSync(soundPath, 'utf8');
+    const state = JSON.parse(raw);
+    const cur = state && state.current;
+    if (cur && typeof cur.leq === 'number') {
+      soundLeq.set(cur.leq);
+      soundPeak.set(typeof cur.peak === 'number' ? cur.peak : -120);
+      if (typeof cur.ts === 'number') {
+        soundAgeSec.set(Math.max(0, Math.floor(Date.now() / 1000 - cur.ts)));
+      }
+    }
+    const buf = state && state.buffer;
+    if (Array.isArray(buf) && buf.length) {
+      // Energy-average: sum(10^(leq/10)) / N → 10·log10 of that
+      const cutoff = Date.now() / 1000 - 3600;
+      const recent = buf.filter(e => typeof e.leq === 'number' && typeof e.ts === 'number' && e.ts >= cutoff);
+      if (recent.length) {
+        const sum = recent.reduce((s, e) => s + Math.pow(10, e.leq / 10), 0);
+        soundLeqAvg1h.set(10 * Math.log10(sum / recent.length));
+      }
+    }
+  } catch (e) {
+    // Missing file is fine (engine hasn't written yet, or feature off)
+  }
+}
+
 async function _refreshFeatures() {
   if (!_parseBirdnetConf) return;
   try {
@@ -241,6 +298,7 @@ function init({ db, execCmd, parseBirdnetConf }) {
 
 async function collect() {
   _refreshDb();
+  _refreshSoundLevel();
   await Promise.all([_refreshSystem(), _refreshFeatures()]);
   return register.metrics();
 }

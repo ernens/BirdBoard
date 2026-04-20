@@ -2,6 +2,21 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.28.0] — 2026-04-20
+
+### Live sound-level monitor (Leq / peak in dBFS)
+
+Adds per-chunk acoustic health telemetry so you can spot wind, traffic, a dead mic, or silent overnight hours at a glance.
+
+- New `compute_sound_level()` + `record_sound_level()` helpers in `engine.py` — RMS and peak in dBFS, computed on the raw signal before adaptive gain or filters (reflects what the microphone actually captured)
+- Rolling ring buffer written to `config/sound_level.json` (last 120 readings ≈ 90 min at 45 s/chunk), atomic replace to avoid partial reads
+- New Prometheus gauges in `server/lib/metrics.js`: `birdash_sound_leq_dbfs`, `_peak_dbfs`, `_leq_1h_avg_dbfs` (energy-average), `_last_reading_age_seconds`
+- New `GET /api/sound-level` route serving `current + avg_1h + buffer` for the UI
+- New "Niveau sonore (en direct)" card at the top of Settings → Audio: big Leq readout, peak, 1 h average, live sparkline (60 last points), auto-refresh every 5 s while the tab is open
+- i18n keys in 4 languages, note about dBFS being uncalibrated (trend-tracking, not SPL)
+
+Overhead: a few µs per WAV (numpy vectorized RMS on ~2 M samples). Runs unconditionally — no setting to toggle, no measurable cost.
+
 ## [1.27.0] — 2026-04-20
 
 ### Privacy filter + dog bark filter (YAMNet pre-analysis)

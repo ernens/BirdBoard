@@ -93,6 +93,7 @@ Modernes Vogelerkennungs-Dashboard und Engine fur Raspberry Pi 5. Eigenstandige 
 - <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Benachrichtigungen** — ntfy.sh + In-App-Glocke
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **MQTT** — veroffentlicht jede Erkennung an einen MQTT-Broker (Mosquitto, Home Assistant…) mit Home-Assistant-Auto-Discovery
 - <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Prometheus `/metrics`** — Scrape-Ziel fur Prometheus / Grafana / VictoriaMetrics mit Erkennungs-, System- und Feature-Metriken
+- <img src="docs/icons/mic.svg" width="16" align="top" alt=""> **Live-Schallpegel (Leq / Peak)** — RMS und Peak in dBFS pro Aufnahme, verfugbar unter `/metrics` und als Live-Karte in Einstellungen > Audio mit 60-Punkte-Sparkline. Erkennt Wind, Verkehr, defektes Mikrofon oder stille Nachte. Unkalibriert (Trend, kein absolutes SPL)
 - <img src="docs/icons/lock.svg" width="16" align="top" alt=""> **Auth & Zugriffskontrolle** — Opt-in, Einzelbenutzer, bcrypt. 3 Modi: `off`, `protected`, **`public-read`** (Besucher konnen Erkennungen ansehen, Anmeldung nur zum Andern der Konfiguration). HMAC-signierte Cookies. Bearer-Token bleibt fur Automation aktiv. Cloudflare-Tunnel-Anleitung im englischen README
 - <img src="docs/icons/list.svg" width="16" align="top" alt=""> **Live-Log** — Echtzeit-Dashboard (SSE) mit farbcodierten Kategorien, Filtern, KPIs
 - <img src="docs/icons/terminal.svg" width="16" align="top" alt=""> **Web-Terminal** — Bash im Browser

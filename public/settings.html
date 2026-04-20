@@ -1803,6 +1803,49 @@ const app = createApp({
         finally { boostState.saving = false; }
       }, 250);
     }
+    // Sound level (Leq / peak in dBFS) — populated by the Python engine
+    // once per processed WAV. UI polls every 5s while the audio tab is open.
+    const soundLevel = reactive({
+      available: false,
+      leq: null, peak: null, avg1h: null, ageSec: null,
+      sparkPath: '',
+    });
+    let _soundLevelTimer = null;
+    async function loadSoundLevel() {
+      try {
+        const d = await fetch(API + '/sound-level').then(r => r.json());
+        if (!d.available) { soundLevel.available = false; return; }
+        soundLevel.available = true;
+        soundLevel.leq = d.current?.leq ?? null;
+        soundLevel.peak = d.current?.peak ?? null;
+        soundLevel.avg1h = typeof d.avg_1h_dbfs === 'number' ? d.avg_1h_dbfs : null;
+        soundLevel.ageSec = d.age_seconds;
+        // Sparkline: last 60 points, map dBFS [-90..0] to SVG y [38..2]
+        const buf = (d.buffer || []).slice(-60);
+        if (buf.length >= 2) {
+          const w = 200, h = 40;
+          const yFor = (v) => {
+            const clipped = Math.max(-90, Math.min(0, v));
+            return 2 + (h - 4) * (1 - (clipped + 90) / 90);
+          };
+          const step = w / (buf.length - 1);
+          soundLevel.sparkPath = buf.map((e, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)} ${yFor(e.leq).toFixed(1)}`).join(' ');
+        } else {
+          soundLevel.sparkPath = '';
+        }
+      } catch {
+        soundLevel.available = false;
+      }
+    }
+    function startSoundLevelPoll() {
+      loadSoundLevel();
+      if (_soundLevelTimer) clearInterval(_soundLevelTimer);
+      _soundLevelTimer = setInterval(loadSoundLevel, 5000);
+    }
+    function stopSoundLevelPoll() {
+      if (_soundLevelTimer) { clearInterval(_soundLevelTimer); _soundLevelTimer = null; }
+    }
+
     async function loadAudioProfiles() {
       try {
         const data = await fetch(API + '/audio/profiles').then(r => r.json());
@@ -2064,6 +2107,9 @@ const app = createApp({
         loadTftStatus();
         _tftPollTimer = setInterval(loadTftStatus, 5000);
       }
+      // Sound-level poll only while on the audio tab
+      if (v === 'audio') startSoundLevelPoll();
+      else stopSoundLevelPoll();
     });
 
     // ── Provide context to lazy-loaded tab components ──────────────
@@ -2080,6 +2126,7 @@ const app = createApp({
       loadAudioDevices, selectAudioDevice, activateAudioProfile,
       duplicateAudioProfile, deleteAudioProfile,
       boostState, saveBoostDb, loadBoost,
+      soundLevel,
       startCalibration, applyCalibration,
       startMonitor, stopMonitor, testAudio,
       loading, saving, svcLoading, saveMsg, saveErr,
@@ -2223,6 +2270,7 @@ const app = createApp({
       loadAudioDevices, selectAudioDevice, activateAudioProfile,
       duplicateAudioProfile, deleteAudioProfile,
       boostState, saveBoostDb, loadBoost,
+      soundLevel,
       startCalibration, applyCalibration,
       startMonitor, stopMonitor, testAudio,
       loading, saving, svcLoading, saveMsg, saveErr,

@@ -53,6 +53,73 @@ def read_audio(path, sample_rate):
     return data
 
 
+# ---------------------------------------------------------------------------
+# Sound-level monitoring (Leq / peak in dBFS)
+# ---------------------------------------------------------------------------
+# Computed per WAV before adaptive gain or filtering, so values reflect the
+# raw microphone signal — useful for spotting wind, traffic, overnight
+# silence, or a dead capture chain. Values are dBFS (0 = full scale), not
+# SPL — trend-tracking only, not a calibrated sound-level meter.
+
+_SOUND_LEVEL_FLOOR = -120.0  # dB floor for silent frames (avoid -inf)
+_SOUND_LEVEL_RING = 120      # keep ~90 min at 45s/chunk
+
+
+def _sound_level_path():
+    home = os.environ.get("HOME", os.path.expanduser("~"))
+    primary_dir = os.path.join(home, "birdash", "config")
+    if os.path.isdir(primary_dir):
+        return os.path.join(primary_dir, "sound_level.json")
+    # fallback: relative to engine file
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "config", "sound_level.json")
+
+
+def compute_sound_level(samples):
+    """Return (leq_dbfs, peak_dbfs) for a mono float32 signal in [-1, 1]."""
+    if samples is None or samples.size == 0:
+        return _SOUND_LEVEL_FLOOR, _SOUND_LEVEL_FLOOR
+    # RMS over the whole chunk → dBFS (reference = full scale 1.0)
+    rms = float(np.sqrt(np.mean(np.square(samples, dtype=np.float64))))
+    peak = float(np.max(np.abs(samples)))
+    leq = 20.0 * math.log10(rms) if rms > 1e-10 else _SOUND_LEVEL_FLOOR
+    pk = 20.0 * math.log10(peak) if peak > 1e-10 else _SOUND_LEVEL_FLOOR
+    return max(leq, _SOUND_LEVEL_FLOOR), max(pk, _SOUND_LEVEL_FLOOR)
+
+
+def record_sound_level(leq_dbfs, peak_dbfs, duration_sec, file_basename=""):
+    """Append a reading to config/sound_level.json (rolling buffer)."""
+    path = _sound_level_path()
+    try:
+        state = {}
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    state = json.load(f) or {}
+            except (OSError, json.JSONDecodeError):
+                state = {}
+        buf = state.get("buffer") or []
+        entry = {
+            "ts": time.time(),
+            "leq": round(leq_dbfs, 2),
+            "peak": round(peak_dbfs, 2),
+            "dur": round(duration_sec, 2),
+        }
+        buf.append(entry)
+        if len(buf) > _SOUND_LEVEL_RING:
+            buf = buf[-_SOUND_LEVEL_RING:]
+        state["current"] = {**entry, "file": file_basename}
+        state["buffer"] = buf
+        # atomic replace to avoid partial reads by Node
+        tmp = path + ".tmp"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump(state, f)
+        os.replace(tmp, path)
+    except Exception as e:
+        log.debug("[sound-level] write failed: %s", e)
+
+
 def apply_adaptive_gain(samples, api_url="http://127.0.0.1:7474"):
     """Apply adaptive gain from birdash server if enabled and not in observer mode.
 
@@ -1058,6 +1125,14 @@ class BirdEngine:
             raw_sig, raw_sr = sf.read(file_path, dtype="float32", always_2d=False)
             if raw_sig.ndim > 1:
                 raw_sig = raw_sig.mean(axis=1)
+
+            # Sound-level snapshot (dBFS, uncalibrated) — pre-gain/pre-filter
+            try:
+                leq_db, peak_db = compute_sound_level(raw_sig)
+                duration = len(raw_sig) / float(raw_sr) if raw_sr else 0.0
+                record_sound_level(leq_db, peak_db, duration, basename)
+            except Exception as e:
+                log.debug("[sound-level] compute failed: %s", e)
 
             # ── YAMNet pre-filter (privacy + dog) ─────────────────────
             # Runs BEFORE adaptive gain so we classify the original audio

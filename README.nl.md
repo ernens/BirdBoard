@@ -93,6 +93,7 @@ Modern vogeldetectie-dashboard en engine voor Raspberry Pi 5. Zelfstandige dual-
 - <img src="docs/icons/bell.svg" width="16" align="top" alt=""> **Meldingen** — ntfy.sh + in-app belletje
 - <img src="docs/icons/zap.svg" width="16" align="top" alt=""> **MQTT** — publiceert elke detectie naar een MQTT-broker (Mosquitto, Home Assistant…) met Home Assistant auto-discovery
 - <img src="docs/icons/bar-chart-3.svg" width="16" align="top" alt=""> **Prometheus `/metrics`** — scrape-doel voor Prometheus / Grafana / VictoriaMetrics met detectie-, systeem- en feature-metrieken
+- <img src="docs/icons/mic.svg" width="16" align="top" alt=""> **Live geluidsniveau (Leq / piek)** — RMS en piek in dBFS per opname, beschikbaar op `/metrics` en als live-kaart in Instellingen > Audio met sparkline (60 punten). Handig om wind, verkeer, een dode microfoon of stille nachten te spotten. Ongecalibreerd (trend, geen absoluut SPL)
 - <img src="docs/icons/lock.svg" width="16" align="top" alt=""> **Auth & toegangscontrole** — opt-in, een gebruiker, bcrypt. 3 modi: `off`, `protected`, **`public-read`** (publiek kan detecties bekijken, aanmelden alleen voor configuratie). HMAC-getekende cookies. Bearer-token blijft werken voor automatisering. Cloudflare Tunnel-handleiding in de Engelse README
 - <img src="docs/icons/list.svg" width="16" align="top" alt=""> **Live log** — realtime dashboard (SSE) met kleurgecodeerde categorieën, filters, KPIs
 - <img src="docs/icons/terminal.svg" width="16" align="top" alt=""> **Web terminal** — bash in browser

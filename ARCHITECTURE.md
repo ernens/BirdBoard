@@ -324,6 +324,7 @@ Standard Prometheus exposition format on `GET /metrics` (and `/api/metrics` for 
 - `birdash_system_uptime_seconds`
 - `birdash_feature_enabled{feature="mqtt|notifications|dual_model|birdweather|weekly_digest"}`
 - `birdash_version_info{version="x.y.z"}` (always 1 — useful for `count by (version)`)
+- `birdash_sound_leq_dbfs` / `_peak_dbfs` / `_leq_1h_avg_dbfs` / `_last_reading_age_seconds` — per-chunk acoustic telemetry, dBFS, uncalibrated (trend-tracking; see "Sound-level monitor" below)
 
 **Default Node.js process metrics** (eventloop lag, GC, heap, RSS, file descriptors, …) under the `birdash_node_` prefix from `prom-client`'s `collectDefaultMetrics`.
 
@@ -338,6 +339,26 @@ scrape_configs:
     metrics_path: /birds/metrics
     scrape_interval: 30s
 ```
+
+### Sound-level monitor
+
+The Python engine writes one reading per processed WAV into `config/sound_level.json` via `compute_sound_level()` + `record_sound_level()` helpers in `engine.py`. Values are computed on the *raw* signal before adaptive gain / filters, so the metric reflects the microphone's actual capture, not the post-processed chain.
+
+Schema:
+```json
+{
+  "current": { "ts": 1776697630.75, "leq": -38.7, "peak": -27.3, "dur": 45.0, "file": "…wav" },
+  "buffer":  [ { "ts": …, "leq": …, "peak": …, "dur": … }, … up to 120 entries ]
+}
+```
+
+Writes use atomic replace (`…tmp` + `os.replace`) so Node never sees a partial read.
+
+- **Prometheus**: `server/lib/metrics.js` reads the JSON on each scrape, publishes 4 gauges incl. an energy-average 1 h Leq (`10·log10(mean(10^(leq/10)))` over entries ≥ cutoff).
+- **API**: `GET /api/sound-level` returns `{available, current, avg_1h_dbfs, age_seconds, buffer}` for UI widgets.
+- **UI**: Settings → Audio shows a live card (Leq, peak, 1 h avg, 60-point sparkline, age indicator) refreshed every 5 s while the tab is active.
+
+Values are **dBFS, not SPL** — they track relative loudness trends, not calibrated pressure levels. A calibrated reference would require a known source + a per-mic correction offset, which birdash intentionally doesn't attempt.
 
 ---
 
