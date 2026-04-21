@@ -42,6 +42,10 @@ const IGNORE_PATTERNS = [
   // already filtered server-side in the response handler.
   /status of 502/i,
   /status of 504/i,
+  // Console.error from birdQuery surfaces these as "HTTP 502" / "HTTP 504"
+  // (different wording than fetch's "status of") — same nav-cancel root cause.
+  /\bHTTP 502\b/i,
+  /\bHTTP 504\b/i,
 ];
 
 function shouldIgnore(text) {

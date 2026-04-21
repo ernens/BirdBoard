@@ -268,15 +268,6 @@ describe('POST /api/audio/profiles — Validation', () => {
 // NEW TESTS — Detection rules
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('GET /api/detection-rules', () => {
-  it('returns detection rules', async () => {
-    const res = await request('/api/detection-rules');
-    assert.equal(res.status, 200);
-    assert.ok(res.json.hasOwnProperty('auto_flag'));
-    assert.ok(res.json.hasOwnProperty('rules'));
-  });
-});
-
 describe('GET /api/flagged-detections', () => {
   it('returns flagged detections for a date', async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -898,13 +889,6 @@ describe('GET /api/taxonomy', () => {
   });
 });
 
-describe('GET /api/detections-by-taxonomy', () => {
-  it('returns taxonomy breakdown or 503', async () => {
-    const res = await request('/api/detections-by-taxonomy');
-    assert.ok([200, 503].includes(res.status));
-  });
-});
-
 // ══════════════════════════════════════════════════════════════════════════
 // EXPANDED TESTS — Hardware, network, languages
 // ══════════════════════════════════════════════════════════════════════════
@@ -956,12 +940,6 @@ describe('GET /api/photo — Edge cases', () => {
   it('returns image or redirect for valid species', async () => {
     const res = await request('/api/photo?sci=Pica+pica');
     assert.ok([200, 302, 404].includes(res.status));
-  });
-
-  it('photo-cache-stats returns object', async () => {
-    const res = await request('/api/photo-cache-stats');
-    assert.equal(res.status, 200);
-    assert.equal(typeof res.json, 'object');
   });
 });
 
@@ -1108,36 +1086,6 @@ describe('Species lists', () => {
     const res = await request('/api/species-lists');
     assert.ok([200, 429].includes(res.status));
     if (res.status === 200) assert.ok(Array.isArray(res.json.include) || Array.isArray(res.json.exclude));
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════
-// EXPANDED TESTS — Detection rules update cycle
-// ══════════════════════════════════════════════════════════════════════════
-
-describe('POST /api/detection-rules — Update cycle', () => {
-  let originalRules = null;
-
-  it('GET and save original rules', async () => {
-    const res = await request('/api/detection-rules');
-    assert.ok([200, 429].includes(res.status));
-    if (res.status === 200) { assert.ok(res.json.rules); originalRules = res.json; }
-  });
-
-  it('update rules and restore', async () => {
-    if (!originalRules) return;
-    const modified = { ...originalRules, _test_marker: true };
-    const res = await request('/api/detection-rules', { method: 'POST',
-      body: modified });
-    assert.equal(res.status, 200);
-
-    const check = await request('/api/detection-rules');
-    assert.equal(check.json._test_marker, true);
-
-    // Restore original
-    const restore = await request('/api/detection-rules', { method: 'POST',
-      body: originalRules });
-    assert.equal(restore.status, 200);
   });
 });
 

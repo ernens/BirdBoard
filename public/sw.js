@@ -4,7 +4,7 @@
  * Stratégie : cache-first pour les assets, network-first pour l'API.
  */
 
-const CACHE_NAME = 'birdash-v129';
+const CACHE_NAME = 'birdash-v130';
 
 // Assets statiques à pré-cacher à l'installation
 const PRECACHE = [
@@ -54,6 +54,14 @@ self.addEventListener('fetch', (event) => {
   // Ignorer les requêtes non-GET
   if (event.request.method !== 'GET') return;
 
+  // Photos d'oiseaux : cache-first (changent rarement, et l'endpoint /api/photo
+  // proxy déjà ses propres CDN — re-cacher au niveau SW évite les allers-retours).
+  // Doit passer AVANT le early-return /birds/api/.
+  if (url.pathname.startsWith('/birds/api/photo')) {
+    event.respondWith(cacheFirst(event.request));
+    return;
+  }
+
   // API : network-only (données live)
   if (url.pathname.startsWith('/birds/api/')) return;
 
@@ -79,12 +87,6 @@ self.addEventListener('fetch', (event) => {
   // Pages HTML : network-first (toujours fraîches)
   if (event.request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(networkFirst(event.request));
-    return;
-  }
-
-  // Photos d'oiseaux (cache API) : cache-first (changent rarement)
-  if (url.pathname.startsWith('/birds/api/photo')) {
-    event.respondWith(cacheFirst(event.request));
     return;
   }
 });
@@ -120,14 +122,3 @@ async function networkFirst(request) {
   }
 }
 
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  // Lancer la revalidation en arrière-plan
-  const fetchPromise = fetch(request).then(response => {
-    if (response.ok) cache.put(request, response.clone());
-    return response;
-  }).catch(() => null);
-  // Retourner le cache immédiatement, ou attendre le réseau
-  return cached || await fetchPromise || new Response('Offline', { status: 503 });
-}

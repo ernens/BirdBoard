@@ -2,6 +2,20 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.30.1] — 2026-04-21
+
+### Quality pass: CI, smoke filters, service-worker fixes
+
+Round of housekeeping — no user-visible behaviour change, but the test harness, smoke tool, and offline cache are all tighter.
+
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) — `npm ci && npm test` on every push + PR to `main`. Catches silent backend regressions before they reach a Pi.
+- **Test harness** — `npm test` now runs every `tests/*.test.js` file, not just `server.test.js`. The `safe-config` concurrency suite was never running before. Removed 4 zombie tests that referenced endpoints deleted in earlier refactors (`/api/detection-rules` GET/POST, `/api/detections-by-taxonomy`, `/api/photo-cache-stats`) — all 155 remaining tests green.
+- **`scripts/smoke.mjs`** — added `HTTP 502` / `HTTP 504` to console-error ignore list. These wrapper strings come from `birdQuery` when Caddy cancels the upstream during a navigation, not from actual backend failures. Smoke now reports 35/35 pages clean.
+- **`public/sw.js`** — two real bugs fixed in the service worker:
+  - Species photo cache was **unreachable**: the `/birds/api/photo` cache-first branch sat *after* a blanket `/birds/api/` early-return, so it never executed. Moved the photo check above the early-return — bird photos now genuinely cache in the service worker.
+  - Removed unused `staleWhileRevalidate` helper (dead code).
+  - Cache bumped to `v130`.
+
 ## [1.30.0] — 2026-04-20
 
 ### Bundled real BirdNET FP16 model — FP16 selection is no longer a lie
