@@ -205,6 +205,9 @@ Raspberry Pi 5 + SSD
 - Skeleton loading states for data-heavy pages
 - Cross-navigation between settings and system pages
 
+### First-run setup wizard
+- <img src="docs/icons/sparkles.svg" width="16" align="top" alt=""> **7-step hardware-aware modal** — auto-triggered on fresh install (no setup flag, lat/lon=0). Detects Pi model, RAM, sound cards, disks, internet via `/api/setup/hardware-profile` and proposes adapted defaults. Steps: Welcome (with detected hardware preview) → Location → Audio source (USB-recommended badge) → Model (Single/Dual based on hardware) → Pre-filters (privacy + dog) → Integrations (BirdWeather, Apprise) → Recap. **Applies config to disk without restarting any service** — ongoing detections never interrupted, user restarts the engine when ready. Re-runnable any time from Settings → Station → "Launch wizard". Auto-skipped after first successful completion via `config/setup-completed.json`. Available in 4 languages.
+
 ### Detection Review
 - <img src="docs/icons/search.svg" width="16" align="top" alt=""> **Auto-flagging** — nocturnal birds by day, out-of-season migrants, low confidence isolates, non-European species
 - <img src="docs/icons/check-circle.svg" width="16" align="top" alt=""> **Bulk actions** — confirm/reject/delete by rule, per-selection, or purge all rejected
@@ -473,7 +476,16 @@ birdash/
 │   │   ├── weather-watcher.js     # Hourly Open-Meteo poll + archive backfill
 │   │   └── whats-new-worker.js    # Worker thread for heavy computation
 │   └── routes/
-│       ├── audio.js               # Audio devices, streaming, profiles, monitoring
+│       ├── audio.js               # Audio routes — thin dispatcher (45 lines)
+│       ├── audio/                  # Audio sub-modules (split from audio.js)
+│       │   ├── _helpers.js         # jsonConfigGet/Post, paths, whitelists
+│       │   ├── streaming.js        # /api/audio-info, audio-stream, live-stream, live-pcm
+│       │   ├── devices.js          # /api/audio/devices, test, config, boost
+│       │   ├── profiles.js         # /api/audio/profiles CRUD + activate
+│       │   ├── calibration.js      # Inter-channel gain wizard
+│       │   ├── monitoring.js       # SSE VU meter + filter preview
+│       │   ├── adaptive_gain.js    # Adaptive-gain endpoints + bg collector
+│       │   └── noise_profile.js    # Ambient-noise capture
 │       ├── backup.js              # Backup config, scheduling, export
 │       ├── bug-report.js          # In-app bug reporting (GitHub Issues)
 │       ├── comparison.js          # Seasonal report (spring/summer/autumn/winter)
@@ -482,6 +494,7 @@ birdash/
 │       ├── external.js            # BirdWeather, eBird, Open-Meteo, weather analytics
 │       ├── photos.js              # Photo resolution/caching, species names
 │       ├── settings.js            # Settings, apprise, alerts, logs SSE
+│       ├── setup.js               # Setup wizard backend (status, hardware-profile, complete)
 │       ├── system.js              # Services, health, hardware, models
 │       ├── telemetry.js           # Telemetry routes (register, anonymous pings toggle)
 │       ├── timeline.js            # Timeline with SunCalc astronomy
@@ -523,6 +536,7 @@ birdash/
 │   │   ├── bird-vue-core.js       # Vue composables, i18n (4 langs), shell
 │   │   ├── bird-spectro-modal.js # SpectroModal component (extracted)
 │   │   ├── bird-weather-chip.js   # &lt;weather-chip&gt; component + global cache
+│   │   ├── bird-setup-wizard.js   # &lt;setup-wizard&gt; 7-step onboarding modal
 │   │   ├── bird-timeline.js       # Timeline rendering (sky, stars, markers)
 │   │   ├── vue.global.prod.min.js # Vue 3 (vendored)
 │   │   ├── chart.umd.min.js      # Chart.js (vendored)

@@ -428,6 +428,32 @@ A shared `parseWeatherFilters(params)` helper inside `external.js` keeps `specie
 
 **Custom-search card** (weather.html, phase B): 6 filter rows (temp/precip/wind/hour ranges + WMO conditions checkboxes + date range), each with its own on/off toggle so empty filters mean "no constraint" (no magic-default surprise). 4 quick presets (Hard freeze / Sustained rain / Clear dawn / Rain-storm). Live update with 300 ms debounce + sequence-number race protection. URL-params persistence via `history.replaceState` so links stay shareable. CSV export of matching species.
 
+### Setup wizard
+
+A 7-step modal that walks new users through the essential configuration on first launch and is re-runnable from Settings → Station. Hardware-aware: detects the Pi model, RAM, sound cards, disks, and internet connectivity, then proposes adapted defaults the user can override.
+
+**Backend** (`server/routes/setup.js`):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/setup/status` | `{needed, completed_at, gaps}` — `needed=true` when no `config/setup-completed.json`, lat/lon=0/0, or no audio device |
+| `GET /api/setup/hardware-profile` | Pi model + tag (pi3/pi4/pi5/other), RAM, audio devices (USB-flagged), disks (external-flagged), internet probe, plus computed model recommendations |
+| `POST /api/setup/complete` | Applies all 5 categories of choices in batch (location, audio device, model + dual flag, YAMNet filters, BirdWeather + Apprise URLs); writes `setup-completed.json` atomically. **Does not restart any service** — config goes to disk, the user manually restarts when ready |
+
+Hardware-driven model recommendations:
+- Pi 5 + ≥4 GB → BirdNET FP16 + Perch FP16 (dual)
+- Pi 4 + ≥4 GB → BirdNET FP16 + Perch INT8 (dual)
+- Pi 3 → BirdNET FP16 (single, no Perch)
+
+**Frontend** (`public/js/bird-setup-wizard.js`):
+
+- Single shared reactive state on `BIRDASH._setupWizardState` so the same instance is reachable from any page (the modal sits in the `birdash-shell` template, rendered on all 23 pages).
+- 7 steps: Welcome → Location → Audio source → Detection model → Pre-filters → Integrations → Recap. Each step has a "Pourquoi ce réglage ?" expandable explainer for new-user education.
+- Auto-trigger on `overview.html` mount when `status.needed` is true and not dismissed in this browser session (sessionStorage flag).
+- `BIRDASH.openSetupWizard()` is the public entry point — used by the auto-trigger and by the Settings re-run button.
+
+The "no service restart" choice is deliberate: applying via the wizard while detections are running must not interrupt them. The user gets a clear note on the Recap step and decides when to restart.
+
 ---
 
 ## 3. Backend Architecture (Node.js)
@@ -460,7 +486,8 @@ Directory: `server/routes/`
 
 | File | Purpose | Key Endpoints |
 |------|---------|--------------|
-| `audio.js` | Audio devices, adaptive gain, PCM/MP3 streaming, VU meters (SSE) | `/api/audio/devices`, `/api/audio/adaptive-gain`, `/api/audio/stream`, `/api/audio/vu` |
+| `audio.js` (+ `audio/` subdir, 8 modules) | Thin dispatcher delegating to `audio/_helpers`, `streaming`, `devices`, `profiles`, `calibration`, `monitoring`, `adaptive_gain`, `noise_profile`. Refactored from a single 1094-line file in v1.36 — each sub-module fits in one screen | `/api/audio/devices`, `/api/audio/adaptive-gain`, `/api/audio-stream`, `/api/audio/monitor`, `/api/audio/profiles`, `/api/audio/calibration/*`, `/api/audio/noise-profile/*`, `/api/audio/boost`, `/api/audio/test`, `/api/audio/filter-preview`, `/api/live-stream`, `/api/live-pcm` |
+| `setup.js` | Setup wizard backend (status detection, hardware profile, batch-apply). Does not restart services — caller decides when | `/api/setup/status`, `/api/setup/hardware-profile`, `/api/setup/complete` |
 | `backup.js` | Backup configuration, scheduling, export | `/api/backup/config`, `/api/backup/run`, `/api/backup/history` |
 | `bug-report.js` | In-app bug reporting via GitHub Issues API | `/api/bug-report` |
 | `comparison.js` | Seasonal report: arrivals, departures, evolution | `/api/seasons/report` |
@@ -492,6 +519,7 @@ Directory: `server/lib/`
 | `ebird-frequency.js` | eBird regional frequency data for rarity determination. Replaces naive "3 local observations" heuristic. |
 | `local-date.js` | Locale-aware date string helper (`localDateStr()`). Used by aggregates for timezone-correct "today". |
 | `notification-watcher.js` | Polls detections DB every 30s, applies 5 notification rules, sends via Apprise with species photo. Replaces engine-side ntfy.sh. |
+| `weather-watcher.js` | Hourly Open-Meteo poll into `weather_hourly` table + one-shot archive backfill on startup (covers full detection history). Powers per-detection weather chips and the analytics endpoints. See *Weather subsystem* in §2. |
 | `result-cache.js` | In-memory TTL cache for expensive GET endpoints. `get(key)`, `set(key, data, ttl)`, `clearAll()` on any mutation. |
 | `safe-config.js` | Mutex-protected read-modify-write for config files. Per-file Promise-chain locking, deep clone before mutation, validation, atomic write (tmp + rename). ETag support for optimistic concurrency (409 Conflict). |
 | `telemetry.js` | Supabase telemetry: station registration (UUID, GPS, hardware), daily reports (top species, rare species), 6-hour heartbeat cycle. |
