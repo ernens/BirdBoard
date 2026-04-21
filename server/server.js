@@ -200,8 +200,9 @@ _telemetry.startDailyCron(db, parseBirdnetConf);
 // Notification watcher: polls detections, sends via Apprise
 _notifWatcher.start(db, birdashDb, parseBirdnetConf, ebirdFreq);
 // Weather watcher: hourly Open-Meteo snapshots so detections can show
-// the weather context they were recorded in.
-_weatherWatcher.start(birdashDb, parseBirdnetConf);
+// the weather context they were recorded in. `db` (detections) is passed
+// so the archive backfill knows how far back to go.
+_weatherWatcher.start(birdashDb, parseBirdnetConf, db);
 // Weekly digest: every Monday 08:00 local (opt-in via NOTIFY_DIGEST_ENABLED)
 _weeklyDigest.startWeeklyDigestCron(db, parseBirdnetConf);
 // MQTT publisher: opt-in (MQTT_ENABLED=1), publishes detections to a broker

@@ -4,19 +4,23 @@
  * stores them in birdash.db so each detection can be tagged with its
  * weather context (temperature, humidity, wind, precipitation, etc.).
  *
- * - On startup: backfills the past 7 days in one call.
- * - Then polls hourly: re-fetches the last 24h (cheap UPSERT, also catches
- *   any backfilled corrections from Open-Meteo).
- * - Silently skips when lat/lon are missing or Open-Meteo is unreachable —
- *   detections still flow, weather chips just won't show until next poll.
+ * Three data sources, all free, no API key:
+ * - Forecast API (api.open-meteo.com): hourly polling for the last ~2 days.
+ * - Forecast API past_days=7: startup refresh of the past week.
+ * - Archive API (archive-api.open-meteo.com): one-shot historical backfill
+ *   from the oldest detection in the DB up to ~6 days ago. Runs once per
+ *   process when a coverage gap is detected, chunked 1 year per request.
  *
- * Open-Meteo free tier: ~10K requests/day, no API key. Hourly poll = 24/day.
+ * Silent skip when lat/lon are missing or Open-Meteo is unreachable —
+ * detections still flow, weather chips just won't show until next poll.
  */
 const https = require('https');
 
 const POLL_INTERVAL = 60 * 60 * 1000;  // 1 hour
-const BACKFILL_DAYS = 7;
-const REQUEST_TIMEOUT = 15000;
+const RECENT_BACKFILL_DAYS = 7;        // forecast API on start
+const ARCHIVE_LAG_DAYS = 6;             // archive API runs ~5 days behind real-time
+const ARCHIVE_CHUNK_DAYS = 365;         // chunk huge ranges to stay polite
+const REQUEST_TIMEOUT = 30000;
 
 let _timer = null;
 let _birdashDb = null;
@@ -38,17 +42,34 @@ function fetchJson(url) {
   });
 }
 
+const HOURLY_VARS = 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,cloud_cover,surface_pressure,weather_code';
+
 async function fetchHourly(lat, lon, pastDays) {
   const params = [
     `latitude=${lat}`,
     `longitude=${lon}`,
-    'hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,cloud_cover,surface_pressure,weather_code',
+    `hourly=${HOURLY_VARS}`,
     `past_days=${pastDays}`,
     'forecast_days=1',
     'timezone=auto',
   ].join('&');
   return fetchJson(`https://api.open-meteo.com/v1/forecast?${params}`);
 }
+
+async function fetchArchive(lat, lon, startDate, endDate) {
+  const params = [
+    `latitude=${lat}`,
+    `longitude=${lon}`,
+    `hourly=${HOURLY_VARS}`,
+    `start_date=${startDate}`,
+    `end_date=${endDate}`,
+    'timezone=auto',
+  ].join('&');
+  return fetchJson(`https://archive-api.open-meteo.com/v1/archive?${params}`);
+}
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+function addDays(date, days) { const d = new Date(date); d.setUTCDate(d.getUTCDate() + days); return d; }
 
 function upsertSnapshots(data) {
   if (!data || !data.hourly || !Array.isArray(data.hourly.time)) return 0;
@@ -110,11 +131,62 @@ async function poll(pastDays, label) {
   }
 }
 
-function start(birdashDb, parseBirdnetConf) {
+// Historical backfill via the archive API. Runs once on startup if the
+// oldest snapshot is newer than the oldest detection (or the table is empty).
+// Chunked by ARCHIVE_CHUNK_DAYS to keep individual responses manageable.
+async function backfillArchive(detectionsDb) {
+  if (!_birdashDb || !_parseBirdnetConf || !detectionsDb) return;
+  try {
+    const conf = await _parseBirdnetConf();
+    const lat = conf.LATITUDE || conf.LAT;
+    const lon = conf.LONGITUDE || conf.LON;
+    if (!lat || !lon) return;
+
+    const det = detectionsDb.prepare('SELECT MIN(Date) AS oldest FROM detections').get();
+    if (!det || !det.oldest) return;
+    const oldestDet = new Date(det.oldest + 'T00:00:00Z');
+
+    const cov = _birdashDb.prepare('SELECT MIN(date) AS oldest FROM weather_hourly').get();
+    const oldestCov = cov && cov.oldest ? new Date(cov.oldest + 'T00:00:00Z') : null;
+
+    // Archive API stops ~5 days before today; our forecast poll covers the rest.
+    const archiveEnd = addDays(new Date(), -ARCHIVE_LAG_DAYS);
+    // Stop right before the existing coverage so we don't re-fetch what we have.
+    const target = oldestCov && oldestCov < archiveEnd ? addDays(oldestCov, -1) : archiveEnd;
+
+    if (oldestDet >= target) return;  // already covered
+
+    console.log(`[weather-watcher] archive backfill: ${isoDate(oldestDet)} → ${isoDate(target)}`);
+    let cursor = new Date(oldestDet);
+    while (cursor <= target) {
+      const chunkEnd = new Date(Math.min(addDays(cursor, ARCHIVE_CHUNK_DAYS - 1).getTime(), target.getTime()));
+      try {
+        const data = await fetchArchive(lat, lon, isoDate(cursor), isoDate(chunkEnd));
+        if (data && data.error) {
+          console.warn(`[weather-watcher] archive ${isoDate(cursor)}..${isoDate(chunkEnd)}: ${data.reason || data.error}`);
+        } else {
+          const n = upsertSnapshots(data);
+          console.log(`[weather-watcher] archive ${isoDate(cursor)}..${isoDate(chunkEnd)}: ${n} snapshots`);
+        }
+      } catch (e) {
+        console.warn(`[weather-watcher] archive chunk failed: ${e.message}`);
+      }
+      cursor = addDays(chunkEnd, 1);
+      // Be a polite citizen — small pause between chunks.
+      await new Promise(r => setTimeout(r, 500));
+    }
+  } catch (e) {
+    console.warn(`[weather-watcher] archive backfill error: ${e.message}`);
+  }
+}
+
+function start(birdashDb, parseBirdnetConf, detectionsDb) {
   if (!birdashDb || _timer) return;
   _birdashDb = birdashDb;
   _parseBirdnetConf = parseBirdnetConf;
-  poll(BACKFILL_DAYS, 'backfill');
+  poll(RECENT_BACKFILL_DAYS, 'recent');
+  // Historical backfill runs in the background; doesn't block startup.
+  if (detectionsDb) setTimeout(() => backfillArchive(detectionsDb), 5000);
   _timer = setInterval(() => poll(2, 'poll'), POLL_INTERVAL);
 }
 

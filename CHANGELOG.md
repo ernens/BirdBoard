@@ -2,6 +2,14 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.31.1] — 2026-04-21
+
+### Weather backfill via Open-Meteo archive API
+
+The initial 1.31.0 release only backfilled 7 days, so detections older than a week showed no weather chip. The watcher now also runs a one-shot historical backfill via `archive-api.open-meteo.com` from the oldest detection in the DB up to ~6 days ago (the archive cutoff), chunked 1 year per request to keep responses sane. Hourly polling continues to cover the recent past.
+
+On bird.local: 22,728 snapshots backfilled spanning Sept 2023 → April 2026 (~2.5 years of detection history) in three archive calls + one polite 500ms pause between chunks.
+
 ## [1.31.0] — 2026-04-21
 
 ### Per-detection weather context
