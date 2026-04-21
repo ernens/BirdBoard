@@ -4,6 +4,10 @@
    Google Fonts fetches the .woff2 files lazily when an element references
    these families, so shipping the import for free doesn't hurt other themes. */
 @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Special+Elite&family=Pinyon+Script&display=swap');
+/* Jungle theme fonts — Victorian-naturalist monograph display + humanist sans. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+/* Lab theme fonts — narrow specimen-label sans + humanist body + data mono. */
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
 /* Hide Vue templates until mounted — prevents {{moustache}} flash */
 [v-cloak] { display: none !important; }
@@ -429,6 +433,275 @@
   font-style: italic;
 }
 
+/* ── Jungle — Deep canopy, tropical-bird accents ─────────────────────────
+   Ambiance "forêt tropicale à la tombée du jour" : verts profonds tirant
+   sur le bleu, accents perroquet/ara/toucan. Playfair Display en affichage
+   (monographies victoriennes) + DM Sans en corpus. Thème sombre — satisfait
+   AA sur tout le texte corps (text-main vs bg-card ≈ 11.8:1). */
+[data-theme="jungle"] {
+  --bg-deep:      #0a1612;      /* canopée — header/nav band */
+  --bg-page:      #0e1f1a;      /* sous-bois */
+  --bg-card:      #14302a;      /* mousse sur tronc */
+  --bg-card2:     #1a3a33;
+  --bg-hover:     #204840;
+  --bg-input:     #0e1f1a;
+  --border:       #2a4f46;
+  --border-light: #3a665b;
+
+  --accent:     #3fb886;        /* parakeet green */
+  --accent-dim: #2a8862;
+  --on-accent:  #061a14;
+
+  --amber:     #f2b93d;         /* toucan yellow */
+  --amber-dim: #c89420;
+  --warning:   #f2b93d;
+
+  --danger:  #e24a3a;            /* macaw scarlet */
+  --success: #3fb886;
+  --info:    #5cb8d4;            /* kingfisher */
+  --blue:    #5cb8d4;
+
+  --text-main:  #eaf2ec;         /* lichen pâle */
+  --text-muted: #a8c4b8;
+  --text-faint: #6d8a7e;
+
+  --bg-spectro:      #061511;
+  --text-spectro:    #3fb88680;
+  --scrollbar-thumb: #2a4f46;
+  --scrollbar-track: #0e1f1a;
+
+  --shadow:        0 6px 32px rgba(0,0,0,.55);
+  --shadow-card:   0 1px 2px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.25);
+  --overlay-scrim: rgba(6,20,16,.72);
+
+  /* Typographie : Playfair pour l'affichage (naturaliste victorien),
+     DM Sans pour le corps lisible. */
+  --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Playfair Display', 'Newsreader', Georgia, serif;
+}
+
+/* Jungle data-viz — palette d'oiseaux tropicaux, désaturée pour les grandes
+   zones de data et saturée pour les catégories. */
+[data-theme="jungle"] {
+  --data-night: #1e4d6b;         /* heure bleue */
+  --data-dawn:  #f2b93d;         /* toucan */
+  --data-day:   #3fb886;         /* parakeet */
+  --data-dusk:  #e2744a;         /* coucher */
+
+  --data-abundance-0: #14302a;
+  --data-abundance-1: #2a8862;
+  --data-abundance-2: #3fb886;
+  --data-abundance-3: #9ee0b8;
+
+  --data-cat-1: #3fb886;
+  --data-cat-2: #5cb8d4;
+  --data-cat-3: #f2b93d;
+  --data-cat-4: #e24a3a;
+  --data-cat-5: #b38fd9;         /* orchidée */
+  --data-cat-6: #e2744a;
+  --data-cat-7: #6bd4a0;
+  --data-cat-8: #d93f6e;
+}
+
+/* Feuillage — lueur chaude ponctuelle, grain subtil. */
+[data-theme="jungle"] body {
+  background-color: #0e1f1a;
+  background-image:
+    radial-gradient(ellipse 500px 300px at 15% 10%, rgba(63,184,134,.08), transparent 60%),
+    radial-gradient(ellipse 600px 400px at 85% 85%, rgba(92,184,212,.06), transparent 60%),
+    radial-gradient(ellipse 300px 200px at 50% 50%, rgba(242,185,61,.04), transparent 60%),
+    radial-gradient(rgba(180,220,200,.025) 1px, transparent 1px);
+  background-size: auto, auto, auto, 3px 3px;
+}
+
+[data-theme="jungle"] .card {
+  background-color: var(--bg-card);
+  background-image:
+    radial-gradient(ellipse 240px 140px at 12% 18%, rgba(63,184,134,.07), transparent 65%),
+    radial-gradient(ellipse 160px 120px at 88% 82%, rgba(92,184,212,.05), transparent 65%),
+    linear-gradient(135deg, rgba(255,255,255,.012), rgba(0,0,0,.04));
+  border-color: var(--border);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.03) inset,
+    0 2px 8px rgba(0,0,0,.35);
+}
+
+/* Display serif en italique pour les titres de cartes (naturaliste). */
+[data-theme="jungle"] .card-title,
+[data-theme="jungle"] .section-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -.005em;
+}
+[data-theme="jungle"] .sec-label {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+[data-theme="jungle"] .sci-name,
+[data-theme="jungle"] .species-sci,
+[data-theme="jungle"] em.sci {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+[data-theme="jungle"] .btn-primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+
+/* ── Lab — Ornithologie de laboratoire ────────────────────────────────────
+   Clinique, clair, tiroir-de-collection-d'institut. Blancs tirés du froid,
+   gris-bleus neutres, filets hairline, rouge d'accession en accent.
+   Archivo Narrow pour l'affichage (étiquettes de spécimen), Inter corpus,
+   JetBrains Mono pour les nombres. Thème clair — contraste ink/paper
+   = 14.8:1 (AAA). */
+[data-theme="lab"] {
+  --bg-deep:      #e8ecef;       /* rail supérieur — gris institut */
+  --bg-page:      #f4f6f7;       /* papier spécimen */
+  --bg-card:      #ffffff;       /* fiche */
+  --bg-card2:     #f0f3f5;
+  --bg-hover:     #e4e9ec;
+  --bg-input:     #ffffff;
+  --border:       #c8d0d5;       /* hairline froid */
+  --border-light: #dde3e7;
+
+  --accent:     #0f5b6b;         /* bleu pétrole — étiquette institution */
+  --accent-dim: #0a434f;
+  --on-accent:  #ffffff;
+
+  --amber:     #c27312;          /* jaune d'archivage */
+  --amber-dim: #925408;
+  --warning:   #c27312;
+
+  --danger:  #c0262a;             /* rouge d'accession / alerte */
+  --success: #1f7a4e;             /* vert herbier */
+  --info:    #1d5ea8;
+  --blue:    #1d5ea8;
+
+  --text-main:  #0b1418;          /* encre carbone */
+  --text-muted: #4a5a64;
+  --text-faint: #7a8892;
+
+  --bg-spectro:      #0b1418;
+  --text-spectro:    #0f5b6b80;
+  --scrollbar-thumb: #b4bec5;
+  --scrollbar-track: #e8ecef;
+
+  --shadow:        0 2px 12px rgba(11,20,24,.06);
+  --shadow-card:   0 1px 0 rgba(11,20,24,.04), 0 1px 2px rgba(11,20,24,.05);
+  --overlay-scrim: rgba(11,20,24,.35);
+  --overlay-line:  rgba(11,20,24,.06);
+
+  /* Typographie : Archivo Narrow en affichage, Inter corpus,
+     Source Serif 4 pour les noms scientifiques, JetBrains Mono pour les
+     chiffres et références. */
+  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Archivo Narrow', 'Inter', system-ui, sans-serif;
+}
+
+/* Lab data-viz — palette froide, désaturée, lisible à fond blanc. */
+[data-theme="lab"] {
+  --data-night: #1d3a5c;
+  --data-dawn:  #c27312;
+  --data-day:   #1f7a4e;
+  --data-dusk:  #8a3a2e;
+
+  --data-abundance-0: #dde3e7;
+  --data-abundance-1: #8faab8;
+  --data-abundance-2: #3f6d86;
+  --data-abundance-3: #0f3a4e;
+
+  --data-cat-1: #0f5b6b;
+  --data-cat-2: #1d5ea8;
+  --data-cat-3: #1f7a4e;
+  --data-cat-4: #c27312;
+  --data-cat-5: #c0262a;
+  --data-cat-6: #6a4a85;
+  --data-cat-7: #4a5a64;
+  --data-cat-8: #8a3a2e;
+}
+
+/* Fond de paillasse — papier millimétrique très discret + hairline. */
+[data-theme="lab"] body {
+  background-color: var(--bg-page);
+  background-image:
+    linear-gradient(to right, rgba(11,20,24,.018) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11,20,24,.018) 1px, transparent 1px);
+  background-size: 32px 32px, 32px 32px;
+}
+
+/* Cartes = fiches blanches avec filet hairline, ombre quasi-absente. */
+[data-theme="lab"] .card {
+  background-color: var(--bg-card);
+  border-color: var(--border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Titres de carte = étiquettes narrow caps (specimen-label). */
+[data-theme="lab"] .card-title,
+[data-theme="lab"] .section-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+[data-theme="lab"] .sec-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: .78rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+[data-theme="lab"] .sci-name,
+[data-theme="lab"] .species-sci,
+[data-theme="lab"] em.sci {
+  font-family: 'Source Serif 4', 'Newsreader', Georgia, serif;
+  font-style: italic;
+  color: var(--text-main);
+}
+
+/* Nombres / stats / IDs en mono — lisibilité de registre. */
+[data-theme="lab"] .kpi-value,
+[data-theme="lab"] .stat-value,
+[data-theme="lab"] .mono,
+[data-theme="lab"] code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum', 'zero';
+}
+
+/* Boutons primaires : encre institutionnelle, pas de gradient. */
+[data-theme="lab"] .btn-primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent-dim);
+  border-radius: 3px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  font-size: .82rem;
+}
+
+/* Inputs : filet hairline, pas de rayon — champ pré-imprimé. */
+[data-theme="lab"] input[type="text"],
+[data-theme="lab"] input[type="search"],
+[data-theme="lab"] input[type="number"],
+[data-theme="lab"] input[type="email"],
+[data-theme="lab"] input[type="password"],
+[data-theme="lab"] textarea,
+[data-theme="lab"] select {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-main);
+  color-scheme: light;
+}
+
 /* ── High-contrast — Pure black, saturated accent ─────────────────────────
    WCAG AAA target. Stronger borders, max-opacity text, no decorative greys. */
 [data-theme="hicontrast"] {
@@ -609,7 +882,8 @@
 [data-theme="auto"],
 [data-theme="hicontrast"],
 [data-theme="solar-dark"],
-[data-theme="nord"] {
+[data-theme="nord"],
+[data-theme="jungle"] {
   --overlay-line: rgba(255,255,255,.10);
 }
 
@@ -1027,6 +1301,29 @@ select, input[type="text"], input[type="number"], textarea {
       #ebdec0 28% 62%,
       #c8b483 62% 100%
     );
+}
+/* Jungle: canopée sombre / mousse / feuillage, avec point toucan jaune. */
+.theme-dot[data-t="jungle"] {
+  background:
+    radial-gradient(circle 2.5px at 82% 24%, #f2b93d 55%, transparent 60%),
+    linear-gradient(
+      to bottom,
+      #0a1612 0% 28%,
+      #14302a 28% 62%,
+      #3fb886 62% 100%
+    );
+}
+/* Lab: rail institut / papier / fiche blanche, avec point d'accession rouge. */
+.theme-dot[data-t="lab"] {
+  background:
+    radial-gradient(circle 2.5px at 82% 24%, #c0262a 55%, transparent 60%),
+    linear-gradient(
+      to bottom,
+      #e8ecef 0% 28%,
+      #f4f6f7 28% 62%,
+      #ffffff 62% 100%
+    );
+  border: 1px solid #c8d0d5;
 }
 /* Auto: vertical split between dark (forest) and light (paper) — the
    horizontal cut contrasts with the 3-band horizontal layout of every
@@ -2021,7 +2318,9 @@ select, input[type="text"], input[type="number"], textarea {
 }
 .spectro-modal-species { font-size: 1.1rem; font-weight: 700; font-family: var(--font-display); }
 .spectro-modal-sci { font-size: .8rem; color: var(--text-muted); font-style: italic; }
-.spectro-modal-meta { display: flex; gap: .5rem; align-items: center; margin-top: .3rem; font-size: .75rem; color: var(--text-faint); }
+.spectro-modal-meta { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .3rem; font-size: .75rem; color: var(--text-faint); }
+.weather-chip { display: inline-flex; align-items: center; gap: .35rem; padding: 0 .45rem; border-radius: .8rem; background: var(--card-bg-faint, rgba(255,255,255,.05)); border: 1px solid var(--border-faint, rgba(255,255,255,.08)); font-size: .72rem; }
+.weather-chip .weather-precip, .weather-chip .weather-wind { display: inline-flex; align-items: center; gap: .15rem; padding-left: .35rem; border-left: 1px solid var(--border-faint, rgba(255,255,255,.08)); }
 .spectro-modal-close {
   background: none; border: none; font-size: 1.5rem; color: var(--text-muted);
   cursor: pointer; padding: .2rem .5rem; line-height: 1;

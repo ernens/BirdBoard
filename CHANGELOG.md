@@ -2,6 +2,21 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.31.0] — 2026-04-21
+
+### Per-detection weather context
+
+Each new detection is now tagged with the weather conditions it was recorded in (temperature, humidity, wind, precipitation, cloud cover, pressure, weather code). Click any detection to open the spectrogram modal and see a compact weather chip next to the date/time — at a glance you know if the bird was singing in clear morning sun or under steady rain.
+
+How it works:
+- New `weather_hourly` table in `birdash.db` stores hourly snapshots indexed by `(date, hour)`.
+- Background worker (`server/lib/weather-watcher.js`) backfills the past 7 days on startup, then polls Open-Meteo every hour for the last 24h. Free tier, no API key needed (~24 requests/day vs the 10K daily quota).
+- New endpoint `GET /api/weather/at?date=YYYY-MM-DD&time=HH:MM:SS` resolves the timestamp to its hour and returns the snapshot, or 404 if the moment isn't yet covered (typical for very recent detections before the next hourly poll).
+- Spectrogram modal: weather chip with WMO-code icon (☀ ⛅ ☁ 🌫 🌧 ❄ ⚡), temp in °C, plus precip and wind shown only when meaningful (precip > 0, wind ≥ 5 km/h).
+- 8 new i18n labels per language (clear, partly cloudy, overcast, fog, drizzle, rain, snow, storm).
+
+Idea inspired by audit of competitor projects in the Pi-based BirdNET dashboard space — first of three feature catch-ups (weather → setup wizard → multi-source audio).
+
 ## [1.30.1] — 2026-04-21
 
 ### Quality pass: CI, smoke filters, service-worker fixes

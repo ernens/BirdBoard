@@ -160,6 +160,20 @@ try {
     updated_at TEXT,
     PRIMARY KEY(date, time, sci_name)
   )`);
+  birdashDb.exec(`CREATE TABLE IF NOT EXISTS weather_hourly (
+    date          TEXT NOT NULL,
+    hour          INTEGER NOT NULL,
+    temp_c        REAL,
+    humidity_pct  REAL,
+    wind_kmh      REAL,
+    wind_dir_deg  INTEGER,
+    precip_mm     REAL,
+    cloud_pct     REAL,
+    pressure_hpa  REAL,
+    weather_code  INTEGER,
+    fetched_at    INTEGER NOT NULL,
+    PRIMARY KEY(date, hour)
+  )`);
   console.log(`[BIRDASH] birdash.db ouvert : ${BIRDASH_DB_PATH}`);
 } catch(e) {
   console.error('[BIRDASH] birdash.db error:', e.message);

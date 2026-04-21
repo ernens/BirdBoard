@@ -33,6 +33,7 @@ const _powerRoutes   = require('./routes/power');
 const _tftDisplayRoutes = require('./routes/tft-display');
 const _telemetry = require('./lib/telemetry');
 const _notifWatcher = require('./lib/notification-watcher');
+const _weatherWatcher = require('./lib/weather-watcher');
 const _weeklyDigest = require('./lib/weekly-digest');
 const _mqttPublisher = require('./lib/mqtt-publisher');
 const _metrics = require('./lib/metrics');
@@ -198,6 +199,9 @@ setTimeout(() => {
 _telemetry.startDailyCron(db, parseBirdnetConf);
 // Notification watcher: polls detections, sends via Apprise
 _notifWatcher.start(db, birdashDb, parseBirdnetConf, ebirdFreq);
+// Weather watcher: hourly Open-Meteo snapshots so detections can show
+// the weather context they were recorded in.
+_weatherWatcher.start(birdashDb, parseBirdnetConf);
 // Weekly digest: every Monday 08:00 local (opt-in via NOTIFY_DIGEST_ENABLED)
 _weeklyDigest.startWeeklyDigestCron(db, parseBirdnetConf);
 // MQTT publisher: opt-in (MQTT_ENABLED=1), publishes detections to a broker
@@ -317,6 +321,7 @@ function gracefulShutdown() {
   _whatsNewRoutes.shutdown();
   _telemetry.stopDailyCron();
   _notifWatcher.stop();
+  _weatherWatcher.stop();
   _mqttPublisher.stop();
   closeAllDbs();
   process.exit(0);

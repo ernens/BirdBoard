@@ -54,6 +54,42 @@
       const audioUrl = computed(() => modal.fileName ? U.buildAudioUrl(modal.fileName) : '');
       const downloadName = computed(() => modal.fileName || 'audio.wav');
 
+      // Weather chip — fetched once per modal open from the hourly snapshot
+      // populated by the weather-watcher background poller.
+      const weather = Vue.ref(null);
+      // WMO weather code → (icon, i18n key) mapping. Codes via Open-Meteo.
+      function wmoIcon(code) {
+        if (code == null) return 'cloud';
+        if (code === 0) return 'sun';
+        if (code <= 2) return 'cloud-sun';
+        if (code === 3) return 'cloud';
+        if (code <= 48) return 'cloud';                // fog
+        if (code <= 67 || (code >= 80 && code <= 82) || code >= 95) return 'cloud-rain';
+        if (code >= 71 && code <= 86) return 'snowflake';
+        return 'cloud';
+      }
+      function wmoLabel(code) {
+        if (code == null) return '';
+        if (code === 0) return t('weather_clear');
+        if (code <= 2) return t('weather_partly_cloudy');
+        if (code === 3) return t('weather_cloudy');
+        if (code <= 48) return t('weather_fog');
+        if (code <= 57) return t('weather_drizzle');
+        if (code <= 67) return t('weather_rain');
+        if (code <= 77) return t('weather_snow');
+        if (code <= 82) return t('weather_rain');
+        if (code <= 86) return t('weather_snow');
+        return t('weather_storm');
+      }
+      async function loadWeather() {
+        weather.value = null;
+        if (!modal.date || !modal.time) return;
+        try {
+          const res = await fetch(`/birds/api/weather/at?date=${encodeURIComponent(modal.date)}&time=${encodeURIComponent(modal.time)}`);
+          if (res.ok) weather.value = await res.json();
+        } catch { /* silent — chip just won't render */ }
+      }
+
       function fmtSec(s) {
         if (!s || !isFinite(s)) return '0:00';
         const m = Math.floor(s / 60);
@@ -288,9 +324,11 @@
         if (val) {
           pausedAt = 0;
           nextTick(() => { loadAudio(); });
+          loadWeather();
           document.addEventListener('keydown', onKeydown);
         } else {
           cleanup();
+          weather.value = null;
           document.removeEventListener('keydown', onKeydown);
         }
       });
@@ -305,6 +343,7 @@
         filters, gainOpts, hpOpts, lpOpts,
         canvas, audioUrl, downloadName,
         loopStart, loopEnd, loopActive,
+        weather, wmoIcon, wmoLabel,
         togglePlay, seek, setFilter, close, t,
         onCanvasMousedown, onCanvasMousemove, onCanvasMouseup, clearLoop
       };
@@ -322,6 +361,16 @@
           </span>
           <span v-if="modal.date">{{modal.date}}</span>
           <span v-if="modal.time">{{modal.time}}</span>
+          <span v-if="weather" class="weather-chip" :title="wmoLabel(weather.weather_code)">
+            <bird-icon :name="wmoIcon(weather.weather_code)" :size="14"></bird-icon>
+            <span v-if="weather.temp_c != null">{{Math.round(weather.temp_c)}}°C</span>
+            <span v-if="weather.precip_mm > 0" class="weather-precip">
+              <bird-icon name="cloud-rain" :size="12"></bird-icon>{{weather.precip_mm.toFixed(1)}}mm
+            </span>
+            <span v-if="weather.wind_kmh != null && weather.wind_kmh >= 5" class="weather-wind">
+              <bird-icon name="wind" :size="12"></bird-icon>{{Math.round(weather.wind_kmh)}}km/h
+            </span>
+          </span>
         </div>
       </div>
       <button class="spectro-modal-close" @click="close" aria-label="Close">&times;</button>

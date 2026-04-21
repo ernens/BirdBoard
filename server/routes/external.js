@@ -27,7 +27,7 @@ function fetchJson(url, extraHeaders = {}) {
 }
 
 function handle(req, res, pathname, ctx) {
-  const { parseBirdnetConf, readJsonFile, EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID } = ctx;
+  const { parseBirdnetConf, readJsonFile, birdashDb, EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID } = ctx;
 
   // ── Route : GET /api/birdweather ─────────────────────────────────────────────
   // Proxy BirdWeather API — évite les CORS + cache 5 min
@@ -200,9 +200,49 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ── Route : GET /api/weather/at?date=YYYY-MM-DD&time=HH:MM:SS ────────────
+  // Returns the hourly weather snapshot covering the given moment, populated
+  // by the weather-watcher background poller. 404 if no snapshot recorded
+  // yet (typical for very recent detections before the next hourly poll).
+  if (req.method === 'GET' && pathname === '/api/weather/at') {
+    try {
+      if (!birdashDb) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'weather_unavailable' }));
+        return true;
+      }
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const date = params.get('date');
+      const time = params.get('time');
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !time) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'bad_request' }));
+        return true;
+      }
+      const hour = parseInt(time.split(':')[0], 10);
+      if (isNaN(hour) || hour < 0 || hour > 23) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'bad_time' }));
+        return true;
+      }
+      const row = birdashDb.prepare(`SELECT temp_c, humidity_pct, wind_kmh, wind_dir_deg,
+          precip_mm, cloud_pct, pressure_hpa, weather_code FROM weather_hourly
+          WHERE date = ? AND hour = ?`).get(date, hour);
+      if (!row) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_found' }));
+        return true;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ date, hour, ...row }));
+    } catch(e) {
+      console.error('[weather/at]', e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'weather_error', message: e.message }));
+    }
+    return true;
+  }
 
-
-  
 
 
 
