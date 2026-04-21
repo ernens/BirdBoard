@@ -2351,34 +2351,55 @@ select, input[type="text"], input[type="number"], textarea {
 .wp-temp-bar { width: 80%; min-height: 2px; background: linear-gradient(180deg, #4a8ec3, #1f4f78); border-radius: 2px 2px 0 0; }
 .wp-temp-label { font-size: .62rem; color: var(--text-muted); margin-top: .15rem; font-variant-numeric: tabular-nums; }
 /* ── Weather custom search (phase B on weather.html) ─────────────────── */
-.ws-presets { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
-.ws-preset { padding: .25rem .6rem; font-size: .72rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--bg-deep); color: var(--text-main); cursor: pointer; }
-.ws-preset:hover { background: var(--bg-card); }
+.ws-presets { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
+.ws-preset { padding: .35rem .8rem; font-size: .75rem; font-weight: 500; border: 1px solid var(--border); border-radius: 1rem; background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: all .15s; }
+.ws-preset:hover { border-color: var(--accent); color: var(--accent); }
 .ws-preset.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.ws-filters { display: flex; flex-direction: column; gap: .35rem; padding: .5rem; background: var(--bg-deep); border-radius: var(--radius); }
-.ws-row { display: grid; grid-template-columns: auto 8rem 1fr 1fr; align-items: center; gap: .5rem; font-size: .78rem; }
-.ws-row-cond { grid-template-columns: auto 8rem 1fr; }
-.ws-row input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
-.ws-row-label { font-weight: 500; color: var(--text-main); }
-.ws-row-vals { color: var(--accent); font-variant-numeric: tabular-nums; font-size: .72rem; grid-column: 3 / 5; justify-self: end; padding-right: .5rem; }
-.ws-row input[type="range"] { width: 100%; }
-.ws-row input[type="range"]:disabled { opacity: .35; }
-.ws-row .ws-date { padding: .15rem .35rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font-size: .72rem; }
-.ws-cond-checks { display: flex; flex-wrap: wrap; gap: .35rem .75rem; grid-column: 3 / 5; }
-.ws-cond-checks label { display: inline-flex; align-items: center; gap: .25rem; font-size: .72rem; cursor: pointer; }
-.ws-cond-checks label input[type="checkbox"] { margin-right: .15rem; }
-.ws-summary { display: flex; align-items: center; gap: .5rem; padding: .5rem 0 .25rem; font-size: .82rem; }
-.ws-btn { display: inline-flex; align-items: center; gap: .3rem; padding: .25rem .5rem; font-size: .72rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); color: var(--text-main); cursor: pointer; }
-.ws-btn:hover:not(:disabled) { background: var(--bg-deep); }
+.ws-filters { display: flex; flex-direction: column; gap: .15rem; padding: .35rem; background: var(--bg-deep); border-radius: var(--radius); }
+.ws-row { display: grid; grid-template-columns: 12rem 1fr; align-items: center; gap: 1rem; padding: .5rem .6rem; border-radius: 4px; transition: opacity .2s, background .15s; }
+.ws-row:hover:not(.ws-row-off) { background: rgba(255,255,255,.025); }
+.ws-row-off { opacity: .45; }
+.ws-toggle { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; font-weight: 500; font-size: .82rem; user-select: none; }
+.ws-toggle input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+.ws-inputs { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.ws-grp { display: inline-flex; align-items: center; gap: .35rem; }
+.ws-grp-lbl { font-size: .7rem; color: var(--text-muted); min-width: 1.4rem; text-align: right; }
+.ws-grp input[type="number"], .ws-grp input[type="date"] {
+  padding: .3rem .45rem; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-main);
+  font-size: .82rem; font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+.ws-grp input[type="number"] { width: 4.5rem; text-align: right; }
+.ws-grp input[type="date"] { font-size: .78rem; }
+.ws-grp input:disabled { background: var(--bg-deep); cursor: not-allowed; color: var(--text-muted); }
+.ws-grp input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(90,158,58,.15); }
+.ws-grp input::-webkit-calendar-picker-indicator { filter: invert(.6); }
+.ws-unit { font-size: .7rem; color: var(--text-muted); }
+.ws-cond-pills { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ws-cond-pill { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .65rem; border-radius: 1rem;
+  border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; font-size: .75rem;
+  user-select: none; transition: all .15s; }
+.ws-cond-pill input { display: none; }
+.ws-cond-pill:hover:not(.disabled) { border-color: var(--accent); }
+.ws-cond-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ws-cond-pill.disabled { cursor: not-allowed; opacity: .5; }
+.ws-summary { display: flex; align-items: center; gap: .5rem; padding: .75rem .25rem .25rem; font-size: .85rem; border-top: 1px solid var(--border); margin-top: .5rem; }
+.ws-summary strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+.ws-btn { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .65rem; font-size: .75rem;
+  border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); color: var(--text-main);
+  cursor: pointer; transition: all .15s; }
+.ws-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .ws-btn:disabled { opacity: .4; cursor: not-allowed; }
 .ws-results { margin-top: .5rem; }
-.ws-result-row { display: grid; grid-template-columns: 1.6rem 1fr 1fr auto auto; align-items: center; gap: .5rem; padding: .35rem .25rem; border-top: 1px solid var(--border); font-size: .78rem; }
+.ws-result-row { display: grid; grid-template-columns: 1.8rem 1.5fr 1.2fr auto auto; align-items: center; gap: .75rem;
+  padding: .4rem .5rem; border-top: 1px solid var(--border); font-size: .82rem; }
 .ws-result-row:first-child { border-top: 0; }
-.ws-result-row:hover { background: rgba(255,255,255,.03); }
+.ws-result-row:hover { background: rgba(255,255,255,.04); }
 .ws-rank { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; font-size: .72rem; }
-.ws-name { font-weight: 600; }
-.ws-sci { color: var(--text-muted); font-style: italic; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-count { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }
+.ws-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-sci { color: var(--text-muted); font-style: italic; font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-count { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
 .ws-conf { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: .72rem; min-width: 3rem; text-align: right; }
 .weather-chip .weather-precip, .weather-chip .weather-wind { display: inline-flex; align-items: center; gap: .15rem; padding-left: .35rem; border-left: 1px solid var(--border-faint, rgba(255,255,255,.08)); }
 .spectro-modal-close {

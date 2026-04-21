@@ -140,67 +140,123 @@
 
       <div class="ws-filters">
         <!-- Temperature -->
-        <label class="ws-row">
-          <input type="checkbox" v-model="filters.temp.on" @change="onFilterChange">
-          <span class="ws-row-label">{{t('temperature')}}</span>
-          <span class="ws-row-vals" v-if="filters.temp.on">{{filters.temp.min}}°C … {{filters.temp.max}}°C</span>
-          <input type="range" v-model.number="filters.temp.min" min="-15" max="35" step="1"
-                 :disabled="!filters.temp.on" @input="onFilterChange">
-          <input type="range" v-model.number="filters.temp.max" min="-15" max="35" step="1"
-                 :disabled="!filters.temp.on" @input="onFilterChange">
-        </label>
+        <div class="ws-row" :class="{'ws-row-off': !filters.temp.on}">
+          <label class="ws-toggle">
+            <input type="checkbox" v-model="filters.temp.on" @change="onFilterChange">
+            <span>{{t('temperature')}}</span>
+          </label>
+          <div class="ws-inputs">
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Min</span>
+              <input type="number" v-model.number="filters.temp.min" min="-15" max="35" step="1"
+                     :disabled="!filters.temp.on" @input="onFilterChange">
+              <span class="ws-unit">°C</span>
+            </span>
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Max</span>
+              <input type="number" v-model.number="filters.temp.max" min="-15" max="35" step="1"
+                     :disabled="!filters.temp.on" @input="onFilterChange">
+              <span class="ws-unit">°C</span>
+            </span>
+          </div>
+        </div>
         <!-- Precipitation -->
-        <label class="ws-row">
-          <input type="checkbox" v-model="filters.precip.on" @change="onFilterChange">
-          <span class="ws-row-label">{{t('precipitation')}}</span>
-          <span class="ws-row-vals" v-if="filters.precip.on">{{filters.precip.min}}…{{filters.precip.max}} mm/h</span>
-          <input type="range" v-model.number="filters.precip.min" min="0" max="20" step="0.5"
-                 :disabled="!filters.precip.on" @input="onFilterChange">
-          <input type="range" v-model.number="filters.precip.max" min="0" max="20" step="0.5"
-                 :disabled="!filters.precip.on" @input="onFilterChange">
-        </label>
+        <div class="ws-row" :class="{'ws-row-off': !filters.precip.on}">
+          <label class="ws-toggle">
+            <input type="checkbox" v-model="filters.precip.on" @change="onFilterChange">
+            <span>{{t('precipitation')}}</span>
+          </label>
+          <div class="ws-inputs">
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Min</span>
+              <input type="number" v-model.number="filters.precip.min" min="0" max="20" step="0.5"
+                     :disabled="!filters.precip.on" @input="onFilterChange">
+              <span class="ws-unit">mm/h</span>
+            </span>
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Max</span>
+              <input type="number" v-model.number="filters.precip.max" min="0" max="20" step="0.5"
+                     :disabled="!filters.precip.on" @input="onFilterChange">
+              <span class="ws-unit">mm/h</span>
+            </span>
+          </div>
+        </div>
         <!-- Wind -->
-        <label class="ws-row">
-          <input type="checkbox" v-model="filters.wind.on" @change="onFilterChange">
-          <span class="ws-row-label">{{t('wind')}}</span>
-          <span class="ws-row-vals" v-if="filters.wind.on">{{filters.wind.min}}…{{filters.wind.max}} km/h</span>
-          <input type="range" v-model.number="filters.wind.min" min="0" max="60" step="1"
-                 :disabled="!filters.wind.on" @input="onFilterChange">
-          <input type="range" v-model.number="filters.wind.max" min="0" max="60" step="1"
-                 :disabled="!filters.wind.on" @input="onFilterChange">
-        </label>
+        <div class="ws-row" :class="{'ws-row-off': !filters.wind.on}">
+          <label class="ws-toggle">
+            <input type="checkbox" v-model="filters.wind.on" @change="onFilterChange">
+            <span>{{t('wind')}}</span>
+          </label>
+          <div class="ws-inputs">
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Min</span>
+              <input type="number" v-model.number="filters.wind.min" min="0" max="100" step="1"
+                     :disabled="!filters.wind.on" @input="onFilterChange">
+              <span class="ws-unit">km/h</span>
+            </span>
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Max</span>
+              <input type="number" v-model.number="filters.wind.max" min="0" max="100" step="1"
+                     :disabled="!filters.wind.on" @input="onFilterChange">
+              <span class="ws-unit">km/h</span>
+            </span>
+          </div>
+        </div>
         <!-- Hour of day -->
-        <label class="ws-row">
-          <input type="checkbox" v-model="filters.hour.on" @change="onFilterChange">
-          <span class="ws-row-label">{{t('weather_search_hour')}}</span>
-          <span class="ws-row-vals" v-if="filters.hour.on">{{filters.hour.min}}h … {{filters.hour.max}}h</span>
-          <input type="range" v-model.number="filters.hour.min" min="0" max="23" step="1"
-                 :disabled="!filters.hour.on" @input="onFilterChange">
-          <input type="range" v-model.number="filters.hour.max" min="0" max="23" step="1"
-                 :disabled="!filters.hour.on" @input="onFilterChange">
-        </label>
+        <div class="ws-row" :class="{'ws-row-off': !filters.hour.on}">
+          <label class="ws-toggle">
+            <input type="checkbox" v-model="filters.hour.on" @change="onFilterChange">
+            <span>{{t('weather_search_hour')}}</span>
+          </label>
+          <div class="ws-inputs">
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">De</span>
+              <input type="number" v-model.number="filters.hour.min" min="0" max="23" step="1"
+                     :disabled="!filters.hour.on" @input="onFilterChange">
+              <span class="ws-unit">h</span>
+            </span>
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">À</span>
+              <input type="number" v-model.number="filters.hour.max" min="0" max="23" step="1"
+                     :disabled="!filters.hour.on" @input="onFilterChange">
+              <span class="ws-unit">h</span>
+            </span>
+          </div>
+        </div>
         <!-- Conditions -->
-        <div class="ws-row ws-row-cond">
-          <input type="checkbox" v-model="filters.codes.on" @change="onFilterChange">
-          <span class="ws-row-label">{{t('weather_search_conditions')}}</span>
-          <div class="ws-cond-checks">
-            <label v-for="c in conditionOptions" :key="c.key">
-              <input type="checkbox" :value="c.key" :checked="filters.codes.set.has(c.key)"
+        <div class="ws-row ws-row-cond" :class="{'ws-row-off': !filters.codes.on}">
+          <label class="ws-toggle">
+            <input type="checkbox" v-model="filters.codes.on" @change="onFilterChange">
+            <span>{{t('weather_search_conditions')}}</span>
+          </label>
+          <div class="ws-cond-pills">
+            <label v-for="c in conditionOptions" :key="c.key" class="ws-cond-pill"
+                   :class="{active: filters.codes.set.has(c.key), disabled: !filters.codes.on}">
+              <input type="checkbox" :checked="filters.codes.set.has(c.key)"
                      :disabled="!filters.codes.on"
                      @change="toggleCondition(c.key, $event.target.checked)">
-              <bird-icon :name="c.icon" :size="11"></bird-icon>
-              {{t(c.label)}}
+              <bird-icon :name="c.icon" :size="12"></bird-icon>
+              <span>{{t(c.label)}}</span>
             </label>
           </div>
         </div>
         <!-- Date range -->
-        <label class="ws-row">
-          <input type="checkbox" v-model="filters.date.on" @change="onFilterChange">
-          <span class="ws-row-label">{{t('weather_search_dates')}}</span>
-          <input type="date" v-model="filters.date.from" :disabled="!filters.date.on" @change="onFilterChange" class="ws-date">
-          <span style="color:var(--text-muted);">→</span>
-          <input type="date" v-model="filters.date.to" :disabled="!filters.date.on" @change="onFilterChange" class="ws-date">
-        </label>
+        <div class="ws-row" :class="{'ws-row-off': !filters.date.on}">
+          <label class="ws-toggle">
+            <input type="checkbox" v-model="filters.date.on" @change="onFilterChange">
+            <span>{{t('weather_search_dates')}}</span>
+          </label>
+          <div class="ws-inputs">
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Du</span>
+              <input type="date" v-model="filters.date.from" :disabled="!filters.date.on" @change="onFilterChange" class="ws-date">
+            </span>
+            <span class="ws-grp">
+              <span class="ws-grp-lbl">Au</span>
+              <input type="date" v-model="filters.date.to" :disabled="!filters.date.on" @change="onFilterChange" class="ws-date">
+            </span>
+          </div>
+        </div>
       </div>
 
       <!-- Live counter + actions -->
