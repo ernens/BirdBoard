@@ -1886,6 +1886,7 @@
     <slot></slot>
   </main>
   <spectro-modal></spectro-modal>
+  <setup-wizard></setup-wizard>
   <!-- Update modal -->
   <div v-if="updateModalOpen" class="update-modal-backdrop" @click.self="closeUpdateModal">
     <div class="update-modal">
