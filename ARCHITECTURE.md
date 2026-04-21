@@ -188,7 +188,16 @@ Both models run on every file. Results are merged into `detections` with a `Mode
 
 Model variants adapted to hardware: FP32 on Pi 5, FP16 on Pi 4, INT8 on Pi 3.
 
-Audio is split into 3-second overlapping chunks (`split_signal`) before inference.
+Audio is split into 3-second overlapping chunks for BirdNET and 5-second chunks for Perch (`split_signal`).
+
+**Cross-confirmation.** Perch's softmax mis-fires on low-frequency ambient noise (wind, vehicle rumble) which it maps to large birds (geese, herons, ravens). To kill this class of false positive without losing Perch-only strengths, `dual_confirm_enabled=true` requires:
+
+- **Perch score ≥ `perch_standalone_confidence`** (default 0.85) — accepted alone, or
+- **BirdNET raw score ≥ `birdnet_echo_confidence`** (default 0.15) for the same `sci_name` on any 3 s chunk overlapping the Perch 5 s chunk by ≥ 1 s.
+
+BirdNET detections are never filtered by this rule. The echo uses BirdNET's **raw per-chunk predictions** (top-20, pre-threshold) — so a weak 0.15 echo is enough to confirm a Perch hit between 0.50 and 0.85. All three thresholds are adjustable in the Settings → Detection UI.
+
+Also: opt-in **eBird range filter for Perch** (`RANGE_FILTER_PERCH_EBIRD=1`) drops species absent from `config/ebird-frequency.json` (Perch has no MData equivalent for geographic filtering).
 
 #### 8. Post-Processing (async, non-blocking)
 

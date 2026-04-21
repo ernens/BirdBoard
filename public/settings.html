@@ -894,6 +894,34 @@ const app = createApp({
             <strong>0.20</strong> : strict, exige une identification dominante.`,
           rec: 'Recommandé : <strong>0.10</strong>. Filtre les cas où le modèle hésite entre deux espèces.'
         },
+        dual_confirm: {
+          title: 'Confirmation bi-modèle',
+          body: `Quand activée, une détection Perch n'est conservée que si <strong>l'une</strong> de ces conditions est vraie :<br>
+            1. Son score Perch est au-dessus du seuil <em>Confiance autonome Perch</em> (forte certitude → acceptée seule).<br>
+            2. Sinon, BirdNET a aussi prédit cette même espèce sur un chunk 3 s chevauchant, avec un score ≥ <em>Écho BirdNET minimum</em>.<br><br>
+            Les détections BirdNET ne sont jamais affectées (modèle de référence).<br><br>
+            <strong>Pourquoi</strong> : Perch excelle sur les espèces bien représentées mais produit des faux positifs sur les bruits ambiants basse-fréquence (vent, véhicules, rumble HVAC) qu'il confond avec des grands oiseaux (bernaches, hérons, corbeaux). La confirmation croisée élimine ces cas sans sacrifier les vraies détections Perch fortes.`,
+          rec: '<strong>Activé</strong> recommandé si vous utilisez Perch V2 en secondaire.'
+        },
+        perch_standalone: {
+          title: 'Confiance autonome Perch',
+          body: `Seuil au-dessus duquel une détection Perch est acceptée <strong>sans confirmation BirdNET</strong>.<br><br>
+            <em>Logique :</em> un score Perch élevé est très fiable. On ne veut pas filtrer un Goéland argenté à 0.92 juste parce que BirdNET n'a rien dit.<br><br>
+            <strong>0.70</strong> : permissif, accepte plus de détections Perch seules.<br>
+            <strong>0.85</strong> : bon équilibre (défaut).<br>
+            <strong>0.95</strong> : très strict, presque tout passe par la confirmation BirdNET.`,
+          rec: 'Recommandé : <strong>0.85</strong>. Monter si vous voyez encore des faux positifs Perch forts.'
+        },
+        birdnet_echo: {
+          title: 'Écho BirdNET minimum',
+          body: `Score BirdNET minimum requis pour confirmer une détection Perch en-dessous du seuil autonome.<br><br>
+            <em>Logique :</em> BirdNET utilise un scoring <strong>sigmoid</strong> — même un écho faible (0.15) signifie "BirdNET a aussi entendu quelque chose qui ressemble à cette espèce". Pas besoin de dépasser le seuil BirdNET habituel (0.65), juste de confirmer la présence du signal.<br><br>
+            La confirmation se fait sur n'importe quel chunk 3 s chevauchant le chunk Perch 5 s (recouvrement min 1 s).<br><br>
+            <strong>0.05</strong> : très permissif, presque tout chunk avec un léger signal passe.<br>
+            <strong>0.15</strong> : bon équilibre (défaut).<br>
+            <strong>0.30</strong> : strict, n'accepte que si BirdNET a un écho franc.`,
+          rec: 'Recommandé : <strong>0.15</strong>. Abaisser à 0.10 si vous trouvez le filtrage trop agressif.'
+        },
         sensitivity: {
           title: 'Sensibilité',
           body: `Contrôle la sensibilité du modèle aux sons faibles (0.5–1.5).<br><br>
@@ -1140,6 +1168,34 @@ const app = createApp({
             <strong>0.20</strong>: strict, requires dominant identification.`,
           rec: 'Recommended: <strong>0.10</strong>. Filters cases where the model hesitates between two species.'
         },
+        dual_confirm: {
+          title: 'Dual-model cross-confirmation',
+          body: `When enabled, a Perch detection is only kept if <strong>either</strong>:<br>
+            1. Its Perch score is above the <em>Perch standalone</em> threshold (high certainty → accepted alone).<br>
+            2. Otherwise, BirdNET also predicted the same species on any overlapping 3 s chunk with a score ≥ <em>BirdNET echo minimum</em>.<br><br>
+            BirdNET detections are never affected (reference model).<br><br>
+            <strong>Why</strong>: Perch excels on well-represented species but produces false positives on low-frequency ambient noise (wind, vehicles, HVAC rumble) that it confuses with large birds (geese, herons, ravens). Cross-confirmation kills these without sacrificing strong Perch-only detections.`,
+          rec: '<strong>Enabled</strong> recommended when using Perch V2 as secondary.'
+        },
+        perch_standalone: {
+          title: 'Perch standalone confidence',
+          body: `Score above which a Perch detection is accepted <strong>without BirdNET confirmation</strong>.<br><br>
+            <em>Rationale:</em> a high Perch score is very reliable. You don't want to drop a Herring Gull at 0.92 just because BirdNET stayed quiet.<br><br>
+            <strong>0.70</strong>: permissive, accepts more Perch-only detections.<br>
+            <strong>0.85</strong>: good balance (default).<br>
+            <strong>0.95</strong>: very strict, almost everything goes through BirdNET confirmation.`,
+          rec: 'Recommended: <strong>0.85</strong>. Raise if you still see strong Perch false positives.'
+        },
+        birdnet_echo: {
+          title: 'BirdNET echo minimum',
+          body: `Minimum BirdNET score required to confirm a sub-standalone Perch detection.<br><br>
+            <em>Rationale:</em> BirdNET uses <strong>sigmoid</strong> scoring — even a faint echo (0.15) means "BirdNET also heard something that looks like this species". No need to reach BirdNET's normal threshold (0.65), just to confirm the signal's presence.<br><br>
+            Confirmation matches on any BirdNET 3 s chunk overlapping the Perch 5 s chunk by ≥ 1 s.<br><br>
+            <strong>0.05</strong>: very permissive, almost any chunk with a faint signal passes.<br>
+            <strong>0.15</strong>: good balance (default).<br>
+            <strong>0.30</strong>: strict, only accept if BirdNET echoes clearly.`,
+          rec: 'Recommended: <strong>0.15</strong>. Lower to 0.10 if the filter feels too aggressive.'
+        },
         sensitivity: {
           title: 'Sensitivity',
           body: `Controls model sensitivity to faint sounds (0.5–1.5).<br><br>
@@ -1286,6 +1342,9 @@ const app = createApp({
         birdnet_confidence: { title:'BirdNET-Konfidenz (Sigmoid)', body:'Sigmoid-Score: jede Art erhält einen unabhängigen Score 0–1. 0,70 = 70% Sicherheit.<br>0,50: empfindlich. 0,80: streng.', rec:'Empfohlen: <strong>0,65</strong>.' },
         perch_confidence: { title:'Perch-Konfidenz (Softmax)', body:'Bird-only Softmax über 10.340 Arten. Scores summieren sich auf 100%.<br><br><em>Getestet mit 15 Aufnahmen (RPi 5, FP16):</em><br>Median Top-1: <strong>0,96</strong>, Minimum: 0,28. Gut erkannte Arten &gt; 0,70, Fehler &lt; 0,30.<br><br><strong>0,15</strong>: sehr permissiv.<br><strong>0,25</strong>: gute Balance.<br><strong>0,40</strong>: streng.', rec:'Empfohlen: <strong>0,25</strong>.' },
         perch_margin: { title:'Perch-Marge (Top1–Top2)', body:'Mindestabstand zwischen den beiden besten Arten.<br><br><em>Getestet mit 15 Aufnahmen:</em><br>Median Marge: <strong>0,95</strong>, Minimum: 0,12. Gute Erkennungen &gt; 0,50, mehrdeutige Fälle &lt; 0,15.<br><br><strong>0,05</strong>: sehr permissiv.<br><strong>0,10</strong>: gute Balance.<br><strong>0,20</strong>: streng.', rec:'Empfohlen: <strong>0,10</strong>.' },
+        dual_confirm: { title:'Dual-Modell-Kreuzbestätigung', body:'Wenn aktiviert, wird eine Perch-Erkennung nur behalten, wenn <strong>entweder</strong>:<br>1. Der Perch-Score über dem Schwellenwert <em>Perch eigenständig</em> liegt (hohe Sicherheit → allein akzeptiert).<br>2. Oder BirdNET dieselbe Art auf einem überlappenden 3 s-Chunk mit Score ≥ <em>BirdNET-Echo</em> vorhersagte.<br><br>BirdNET-Erkennungen bleiben unberührt (Referenzmodell).<br><br><strong>Warum</strong>: Perch produziert Fehlalarme bei niederfrequentem Umgebungslärm (Wind, Fahrzeuge), die es mit Großvögeln verwechselt. Kreuzbestätigung eliminiert dies.', rec:'<strong>Aktiviert</strong> empfohlen bei Perch V2 als Sekundärmodell.' },
+        perch_standalone: { title:'Perch eigenständige Konfidenz', body:'Schwellenwert, ab dem eine Perch-Erkennung <strong>ohne BirdNET-Bestätigung</strong> akzeptiert wird.<br><br><strong>0,70</strong>: permissiv.<br><strong>0,85</strong>: gute Balance (Standard).<br><strong>0,95</strong>: sehr streng.', rec:'Empfohlen: <strong>0,85</strong>.' },
+        birdnet_echo: { title:'BirdNET-Echo-Minimum', body:'Mindest-BirdNET-Score zur Bestätigung einer Perch-Erkennung unterhalb des eigenständigen Schwellenwerts.<br><br>BirdNET-Sigmoid: selbst 0,15 bedeutet "BirdNET hat diese Art auch erkannt".<br><br><strong>0,05</strong>: sehr permissiv.<br><strong>0,15</strong>: gute Balance (Standard).<br><strong>0,30</strong>: streng.', rec:'Empfohlen: <strong>0,15</strong>.' },
         sensitivity: { title:'Empfindlichkeit', body:'Steuert die Empfindlichkeit für leise Töne (0,5–1,5).<br><br><strong>BirdNET</strong>: Sigmoid-Skalierung.<br><strong>Perch V2</strong>: Softmax-Temperatur.<br><br>Höher = empfindlicher, mehr Erkennungen, mehr Fehlalarme.', rec:'Empfohlen: <strong>1,0–1,3</strong>.' },
         sf_thresh: { title:'Artenhäufigkeitsschwelle', body:'Geographischer Filter (0,0–0,5). Nur für BirdNET + MData. Arten unter diesem Schwellwert werden ausgeschlossen. Von Perch V2 ignoriert.', rec:'Empfohlen: <strong>0,03</strong>.' },
         overlap: { title:'Überlappung (Sekunden)', body:'Überlappung zwischen Analysefenstern (0,0–2,9s). Mehr Überlappung = mehr Chunks = längere Analyse. Auf Pi 4 mit Perch niedrig halten.', rec:'Empfohlen: <strong>0,0–0,5</strong> für Perch, <strong>0,5–1,5</strong> für BirdNET.' },
@@ -1337,6 +1396,9 @@ const app = createApp({
         birdnet_confidence: { title:'BirdNET-betrouwbaarheid (sigmoid)', body:'Sigmoid-score: elke soort krijgt een onafhankelijke score 0–1. 0,70 = 70% zekerheid.<br>0,50: gevoelig. 0,80: streng.', rec:'Aanbevolen: <strong>0,65</strong>.' },
         perch_confidence: { title:'Perch-betrouwbaarheid (softmax)', body:'Bird-only softmax over 10.340 soorten. Scores tellen op tot 100%.<br><br><em>Getest met 15 opnames (RPi 5, FP16):</em><br>Mediaan top-1: <strong>0,96</strong>, minimum: 0,28. Goed herkende soorten &gt; 0,70, fouten &lt; 0,30.<br><br><strong>0,15</strong>: zeer permissief.<br><strong>0,25</strong>: goede balans.<br><strong>0,40</strong>: streng.', rec:'Aanbevolen: <strong>0,25</strong>.' },
         perch_margin: { title:'Perch-marge (top1–top2)', body:'Minimumverschil tussen de twee beste soorten.<br><br><em>Getest met 15 opnames:</em><br>Mediaan marge: <strong>0,95</strong>, minimum: 0,12. Goede detecties &gt; 0,50, dubbelzinnige gevallen &lt; 0,15.<br><br><strong>0,05</strong>: zeer permissief.<br><strong>0,10</strong>: goede balans.<br><strong>0,20</strong>: streng.', rec:'Aanbevolen: <strong>0,10</strong>.' },
+        dual_confirm: { title:'Dubbele-modelkruiscontrole', body:'Indien ingeschakeld wordt een Perch-detectie alleen behouden als <strong>één van beide</strong>:<br>1. De Perch-score boven de <em>Perch zelfstandige</em> drempel ligt (hoge zekerheid → alleen aanvaard).<br>2. BirdNET dezelfde soort heeft voorspeld op een overlappende 3 s-chunk met score ≥ <em>BirdNET-echo</em>.<br><br>BirdNET-detecties blijven onaangetast (referentiemodel).<br><br><strong>Waarom</strong>: Perch produceert valse positieven bij laagfrequent omgevingslawaai (wind, voertuigen) dat het verwart met grote vogels. Kruiscontrole elimineert dit.', rec:'<strong>Ingeschakeld</strong> aanbevolen bij Perch V2 als secundair model.' },
+        perch_standalone: { title:'Perch zelfstandige betrouwbaarheid', body:'Drempel waarboven een Perch-detectie <strong>zonder BirdNET-bevestiging</strong> wordt aanvaard.<br><br><strong>0,70</strong>: permissief.<br><strong>0,85</strong>: goede balans (standaard).<br><strong>0,95</strong>: zeer streng.', rec:'Aanbevolen: <strong>0,85</strong>.' },
+        birdnet_echo: { title:'BirdNET-echo-minimum', body:'Minimale BirdNET-score vereist om een Perch-detectie onder de zelfstandige drempel te bevestigen.<br><br>BirdNET-sigmoid: zelfs 0,15 betekent "BirdNET hoorde ook deze soort".<br><br><strong>0,05</strong>: zeer permissief.<br><strong>0,15</strong>: goede balans (standaard).<br><strong>0,30</strong>: streng.', rec:'Aanbevolen: <strong>0,15</strong>.' },
         sensitivity: { title:'Gevoeligheid', body:'Regelt de gevoeligheid voor zachte geluiden (0,5–1,5).<br><br><strong>BirdNET</strong>: sigmoid-schaling.<br><strong>Perch V2</strong>: softmax-temperatuur.<br><br>Hoger = gevoeliger, meer detecties, meer valse positieven.', rec:'Aanbevolen: <strong>1,0–1,3</strong>.' },
         sf_thresh: { title:'Soortfrequentiedrempel', body:'Geografisch filter (0,0–0,5). Alleen voor BirdNET + MData. Soorten onder de drempel worden uitgesloten. Genegeerd door Perch V2.', rec:'Aanbevolen: <strong>0,03</strong>.' },
         overlap: { title:'Overlap (seconden)', body:'Overlap tussen analysevensters (0,0–2,9s). Meer overlap = meer chunks = langere analyse.', rec:'Aanbevolen: <strong>0,0–0,5</strong> voor Perch, <strong>0,5–1,5</strong> voor BirdNET.' },

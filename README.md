@@ -148,6 +148,7 @@ Raspberry Pi 5 + SSD
 
 ### Detection Engine (BirdEngine)
 - <img src="docs/icons/cpu.svg" width="16" align="top" alt=""> **Dual-model inference** — BirdNET V2.4 (~1.5s/file) + Perch V2 (~0.7s/file on Pi 5) in parallel. Model variant auto-selected per Pi: FP32 on Pi 5, FP16 on Pi 4, INT8 on Pi 3
+- <img src="docs/icons/shield-check.svg" width="16" align="top" alt=""> **Dual-model cross-confirmation** — Perch detections below a standalone threshold (default 0.85) must be echoed by BirdNET (raw score ≥ 0.15) on an overlapping chunk. Kills the bulk of Perch false positives on low-frequency noise (wind, vehicles → geese/herons/ravens) without losing Perch's edge on species BirdNET misses. All three thresholds adjustable in Settings → Detection with (i) tooltips
 - <img src="docs/icons/mic.svg" width="16" align="top" alt=""> **Local recording** — any USB audio interface via ALSA with configurable gain
 - <img src="docs/icons/sliders-horizontal.svg" width="16" align="top" alt=""> **Adaptive noise normalization** — automatic software gain based on ambient noise, with clip guard, activity hold, and observer mode
 - <img src="docs/icons/volume-x.svg" width="16" align="top" alt=""> **Audio filters** — configurable highpass + lowpass (bandpass), spectral noise reduction (stationary gating), RMS normalization

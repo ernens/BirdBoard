@@ -118,13 +118,37 @@
           <div class="section-title"><bird-icon name="microscope" :size="14" ></bird-icon> Perch V2 {{t('set_params')}}</div>
           <div class="set-row">
             <span class="set-label">{{t('set_perch_conf')}} <button class="info-btn" @click="helpKey='perch_confidence'">i</button></span>
-            <span class="set-range-val">{{conf.PERCH_CONFIDENCE || 0.25}}</span>
-            <input v-model="conf.PERCH_CONFIDENCE" type="range" min="0.05" max="0.50" step="0.01" class="set-range">
+            <span class="set-range-val">{{conf.PERCH_CONFIDENCE || 0.50}}</span>
+            <input v-model="conf.PERCH_CONFIDENCE" type="range" min="0.05" max="0.90" step="0.01" class="set-range">
           </div>
           <div class="set-row">
             <span class="set-label">{{t('set_perch_margin')}} <button class="info-btn" @click="helpKey='perch_margin'">i</button></span>
             <span class="set-range-val">{{conf.PERCH_MIN_MARGIN || 0.10}}</span>
             <input v-model="conf.PERCH_MIN_MARGIN" type="range" min="0" max="0.20" step="0.01" class="set-range">
+          </div>
+        </div>
+
+        <!-- ═══ Dual-model Cross-confirmation ═══ -->
+        <div class="card" v-if="conf.DUAL_MODEL_ENABLED == 1">
+          <div class="section-title"><bird-icon name="check-check" :size="14"></bird-icon> {{t('set_dual_confirm_title')}}</div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_dual_confirm_desc')}}</p>
+          <label class="set-check" style="cursor:pointer;">
+            <input type="checkbox" v-model="conf.DUAL_CONFIRM_ENABLED" true-value="1" false-value="0">
+            <span><bird-icon name="shield-check" :size="14"></bird-icon> <strong>{{t('set_dual_confirm_enable')}}</strong></span>
+            <button class="info-btn" @click.prevent="helpKey='dual_confirm'" style="margin-left:.3rem;">i</button>
+          </label>
+          <div v-if="conf.DUAL_CONFIRM_ENABLED == 1" style="margin:.6rem 0 0 1.5rem;">
+            <div class="set-row">
+              <span class="set-label">{{t('set_perch_standalone')}} <button class="info-btn" @click="helpKey='perch_standalone'">i</button></span>
+              <span class="set-range-val">{{Number(conf.PERCH_STANDALONE_CONFIDENCE || 0.85).toFixed(2)}}</span>
+              <input v-model.number="conf.PERCH_STANDALONE_CONFIDENCE" type="range" min="0.50" max="0.99" step="0.01" class="set-range">
+            </div>
+            <div class="set-row">
+              <span class="set-label">{{t('set_birdnet_echo')}} <button class="info-btn" @click="helpKey='birdnet_echo'">i</button></span>
+              <span class="set-range-val">{{Number(conf.BIRDNET_ECHO_CONFIDENCE || 0.15).toFixed(2)}}</span>
+              <input v-model.number="conf.BIRDNET_ECHO_CONFIDENCE" type="range" min="0.05" max="0.50" step="0.01" class="set-range">
+            </div>
+            <p style="font-size:.72rem;color:var(--text-faint);margin:.3rem 0 0;">{{t('set_dual_confirm_hint')}}</p>
           </div>
         </div>
 

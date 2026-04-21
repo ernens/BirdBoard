@@ -2,6 +2,38 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.38.0] — 2026-04-21
+
+### Feat: dual-model cross-confirmation kills Perch false positives
+
+Perch V2's softmax over 10,340 species produces characteristic false positives when the audio is dominated by low-frequency noise (wind, vehicle rumble, HVAC) — the model maps the energy to the "big bird" classes (Canada Goose, Grey Heron, Common Raven) at 0.5-0.85 confidence. A spot audit over ~500 nocturnal detections on bird.local showed these accounted for the bulk of overnight FPs on an otherwise quiet station.
+
+Mitigation lands in the engine as a cross-confirmation rule:
+
+- Perch detection with score **≥ `perch_standalone_confidence`** (default **0.85**) → accepted alone
+- Perch detection with score in **[`perch_confidence`, 0.85)** → requires BirdNET to have scored the **same species** ≥ **`birdnet_echo_confidence`** (default **0.15**) on any 3 s chunk overlapping the Perch 5 s chunk by ≥ 1 s
+
+The echo uses BirdNET's **raw per-chunk predictions** (top-20, pre-threshold) — so a weak 0.15 echo is enough to confirm a mid-range Perch hit. BirdNET itself is the reference model and is never filtered by this rule.
+
+Engine implementation: `_analyze_with_model` now returns `(detections, raw_preds)` where `raw_preds` is `[(start_s, end_s, {sci: score, ...}), ...]`. Primary (BirdNET) `raw_preds` ride the secondary queue and feed the Perch call as `primary_raw_preds=`. The overlap match is computed on chunk timestamps (BirdNET chunks = 3 s, Perch = 5 s, boundaries don't align).
+
+Settings → Detection exposes a new card **Confirmation bi-modèle** with a toggle + two sliders + three (i) tooltips explaining each rule (FR/EN/DE/NL). Defaults ship enabled.
+
+Other hardening in the same push:
+- **`PERCH_CONFIDENCE` default raised from 0.20 → 0.50** — the old value was pre-dual-confirm and let too much through even before the cross-check
+- **Fixed a config file bug** — `/etc/birdnet/birdnet.conf` had `RANGE_FILTER_PERCH_EBIRD=0PRIVACY_FILTER_ENABLED=1` collapsed onto one line, silently breaking both parsers. Lines are now split; the eBird range filter also ships enabled by default since the infrastructure was already there
+- **New cleanup script** (`scripts/cleanup_perch_fp.py`) for retroactively purging Perch false positives from `birds.db` + the associated MP3/PNG clips. Supports `--dry-run`, three rule flags (R1 threshold, R2 no-echo, R3 out-of-range eBird), and a `--skip-r2` conservative mode (recommended — retroactive R2 is stricter than the live rule because historical BirdNET rows only exist above its own 0.6 threshold)
+
+On bird.local the conservative cleanup (`R1 + R3`) removed **9 770 rows** (~20% of Perch detections) and **19 452 MP3+PNG files** — all below the new 0.50 threshold or outside the local eBird species list. Live filtering confirmed active within 2 min of restart with 1-3 FPs rejected per 45 s cycle.
+
+New keys in `/etc/birdnet/birdnet.conf` (all hot-reloaded by the engine within ~5 min, no restart needed):
+
+```ini
+DUAL_CONFIRM_ENABLED=1
+PERCH_STANDALONE_CONFIDENCE=0.85
+BIRDNET_ECHO_CONFIDENCE=0.15
+```
+
 ## [1.37.0] — 2026-04-21
 
 ### Perf: centralized SQLite PRAGMA tuning adapted to host RAM
