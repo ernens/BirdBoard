@@ -259,6 +259,52 @@
         <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
       </div>
 
+      <!-- ── Profil météo (phase C) ─────────────────────────────── -->
+      <div v-if="weatherProfile && weatherProfile.stats && weatherProfile.stats.total > 0" class="card">
+        <div class="card-title">
+          <bird-icon name="cloud-sun" :size="14"></bird-icon>
+          {{t('weather_profile_title')}}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-bottom:.75rem;">
+          <div class="kpi-card">
+            <div class="kpi-value">{{weatherProfile.stats.avg_temp}}°C</div>
+            <div class="kpi-label">{{t('weather_profile_avg_temp')}}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" style="font-size:.95rem;">{{weatherProfile.stats.min_temp}}…{{weatherProfile.stats.max_temp}}°C</div>
+            <div class="kpi-label">{{t('weather_profile_temp_range')}}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value">{{Math.round(weatherProfile.stats.avg_wind)}}km/h</div>
+            <div class="kpi-label">{{t('weather_profile_avg_wind')}}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value blue">{{weatherProfile.stats.pct_with_precip}}%</div>
+            <div class="kpi-label">{{t('weather_profile_pct_precip')}}</div>
+          </div>
+        </div>
+        <!-- Conditions distribution (horizontal bars) -->
+        <div style="font-size:.8rem;font-weight:600;margin-bottom:.4rem;">{{t('weather_top_species')}}</div>
+        <div v-for="c in weatherProfile.conditions" :key="c.condition" class="wp-bar-row">
+          <span class="wp-bar-label">
+            <bird-icon :name="wpIcon(c.condition)" :size="13"></bird-icon>
+            {{wpLabel(c.condition)}}
+          </span>
+          <div class="wp-bar-track">
+            <div class="wp-bar-fill" :style="{width: (c.n / weatherProfile.maxCond * 100) + '%'}"></div>
+          </div>
+          <span class="wp-bar-val">{{c.n}}</span>
+        </div>
+        <!-- Temperature histogram -->
+        <div style="font-size:.8rem;font-weight:600;margin:.75rem 0 .4rem;">{{t('temperature')}}</div>
+        <div class="wp-temp-hist">
+          <div v-for="b in weatherProfile.temp_bins" :key="b.idx" class="wp-temp-col"
+               :title="b.label + ': ' + b.n + ' det.'">
+            <div class="wp-temp-bar" :style="{height: (b.n / weatherProfile.maxTemp * 100) + '%'}"></div>
+            <div class="wp-temp-label">{{b.label.split('…')[0]}}°</div>
+          </div>
+        </div>
+      </div>
 
       <!-- ── Feed détections récentes ───────────────────────────── -->
       <div class="card">
@@ -565,6 +611,33 @@ const app = createApp({
       }
     }
 
+    // ── Phase C: weather profile for the selected species ───────────────────
+    const weatherProfile = ref(null);
+    async function loadWeatherProfile(speciesName) {
+      weatherProfile.value = null;
+      try {
+        const res = await fetch(`${BIRD_CONFIG.apiUrl}/weather/species-profile?species=${encodeURIComponent(speciesName)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.stats || !data.stats.total) return;
+        // Pre-compute max values used by template for bar width normalization
+        data.maxCond = Math.max(1, ...data.conditions.map(c => c.n));
+        data.maxTemp = Math.max(1, ...data.temp_bins.map(b => b.n));
+        weatherProfile.value = data;
+      } catch { /* silent */ }
+    }
+    function wpIcon(condition) {
+      const m = { clear: 'sun', partly_cloudy: 'cloud-sun', cloudy: 'cloud',
+                  fog: 'cloud', drizzle: 'cloud-rain', rain: 'cloud-rain',
+                  snow: 'snowflake', storm: 'cloud-rain' };
+      return m[condition] || 'cloud';
+    }
+    function wpLabel(condition) {
+      const k = 'weather_' + condition;
+      const v = t(k);
+      return v && v !== k ? v : condition;
+    }
+
     // Note save state — surfaces real success/failure to the user
     // instead of silently swallowing errors and pretending it worked.
     const noteSaving = ref(false);
@@ -758,6 +831,7 @@ const app = createApp({
         document.title = `BIRDASH — ${speciesName}`;
         mode.value = 'detail';
         loadPersonalNote(stats.sci || speciesName);
+        loadWeatherProfile(stats.sci || speciesName);
 
         // Pre-populate taxonomy from cached eBird data (instant)
         const tax = BIRDASH_UTILS.getTaxonomy(stats.sci || speciesName);
@@ -1572,6 +1646,7 @@ const app = createApp({
       deleteResult, deleteToast, bulkTargetName, bulkTargetCount,
       openBulkModal, closeBulkModal, confirmDeleteOne, executeBulkDelete,
       manageDets, openManageDets, manageToggle, manageSelectAll, manageDeleteSelected, openManageSpectro, shortModel,
+      weatherProfile, wpIcon, wpLabel,
     };
   }
 });

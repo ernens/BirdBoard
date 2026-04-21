@@ -103,6 +103,61 @@
       </div>
     </div>
 
+    <!-- ── Phase C analytics: activity × weather conditions ───────────── -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">{{t('weather_analytics_title')}}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.75rem;">
+        <div v-for="lb in leaderboards" :key="lb.key" class="weather-lb">
+          <div class="weather-lb-title">
+            <bird-icon :name="lb.icon" :size="14"></bird-icon>
+            {{t(lb.title)}}
+            <span class="weather-lb-cond">{{lb.label}}</span>
+          </div>
+          <div v-if="lb.loading" class="hint-empty" style="padding:1rem;font-size:.75rem;">…</div>
+          <div v-else-if="!lb.rows.length" class="hint-empty" style="padding:1rem;font-size:.75rem;">{{t('weather_no_match')}}</div>
+          <ol v-else class="weather-lb-list">
+            <li v-for="(sp, i) in lb.rows" :key="sp.sci_name"
+                style="cursor:pointer;" @click="navigateTo('species.html',{species:sp.com_name})">
+              <span class="weather-lb-rank">{{i + 1}}</span>
+              <span class="weather-lb-name">{{spName(sp.com_name, sp.sci_name)}}</span>
+              <span class="weather-lb-count">{{sp.detections}}</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Heatmap species × temperature -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">{{t('weather_heatmap_title')}}</div>
+      <div v-if="heatmap.loading" class="hint-empty" style="padding:2rem;">…</div>
+      <div v-else-if="!heatmap.species.length" class="hint-empty" style="padding:2rem;">{{t('no_data')}}</div>
+      <div v-else class="weather-heatmap-wrap">
+        <table class="weather-heatmap">
+          <thead>
+            <tr>
+              <th class="hm-sp"></th>
+              <th v-for="b in heatmap.bins" :key="b.idx" class="hm-h">{{b.lo}}…{{b.hi}}°</th>
+              <th class="hm-tot">Σ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="sp in heatmap.species" :key="sp.sci_name">
+              <td class="hm-sp" style="cursor:pointer;" @click="navigateTo('species.html',{species:sp.com_name})">
+                {{spName(sp.com_name, sp.sci_name)}}
+              </td>
+              <td v-for="(c, i) in sp.counts" :key="i" class="hm-cell"
+                  :style="{background: heatColor(c, sp.maxC), color: c > sp.maxC * 0.6 ? '#fff' : 'inherit'}"
+                  :title="sp.com_name + ' · ' + heatmap.bins[i].lo + '…' + heatmap.bins[i].hi + '°C: ' + c + ' det.'">
+                {{c || ''}}
+              </td>
+              <td class="hm-tot">{{sp.total}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </birdash-shell>
 </div>
 
@@ -126,6 +181,62 @@ const app = createApp({
     const corr = ref(null);
     const topByWeather = ref([]);
     const canvasWeather = ref(null);
+
+    // ── Phase C analytics state ─────────────────────────────────────────
+    const leaderboards = ref([
+      { key: 'cold',  icon: 'snowflake',  title: 'weather_cold_tolerance', label: '< 0°C',
+        loading: true, rows: [], query: 'temp_max=0' },
+      { key: 'storm', icon: 'cloud-rain', title: 'weather_storm_singers',  label: t('weather_storm'),
+        loading: true, rows: [], query: 'codes=95,96,99' },
+      { key: 'rain',  icon: 'cloud-rain', title: 'weather_heavy_rain',     label: '≥ 5mm/h',
+        loading: true, rows: [], query: 'precip_min=5' },
+      { key: 'wind',  icon: 'wind',       title: 'weather_strong_wind',    label: '≥ 30km/h',
+        loading: true, rows: [], query: 'wind_min=30' },
+    ]);
+    const heatmap = ref({ loading: true, bins: [], species: [] });
+
+    // Linear interpolation between transparent and accent green for cells.
+    // count==0 stays empty, max value gets the full accent color.
+    function heatColor(c, max) {
+      if (!c || !max) return 'transparent';
+      const r = Math.min(1, c / max);
+      // Green-yellow-red gradient (perceptually meaningful: low → high)
+      const stops = [
+        [220, 240, 220, 0.15],  // very low: pale green wash
+        [144, 198, 92,  0.50],  // low: green
+        [233, 196, 106, 0.70],  // mid: amber
+        [231, 111,  81, 0.85],  // high: red-orange
+      ];
+      const f = r * (stops.length - 1);
+      const i = Math.floor(f);
+      const t2 = f - i;
+      const a = stops[i], b = stops[Math.min(i + 1, stops.length - 1)];
+      const mix = (j) => Math.round(a[j] + (b[j] - a[j]) * t2);
+      return `rgba(${mix(0)},${mix(1)},${mix(2)},${(a[3] + (b[3] - a[3]) * t2).toFixed(2)})`;
+    }
+
+    async function loadAnalytics() {
+      // Fetch all 4 leaderboards in parallel
+      await Promise.all(leaderboards.value.map(async (lb) => {
+        try {
+          const r = await fetch(BIRD_CONFIG.apiUrl + '/weather/species-by-condition?' + lb.query + '&limit=10');
+          const j = await r.json();
+          lb.rows = j.rows || [];
+        } catch { lb.rows = []; }
+        lb.loading = false;
+      }));
+      // Heatmap (top 30 species × temperature bins)
+      try {
+        const r = await fetch(BIRD_CONFIG.apiUrl + '/weather/species-heatmap?top=30');
+        const j = await r.json();
+        const species = (j.species || []).map(s => ({
+          ...s, maxC: Math.max(1, ...s.counts),
+        }));
+        heatmap.value = { loading: false, bins: j.bins || [], species };
+      } catch {
+        heatmap.value = { loading: false, bins: [], species: [] };
+      }
+    }
 
     function pearson(x, y) {
       const n = x.length;
@@ -282,11 +393,12 @@ const app = createApp({
       }
     }
 
-    onMounted(loadAll);
+    onMounted(() => { loadAll(); loadAnalytics(); });
 
     return {
       lang, t, spName, navigateTo, photoUrl,
       loading, error, todayWeather, forecast, corr, topByWeather, canvasWeather,
+      leaderboards, heatmap, heatColor,
     };
   }
 });

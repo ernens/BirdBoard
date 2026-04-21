@@ -27,7 +27,7 @@ function fetchJson(url, extraHeaders = {}) {
 }
 
 function handle(req, res, pathname, ctx) {
-  const { parseBirdnetConf, readJsonFile, birdashDb, EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID } = ctx;
+  const { parseBirdnetConf, readJsonFile, birdashDb, db, EBIRD_API_KEY, EBIRD_REGION, BW_STATION_ID } = ctx;
 
   // ── Route : GET /api/birdweather ─────────────────────────────────────────────
   // Proxy BirdWeather API — évite les CORS + cache 5 min
@@ -275,13 +275,211 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // ── Weather analytics (phase C) ────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // All four endpoints below JOIN active_detections (read DB) with
+  // weather_hourly via the ATTACH'd `vdb` schema. The PK on
+  // weather_hourly(date, hour) keeps each lookup O(log N).
 
+  // WMO weather code → category bucket. Mirrored client-side in
+  // bird-weather-chip.js wmoIcon/wmoLabel for consistency.
+  const WMO_CASE = `CASE
+    WHEN w.weather_code = 0 THEN 'clear'
+    WHEN w.weather_code <= 2 THEN 'partly_cloudy'
+    WHEN w.weather_code = 3 THEN 'cloudy'
+    WHEN w.weather_code <= 48 THEN 'fog'
+    WHEN w.weather_code <= 57 THEN 'drizzle'
+    WHEN w.weather_code <= 67 OR (w.weather_code BETWEEN 80 AND 82) THEN 'rain'
+    WHEN w.weather_code BETWEEN 71 AND 86 THEN 'snow'
+    WHEN w.weather_code >= 95 THEN 'storm'
+    ELSE 'unknown' END`;
 
+  // Shared JOIN clause — used by every analytics query so we only have to
+  // change the join shape in one place if the schema ever moves.
+  const WEATHER_JOIN = `JOIN vdb.weather_hourly w
+      ON w.date = d.Date AND w.hour = CAST(SUBSTR(d.Time, 1, 2) AS INT)`;
+
+  // ── Route : GET /api/weather/condition-summary ───────────────────────────
+  // Overall counts of detections + distinct species per WMO category.
+  // Drives the pie/bar overview at the top of the analytics section.
+  if (req.method === 'GET' && pathname === '/api/weather/condition-summary') {
+    try {
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const minConf = parseFloat(params.get('conf') || '0.7');
+      const rows = db.prepare(`SELECT ${WMO_CASE} AS condition,
+          COUNT(*) AS detections, COUNT(DISTINCT d.Sci_Name) AS species
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE d.Confidence >= ? GROUP BY condition ORDER BY detections DESC`).all(minConf);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ rows }));
+    } catch(e) {
+      console.error('[weather/condition-summary]', e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'analytics_error', message: e.message }));
+    }
+    return true;
+  }
+
+  // ── Route : GET /api/weather/species-by-condition ────────────────────────
+  // Top species matching weather predicates. Drives the cold/storm/rain/wind
+  // leaderboards. All filters optional, AND'd together.
+  // Params:
+  //   temp_min, temp_max          (°C)
+  //   codes=95,96,99               WMO codes (comma list)
+  //   precip_min, precip_max       (mm)
+  //   wind_min, wind_max           (km/h)
+  //   conf=0.7  limit=20
+  if (req.method === 'GET' && pathname === '/api/weather/species-by-condition') {
+    try {
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const wherePred = ['d.Confidence >= ?'];
+      const args = [parseFloat(params.get('conf') || '0.7')];
+      const numFilter = (key, col, op) => {
+        const v = params.get(key);
+        if (v == null || v === '') return;
+        const n = parseFloat(v);
+        if (!isNaN(n)) { wherePred.push(`w.${col} ${op} ?`); args.push(n); }
+      };
+      numFilter('temp_min',   'temp_c',   '>=');
+      numFilter('temp_max',   'temp_c',   '<=');
+      numFilter('precip_min', 'precip_mm', '>=');
+      numFilter('precip_max', 'precip_mm', '<=');
+      numFilter('wind_min',   'wind_kmh', '>=');
+      numFilter('wind_max',   'wind_kmh', '<=');
+      const codesRaw = (params.get('codes') || '').split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s));
+      if (codesRaw.length) {
+        wherePred.push(`w.weather_code IN (${codesRaw.map(() => '?').join(',')})`);
+        args.push(...codesRaw.map(Number));
+      }
+      const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') || '20')));
+      const rows = db.prepare(`SELECT d.Sci_Name AS sci_name, d.Com_Name AS com_name,
+          COUNT(*) AS detections, ROUND(AVG(d.Confidence) * 100, 1) AS avg_conf
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE ${wherePred.join(' AND ')}
+        GROUP BY d.Sci_Name, d.Com_Name
+        ORDER BY detections DESC LIMIT ?`).all(...args, limit);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ rows, total: rows.length }));
+    } catch(e) {
+      console.error('[weather/species-by-condition]', e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'analytics_error', message: e.message }));
+    }
+    return true;
+  }
+
+  // ── Route : GET /api/weather/species-heatmap ─────────────────────────────
+  // Cross-tab: top N species × temperature buckets. Returns dense matrix
+  // suitable for ECharts/Chart.js heatmap rendering.
+  // Params: top=30  conf=0.7  bin_size=5  bin_min=-15  bin_max=35
+  if (req.method === 'GET' && pathname === '/api/weather/species-heatmap') {
+    try {
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const minConf = parseFloat(params.get('conf') || '0.7');
+      const top = Math.min(60, Math.max(5, parseInt(params.get('top') || '30')));
+      const binSize = Math.min(10, Math.max(1, parseInt(params.get('bin_size') || '5')));
+      const binMin = parseInt(params.get('bin_min') || '-15');
+      const binMax = parseInt(params.get('bin_max') || '35');
+
+      // Step 1: top N species in the joined dataset (i.e. species with at
+      // least one detection that has weather data).
+      const topSpecies = db.prepare(`SELECT d.Sci_Name AS sci_name, d.Com_Name AS com_name,
+          COUNT(*) AS total
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE d.Confidence >= ?
+        GROUP BY d.Sci_Name, d.Com_Name
+        ORDER BY total DESC LIMIT ?`).all(minConf, top);
+      if (!topSpecies.length) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ bins: [], species: [] }));
+        return true;
+      }
+      // Step 2: per-(species, bin) count using bin index from temperature.
+      // bin_idx = floor((temp_c - bin_min) / bin_size); clamped at edges so
+      // outliers fall into the first/last bin rather than being dropped.
+      const placeholders = topSpecies.map(() => '?').join(',');
+      const sciNames = topSpecies.map(s => s.sci_name);
+      const cells = db.prepare(`SELECT d.Sci_Name AS sci_name,
+          MAX(0, MIN(?, CAST((w.temp_c - ?) / ? AS INT))) AS bin_idx,
+          COUNT(*) AS n
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE d.Confidence >= ? AND w.temp_c IS NOT NULL
+          AND d.Sci_Name IN (${placeholders})
+        GROUP BY d.Sci_Name, bin_idx`).all(
+          Math.floor((binMax - binMin) / binSize) - 1, binMin, binSize, minConf, ...sciNames);
+
+      const binCount = Math.floor((binMax - binMin) / binSize);
+      const bins = [];
+      for (let i = 0; i < binCount; i++) {
+        const lo = binMin + i * binSize, hi = lo + binSize;
+        bins.push({ idx: i, label: `${lo}…${hi}°C`, lo, hi });
+      }
+      const cellMap = new Map();
+      for (const c of cells) cellMap.set(`${c.sci_name}|${c.bin_idx}`, c.n);
+      const species = topSpecies.map(s => ({
+        sci_name: s.sci_name, com_name: s.com_name, total: s.total,
+        counts: bins.map(b => cellMap.get(`${s.sci_name}|${b.idx}`) || 0),
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ bins, species }));
+    } catch(e) {
+      console.error('[weather/species-heatmap]', e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'analytics_error', message: e.message }));
+    }
+    return true;
+  }
+
+  // ── Route : GET /api/weather/species-profile?species=Sci_name ────────────
+  // Per-species distribution across weather conditions and temperature ranges.
+  // Drives the "Profil météo" panel on species.html.
+  if (req.method === 'GET' && pathname === '/api/weather/species-profile') {
+    try {
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const sciName = params.get('species') || '';
+      const minConf = parseFloat(params.get('conf') || '0.7');
+      if (!sciName) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'bad_request', message: 'species param required' }));
+        return true;
+      }
+      // Look up by Sci_Name OR Com_Name (callers sometimes pass either)
+      const cond = db.prepare(`SELECT ${WMO_CASE} AS condition, COUNT(*) AS n
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE (d.Sci_Name = ? OR d.Com_Name = ?) AND d.Confidence >= ?
+        GROUP BY condition ORDER BY n DESC`).all(sciName, sciName, minConf);
+      // Temperature distribution in 5°C bins (clamped -15…+35)
+      const temps = db.prepare(`SELECT
+          MAX(0, MIN(9, CAST((w.temp_c - (-15)) / 5 AS INT))) AS bin_idx,
+          COUNT(*) AS n
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE (d.Sci_Name = ? OR d.Com_Name = ?) AND d.Confidence >= ? AND w.temp_c IS NOT NULL
+        GROUP BY bin_idx ORDER BY bin_idx`).all(sciName, sciName, minConf);
+      const tempBins = [];
+      for (let i = 0; i < 10; i++) tempBins.push({ idx: i, label: `${-15 + i * 5}…${-10 + i * 5}°C`, n: 0 });
+      for (const t of temps) if (tempBins[t.bin_idx]) tempBins[t.bin_idx].n = t.n;
+      // Quick stats
+      const stats = db.prepare(`SELECT COUNT(*) AS total,
+          ROUND(AVG(w.temp_c), 1) AS avg_temp,
+          ROUND(MIN(w.temp_c), 1) AS min_temp,
+          ROUND(MAX(w.temp_c), 1) AS max_temp,
+          ROUND(AVG(w.wind_kmh), 1) AS avg_wind,
+          ROUND(SUM(CASE WHEN w.precip_mm > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS pct_with_precip
+        FROM active_detections d ${WEATHER_JOIN}
+        WHERE (d.Sci_Name = ? OR d.Com_Name = ?) AND d.Confidence >= ? AND w.temp_c IS NOT NULL`)
+        .get(sciName, sciName, minConf);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ species: sciName, conditions: cond, temp_bins: tempBins, stats }));
+    } catch(e) {
+      console.error('[weather/species-profile]', e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'analytics_error', message: e.message }));
+    }
+    return true;
+  }
 
   return false;
-
-
-
-  }
+}
 
 module.exports = { handle };

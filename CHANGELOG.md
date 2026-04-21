@@ -2,6 +2,35 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.33.0] — 2026-04-21
+
+### Weather analytics: leaderboards, heatmap, per-species profile (Phase C)
+
+Now that every detection has weather context, you can answer ornithological questions like "which species are still active when it's sub-zero?" or "what sings during heavy rain?" directly from the dashboard.
+
+**4 new backend endpoints** (all JOIN active_detections × weather_hourly):
+
+- `GET /api/weather/condition-summary?conf=0.7` — global counts of detections + distinct species per WMO category (clear, partly_cloudy, cloudy, fog, drizzle, rain, snow, storm).
+- `GET /api/weather/species-by-condition?temp_min=&temp_max=&codes=&precip_min=&wind_min=&conf=&limit=` — top species matching arbitrary AND-combined weather predicates.
+- `GET /api/weather/species-heatmap?top=30&bin_size=5&bin_min=-15&bin_max=35` — dense matrix: top-N species × temperature bins, suitable for heatmap rendering.
+- `GET /api/weather/species-profile?species=` — per-species distribution across weather conditions + temp histogram + summary stats (avg/min/max temp, avg wind, % during precip).
+
+**weather.html — 2 new sections:**
+
+- **Activité par conditions météo** — 4 leaderboards in a responsive grid: cold tolerance (<0°C), storm singers (codes 95-99), heavy rain (≥5mm/h), strong wind (≥30km/h). Each shows top 10 species with click-through to species page.
+- **Heatmap espèce × température** — top 30 species × temp bins from -15°C to +35°C in 5°C steps. Color gradient pale-green → green → amber → red-orange shows activity intensity. Sticky first column for horizontal scroll.
+
+**species.html — new "Profil météo" panel:**
+
+- 4 KPI cards: avg temperature, temp range (min…max), avg wind, % of detections during precipitation.
+- Horizontal bar distribution across weather conditions (clear/cloudy/rain/etc.).
+- Temperature histogram (10 bins from -15°C to +35°C).
+- Hidden when the species has no detections with weather data.
+
+13 new i18n labels per language (fr, en, de, nl). Backend queries use the existing `vdb` ATTACH (no schema changes). Architecture validated: lookup at query time over the `(date, hour)` PK index keeps queries under 1s on the Pi 5 even on 1M+ detections.
+
+Phase C of three (badges → analytics → filters); next will be filterable views in detections.html.
+
 ## [1.32.0] — 2026-04-21
 
 ### Weather chips on detection lists (Phase A of weather audit)

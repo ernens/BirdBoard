@@ -2320,6 +2320,36 @@ select, input[type="text"], input[type="number"], textarea {
 .spectro-modal-sci { font-size: .8rem; color: var(--text-muted); font-style: italic; }
 .spectro-modal-meta { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .3rem; font-size: .75rem; color: var(--text-faint); }
 .weather-chip { display: inline-flex; align-items: center; gap: .35rem; padding: 0 .45rem; border-radius: .8rem; background: var(--card-bg-faint, rgba(255,255,255,.05)); border: 1px solid var(--border-faint, rgba(255,255,255,.08)); font-size: .72rem; }
+/* ── Phase C analytics: leaderboards + heatmap ───────────────────────── */
+.weather-lb { background: var(--bg-deep); border-radius: var(--radius); padding: .6rem; }
+.weather-lb-title { display: flex; align-items: center; gap: .35rem; font-weight: 600; font-size: .82rem; margin-bottom: .4rem; }
+.weather-lb-cond { margin-left: auto; font-size: .68rem; color: var(--text-muted); font-weight: 400; }
+.weather-lb-list { list-style: none; padding: 0; margin: 0; font-size: .78rem; }
+.weather-lb-list li { display: grid; grid-template-columns: 1.4rem 1fr auto; align-items: center; gap: .35rem; padding: .25rem 0; border-top: 1px solid var(--border); }
+.weather-lb-list li:first-child { border-top: 0; }
+.weather-lb-list li:hover { background: rgba(255,255,255,.03); }
+.weather-lb-rank { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; font-size: .72rem; }
+.weather-lb-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weather-lb-count { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; font-size: .72rem; }
+.weather-heatmap-wrap { overflow-x: auto; margin-top: .4rem; }
+.weather-heatmap { border-collapse: collapse; font-size: .7rem; width: 100%; }
+.weather-heatmap th, .weather-heatmap td { padding: .25rem .4rem; text-align: center; border: 1px solid var(--border); }
+.weather-heatmap th.hm-sp { text-align: left; min-width: 12rem; position: sticky; left: 0; background: var(--bg-card); z-index: 1; }
+.weather-heatmap td.hm-sp { text-align: left; min-width: 12rem; position: sticky; left: 0; background: var(--bg-card); font-weight: 500; z-index: 1; }
+.weather-heatmap td.hm-sp:hover { background: rgba(255,255,255,.05); }
+.weather-heatmap th.hm-h { font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+.weather-heatmap th.hm-tot, .weather-heatmap td.hm-tot { font-weight: 600; background: var(--bg-deep); }
+.weather-heatmap td.hm-cell { font-variant-numeric: tabular-nums; min-width: 2.5rem; }
+/* ── Weather profile (species page) ──────────────────────────────────── */
+.wp-bar-row { display: grid; grid-template-columns: 9rem 1fr 3rem; align-items: center; gap: .5rem; padding: .15rem 0; font-size: .78rem; }
+.wp-bar-label { display: inline-flex; align-items: center; gap: .35rem; color: var(--text-muted); }
+.wp-bar-track { height: .65rem; background: var(--bg-deep); border-radius: 4px; overflow: hidden; }
+.wp-bar-fill { height: 100%; background: linear-gradient(90deg, #5a9e3a, #90c65c); }
+.wp-bar-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }
+.wp-temp-hist { display: flex; align-items: flex-end; gap: 4px; height: 100px; padding: 0 .25rem; }
+.wp-temp-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.wp-temp-bar { width: 80%; min-height: 2px; background: linear-gradient(180deg, #4a8ec3, #1f4f78); border-radius: 2px 2px 0 0; }
+.wp-temp-label { font-size: .62rem; color: var(--text-muted); margin-top: .15rem; font-variant-numeric: tabular-nums; }
 .weather-chip .weather-precip, .weather-chip .weather-wind { display: inline-flex; align-items: center; gap: .15rem; padding-left: .35rem; border-left: 1px solid var(--border-faint, rgba(255,255,255,.08)); }
 .spectro-modal-close {
   background: none; border: none; font-size: 1.5rem; color: var(--text-muted);
