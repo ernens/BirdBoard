@@ -2,6 +2,41 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.36.0] — 2026-04-21
+
+### Refactor: split server/routes/audio.js into 8 cohesive modules
+
+`server/routes/audio.js` had grown to 1094 lines mixing 8 unrelated concerns (streaming, devices, profiles, calibration, monitoring, adaptive-gain, noise-profile, hardware boost). New contributors had to scroll through ~1000 lines to find where to add or fix anything audio-related.
+
+Split into one thin dispatcher + 7 single-concern modules under `server/routes/audio/`:
+
+| File | Lines | Responsibility |
+|---|---|---|
+| `audio.js` | 45 | Dispatcher — try each module in order, first match wins |
+| `audio/_helpers.js` | 160 | Shared utilities (jsonConfigGet/Post, paths, whitelists, getRecentMp3s, readBoost) |
+| `audio/streaming.js` | 193 | `/api/audio-info`, `/api/audio-stream`, `/api/live-stream`, `/api/live-pcm` |
+| `audio/devices.js` | 218 | `/api/audio/devices`, `/api/audio/test`, `/api/audio/config` GET/POST, `/api/audio/boost` GET/POST |
+| `audio/profiles.js` | 134 | `/api/audio/profiles` CRUD + activate |
+| `audio/calibration.js` | 120 | `/api/audio/calibration/start` + apply |
+| `audio/monitoring.js` | 147 | `/api/audio/monitor` SSE + `/api/audio/filter-preview` |
+| `audio/adaptive_gain.js` | 142 | `/api/audio/adaptive-gain/state`, config GET/POST + background collector |
+| `audio/noise_profile.js` | 109 | `/api/audio/noise-profile/record`, `/status`, DELETE |
+
+Each module exports `handle(req, res, pathname, ctx)` — same signature as the old monolithic file. `adaptive_gain` also exports `shutdown()` (forwarded by the dispatcher) for the `setInterval`/arecord-child cleanup.
+
+Pure code movement, zero behavior change:
+- All endpoint URLs unchanged
+- Auth logic unchanged
+- Side effects (ALSA dsnoop generation on device change, recording-service restart) unchanged
+- Tests 155/155 still pass
+- Smoke 34/35 (only the unrelated overview MP3 404 we've been seeing for days)
+
+Total: 1094 → 1268 lines (+16% — the overhead is per-module imports and module headers; each individual file is ~120-220 lines, navigable in one screen).
+
+Why this matters: the project is open-source and aims to attract contributors. A 1000-line file with 8 mixed concerns is dissuasive — splitting by responsibility makes "where do I put this fix?" obvious.
+
+`engine.py` (1573 lines) is the next refactor candidate — same approach, separate session.
+
 ## [1.35.0] — 2026-04-21
 
 ### Setup wizard — first-run onboarding modal
