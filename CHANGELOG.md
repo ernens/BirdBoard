@@ -2,6 +2,35 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.35.0] — 2026-04-21
+
+### Setup wizard — first-run onboarding modal
+
+A 7-step modal guides new users (and existing ones via Settings → Station) through the essential configuration without forcing them to read pages of doc. Fully hardware-aware — detects the Pi model, RAM, sound cards, disks, and internet connectivity, then proposes adapted defaults the user can override.
+
+**Backend** (`server/routes/setup.js`):
+- `GET /api/setup/status` — `{ needed, completed_at, gaps }`. Setup is considered "needed" when no `config/setup-completed.json` flag exists, or `lat/lon=0/0`, or no audio device is configured.
+- `GET /api/setup/hardware-profile` — Pi model + tag (pi3/pi4/pi5/other), total RAM, detected sound cards (USB-flagged for recommendation), block devices (external USB drives flagged), live Open-Meteo probe for internet status, plus computed model recommendations (Pi 5 + ≥4 GB → BirdNET FP16 + Perch FP16 dual; Pi 4 + ≥4 GB → + Perch INT8 dual; Pi 3 → BirdNET FP16 single).
+- `POST /api/setup/complete` — applies all 5 categories of choices (location, audio, model, filters, integrations) in batch, writes `config/setup-completed.json` atomically. **Does not restart any service** — config goes to disk, the engine picks up changes at the user's next manual restart. Ongoing detections are not interrupted.
+
+**Frontend** (`public/js/bird-setup-wizard.js`):
+- 7 steps: Welcome → Location → Audio source → Detection model → Pre-filters → Integrations → Recap.
+- Hardware-aware defaults seeded into every step from `/api/setup/hardware-profile` + current `birdnet.conf` values pre-loaded so re-runs aren't destructive.
+- Per-step "Pourquoi ce réglage ?" expandable explanations educate new users.
+- Audio step lists detected devices with USB/built-in badges and a "Recommended" pill on the auto-pick.
+- Model step offers two simple choices (Single BirdNET vs Dual BirdNET+Perch) with hardware recommendation surfaced + "Advanced choices" expander revealing the full model picker.
+- Pre-filters step exposes YAMNet privacy + dog-bark filters with GDPR-friendly defaults.
+- Integrations step covers BirdWeather station ID + Apprise URLs (one per line), MQTT skipped (too complex for a wizard).
+- Recap step shows all configured choices + clear note that nothing restarts automatically.
+- Auto-trigger on overview.html mount when status is "needed" and not dismissed in this browser session.
+- Re-run from Settings → Station → "Lancer l'assistant" — pre-loads current values, can be closed without applying.
+
+**i18n**: ~80 new keys × 4 languages (fr, en, de, nl).
+
+**Smoke**: bumped `scripts/smoke.mjs` `page.goto` timeout from 20 s to 45 s — pages now load more JS (weather chips, wizard) and the old timeout was tripping on `recordings.html`.
+
+**SW v140**. Tests 155/155, smoke 35/35 green.
+
 ## [1.34.0] — 2026-04-21
 
 ### Custom weather search on weather.html (Phase B reimagined)

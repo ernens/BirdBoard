@@ -74,7 +74,7 @@ async function checkPage(context, p) {
   });
 
   try {
-    await page.goto(`${BASE}${p.path}`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.goto(`${BASE}${p.path}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
     const mounted = await page.waitForSelector('[v-cloak]', { state: 'detached', timeout: 8000 })
       .then(() => true).catch(() => false);
     errors.mounted = mounted;

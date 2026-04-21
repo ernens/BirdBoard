@@ -2120,6 +2120,13 @@ const app = createApp({
     // second discoverable entry point.
     function openPower() { window.BIRDASH && window.BIRDASH.openPower && window.BIRDASH.openPower(); }
 
+    // Re-run the setup wizard on demand. The wizard pre-loads current
+    // values so this is non-destructive — user can change anything or
+    // close without applying.
+    function openWizard() {
+      if (window.BIRDASH && window.BIRDASH.openSetupWizard) window.BIRDASH.openSetupWizard();
+    }
+
     // ── External display (PiTFT 3.5") ──────────────────────────────
     const tftStatus = reactive({
       ready: false,
@@ -2244,7 +2251,7 @@ const app = createApp({
       tabComponents,
       telemetryStatus, telemetryLoading, telemetryName, telemetryJoining, enableTelemetry, disableTelemetry,
       anonPingsEnabled, toggleAnonPings,
-      openPower,
+      openPower, openWizard,
       tftStatus, tftInstalling, tftInstallMsg, tftInstallErr, tftInstallCmds,
       tftSaving, tftConfirmInstall, loadTftStatus, saveTftConfig, runTftInstall, tftServiceAction,
       // Region & units prefs — reactive refs, watchers persist to localStorage.
@@ -2387,7 +2394,7 @@ const app = createApp({
       bkpSchedule, bkpHistory,
       telemetryStatus, telemetryLoading, telemetryName, telemetryJoining, enableTelemetry, disableTelemetry,
       anonPingsEnabled, toggleAnonPings,
-      openPower,
+      openPower, openWizard,
       tftStatus, tftInstalling, tftInstallMsg, tftInstallErr, tftInstallCmds,
       tftSaving, tftConfirmInstall, loadTftStatus, saveTftConfig, runTftInstall, tftServiceAction,
       // Region & units prefs (reactive refs, watchers persist to localStorage)

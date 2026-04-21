@@ -250,6 +250,15 @@
         </p>
       </div>
 
+      <!-- ═══ Setup wizard re-run ═══ -->
+      <div class="set-section">
+        <div class="set-section-title"><bird-icon name="sparkles" :size="15"></bird-icon> {{t('set_wizard_title')}}</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.8rem;">{{t('set_wizard_desc')}}</p>
+        <button class="btn btn-secondary" @click="openWizard()" style="font-size:.82rem;">
+          <bird-icon name="sparkles" :size="14"></bird-icon> {{t('set_wizard_open')}}
+        </button>
+      </div>
+
       <!-- ═══ Power management ═══ -->
       <div class="set-section">
         <div class="set-section-title"><bird-icon name="power" :size="15"></bird-icon> {{t('power_title')}}</div>

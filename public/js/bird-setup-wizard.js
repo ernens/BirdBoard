@@ -38,13 +38,31 @@
     },
   });
 
-  // Steps registered in P1 only; P2/P3 will splice in audio/model/etc.
-  // Each step has: key (for i18n), required (cannot skip).
+  // Steps order. P3 will splice 'filters' and 'integrations' between
+  // 'model' and 'recap'. Each step has: key (for i18n), required (cannot skip).
   const STEPS = [
-    { key: 'welcome',  required: false },
-    { key: 'location', required: true  },
-    { key: 'recap',    required: false },
+    { key: 'welcome',      required: false },
+    { key: 'location',     required: true  },
+    { key: 'audio',        required: true  },
+    { key: 'model',        required: true  },
+    { key: 'filters',      required: false },
+    { key: 'integrations', required: false },
+    { key: 'recap',        required: false },
   ];
+
+  // Available models cache — populated lazily on first wizard open.
+  // Used by the "advanced model picker" toggle on the model step.
+  const availableModels = ref([]);
+  async function loadAvailableModels() {
+    if (availableModels.value.length) return;
+    try {
+      const r = await fetch('/birds/api/models');
+      if (r.ok) {
+        const data = await r.json();
+        availableModels.value = data.models || [];
+      }
+    } catch {}
+  }
 
   // ── API helpers ────────────────────────────────────────────────────────
   async function checkSetupStatus() {
@@ -59,13 +77,32 @@
     state.loading = true;
     try {
       const r = await fetch('/birds/api/setup/hardware-profile');
-      if (r.ok) state.hardware = await r.json();
+      if (r.ok) {
+        state.hardware = await r.json();
+        // Seed audio + model defaults from hardware recommendations,
+        // but only if the user hasn't already changed those fields
+        // (preloadCurrentConfig may have set them from current config).
+        const hw = state.hardware;
+        if (hw?.audio?.devices?.length && !state.choices.audio.device_id) {
+          const idx = hw.audio.recommended >= 0 ? hw.audio.recommended : 0;
+          const dev = hw.audio.devices[idx];
+          state.choices.audio.device_id = dev.cardId;
+          state.choices.audio.device_name = dev.desc || dev.name;
+        }
+        if (hw?.recommendations?.models && !state.choices.model.primary) {
+          const rec = hw.recommendations.models;
+          state.choices.model.primary = rec.primary;
+          state.choices.model.secondary = rec.secondary;
+          state.choices.model.dual = rec.dual;
+        }
+      }
     } catch { state.hardware = null; }
     state.loading = false;
   }
 
-  // Pre-populate location from BirdNET config so re-runs show current
-  // values instead of empty fields.
+  // Pre-populate from current BirdNET config so re-runs show current
+  // values instead of empty fields. Hardware-detected defaults only kick
+  // in if these are empty (e.g. fresh install).
   async function preloadCurrentConfig() {
     try {
       const r = await fetch('/birds/api/settings');
@@ -76,6 +113,42 @@
       if (!isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
         state.choices.location.latitude = lat;
         state.choices.location.longitude = lon;
+      }
+      if (conf.MODEL || conf.model) {
+        state.choices.model.primary = conf.MODEL || conf.model;
+        state.choices.model.dual = String(conf.DUAL_MODEL_ENABLED || '0') === '1';
+        state.choices.model.secondary = conf.SECONDARY_MODEL || null;
+      }
+      // Pre-filters and BirdWeather are also in birdnet.conf
+      if ('YAMNET_PRIVACY_FILTER' in conf) {
+        state.choices.filters.privacy = String(conf.YAMNET_PRIVACY_FILTER) === '1';
+      }
+      if ('YAMNET_DOG_FILTER' in conf) {
+        state.choices.filters.dog = String(conf.YAMNET_DOG_FILTER) === '1';
+      }
+      if (conf.BIRDWEATHER_ID) {
+        state.choices.integrations.birdweather_station_id = conf.BIRDWEATHER_ID;
+      }
+    } catch {}
+    // Load current audio device too
+    try {
+      const r = await fetch('/birds/api/audio/config');
+      if (r.ok) {
+        const cfg = await r.json();
+        if (cfg.device_id) {
+          state.choices.audio.device_id = cfg.device_id;
+          state.choices.audio.device_name = cfg.device_name || '';
+        }
+      }
+    } catch {}
+    // Load current Apprise URLs
+    try {
+      const r = await fetch('/birds/api/apprise');
+      if (r.ok) {
+        const data = await r.json();
+        if (data.urls) {
+          state.choices.integrations.apprise_urls = data.urls.split('\n').map(s => s.trim()).filter(Boolean);
+        }
       }
     } catch {}
   }
@@ -108,10 +181,13 @@
     state.results = null;
     state.errors = [];
     state.open = true;
-    // Load hardware + current config in parallel; wizard renders the
-    // welcome step immediately and the data lands by the time the user
-    // clicks "Next".
-    await Promise.all([loadHardware(), preloadCurrentConfig()]);
+    // Load hardware + current config + available models in parallel;
+    // wizard renders the welcome step immediately and the data lands
+    // before the user reaches steps that need it.
+    // Order matters: preload config first so its values aren't overwritten
+    // by the hardware defaults.
+    await preloadCurrentConfig();
+    await Promise.all([loadHardware(), loadAvailableModels()]);
   }
 
   function closeWizard(force = false) {
@@ -152,6 +228,13 @@
               && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
               && (lat !== 0 || lon !== 0);
         }
+        if (k === 'audio') return !!state.choices.audio.device_id;
+        if (k === 'model') {
+          const m = state.choices.model;
+          if (!m.primary) return false;
+          if (m.dual && !m.secondary) return false;
+          return true;
+        }
         return true;
       });
 
@@ -167,6 +250,13 @@
         };
       });
 
+      // Human-friendly model label for the recap (uses BIRDASH.shortModel
+      // if available, falls back to the raw identifier).
+      function shortModelLabel(id) {
+        if (!id) return '—';
+        return (BIRDASH.shortModel && BIRDASH.shortModel(id)) || id;
+      }
+
       // Recap building blocks — show only what the user actually configured.
       const recapItems = computed(() => {
         const items = [];
@@ -178,7 +268,59 @@
             value: `${c.location.latitude.toFixed(4)}, ${c.location.longitude.toFixed(4)}`,
           });
         }
+        if (c.audio.device_id) {
+          items.push({
+            key: 'audio',
+            label: t('setup_step_audio'),
+            value: c.audio.device_name || c.audio.device_id,
+          });
+        }
+        if (c.model.primary) {
+          const value = c.model.dual && c.model.secondary
+            ? `${shortModelLabel(c.model.primary)} + ${shortModelLabel(c.model.secondary)}`
+            : shortModelLabel(c.model.primary);
+          items.push({
+            key: 'model',
+            label: t('setup_step_model'),
+            value,
+          });
+        }
+        // Filters: only show if anything is enabled
+        const fParts = [];
+        if (c.filters.privacy) fParts.push(t('setup_filter_privacy_title'));
+        if (c.filters.dog)     fParts.push(t('setup_filter_dog_title'));
+        if (fParts.length) {
+          items.push({ key: 'filters', label: t('setup_step_filters'), value: fParts.join(', ') });
+        }
+        // Integrations: same — only show if user filled something
+        const iParts = [];
+        if (c.integrations.birdweather_station_id) {
+          iParts.push(`BirdWeather #${c.integrations.birdweather_station_id}`);
+        }
+        if (c.integrations.apprise_urls.length) {
+          iParts.push(`Apprise (${c.integrations.apprise_urls.length})`);
+        }
+        if (iParts.length) {
+          items.push({ key: 'integrations', label: t('setup_step_integrations'), value: iParts.join(', ') });
+        }
         return items;
+      });
+
+      // Toggle exposing the full model picker (secondary list) — folded
+      // by default to keep the simple "recommended" choice front-and-center.
+      const advancedModel = ref(false);
+
+      // Apprise URLs are stored as an array internally, but the textarea
+      // works on a single string. Two-way binding via a computed wouldn't
+      // play nicely with v-model + onInput, so we expose a ref that mirrors
+      // the array and watch the textarea's input event to sync the array.
+      const appriseText = computed({
+        get() { return (state.choices.integrations.apprise_urls || []).join('\n'); },
+        set(v) { state.choices.integrations.apprise_urls = v.split(/\n/).map(s => s.trim()).filter(Boolean); },
+      });
+      // For the secondary model picker, exclude the primary from the list.
+      const availableModelsForSecondary = computed(() => {
+        return availableModels.value.filter(m => m !== state.choices.model.primary);
       });
 
       async function onApply() {
@@ -199,6 +341,8 @@
       return {
         state, t, currentStep, isFirst, isLast, stepNum, totalSteps,
         canAdvance, hwSummary, recapItems,
+        availableModels, availableModelsForSecondary,
+        advancedModel, shortModelLabel, appriseText,
         nextStep, prevStep, onApply, tryClose,
       };
     },
@@ -263,10 +407,170 @@
         <div class="sw-hint">{{t('setup_location_hint')}}</div>
       </section>
 
+      <!-- ── Audio source ────────────────────────────────────── -->
+      <section v-else-if="currentStep.key === 'audio'">
+        <h2 class="sw-h2">{{t('setup_step_audio')}}</h2>
+        <p class="sw-p">{{t('setup_audio_desc')}}</p>
+        <details class="sw-why">
+          <summary>{{t('setup_why_this_matters')}}</summary>
+          <p>{{t('setup_audio_why')}}</p>
+        </details>
+        <div v-if="state.loading" class="sw-loading">
+          <span class="spinner-inline"><i></i><i></i><i></i></span>
+          {{t('setup_detecting_hardware')}}
+        </div>
+        <div v-else-if="!state.hardware?.audio?.devices?.length" class="sw-warning">
+          {{t('setup_no_audio_detected')}}
+        </div>
+        <div v-else class="sw-device-list">
+          <label v-for="(d, i) in state.hardware.audio.devices" :key="d.cardId"
+                 class="sw-device" :class="{'sw-device-active': state.choices.audio.device_id === d.cardId}">
+            <input type="radio" :value="d.cardId" v-model="state.choices.audio.device_id"
+                   @change="state.choices.audio.device_name = d.desc || d.name">
+            <div class="sw-device-info">
+              <div class="sw-device-name">
+                {{d.desc || d.name}}
+                <span v-if="i === state.hardware.audio.recommended" class="sw-rec-badge">{{t('setup_recommended')}}</span>
+                <span v-if="d.kind === 'usb'" class="sw-kind-badge sw-kind-usb">USB</span>
+                <span v-else-if="d.kind === 'builtin'" class="sw-kind-badge sw-kind-builtin">{{t('setup_audio_builtin')}}</span>
+              </div>
+              <div class="sw-device-meta">{{d.cardId}}</div>
+            </div>
+          </label>
+        </div>
+        <div class="sw-hint">{{t('setup_audio_hint')}}</div>
+      </section>
+
+      <!-- ── Detection model ─────────────────────────────────── -->
+      <section v-else-if="currentStep.key === 'model'">
+        <h2 class="sw-h2">{{t('setup_step_model')}}</h2>
+        <p class="sw-p">{{t('setup_model_desc')}}</p>
+        <details class="sw-why">
+          <summary>{{t('setup_why_this_matters')}}</summary>
+          <p>{{t('setup_model_why')}}</p>
+        </details>
+
+        <!-- Recommended preset (single vs dual) -->
+        <div class="sw-model-presets">
+          <label class="sw-model-preset" :class="{'sw-model-preset-active': !state.choices.model.dual}">
+            <input type="radio" :checked="!state.choices.model.dual"
+                   @change="state.choices.model.dual = false; state.choices.model.secondary = null">
+            <div class="sw-model-preset-info">
+              <div class="sw-model-preset-title">{{t('setup_model_single_title')}}</div>
+              <div class="sw-model-preset-sub">{{t('setup_model_single_sub')}}</div>
+            </div>
+          </label>
+          <label class="sw-model-preset" :class="{'sw-model-preset-active': state.choices.model.dual}">
+            <input type="radio" :checked="state.choices.model.dual"
+                   @change="state.choices.model.dual = true; if (!state.choices.model.secondary && state.hardware?.recommendations?.models?.secondary) state.choices.model.secondary = state.hardware.recommendations.models.secondary">
+            <div class="sw-model-preset-info">
+              <div class="sw-model-preset-title">{{t('setup_model_dual_title')}}</div>
+              <div class="sw-model-preset-sub">{{t('setup_model_dual_sub')}}</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="sw-hw-card" style="margin-top:.6rem;" v-if="state.hardware?.recommendations?.models">
+          <div class="sw-hw-title">{{t('setup_recommended_for_your_hardware')}}</div>
+          <div class="sw-hw-row">
+            <span class="sw-hw-lbl">{{t('setup_model_primary')}}</span>
+            <span>{{shortModelLabel(state.hardware.recommendations.models.primary)}}</span>
+          </div>
+          <div v-if="state.hardware.recommendations.models.secondary" class="sw-hw-row">
+            <span class="sw-hw-lbl">{{t('setup_model_secondary')}}</span>
+            <span>{{shortModelLabel(state.hardware.recommendations.models.secondary)}} ({{t('setup_model_dual')}})</span>
+          </div>
+        </div>
+
+        <!-- Advanced picker -->
+        <details class="sw-advanced" :open="advancedModel" @toggle="advancedModel = $event.target.open">
+          <summary>{{t('setup_model_advanced')}}</summary>
+          <div class="sw-form-row" style="grid-template-columns: 1fr;">
+            <label>{{t('setup_model_primary')}}
+              <select v-model="state.choices.model.primary">
+                <option v-for="m in availableModels" :key="m" :value="m">{{shortModelLabel(m)}}</option>
+              </select>
+            </label>
+            <label v-if="state.choices.model.dual">{{t('setup_model_secondary')}}
+              <select v-model="state.choices.model.secondary">
+                <option :value="null">—</option>
+                <option v-for="m in availableModelsForSecondary" :key="m" :value="m">{{shortModelLabel(m)}}</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <!-- ── Pre-filters ─────────────────────────────────────── -->
+      <section v-else-if="currentStep.key === 'filters'">
+        <h2 class="sw-h2">{{t('setup_step_filters')}}</h2>
+        <p class="sw-p">{{t('setup_filters_desc')}}</p>
+        <details class="sw-why">
+          <summary>{{t('setup_why_this_matters')}}</summary>
+          <p>{{t('setup_filters_why')}}</p>
+        </details>
+        <div class="sw-filter-rows">
+          <label class="sw-filter-row">
+            <input type="checkbox" v-model="state.choices.filters.privacy">
+            <div>
+              <div class="sw-filter-title">{{t('setup_filter_privacy_title')}}</div>
+              <div class="sw-filter-sub">{{t('setup_filter_privacy_sub')}}</div>
+            </div>
+          </label>
+          <label class="sw-filter-row">
+            <input type="checkbox" v-model="state.choices.filters.dog">
+            <div>
+              <div class="sw-filter-title">{{t('setup_filter_dog_title')}}</div>
+              <div class="sw-filter-sub">{{t('setup_filter_dog_sub')}}</div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Integrations ────────────────────────────────────── -->
+      <section v-else-if="currentStep.key === 'integrations'">
+        <h2 class="sw-h2">{{t('setup_step_integrations')}}</h2>
+        <p class="sw-p">{{t('setup_integrations_desc')}}</p>
+        <details class="sw-why">
+          <summary>{{t('setup_why_this_matters')}}</summary>
+          <p>{{t('setup_integrations_why')}}</p>
+        </details>
+
+        <div class="sw-integration-block">
+          <div class="sw-integration-title">
+            <bird-icon name="radio" :size="14"></bird-icon>
+            {{t('setup_integration_birdweather')}}
+            <span class="sw-optional-tag">{{t('setup_optional')}}</span>
+          </div>
+          <p class="sw-integration-desc">{{t('setup_integration_birdweather_desc')}}</p>
+          <input type="text" v-model.trim="state.choices.integrations.birdweather_station_id"
+                 :placeholder="t('setup_integration_birdweather_placeholder')"
+                 class="sw-integration-input">
+        </div>
+
+        <div class="sw-integration-block">
+          <div class="sw-integration-title">
+            <bird-icon name="bell" :size="14"></bird-icon>
+            {{t('setup_integration_apprise')}}
+            <span class="sw-optional-tag">{{t('setup_optional')}}</span>
+          </div>
+          <p class="sw-integration-desc">{{t('setup_integration_apprise_desc')}}</p>
+          <textarea v-model="appriseText" rows="4"
+                    :placeholder="t('setup_integration_apprise_placeholder')"
+                    class="sw-integration-input sw-integration-textarea"></textarea>
+        </div>
+
+        <p class="sw-hint">{{t('setup_integrations_skip_hint')}}</p>
+      </section>
+
       <!-- ── Recap ───────────────────────────────────────────── -->
       <section v-else-if="currentStep.key === 'recap'">
         <h2 class="sw-h2">{{t('setup_recap_title')}}</h2>
         <p v-if="!state.results && !state.errors.length" class="sw-p">{{t('setup_recap_intro')}}</p>
+        <div v-if="!state.results && !state.errors.length" class="sw-restart-note">
+          <bird-icon name="info" :size="13"></bird-icon>
+          {{t('setup_recap_no_restart')}}
+        </div>
         <div v-if="recapItems.length" class="sw-recap-list">
           <div v-for="r in recapItems" :key="r.key" class="sw-recap-row">
             <span class="sw-recap-lbl">{{r.label}}</span>
