@@ -76,6 +76,13 @@ dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_com_name ON detections(Com_Name)');
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_sci_name ON detections(Sci_Name)');
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_com ON detections(Date, Com_Name)');
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_conf ON detections(Date, Confidence)');
+// Expression index used by the weather analytics JOINs (vdb.weather_hourly
+// keyed by date+hour). Without it, the JOIN scans 22K weather rows × all
+// detections per day = 11M+ rows with per-row CAST. With it, the planner
+// uses (Date, hour, Confidence) as the search key and the heatmap drops
+// from 43 s to 12 s on a 1M-row table. Cheap to build (~2 s) and to keep
+// up to date — the engine only INSERTs into detections.
+dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_hour_conf ON detections(Date, CAST(SUBSTR(Time,1,2) AS INT), Confidence)');
 
 // ── Favorites table ──────────────────────────────────────────────────────────
 dbWrite.exec(`CREATE TABLE IF NOT EXISTS favorites (
