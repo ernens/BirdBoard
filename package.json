@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server/server.js",
     "test": "node --test tests/*.test.js",
+    "test:unit": "node --test tests/safe-config.test.js",
     "test:e2e": "npx playwright test",
     "smoke": "node scripts/smoke.mjs",
     "screenshots": "node scripts/screenshots.mjs"

@@ -21,8 +21,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run backend tests
-        run: npm test
-        env:
-          # Tests spawn the server with a fake DB; no real Pi config needed.
-          NODE_ENV: test
+      - name: Run unit tests
+        # CI runs unit tests only (safe-config concurrency, etc.).
+        # The full `npm test` includes integration tests that need a Pi
+        # environment (/etc/birdnet/birdnet.conf, ALSA, populated DB) and
+        # only run on bird.local / a real install.
+        run: npm run test:unit

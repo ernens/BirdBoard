@@ -8,8 +8,8 @@ All notable changes to BirdStation are documented here.
 
 Round of housekeeping — no user-visible behaviour change, but the test harness, smoke tool, and offline cache are all tighter.
 
-- **GitHub Actions CI** (`.github/workflows/ci.yml`) — `npm ci && npm test` on every push + PR to `main`. Catches silent backend regressions before they reach a Pi.
-- **Test harness** — `npm test` now runs every `tests/*.test.js` file, not just `server.test.js`. The `safe-config` concurrency suite was never running before. Removed 4 zombie tests that referenced endpoints deleted in earlier refactors (`/api/detection-rules` GET/POST, `/api/detections-by-taxonomy`, `/api/photo-cache-stats`) — all 155 remaining tests green.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) — `npm ci && npm run test:unit` on every push + PR to `main`. Catches silent regressions in the unit-test layer (currently the safe-config concurrency suite, 14 tests). The integration suite in `server.test.js` still requires a Pi (real `birdnet.conf`, ALSA, populated DB) and only runs locally via `npm test`.
+- **Test harness** — `npm test` now runs every `tests/*.test.js` file, not just `server.test.js`. The `safe-config` concurrency suite was never running before. New `npm run test:unit` script targets just the Pi-independent tests for CI. Removed 4 zombie tests that referenced endpoints deleted in earlier refactors (`/api/detection-rules` GET/POST, `/api/detections-by-taxonomy`, `/api/photo-cache-stats`) — all 155 remaining tests green on Pi.
 - **`scripts/smoke.mjs`** — added `HTTP 502` / `HTTP 504` to console-error ignore list. These wrapper strings come from `birdQuery` when Caddy cancels the upstream during a navigation, not from actual backend failures. Smoke now reports 35/35 pages clean.
 - **`public/sw.js`** — two real bugs fixed in the service worker:
   - Species photo cache was **unreachable**: the `/birds/api/photo` cache-first branch sat *after* a blanket `/birds/api/` early-return, so it never executed. Moved the photo check above the early-return — bird photos now genuinely cache in the service worker.
