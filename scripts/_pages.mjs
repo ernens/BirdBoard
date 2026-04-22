@@ -100,6 +100,7 @@ export const pages = [
 
   // System
   { name: 'system',      path: '/birds/system.html',      wait: 3000 },
+  { name: 'purge',       path: '/birds/purge.html',       wait: 4000, ready: '.pg-row-card, .pg-empty' },
 
   // Settings tabs (hash-routed)
   { name: 'settings-detection', path: '/birds/settings.html#detection', wait: 2000 },
