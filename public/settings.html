@@ -608,6 +608,9 @@ const app = createApp({
           DOG_FILTER_ENABLED: '0',
           DOG_FILTER_THRESHOLD: '0.5',
           DOG_FILTER_COOLDOWN_SEC: '15',
+          NOISY_THROTTLE_ENABLED: '0',
+          THROTTLE_COOLDOWN_SECONDS: '120',
+          THROTTLE_BYPASS_CONFIDENCE: '0.95',
         };
         Object.assign(conf, defaults, confData);
         // Mirror AUTH_USERNAME into the dedicated authUser ref so the form
