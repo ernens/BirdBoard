@@ -428,6 +428,84 @@ try {
     };
   } catch(e) { console.error('[whats-new-worker] moon_phase:', e.message); }
 
+  // ── C5: species_of_month ──
+  // Headline of the current calendar month. Two candidate kinds:
+  //   1) "newcomer" — a species whose first_date falls in this month and that
+  //      already has ≥ NEWCOMER_MIN_COUNT detections this month.
+  //   2) "comeback" — a species absent or scarce for several months and now
+  //      back this month, with the highest current/avg-prev ratio.
+  // Newcomer wins when both qualify (more interesting story).
+  // Card stays inactive when neither qualifies — no card rather than a stale one.
+  let cardSpeciesOfMonth = { type: 'species_of_month', level: 'context', active: false, insufficientData: false, insufficientDataReason: null, data: null, link: null };
+  const NEWCOMER_MIN_COUNT = 5;
+  const COMEBACK_MIN_COUNT = 5;
+  const COMEBACK_MIN_RATIO = 3.0;   // current month must be ≥3× the past avg
+  const COMEBACK_LOOKBACK_MONTHS = 6;
+  try {
+    const now = new Date();
+    const ym = now.toISOString().slice(0, 7);
+    const lookbackDate = new Date(now.getFullYear(), now.getMonth() - COMEBACK_LOOKBACK_MONTHS, 1);
+    const lookbackYm = lookbackDate.toISOString().slice(0, 7);
+
+    // 1. Newcomer
+    const newcomer = db.prepare(`
+      SELECT s.sci_name, s.com_name, s.first_date, ms.count_07
+      FROM species_stats s
+      JOIN monthly_stats ms ON ms.sci_name = s.sci_name AND ms.year_month = ?
+      WHERE strftime('%Y-%m', s.first_date) = ?
+        AND ms.count_07 >= ?
+      ORDER BY ms.count_07 DESC
+      LIMIT 1
+    `).get(ym, ym, NEWCOMER_MIN_COUNT);
+
+    if (newcomer) {
+      cardSpeciesOfMonth.active = true;
+      cardSpeciesOfMonth.data = {
+        kind: 'newcomer',
+        sci_name: newcomer.sci_name,
+        com_name: newcomer.com_name,
+        first_date: newcomer.first_date,
+        count: newcomer.count_07,
+      };
+    } else {
+      // 2. Comeback — biggest current/avg-prev ratio
+      const comeback = db.prepare(`
+        WITH curr AS (
+          SELECT sci_name, com_name, count_07
+          FROM monthly_stats
+          WHERE year_month = ? AND count_07 >= ?
+        ),
+        prev AS (
+          SELECT sci_name, AVG(count_07) AS avg_prev, MAX(year_month) AS last_month
+          FROM monthly_stats
+          WHERE year_month >= ? AND year_month < ?
+          GROUP BY sci_name
+        )
+        SELECT c.sci_name, c.com_name, c.count_07,
+               p.avg_prev, p.last_month,
+               (c.count_07 * 1.0 / p.avg_prev) AS ratio
+        FROM curr c
+        JOIN prev p USING (sci_name)
+        WHERE p.avg_prev > 0
+        ORDER BY ratio DESC
+        LIMIT 1
+      `).get(ym, COMEBACK_MIN_COUNT, lookbackYm, ym);
+
+      if (comeback && comeback.ratio >= COMEBACK_MIN_RATIO) {
+        cardSpeciesOfMonth.active = true;
+        cardSpeciesOfMonth.data = {
+          kind: 'comeback',
+          sci_name: comeback.sci_name,
+          com_name: comeback.com_name,
+          count: comeback.count_07,
+          prev_avg: parseFloat(comeback.avg_prev.toFixed(1)),
+          ratio: parseFloat(comeback.ratio.toFixed(1)),
+          last_seen_month: comeback.last_month,
+        };
+      }
+    }
+  } catch(e) { console.error('[whats-new-worker] species_of_month:', e.message); }
+
   const result = {
     generatedAt: new Date().toISOString(),
     alerts,
@@ -436,7 +514,8 @@ try {
       dawn_chorus: cardDawnChorus,
       acoustic_quality: cardAcousticQuality,
       species_richness: cardSpeciesRichness,
-      moon_phase: cardMoonPhase
+      moon_phase: cardMoonPhase,
+      species_of_month: cardSpeciesOfMonth,
     }
   };
 

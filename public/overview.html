@@ -273,6 +273,34 @@
               <div class="wn-ctx-sub"><bird-icon name="cloud" :size="11"></bird-icon> {{weatherToday.precip}}mm · <bird-icon name="wind" :size="11"></bird-icon> {{fmtWind(weatherToday.wind)}}</div>
             </div>
           </a>
+
+          <!-- Species of the month: newcomer this month with most detections,
+               or biggest comeback (current/avg-prev ratio). Hidden when
+               neither candidate qualifies. -->
+          <a v-if="whatsNew.context.species_of_month?.active"
+             :href="'species.html?species=' + encodeURIComponent(whatsNew.context.species_of_month.data.com_name)"
+             class="wn-ctx-card" style="text-decoration:none;color:inherit;">
+            <div class="wn-ctx-icon" style="padding:0;overflow:hidden;border-radius:8px;width:34px;height:34px;flex-shrink:0;">
+              <img :src="photoUrl(whatsNew.context.species_of_month.data.sci_name)"
+                   :alt="whatsNew.context.species_of_month.data.com_name"
+                   @error="e => e.target.src = 'img/robin-logo.svg'"
+                   style="width:100%;height:100%;object-fit:cover;display:block;">
+            </div>
+            <div class="wn-ctx-body" style="min-width:0;">
+              <div class="wn-ctx-label">{{t('wn_card_species_of_month')}}</div>
+              <div class="wn-ctx-hero" style="font-size:.95rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                {{spName(whatsNew.context.species_of_month.data.com_name, whatsNew.context.species_of_month.data.sci_name)}}
+              </div>
+              <div class="wn-ctx-sub">
+                <template v-if="whatsNew.context.species_of_month.data.kind === 'newcomer'">
+                  <bird-icon name="sparkles" :size="11"></bird-icon> {{t('wn_newcomer')}} · {{whatsNew.context.species_of_month.data.count}} {{t('wn_detections_short')}}
+                </template>
+                <template v-else>
+                  <bird-icon name="trending-up" :size="11"></bird-icon> {{t('wn_comeback')}} · ×{{whatsNew.context.species_of_month.data.ratio}}
+                </template>
+              </div>
+            </div>
+          </a>
           <div class="wn-ctx-card" v-if="whatsNew.context.dawn_chorus.data">
             <div class="wn-ctx-icon">☀</div>
             <div class="wn-ctx-body">
@@ -683,7 +711,7 @@ const app = createApp({
     onUnmounted(() => { if (_wnTimer) clearInterval(_wnTimer); });
 
     return {
-      lang, t, spName, daysAgo, weatherToday,
+      lang, t, spName, photoUrl, daysAgo, weatherToday,
       today, kpis, lastDet, bestDet, currentFeatured, featuredTab, selectFeaturedTab,
       rareSpeciesToday, rarePanelOpen, toggleRarePanel, isMultiModel, loadProgress,
       whatsNew, wnIcon, wnMoonIcon,
