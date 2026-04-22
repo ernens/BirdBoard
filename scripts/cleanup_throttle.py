@@ -104,6 +104,14 @@ def compute_to_delete(db_path, cooldown, bypass, date_from, date_to, species):
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
 
+    # Pre-load all File_Name values referenced by rows OUTSIDE the cleanup window —
+    # we must never quarantine an mp3 a row we won't even touch still references.
+    out_of_window_sql = "SELECT DISTINCT File_Name FROM detections WHERE NOT (" \
+        + " AND ".join(where) + ") AND File_Name IS NOT NULL"
+    kept_files = set()
+    for r in conn.execute(out_of_window_sql, params):
+        kept_files.add(r[0])
+
     last_kept_ts = {}        # com_name -> last kept epoch
     to_delete = []           # list of (rowid, date, com_name, file_name)
     per_species = {}         # com_name -> {kept_bypass, kept_first, dropped, total}
@@ -118,18 +126,21 @@ def compute_to_delete(db_path, cooldown, bypass, date_from, date_to, species):
 
             if row["Confidence"] >= bypass:
                 stats["kept_bypass"] += 1
+                if row["File_Name"]: kept_files.add(row["File_Name"])
                 continue
 
             try:
                 ts = parse_ts(row["Date"], row["Time"])
             except (TypeError, ValueError):
                 stats["kept_first"] += 1
+                if row["File_Name"]: kept_files.add(row["File_Name"])
                 continue
 
             last = last_kept_ts.get(row["Com_Name"])
             if last is None or (ts - last) >= cooldown:
                 last_kept_ts[row["Com_Name"]] = ts
                 stats["kept_first"] += 1
+                if row["File_Name"]: kept_files.add(row["File_Name"])
                 continue
 
             stats["dropped"] += 1
@@ -137,16 +148,20 @@ def compute_to_delete(db_path, cooldown, bypass, date_from, date_to, species):
     finally:
         conn.close()
 
-    return to_delete, per_species, total
+    return to_delete, per_species, total, kept_files
 
 
-def disk_estimate(to_delete, audio_root):
+def disk_estimate(to_delete, audio_root, kept_files):
     total = 0
     found_audio = 0
     found_png = 0
+    shared_skipped = 0
     sample = []
     for _, date, com, fname in to_delete:
         if not fname:
+            continue
+        if fname in kept_files:
+            shared_skipped += 1
             continue
         audio = Path(audio_root) / date / species_dir(com) / fname
         png = Path(str(audio) + ".png")
@@ -160,7 +175,7 @@ def disk_estimate(to_delete, audio_root):
             pass
         if len(sample) < 5:
             sample.append(str(audio))
-    return total, found_audio, found_png, sample
+    return total, found_audio, found_png, sample, shared_skipped
 
 
 def backup_db(db_path, backup_dir):
@@ -179,18 +194,26 @@ def backup_db(db_path, backup_dir):
     return target
 
 
-def quarantine_audio(to_delete, audio_root, quarantine_root):
-    """Moves mp3 + .mp3.png to quarantine, preserving Date/Species layout."""
+def quarantine_audio(to_delete, audio_root, quarantine_root, kept_files):
+    """Moves mp3 + .mp3.png to quarantine, preserving Date/Species layout.
+
+    Skips any file_name that is still referenced by a kept row — moving it
+    would orphan the kept row's audio.
+    """
     moved_audio = 0
     moved_png = 0
     missing = 0
     errors = 0
+    shared_skipped = 0
     audio_root = Path(audio_root)
     quarantine_root = Path(quarantine_root)
     last_progress = time.time()
 
     for i, (_, date, com, fname) in enumerate(to_delete, 1):
         if not fname:
+            continue
+        if fname in kept_files:
+            shared_skipped += 1
             continue
         species = species_dir(com)
         src_audio = audio_root / date / species / fname
@@ -220,7 +243,8 @@ def quarantine_audio(to_delete, audio_root, quarantine_root):
             print(f"  [audio] {i}/{len(to_delete)} processed", end="\r", flush=True)
             last_progress = now
 
-    print(f"\n[audio] moved {moved_audio} mp3 + {moved_png} png ; missing {missing} ; errors {errors}")
+    print(f"\n[audio] moved {moved_audio} mp3 + {moved_png} png ; "
+          f"missing {missing} ; errors {errors} ; shared-skipped {shared_skipped}")
     return moved_audio, moved_png, missing, errors
 
 
@@ -278,7 +302,7 @@ def main():
 
     print("[scan] computing throttle decisions ...")
     t0 = time.time()
-    to_delete, per_species, total = compute_to_delete(
+    to_delete, per_species, total, kept_files = compute_to_delete(
         args.db, args.cooldown, args.bypass, args.date_from, args.date_to, args.species)
     print(f"[scan] {total} rows scanned in {time.time() - t0:.1f}s")
 
@@ -297,9 +321,12 @@ def main():
         rest = sum(s["dropped"] for _, s in by_drop[15:])
         print(f"  ... + {len(by_drop) - 15} more species, {rest} more drops")
 
-    bytes_est, audio_n, png_n, sample = disk_estimate(to_delete, args.audio_root)
+    bytes_est, audio_n, png_n, sample, shared = disk_estimate(
+        to_delete, args.audio_root, kept_files)
     print(f"\n[disk] would free ≈ {fmt_bytes(bytes_est)} "
           f"({audio_n} mp3 + {png_n} png present on disk for {len(to_delete)} rows)")
+    if shared:
+        print(f"[disk] {shared} rows share their mp3 with a kept row — file stays put")
     print(f"[disk] sample paths:")
     for p in sample:
         print(f"  {p}")
@@ -323,7 +350,7 @@ def main():
     if not args.no_backup:
         backup_db(args.db, backup_dir)
 
-    quarantine_audio(to_delete, args.audio_root, quarantine_dir)
+    quarantine_audio(to_delete, args.audio_root, quarantine_dir, kept_files)
     delete_rows(args.db, [r[0] for r in to_delete], args.batch_size)
 
     if args.vacuum:
