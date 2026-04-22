@@ -85,6 +85,46 @@ dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_conf ON detections(Date, Confi
 // up to date — the engine only INSERTs into detections.
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_hour_conf ON detections(Date, CAST(SUBSTR(Time,1,2) AS INT), Confidence)');
 
+// ── Soft-delete trash table ─────────────────────────────────────────────────
+// Detections moved here by the Purge page instead of being hard-deleted.
+// Audio files are mv'd to ~/BirdSongs/Trashed/By_Date/ in parallel.
+// A nightly job hard-purges entries older than BIRDASH_TRASH_RETENTION_DAYS
+// (default 90); restore moves them back into `detections` + filesystem.
+//
+// CREATE TABLE wants an EXCLUSIVE lock — during dawn chorus the Python
+// engine writes detections continuously and the 30s busy_timeout can
+// expire before a free window opens. We don't want that to crash birdash
+// boot (the table creation is one-shot anyway, only the very first boot
+// matters), so it runs in a deferred retry loop after the server is up.
+const _trashSql = [
+  `CREATE TABLE IF NOT EXISTS detections_trashed (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Date DATE, Time TIME, Sci_Name VARCHAR(100) NOT NULL, Com_Name VARCHAR(100) NOT NULL,
+    Confidence FLOAT, Lat FLOAT, Lon FLOAT, Cutoff FLOAT,
+    Week INT, Sens FLOAT, Overlap FLOAT, File_Name VARCHAR(100) NOT NULL,
+    Model VARCHAR(50), Source TEXT,
+    trashed_at INTEGER NOT NULL,
+    original_path TEXT
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_trashed_at ON detections_trashed(trashed_at)',
+  'CREATE INDEX IF NOT EXISTS idx_trashed_com ON detections_trashed(Com_Name)',
+];
+function _ensureTrashTable(attempt = 1) {
+  try {
+    for (const sql of _trashSql) dbWrite.exec(sql);
+    if (attempt > 1) console.log('[BIRDASH] detections_trashed schema ready');
+  } catch (e) {
+    if (e.code === 'SQLITE_BUSY' && attempt < 60) {  // up to ~30 min of retries
+      setTimeout(() => _ensureTrashTable(attempt + 1), 30 * 1000);
+    } else {
+      console.error('[BIRDASH] detections_trashed migration failed:', e.message);
+    }
+  }
+}
+// First attempt happens after the server is listening, not during the
+// synchronous boot phase, so a busy DB doesn't block startup.
+setTimeout(() => _ensureTrashTable(), 5 * 1000);
+
 // ── Multi-source migration (P1) ─────────────────────────────────────────────
 // Add Source column to existing tables that pre-date multi-source. The
 // engine now records `Source = 'garden' / 'feeder' / ...` for detections

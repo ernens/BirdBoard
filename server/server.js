@@ -24,6 +24,7 @@ const _detectionRoutes = require('./routes/detections');
 const _audioRoutes   = require('./routes/audio');
 const _photoRoutes   = require('./routes/photos');
 const _externalRoutes = require('./routes/external');
+const _purgeRoutes   = require('./routes/purge');
 const _settingsRoutes = require('./routes/settings');
 const _comparisonRoutes = require('./routes/comparison');
 const _updateRoutes  = require('./routes/updates');
@@ -170,6 +171,19 @@ setTimeout(() => {
 setInterval(() => {
   _reloadEbirdFreq({ force: true }).catch(e => console.warn('[BIRDASH] eBird daily refresh:', e.message));
 }, 24 * 3600 * 1000);
+
+// Daily trash retention sweep — hard-purges detections_trashed entries older
+// than BIRDASH_TRASH_RETENTION_DAYS (default 90). First run delayed 1 min so
+// it doesn't compete with startup aggregate rebuild.
+setTimeout(() => {
+  _purgeRoutes.runRetention(_routeCtx)
+    .then(r => { if (r.purged) console.log(`[BIRDASH] trash retention: ${r.purged} expired rows / ${r.removed} files`); })
+    .catch(e => console.warn('[BIRDASH] trash retention:', e.message));
+}, 60 * 1000);
+setInterval(() => {
+  _purgeRoutes.runRetention(_routeCtx)
+    .catch(e => console.warn('[BIRDASH] trash retention:', e.message));
+}, 24 * 3600 * 1000);
 // Pre-aggregated stats: smart rebuild on startup.
 // Full rebuild takes ~14s on 1M+ rows and BLOCKS the event loop (better-sqlite3
 // is synchronous), causing 502s for every request during that window. So we
@@ -293,6 +307,7 @@ const server = http.createServer((req, res) => {
   if (_dataRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_detectionRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_externalRoutes.handle(req, res, pathname, _routeCtx)) return;
+  if (_purgeRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_settingsRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_comparisonRoutes.handle(req, res, pathname, _routeCtx)) return;
   if (_updateRoutes.handle(req, res, pathname, _routeCtx)) return;
