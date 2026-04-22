@@ -294,6 +294,38 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ── Route : GET /api/alerts/history ──────────────────────────────────────
+  // Returns recent alert events from config/alerts.log (JSONL).
+  // Query params: limit (default 200, max 1000), type, action
+  if (req.method === 'GET' && pathname === '/api/alerts/history') {
+    const url = new URL(req.url, 'http://x');
+    const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get('limit') || '200')));
+    const filterType = url.searchParams.get('type');
+    const filterAction = url.searchParams.get('action');
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(process.env.HOME, 'birdash', 'config', 'alerts.log');
+    try {
+      const content = fs.readFileSync(logPath, 'utf8');
+      const all = content.split('\n').filter(Boolean).map(l => {
+        try { return JSON.parse(l); } catch(_) { return null; }
+      }).filter(Boolean);
+      const filtered = all.filter(e =>
+        (!filterType || e.type === filterType) &&
+        (!filterAction || e.action === filterAction)
+      );
+      const recent = filtered.slice(-limit).reverse(); // newest first
+      const types = [...new Set(all.map(e => e.type))].sort();
+      const actions = [...new Set(all.map(e => e.action))].sort();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ events: recent, total: filtered.length, types, actions }));
+    } catch(e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ events: [], total: 0, types: [], actions: [] }));
+    }
+    return true;
+  }
+
   // ── Route : GET /api/logs (SSE live stream) ────────────────────────────────
   if (req.method === 'GET' && pathname === '/api/logs') {
     res.writeHead(200, {

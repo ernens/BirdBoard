@@ -355,3 +355,83 @@
           </div>
         </div>
 
+        <!-- ═══ Alert history ═══ -->
+        <div class="card">
+          <div class="section-title">
+            <bird-icon name="scroll-text" :size="16"></bird-icon>
+            {{t('alert_history_title')}}
+            <button class="btn-outline" @click="loadAlertHistory" :disabled="alertHistory.loading"
+                    style="margin-left:auto;font-size:.7rem;padding:.2rem .5rem;">
+              {{ alertHistory.loading ? '…' : '↻' }}
+            </button>
+          </div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">
+            {{t('alert_history_desc')}}
+          </p>
+
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem;">
+            <select v-model="alertHistory.filterType" @change="loadAlertHistory"
+                    style="font-size:.78rem;padding:.2rem .4rem;background:var(--bg-input);border:1px solid var(--border);color:var(--text-main);border-radius:4px;">
+              <option value="">{{t('alert_history_all_types')}}</option>
+              <option v-for="t in alertHistory.types" :key="t" :value="t">{{t}}</option>
+            </select>
+            <select v-model="alertHistory.filterAction" @change="loadAlertHistory"
+                    style="font-size:.78rem;padding:.2rem .4rem;background:var(--bg-input);border:1px solid var(--border);color:var(--text-main);border-radius:4px;">
+              <option value="">{{t('alert_history_all_actions')}}</option>
+              <option v-for="a in alertHistory.actions" :key="a" :value="a">{{a}}</option>
+            </select>
+            <span style="font-size:.72rem;color:var(--text-faint);margin-left:auto;">
+              {{ alertHistory.events.length }} / {{ alertHistory.total }}
+            </span>
+          </div>
+
+          <div v-if="alertHistory.error" style="font-size:.78rem;color:var(--danger);">{{alertHistory.error}}</div>
+          <div v-else-if="!alertHistory.events.length" style="font-size:.78rem;color:var(--text-faint);font-style:italic;">
+            {{t('alert_history_empty')}}
+          </div>
+          <div v-else style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+            <table style="width:100%;border-collapse:collapse;font-size:.74rem;">
+              <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
+                <tr style="text-align:left;border-bottom:1px solid var(--border);">
+                  <th style="padding:.4rem .5rem;font-weight:600;color:var(--text-muted);">{{t('alert_history_when')}}</th>
+                  <th style="padding:.4rem .5rem;font-weight:600;color:var(--text-muted);">{{t('alert_history_type')}}</th>
+                  <th style="padding:.4rem .5rem;font-weight:600;color:var(--text-muted);">{{t('alert_history_action')}}</th>
+                  <th style="padding:.4rem .5rem;font-weight:600;color:var(--text-muted);">{{t('alert_history_detail')}}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(ev, i) in alertHistory.events" :key="i" style="border-bottom:1px solid var(--border-subtle);">
+                  <td style="padding:.35rem .5rem;font-family:monospace;color:var(--text-faint);white-space:nowrap;">
+                    {{ ev.ts.replace('T', ' ').slice(0, 19) }}
+                  </td>
+                  <td style="padding:.35rem .5rem;font-family:monospace;">{{ ev.type }}</td>
+                  <td style="padding:.35rem .5rem;">
+                    <span :style="{
+                      padding:'.1rem .4rem',
+                      borderRadius:'3px',
+                      fontSize:'.7rem',
+                      background: ev.action === 'sent' ? 'rgba(239,68,68,.15)'
+                              : ev.action === 'cooldown_blocked' ? 'rgba(148,163,184,.15)'
+                              : ev.action === 'streak_reset' ? 'rgba(52,211,153,.15)'
+                              : ev.action === 'streak_inc' ? 'rgba(251,191,36,.15)'
+                              : ev.action === 'send_failed' ? 'rgba(239,68,68,.25)'
+                              : 'rgba(148,163,184,.1)',
+                      color: ev.action === 'sent' ? '#f87171'
+                          : ev.action === 'streak_reset' ? '#34d399'
+                          : ev.action === 'streak_inc' ? '#fbbf24'
+                          : ev.action === 'send_failed' ? '#dc2626'
+                          : 'var(--text-muted)'
+                    }">{{ ev.action }}</span>
+                  </td>
+                  <td style="padding:.35rem .5rem;color:var(--text-muted);">
+                    <span v-if="ev.title">{{ ev.title }}</span>
+                    <span v-else-if="ev.streak !== undefined">streak {{ ev.streak }}/{{ ev.threshold }} (state: {{ ev.state }})</span>
+                    <span v-else-if="ev.prev_streak !== undefined">recovered after {{ ev.prev_streak }} (state: {{ ev.state }})</span>
+                    <span v-else-if="ev.error">{{ ev.error }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+

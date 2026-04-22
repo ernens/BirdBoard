@@ -117,10 +117,38 @@ function getAlertThresholds() {
   _getAlertThresholds = getAlertThresholds;
   _getAlertStatus = () => ({ _alertLastSent, ALERT_COOLDOWN, ALERT_CHECK_INTERVAL });
 
+// ── Alert event log ─────────────────────────────────────────────────────────
+// Records every alert lifecycle event to a JSONL file for review/analysis.
+// Rotation: keep last ALERT_LOG_MAX lines. Cheap to read in the UI.
+const ALERT_LOG_PATH = path.join(process.env.HOME, 'birdash', 'config', 'alerts.log');
+const ALERT_LOG_MAX = 1000;
+let _alertLogQueue = Promise.resolve();
+function recordAlertEvent(type, action, fields = {}) {
+  const entry = JSON.stringify({ ts: new Date().toISOString(), type, action, ...fields }) + '\n';
+  // Serialize writes — appendFile + occasional trim on a single chain so
+  // concurrent calls can't interleave or race the trim.
+  _alertLogQueue = _alertLogQueue
+    .then(() => fsp.appendFile(ALERT_LOG_PATH, entry))
+    .then(async () => {
+      if (Math.random() > 0.05) return; // trim ~5% of the time, cheap amortized
+      try {
+        const content = await fsp.readFile(ALERT_LOG_PATH, 'utf8');
+        const lines = content.split('\n').filter(Boolean);
+        if (lines.length > ALERT_LOG_MAX) {
+          await fsp.writeFile(ALERT_LOG_PATH, lines.slice(-ALERT_LOG_MAX).join('\n') + '\n');
+        }
+      } catch(_) {}
+    })
+    .catch(e => console.error('[ALERT] log write failed:', e.message));
+}
+
   async function sendAlert(type, title, body) {
   const now = Date.now();
   const cooldown = type.startsWith('bird_') ? ALERT_BIRD_COOLDOWN : ALERT_COOLDOWN;
-  if (_alertLastSent[type] && (now - _alertLastSent[type]) < cooldown) return;
+  if (_alertLastSent[type] && (now - _alertLastSent[type]) < cooldown) {
+    recordAlertEvent(type, 'cooldown_blocked', { title, age_sec: Math.round((now - _alertLastSent[type]) / 1000) });
+    return;
+  }
 
   const appriseFile = path.join(process.env.HOME, 'birdash', 'config', 'apprise.txt');
   const { APPRISE_BIN } = require('./config');
@@ -129,8 +157,8 @@ function getAlertThresholds() {
   // Check apprise.txt exists and has content
   try {
     const content = await fsp.readFile(appriseFile, 'utf8');
-    if (!content.trim()) return;
-  } catch(e) { return; }
+    if (!content.trim()) { recordAlertEvent(type, 'no_apprise_config', { title }); return; }
+  } catch(e) { recordAlertEvent(type, 'no_apprise_config', { title }); return; }
 
   try {
     const { execFile } = require('child_process');
@@ -140,8 +168,10 @@ function getAlertThresholds() {
     });
     _alertLastSent[type] = now;
     console.log(`[ALERT] ${type}: ${title}`);
+    recordAlertEvent(type, 'sent', { title, body });
   } catch(e) {
     console.error(`[ALERT] Failed to send ${type}:`, e.message);
+    recordAlertEvent(type, 'send_failed', { title, error: e.message });
   }
 }
 
@@ -203,12 +233,14 @@ async function checkSystemAlerts() {
         const isDown = (state === 'inactive' || state === 'failed');
         if (isDown) {
           _svcDownStreak[svc] = (_svcDownStreak[svc] || 0) + 1;
+          recordAlertEvent('svc_' + svc, 'streak_inc', { state, streak: _svcDownStreak[svc], threshold: SVC_DOWN_REQUIRED_STREAK });
           if (_svcDownStreak[svc] >= SVC_DOWN_REQUIRED_STREAK) {
             await sendAlert('svc_' + svc, t.svc_state_title(svc, state), t.svc_state_body(svc, state));
           }
         } else {
           if (_svcDownStreak[svc]) {
             console.log(`[ALERT] ${svc} streak reset (was ${_svcDownStreak[svc]}, state now: ${state})`);
+            recordAlertEvent('svc_' + svc, 'streak_reset', { state, prev_streak: _svcDownStreak[svc] });
           }
           _svcDownStreak[svc] = 0;
         }

@@ -2341,6 +2341,7 @@ const app = createApp({
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
       digestPreview, digestSendNow, digestMsg, digestErr, digestPreviewText,
       mqttMinConfPct, testingMqtt, mqttMsg, mqttErr, testMqtt,
+      alertHistory, loadAlertHistory,
       authUser, authCurrentPw, authNewPw, authNewPw2, authSaving, authMsg, authErr, authConfigured, saveAuthCreds,
       rangePreview, onRangePreviewDebounced,
       agConf, agState, loadAgState,
@@ -2449,11 +2450,36 @@ const app = createApp({
     function switchTabWithMap(id) {
       _origSwitch(id);
       if (id === 'station') setTimeout(initStationMap, 200);
+      if (id === 'notif') loadAlertHistory();
     }
     // Replace switchTab
     settingsCtx.switchTab = switchTabWithMap;
     settingsCtx.updateMapFromInputs = updateMapFromInputs;
     settingsCtx.geolocateMe = geolocateMe;
+
+    // ── Alert history ────────────────────────────────────────────────────
+    const alertHistory = reactive({
+      events: [], types: [], actions: [], total: 0,
+      filterType: '', filterAction: '', limit: 100,
+      loading: false, error: '',
+    });
+    async function loadAlertHistory() {
+      alertHistory.loading = true; alertHistory.error = '';
+      try {
+        const params = new URLSearchParams({ limit: String(alertHistory.limit) });
+        if (alertHistory.filterType)   params.set('type', alertHistory.filterType);
+        if (alertHistory.filterAction) params.set('action', alertHistory.filterAction);
+        const r = await fetch(API + '/alerts/history?' + params.toString());
+        const d = await r.json();
+        alertHistory.events  = d.events || [];
+        alertHistory.types   = d.types  || [];
+        alertHistory.actions = d.actions || [];
+        alertHistory.total   = d.total  || 0;
+      } catch(e) { alertHistory.error = e.message; }
+      alertHistory.loading = false;
+    }
+    settingsCtx.alertHistory = alertHistory;
+    settingsCtx.loadAlertHistory = loadAlertHistory;
 
     provide('settingsCtx', settingsCtx);
 
@@ -2485,6 +2511,7 @@ const app = createApp({
       notifGlobalEnabled, toggleNotifGlobal, saveNotifSettings, notifSaveMsg, notifSaveErr, terminalKey,
       digestPreview, digestSendNow, digestMsg, digestErr, digestPreviewText,
       mqttMinConfPct, testingMqtt, mqttMsg, mqttErr, testMqtt,
+      alertHistory, loadAlertHistory,
       authUser, authCurrentPw, authNewPw, authNewPw2, authSaving, authMsg, authErr, authConfigured, saveAuthCreds,
       rangePreview, onRangePreviewDebounced,
       agConf, agState, loadAgState,
