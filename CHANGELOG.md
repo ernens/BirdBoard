@@ -2,6 +2,58 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.39.0] — 2026-04-22
+
+### Feat: noisy-species throttle to stop dominant species flooding the DB
+
+Common feeder species (Moineau domestique, Merle noir, Pouillot véloce on bird.local) were producing 10K+ detections/day each — burst-firing every few seconds, blowing past the 10K row limit on `/api/query`, filling 800 MB of birds.db, and burying interesting species in the leaderboards. Other implementations have a per-species cooldown for exactly this; we didn't.
+
+Engine adds a non-invasive throttle in the inference loop (engine/engine.py):
+
+- After a detection passes confidence + dual-confirm, check `_should_throttle(com_name, confidence)`:
+  - **Bypass-confidence** (default **0.95**) — high-confidence calls always pass, never throttled
+  - **Cooldown** (default **120 s**) — for sub-bypass calls, drop if the same species was kept less than `cooldown` seconds ago
+- State lives in two in-memory dicts on the engine (`_throttle_last`, `_throttle_dropped`); no DB writes for dropped rows; bypass calls don't reset the cooldown
+- Config hot-reloaded from `birdnet.conf` (~5 min cycle), no restart needed
+
+Settings → Détection exposes a new card **Limite par espèce (throttle)** with enable checkbox + cooldown number input + bypass slider + (i) info button. Detailed help modal explains the mechanism, recommended values (60s/120s/300s for cooldown, 0.95/0.99/0.80 for bypass), and observability — full FR/EN/DE/NL i18n.
+
+New keys in `/etc/birdnet/birdnet.conf`:
+
+```ini
+NOISY_THROTTLE_ENABLED=0          # off by default — opt-in
+THROTTLE_COOLDOWN_SECONDS=120
+THROTTLE_BYPASS_CONFIDENCE=0.95
+```
+
+### Tooling: retroactive cleanup script
+
+`scripts/cleanup_throttle.py` applies the same rule to historical rows for users who already have a bloated DB. It walks detections chronologically, identifies what would have been throttled, and:
+
+- Backs up `birds.db` via the SQLite online `.backup` API
+- **Moves** (not deletes) matching mp3 + .mp3.png to a quarantine directory preserving the `By_Date/Species/` layout — same filesystem so it's an instant rename, no extra space needed during the operation
+- Deletes the rows from `birds.db` in batches
+- Prints exact restore commands
+
+Flags: `--dry-run` (default), `--apply`, `--cooldown`, `--bypass`, `--from`, `--to`, `--species`, `--vacuum`. `--to` defaults to *yesterday* — never touches today's incoming detections.
+
+Dry-run on bird.local (1.05M rows, all-time, defaults): would purge **689 799 rows** (~65 %) and quarantine **~256 GB** of audio. Per-species top: Pouillot véloce 115K, Mésange charbonnière 90K, Moineau domestique 78K, Merle noir 77K. Recommended workflow: `--from <30d ago> --apply` first, verify, then expand the window.
+
+### Perf: weather page from timeout to instant
+
+The `/birds/api/external/weather/*` endpoints were hitting the Caddy 30 s upstream timeout on bird.local — `weather-species-heatmap` alone took 43 s. EXPLAIN QUERY PLAN showed `idx_date_conf` covered (Date, Confidence) but the JOIN with `weather_hourly` required SCAN on 22K weather rows × SEARCH detections by date+confidence + per-row `CAST(SUBSTR(Time,1,2) AS INT)`.
+
+Two-stage fix:
+
+- **Expression index** `idx_date_hour_conf ON detections(Date, CAST(SUBSTR(Time,1,2) AS INT), Confidence)` — heatmap drops from 43 s → 12 s
+- **5-min result cache** wrapping the 5 weather analytics endpoints (`condition-summary`, `species-by-condition`, `species-heatmap`, `match-summary`, `species-profile`) — warm requests now serve in <10 ms
+
+Page audit also dropped the legacy "Top species by weather" card (redundant with the heatmap), reordered for clearer flow, and added a `corrHasSignal` guard that hides the correlation block when all three correlations are below the noise floor (|r|<0.2).
+
+### Fix: spectrogram + dashboard-kiosk hitting query row limit
+
+Both pages used `ORDER BY Time DESC` on a daily-detection query without a LIMIT. On a 11K-detection day this tripped the 10K cap on `/api/query`, producing HTTP 400. Capped to `LIMIT 5000` (more than enough for an interactive view) with `rows.reverse()` to keep chronological order.
+
 ## [1.38.0] — 2026-04-21
 
 ### Feat: dual-model cross-confirmation kills Perch false positives
