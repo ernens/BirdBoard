@@ -164,6 +164,10 @@
                v-model.number="filters.confMax" :placeholder="t('purge_max')">
         <span class="pg-filter-label">{{t('purge_filter_model')}}</span>
         <input class="pg-filter-input" v-model="filters.model" :placeholder="t('purge_model_placeholder')" style="width:160px;">
+        <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer;color:var(--text-muted);"
+               :title="t('purge_orphaned_hint')">
+          <input type="checkbox" v-model="filters.orphaned"> {{t('purge_filter_orphaned')}}
+        </label>
         <span style="margin-left:auto;font-size:.78rem;color:var(--text-muted);">
           {{total.toLocaleString()}} {{t('purge_results')}}
         </span>
@@ -174,6 +178,11 @@
         </select>
         <button class="pg-action-btn" @click="resetFilters">{{t('purge_reset')}}</button>
       </div>
+    </div>
+
+    <!-- Over-cap warning when orphan scan would be too expensive -->
+    <div v-if="orphanScanError" class="pg-warning" style="background:rgba(255,152,0,.08);border-color:rgba(255,152,0,.3);">
+      <strong>⚠</strong> {{orphanScanError}}
     </div>
 
     <!-- Bulk actions -->
@@ -270,6 +279,7 @@ const app = createApp({
       model: '',
       confMin: '',
       confMax: '',
+      orphaned: false, // true → server scans filesystem for missing mp3
     });
     const limit = ref(50);
     const page = ref(0);
@@ -280,6 +290,7 @@ const app = createApp({
     const total = ref(0);
     const stats = reactive({ activeCount: 0, trashCount: 0, retentionDays: 90, oldestTrashedAt: null });
     const brokenSpectros = reactive({});
+    const orphanScanError = ref('');
 
     // Selection
     const selected = ref({});
@@ -294,6 +305,7 @@ const app = createApp({
 
     async function load() {
       loading.value = true;
+      orphanScanError.value = '';
       const params = new URLSearchParams({
         view: view.value,
         limit: String(limit.value),
@@ -305,11 +317,23 @@ const app = createApp({
       if (filters.model) params.set('model', filters.model);
       if (filters.confMin !== '' && !isNaN(filters.confMin)) params.set('conf_min', String(filters.confMin));
       if (filters.confMax !== '' && !isNaN(filters.confMax)) params.set('conf_max', String(filters.confMax));
+      if (filters.orphaned) params.set('orphaned', '1');
       try {
         const r = await fetch(`${API}/purge/list?${params}`);
         const d = await r.json();
-        rows.value = d.rows || [];
-        total.value = d.total || 0;
+        if (!r.ok) {
+          // Specific feedback for the orphan-scan cap
+          if (d.error === 'too_many_for_orphan_scan') {
+            orphanScanError.value = d.message || t('purge_orphan_too_many');
+            rows.value = [];
+            total.value = 0;
+          } else {
+            console.error('[purge] error:', d);
+          }
+        } else {
+          rows.value = d.rows || [];
+          total.value = d.total || 0;
+        }
         // Reset selection + spectro error flags on new page
         selected.value = {};
         for (const k of Object.keys(brokenSpectros)) delete brokenSpectros[k];
@@ -339,7 +363,9 @@ const app = createApp({
       filters.model = '';
       filters.confMin = '';
       filters.confMax = '';
+      filters.orphaned = false;
       speciesInput.value = '';
+      orphanScanError.value = '';
       page.value = 0;
     }
 
@@ -480,6 +506,7 @@ const app = createApp({
     return {
       t, lang, view, filters, limit, page, loading, rows, total, stats,
       selected, selectedCount, allVisibleSelected, brokenSpectros,
+      orphanScanError,
       speciesInput, speciesSuggestions, onSpeciesInput,
       setView, resetFilters, spName, spectroUrl, confColor, daysUntilPurge,
       toggleAllVisible, trashSelected, trashOne, restoreSelected, restoreOne,

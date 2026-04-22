@@ -132,38 +132,68 @@ function handle(req, res, pathname, ctx) {
   // ── GET /api/purge/list ────────────────────────────────────────────────
   // Lists active or trashed detections matching the filters.
   // Query: view=active|trash, species, date_from, date_to, model, conf_min,
-  //        conf_max, source, limit (1-200), offset
+  //        conf_max, source, orphaned (1=mp3 missing on disk), limit, offset.
+  //
+  // The orphaned filter scans the filesystem (one stat per row), which is
+  // fast on NVMe but unbounded on a million-row DB. Hard cap: 10000 rows
+  // pre-filter — if exceeded, returns an explicit error so the UI can
+  // suggest narrowing the date/species filters first.
   if (req.method === 'GET' && pathname === '/api/purge/list') {
     const url = new URL(req.url, 'http://x');
     const qp = url.searchParams;
     const view = qp.get('view') === 'trash' ? 'trash' : 'active';
     const limit = Math.min(200, Math.max(1, parseInt(qp.get('limit') || '50')));
     const offset = Math.max(0, parseInt(qp.get('offset') || '0'));
+    const orphaned = qp.get('orphaned') === '1';
     const { whereSql, params } = buildWhere(qp);
 
-    try {
-      let rows, total;
-      if (view === 'active') {
-        const cols = 'rowid AS rowid, Date, Time, Sci_Name, Com_Name, Confidence, Model, Source, File_Name';
-        rows = db.prepare(
-          `SELECT ${cols} FROM detections ${whereSql}
-           ORDER BY Date DESC, Time DESC LIMIT ? OFFSET ?`
-        ).all(...params, limit, offset);
-        total = db.prepare(`SELECT COUNT(*) AS n FROM detections ${whereSql}`).get(...params).n;
-      } else {
-        const cols = 'id AS rowid, Date, Time, Sci_Name, Com_Name, Confidence, Model, Source, File_Name, trashed_at, original_path';
-        rows = db.prepare(
-          `SELECT ${cols} FROM detections_trashed ${whereSql}
-           ORDER BY trashed_at DESC LIMIT ? OFFSET ?`
-        ).all(...params, limit, offset);
-        total = db.prepare(`SELECT COUNT(*) AS n FROM detections_trashed ${whereSql}`).get(...params).n;
+    const ORPHAN_SCAN_CAP = 10000;
+    const cols = view === 'active'
+      ? 'rowid AS rowid, Date, Time, Sci_Name, Com_Name, Confidence, Model, Source, File_Name'
+      : 'id AS rowid, Date, Time, Sci_Name, Com_Name, Confidence, Model, Source, File_Name, trashed_at, original_path';
+    const tbl = view === 'active' ? 'detections' : 'detections_trashed';
+    const orderSql = view === 'active' ? 'ORDER BY Date DESC, Time DESC' : 'ORDER BY trashed_at DESC';
+
+    (async () => {
+      try {
+        let rows, total;
+        if (orphaned) {
+          // Pre-filter row count for the safety cap
+          const preTotal = db.prepare(`SELECT COUNT(*) AS n FROM ${tbl} ${whereSql}`).get(...params).n;
+          if (preTotal > ORPHAN_SCAN_CAP) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: 'too_many_for_orphan_scan',
+              message: `Narrow filters first — orphan scan caps at ${ORPHAN_SCAN_CAP} rows (current selection: ${preTotal}).`,
+              cap: ORPHAN_SCAN_CAP,
+              preTotal,
+            }));
+            return;
+          }
+          const allRows = db.prepare(`SELECT ${cols} FROM ${tbl} ${whereSql} ${orderSql}`).all(...params);
+          const filtered = [];
+          for (const r of allRows) {
+            const m = (r.File_Name || '').match(/^(.+?)-\d+-(\d{4}-\d{2}-\d{2})-/);
+            if (!m) { filtered.push(r); continue; }   // unparseable → treat as orphan
+            const fp = view === 'active'
+              ? path.join(SONGS_DIR, m[2], m[1], r.File_Name)
+              : path.join(trashDir(SONGS_DIR), m[2], m[1], r.File_Name);
+            try { await fsp.access(fp); }
+            catch { filtered.push(r); }
+          }
+          total = filtered.length;
+          rows = filtered.slice(offset, offset + limit);
+        } else {
+          rows = db.prepare(`SELECT ${cols} FROM ${tbl} ${whereSql} ${orderSql} LIMIT ? OFFSET ?`).all(...params, limit, offset);
+          total = db.prepare(`SELECT COUNT(*) AS n FROM ${tbl} ${whereSql}`).get(...params).n;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ view, rows, total, limit, offset, orphaned }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ view, rows, total, limit, offset }));
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
-    }
+    })();
     return true;
   }
 
