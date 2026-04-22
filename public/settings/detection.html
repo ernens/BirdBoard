@@ -255,7 +255,6 @@
         <div class="card">
           <div class="section-title">
             <bird-icon name="bird" :size="14"></bird-icon> {{t('set_throttle_title')}}
-            <button class="info-btn" @click.prevent="helpKey='noisy_throttle'" style="margin-left:.3rem;">i</button>
           </div>
           <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_throttle_desc')}}</p>
 
@@ -277,7 +276,10 @@
               <p style="font-size:.7rem;color:var(--text-faint);margin:-.25rem 0 .5rem .2rem;">{{t('set_throttle_cooldown_hint')}}</p>
 
               <div style="display:flex;align-items:center;gap:.5rem;">
-                <span style="font-size:.78rem;color:var(--text-muted);min-width:150px;">{{t('set_throttle_bypass')}}</span>
+                <span style="font-size:.78rem;color:var(--text-muted);min-width:150px;">
+                  {{t('set_throttle_bypass')}}
+                  <button class="info-btn" @click.prevent="helpKey='noisy_throttle'">i</button>
+                </span>
                 <input type="range" min="0.50" max="1.00" step="0.01" v-model.number="conf.THROTTLE_BYPASS_CONFIDENCE" class="set-range" style="flex:1;">
                 <span style="font-size:.78rem;font-family:monospace;min-width:44px;text-align:right;">{{Number(conf.THROTTLE_BYPASS_CONFIDENCE).toFixed(2)}}</span>
               </div>
