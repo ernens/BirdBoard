@@ -11,7 +11,7 @@ log = logging.getLogger("birdengine")
 
 
 def init_db(db_path):
-    """Create the detections database if it doesn't exist."""
+    """Create the detections database if it doesn't exist + run idempotent migrations."""
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     # timeout=30 gives us a 30 s busy-wait when birdash is holding the
     # write lock (aggregates rebuild, alerts query, etc.) — well beyond
@@ -34,18 +34,31 @@ def init_db(db_path):
             Sens FLOAT,
             Overlap FLOAT,
             File_Name VARCHAR(100) NOT NULL,
-            Model VARCHAR(50)
+            Model VARCHAR(50),
+            Source TEXT
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_date_time ON detections(Date, Time DESC)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_com_name ON detections(Com_Name)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sci_name ON detections(Sci_Name)")
+
+    # Migration: add Source column to existing tables that pre-date multi-source.
+    # PRAGMA table_info is the portable way to check column presence on SQLite.
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(detections)").fetchall()}
+    if "Source" not in cols:
+        conn.execute("ALTER TABLE detections ADD COLUMN Source TEXT")
+
     conn.commit()
     return conn
 
 
 def write_detection(conn, det):
-    """Insert a detection row if not already present (avoids duplicates on restart)."""
+    """Insert a detection row if not already present (avoids duplicates on restart).
+
+    `det['source']` is optional — None means single-source / legacy origin
+    (the column stays NULL). When set, it carries the source key (e.g.
+    'garden', 'feeder', 'nestbox') derived from the recording subdirectory.
+    """
     existing = conn.execute(
         "SELECT 1 FROM detections WHERE Date=? AND Time=? AND Sci_Name=? AND Model=? LIMIT 1",
         (det["date"], det["time"], det["sci_name"], det["model"])
@@ -53,11 +66,13 @@ def write_detection(conn, det):
     if existing:
         return False
     conn.execute(
-        "INSERT INTO detections VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO detections (Date, Time, Sci_Name, Com_Name, Confidence,"
+        " Lat, Lon, Cutoff, Week, Sens, Overlap, File_Name, Model, Source) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (det["date"], det["time"], det["sci_name"], det["com_name"],
          det["confidence"], det["lat"], det["lon"], det["cutoff"],
          det["week"], det["sens"], det["overlap"], det["file_name"],
-         det["model"])
+         det["model"], det.get("source"))
     )
     conn.commit()
     return True

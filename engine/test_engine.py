@@ -92,6 +92,58 @@ class TestWriteDetection(unittest.TestCase):
         # Verify only 1 row
         count = conn.execute('SELECT COUNT(*) FROM detections').fetchone()[0]
         self.assertEqual(count, 1)
+        # Source column defaults to NULL when det['source'] is absent
+        src = conn.execute('SELECT Source FROM detections').fetchone()[0]
+        self.assertIsNone(src)
+        conn.close()
+        os.unlink(db_path)
+
+    def test_source_persisted(self):
+        """Multi-source: det['source'] lands in the Source column."""
+        from engine import init_db, write_detection
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            db_path = f.name
+        conn = init_db(db_path)
+        det = {
+            'date': '2026-04-23', 'time': '08:00:00',
+            'sci_name': 'Turdus merula', 'com_name': 'Merle noir',
+            'confidence': 0.88, 'lat': 50.0, 'lon': 4.0,
+            'cutoff': 0.65, 'week': 17, 'sens': 1.0, 'overlap': 0.5,
+            'file_name': 'merle.mp3', 'model': 'BirdNET',
+            'source': 'garden',
+        }
+        self.assertTrue(write_detection(conn, det))
+        row = conn.execute('SELECT Sci_Name, Source FROM detections').fetchone()
+        self.assertEqual(row, ('Turdus merula', 'garden'))
+        conn.close()
+        os.unlink(db_path)
+
+    def test_init_db_idempotent_migration(self):
+        """init_db on a pre-multi-source schema adds the Source column."""
+        import sqlite3
+        from engine import init_db
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            db_path = f.name
+        # Build the OLD schema (no Source column) by hand
+        old = sqlite3.connect(db_path)
+        old.execute("""
+            CREATE TABLE detections (
+                Date DATE, Time TIME, Sci_Name VARCHAR(100) NOT NULL,
+                Com_Name VARCHAR(100) NOT NULL, Confidence FLOAT,
+                Lat FLOAT, Lon FLOAT, Cutoff FLOAT, Week INT,
+                Sens FLOAT, Overlap FLOAT, File_Name VARCHAR(100) NOT NULL,
+                Model VARCHAR(50)
+            )
+        """)
+        old.execute("INSERT INTO detections VALUES ('2025-12-25','10:00:00','Pica pica','Pie',0.9,0,0,0.65,52,1.0,0.5,'a.mp3','M')")
+        old.commit(); old.close()
+        # init_db should ALTER TABLE non-destructively
+        conn = init_db(db_path)
+        cols = {r[1] for r in conn.execute('PRAGMA table_info(detections)').fetchall()}
+        self.assertIn('Source', cols)
+        # Pre-existing row stays intact, Source = NULL
+        row = conn.execute('SELECT Sci_Name, Source FROM detections').fetchone()
+        self.assertEqual(row, ('Pica pica', None))
         conn.close()
         os.unlink(db_path)
 

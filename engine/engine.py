@@ -224,11 +224,29 @@ class BirdEngine:
                 log.warning("[yamnet] init failed: %s — pre-filter disabled", e)
                 self._yamnet = None
 
+    def _source_from_path(self, file_path):
+        """Derive the multi-source key from a recording path.
+
+        incoming/foo.wav            → None (legacy single-source)
+        incoming/garden/foo.wav      → 'garden'
+        incoming/garden/sub/foo.wav  → 'garden' (only the top-level dir matters)
+
+        Returns None when the file lives directly in the incoming root.
+        """
+        try:
+            incoming_dir = self.config["audio"]["incoming_dir"]
+            rel = os.path.relpath(file_path, incoming_dir)
+            parts = rel.split(os.sep)
+            return parts[0] if len(parts) > 1 else None
+        except (KeyError, ValueError):
+            return None
+
     def _analyze_with_model(self, model, file_path, file_date, week, tag,
-                            raw_sig=None, raw_sr=None):
+                            raw_sig=None, raw_sr=None, source=None):
         """Run inference on a file with a given model. Returns list of detections.
 
         If raw_sig/raw_sr are provided, skip file read and resample from those.
+        `source` is propagated into each detection's `Source` DB column.
         """
         lat = self.config["station"]["latitude"]
         lon = self.config["station"]["longitude"]
@@ -312,6 +330,7 @@ class BirdEngine:
                     "overlap": overlap,
                     "file_name": clip_name,
                     "model": model.name,
+                    "source": source,
                     "_start": pred_start,
                     "_stop": pred_end,
                 }
@@ -343,14 +362,21 @@ class BirdEngine:
             item = self._secondary_queue.get()
             if item is None:
                 break
-            file_path, file_date, week, raw_sig, raw_sr = item
+            # Older queue items (pre-multi-source) had 5 elements; new ones
+            # have 6 with the source key as the trailing element. Tolerate
+            # both during the rolling restart that ships this change.
+            if len(item) == 5:
+                file_path, file_date, week, raw_sig, raw_sr = item
+                source = None
+            else:
+                file_path, file_date, week, raw_sig, raw_sr, source = item
             basename = os.path.basename(file_path)
             try:
                 t0 = time.time()
                 dets = self._analyze_with_model(
                     self.secondary_model, file_path, file_date, week,
                     self.secondary_model.name,
-                    raw_sig=raw_sig, raw_sr=raw_sr)
+                    raw_sig=raw_sig, raw_sr=raw_sr, source=source)
                 elapsed = time.time() - t0
                 log.info("[%s] %s: %d detections in %.1fs",
                          self.secondary_model.name, basename,
@@ -382,7 +408,14 @@ class BirdEngine:
             self._secondary_queue.task_done()
 
     def process_file(self, file_path):
-        """Analyze a single WAV file with primary model, queue for secondary."""
+        """Analyze a single WAV file with primary model, queue for secondary.
+
+        Multi-source: the source key is derived from the recording's path
+        relative to the incoming root (`incoming/garden/foo.wav` →
+        `'garden'`). Files directly in `incoming/` are treated as legacy
+        single-source (Source = NULL).
+        """
+        source = self._source_from_path(file_path)
         try:
             basename = os.path.basename(file_path)
             if basename in self.processed_files:
@@ -484,21 +517,25 @@ class BirdEngine:
             detections = self._analyze_with_model(
                 self.primary_model, file_path, file_date, week,
                 self.primary_model.name,
-                raw_sig=raw_sig, raw_sr=raw_sr)
+                raw_sig=raw_sig, raw_sr=raw_sr, source=source)
 
             elapsed = time.time() - start_time
             self.files_processed += 1
             self.detections_total += len(detections)
-            log.info("[%s] Done: %d detections in %.1fs [total: %d files, %d det]",
+            log.info("[%s] Done: %d detections in %.1fs [total: %d files, %d det]%s",
                      self.primary_model.name, len(detections), elapsed,
-                     self.files_processed, self.detections_total)
+                     self.files_processed, self.detections_total,
+                     f" [source: {source}]" if source else "")
 
             self.processed_files.add(basename)
 
-            # Move to processed
+            # Move to processed/<source>/ to keep multi-source captures
+            # cleanly separated and avoid basename collisions when two
+            # sources happen to rotate at the same second.
             processed_dir = self.config["audio"]["processed_dir"]
-            os.makedirs(processed_dir, exist_ok=True)
-            dest = os.path.join(processed_dir, basename)
+            target_dir = os.path.join(processed_dir, source) if source else processed_dir
+            os.makedirs(target_dir, exist_ok=True)
+            dest = os.path.join(target_dir, basename)
             shutil.move(file_path, dest)
 
             # Post-processing in background thread (uses dest path, after file move)
@@ -521,7 +558,7 @@ class BirdEngine:
 
             # Queue for secondary model with raw audio (avoids re-reading file)
             if self.secondary_model and self._secondary_queue is not None:
-                self._secondary_queue.put((dest, file_date, week, raw_sig, raw_sr))
+                self._secondary_queue.put((dest, file_date, week, raw_sig, raw_sr, source))
 
         except Exception as e:
             log.exception("Error processing %s: %s", file_path, e)
@@ -679,7 +716,11 @@ class BirdEngine:
             log.warning("Error checking model change: %s", e)
 
     def _purge_processed(self, max_age_seconds=7200):
-        """Delete processed WAV files older than max_age_seconds. Also trim processed_files set."""
+        """Delete processed WAV files older than max_age_seconds. Also trim processed_files set.
+
+        Walks processed_dir recursively so per-source subdirs (processed/garden/,
+        processed/feeder/) are purged the same as flat legacy layout.
+        """
         # Trim the in-memory set to prevent unbounded growth
         if len(self.processed_files) > 5000:
             self.processed_files.clear()
@@ -689,13 +730,17 @@ class BirdEngine:
             return
         now = time.time()
         count = 0
-        for fname in os.listdir(processed_dir):
-            if not fname.endswith(".wav"):
-                continue
-            fpath = os.path.join(processed_dir, fname)
-            if now - os.path.getmtime(fpath) > max_age_seconds:
-                os.remove(fpath)
-                count += 1
+        for root, _dirs, files in os.walk(processed_dir):
+            for fname in files:
+                if not fname.endswith(".wav"):
+                    continue
+                fpath = os.path.join(root, fname)
+                try:
+                    if now - os.path.getmtime(fpath) > max_age_seconds:
+                        os.remove(fpath)
+                        count += 1
+                except OSError:
+                    pass
         if count:
             log.info("Purged %d old processed WAV files", count)
 
@@ -754,15 +799,18 @@ class BirdEngine:
             self._secondary_thread.start()
             log.info("Secondary model worker started")
 
-        # Process any existing files first.
-        # If the most recent file was modified within the last few seconds,
-        # arecord is probably still writing it — seed the watcher with it
-        # so it gets picked up when the next rotation creates the next file.
-        existing = sorted(
-            f for f in os.listdir(incoming_dir) if f.endswith(".wav")
-        )
+        # Process any existing files first — walks subdirs (multi-source layout).
+        # If the most recent file in any source was modified within the last
+        # few seconds, arecord is probably still writing it; seed the watcher
+        # with it so it gets picked up on the next rotation.
+        existing = []
+        for root, _dirs, files in os.walk(incoming_dir):
+            for fname in files:
+                if fname.endswith(".wav"):
+                    existing.append(os.path.join(root, fname))
+        existing.sort()
         if existing:
-            last_path = os.path.join(incoming_dir, existing[-1])
+            last_path = existing[-1]
             try:
                 last_age = time.time() - os.path.getmtime(last_path)
             except OSError:
@@ -770,20 +818,23 @@ class BirdEngine:
             if last_age < 3.0:
                 handler._pending = last_path
                 log.info("Deferring in-progress file: %s (age=%.1fs)",
-                         existing[-1], last_age)
+                         os.path.relpath(last_path, incoming_dir), last_age)
                 existing = existing[:-1]
         if existing:
             log.info("Processing %d existing files...", len(existing))
-            for fname in existing:
+            for fpath in existing:
                 if self.shutdown:
                     return
-                self.process_file(os.path.join(incoming_dir, fname))
+                self.process_file(fpath)
 
-        # Start file watcher
+        # Start file watcher — recursive=True so per-source subdirectories
+        # (incoming/garden/, incoming/feeder/) are picked up automatically.
+        # Legacy single-source captures dropped directly in incoming/ keep
+        # working unchanged.
         observer = Observer()
-        observer.schedule(handler, incoming_dir, recursive=False)
+        observer.schedule(handler, incoming_dir, recursive=True)
         observer.start()
-        log.info("Watching %s for new WAV files", incoming_dir)
+        log.info("Watching %s for new WAV files (recursive — multi-source aware)", incoming_dir)
 
         # Main loop
         rsync_interval = self.config["audio"].get("rsync_interval", 30)

@@ -643,7 +643,7 @@ CREATE TABLE detections (
 );
 ```
 
-Schema is compatible with BirdNET-Pi for migration. The `Model` column distinguishes BirdNET vs Perch detections.
+Schema is compatible with BirdNET-Pi for migration. The `Model` column distinguishes BirdNET vs Perch detections. The `Source` column (added in v1.41.0 — multi-source P1) carries an optional per-recording-source key like `'garden'` / `'feeder'` derived from the recording subdirectory; legacy single-source captures keep it `NULL`. Both `engine/db.py` and `server/lib/db.js` run an idempotent `ALTER TABLE` migration on boot so existing installs upgrade transparently.
 
 #### Indexes on `detections`
 
@@ -654,6 +654,9 @@ CREATE INDEX idx_sci_name       ON detections(Sci_Name);
 CREATE INDEX idx_date_com       ON detections(Date, Com_Name);
 CREATE INDEX idx_date_conf      ON detections(Date, Confidence);
 CREATE INDEX idx_date_hour_conf ON detections(Date, CAST(SUBSTR(Time,1,2) AS INT), Confidence);
+-- Source column added in v1.41.0 (multi-source P1) — no index yet, queries
+-- still scan by date/species; an idx_source_date will land in P3-P4 once
+-- the filter UI ships.
 ```
 
 The expression index `idx_date_hour_conf` accelerates the weather-analytics JOINs against `weather_hourly` (which keys by `(date, hour)`). Without it, the `weather-species-heatmap` query took ~43 s on a 1 M-row DB and tripped Caddy's 30 s upstream timeout; with it, it drops to ~12 s, and the result cache below brings warm requests under 10 ms.

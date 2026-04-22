@@ -46,7 +46,8 @@ if (!fs.existsSync(DB_PATH)) {
   initDb.exec(`CREATE TABLE IF NOT EXISTS detections (
     Date DATE, Time TIME, Sci_Name VARCHAR(100) NOT NULL, Com_Name VARCHAR(100) NOT NULL,
     Confidence FLOAT, Lat FLOAT, Lon FLOAT, Cutoff FLOAT,
-    Week INT, Sens FLOAT, Overlap FLOAT, File_Name VARCHAR(100) NOT NULL, Model VARCHAR(50)
+    Week INT, Sens FLOAT, Overlap FLOAT, File_Name VARCHAR(100) NOT NULL, Model VARCHAR(50),
+    Source TEXT
   )`);
   initDb.exec('CREATE INDEX IF NOT EXISTS idx_date_time ON detections(Date, Time DESC)');
   initDb.exec('CREATE INDEX IF NOT EXISTS idx_com_name ON detections(Com_Name)');
@@ -83,6 +84,20 @@ dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_conf ON detections(Date, Confi
 // from 43 s to 12 s on a 1M-row table. Cheap to build (~2 s) and to keep
 // up to date — the engine only INSERTs into detections.
 dbWrite.exec('CREATE INDEX IF NOT EXISTS idx_date_hour_conf ON detections(Date, CAST(SUBSTR(Time,1,2) AS INT), Confidence)');
+
+// ── Multi-source migration (P1) ─────────────────────────────────────────────
+// Add Source column to existing tables that pre-date multi-source. The
+// engine now records `Source = 'garden' / 'feeder' / ...` for detections
+// captured from a per-source incoming/<key>/ subdirectory; legacy
+// single-source captures keep Source NULL. Idempotent — only runs when the
+// column doesn't already exist.
+{
+  const cols = new Set(dbWrite.prepare("PRAGMA table_info(detections)").all().map(r => r.name));
+  if (!cols.has('Source')) {
+    console.log('[BIRDASH] Migrating detections: adding Source column');
+    dbWrite.exec('ALTER TABLE detections ADD COLUMN Source TEXT');
+  }
+}
 
 // ── Favorites table ──────────────────────────────────────────────────────────
 dbWrite.exec(`CREATE TABLE IF NOT EXISTS favorites (

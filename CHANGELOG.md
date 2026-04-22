@@ -2,6 +2,49 @@
 
 All notable changes to BirdStation are documented here.
 
+## [1.41.0] — 2026-04-23
+
+### Feat: multi-source audio P1 — Source column + recursive incoming watcher
+
+Foundation for the upcoming multi-source feature (capture from multiple
+mics in parallel, e.g. garden + feeder + nestbox). P1 ships the
+infrastructure only — no UI yet, no supervisor — so existing single-mic
+installs see zero behaviour change while the engine is ready to accept
+per-source captures.
+
+What changed:
+
+- **Schema**: `detections.Source TEXT` column added. Idempotent
+  migration runs in both `engine/db.py` (`init_db`) and
+  `server/lib/db.js` (boot-time check via `PRAGMA table_info`). Existing
+  rows stay `NULL`, treated as "legacy / single-source".
+- **Engine**: `process_file()` now derives a source key from the
+  recording's path relative to the incoming root —
+  `incoming/foo.wav` → `None`, `incoming/garden/foo.wav` → `'garden'`.
+  Source is passed through `_analyze_with_model` into each detection
+  dict and lands in the new column.
+- **Watcher** is now recursive (`recursive=True`). Per-source subdirs
+  (`incoming/garden/`, `incoming/feeder/`) are picked up automatically
+  the moment they exist. Files dropped directly in `incoming/` keep
+  working unchanged.
+- **Processed dir** mirrors the source: `processed/garden/foo.wav`
+  instead of `processed/foo.wav` when source is set. Avoids basename
+  collisions when two sources happen to rotate at the same second.
+- **Startup file scan** + `_purge_processed` now use `os.walk` so
+  per-source subdirs are handled identically to the legacy flat layout.
+- **Secondary worker** queue items are 6-tuples now (added trailing
+  source key). 5-tuple items from the rolling restart are still
+  tolerated for one cycle.
+
+Tests: 12/12 (added `test_source_persisted` + idempotent-migration test
+that builds an old schema by hand and verifies init_db ALTERs it
+without losing data).
+
+To use multi-source manually right now: `mkdir incoming/garden`, point a
+second `arecord` at it, restart the engine. P2 will ship a supervisor
+that does this from a config file; P3-P4 will add the Settings UI and
+filter widgets.
+
 ## [1.40.0] — 2026-04-22
 
 ### Refactor: engine.py split into focused modules
