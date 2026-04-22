@@ -231,11 +231,11 @@
             <span class="qa-throttle-num" style="color:var(--text-muted);">n/a</span>
           </div>
           <p style="font-size:.72rem;color:var(--text-muted);margin:.6rem 0 0;line-height:1.5;">
-            <strong>{{t('quality_cross_confirm_gap_title')}}</strong> — {{data.prefilter.cross_confirm_note}}
+            <strong>{{t('quality_cross_confirm_gap_title')}}</strong> — {{ data.prefilter.cross_confirm_note_key ? t(data.prefilter.cross_confirm_note_key) : '' }}
           </p>
         </div>
         <div v-else class="qa-placeholder">
-          ⚙ {{data.prefilter.note}}
+          ⚙ {{ data.prefilter.note_key ? t(data.prefilter.note_key) : '' }}
         </div>
       </div>
 
@@ -246,7 +246,7 @@
           {{t('quality_throttle_title')}}
           <span class="qa-source" :class="data.throttle.source">{{t('quality_source_' + data.throttle.source)}}</span>
         </div>
-        <p class="qa-card-note">{{data.throttle.note}}</p>
+        <p class="qa-card-note">{{ data.throttle.note_key ? t(data.throttle.note_key) : '' }}</p>
         <div v-if="data.throttle_measured && data.throttle_measured.source === 'measured' && data.throttle_measured.dropped > 0"
              style="margin:.4rem 0 .8rem;padding:.5rem .7rem;background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.2);border-radius:6px;font-size:.82rem;">
           <span class="qa-source measured" style="background:rgba(52,211,153,.18);color:#10b981;">{{t('quality_source_measured')}}</span>

@@ -166,7 +166,7 @@ function prefilterFromEvents(db, days) {
       source: 'not_instrumented',
       privacy_dropped: null, dog_dropped: null, dog_cooldown_skipped: null,
       cross_confirm_rejected: null, files_processed: null,
-      note: 'Engine has not flushed any quality_events rows yet. Either the engine is on an older version (update + restart birdengine) or no qualifying events have happened in this period.',
+      note_key: 'quality_prefilter_note_no_table',
     };
   }
   const fromDate = isoDateOffset(-days);
@@ -186,7 +186,7 @@ function prefilterFromEvents(db, days) {
       source: 'not_instrumented',
       privacy_dropped: null, dog_dropped: null, dog_cooldown_skipped: null,
       cross_confirm_rejected: null, files_processed: null,
-      note: 'No quality events recorded in this period. The engine starts emitting from v1.43.0 — restart birdengine after the update, then come back here in an hour.',
+      note_key: 'quality_prefilter_note_no_events',
     };
   }
   return {
@@ -197,7 +197,7 @@ function prefilterFromEvents(db, days) {
     throttle_dropped:       row.throttle_dropped || 0,
     files_processed:        row.files_processed || 0,
     cross_confirm_rejected: null,  // not implemented in engine — see spec
-    cross_confirm_note: 'Cross-confirm rule documented + UI present (v1.38) but never wired into the engine inference loop. No rejection counter possible until the rule actually runs.',
+    cross_confirm_note_key: 'quality_cross_confirm_note',
   };
 }
 
@@ -238,7 +238,7 @@ function throttleEffect(db, parseBirdnetConf) {
     return {
       source: 'inferred',
       enabled: false,
-      note: 'NOISY_THROTTLE_ENABLED=0 — no throttle effect to measure.',
+      note_key: 'quality_throttle_note_off',
     };
   }
 
@@ -283,7 +283,7 @@ function throttleEffect(db, parseBirdnetConf) {
   return {
     source: 'inferred',
     enabled: true,
-    note: 'Recent (7d) vs prior (30d) per-day rate for the 5 noisiest species. Negative delta = throttle damping; positive = species genuinely more vocal.',
+    note_key: 'quality_throttle_note_on',
     species: list,
   };
 }
