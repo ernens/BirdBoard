@@ -2450,6 +2450,7 @@ const app = createApp({
       _origSwitch(id);
       if (id === 'station') setTimeout(initStationMap, 200);
       if (id === 'notif') loadAlertHistory();
+      if (id === 'services') loadZramStatus();
     }
     // Replace switchTab
     settingsCtx.switchTab = switchTabWithMap;
@@ -2479,6 +2480,47 @@ const app = createApp({
     }
     settingsCtx.alertHistory = alertHistory;
     settingsCtx.loadAlertHistory = loadAlertHistory;
+
+    // ── ZRAM status / configure ─────────────────────────────────────────
+    const zram = reactive({
+      loaded: false, loading: false, active: false,
+      device: null, backend: null, config: null, host: null,
+      recommendation: null, configuring: false, force: false,
+      msg: '', err: false,
+    });
+    function fmtMb(bytes) {
+      if (!bytes) return '0 MB';
+      const mb = bytes / 1024 / 1024;
+      return mb >= 1024 ? (mb / 1024).toFixed(2) + ' GB' : Math.round(mb) + ' MB';
+    }
+    async function loadZramStatus() {
+      zram.loading = true;
+      try {
+        const r = await fetch(API + '/zram/status');
+        const d = await r.json();
+        Object.assign(zram, d);
+        zram.loaded = true;
+      } catch(e) { zram.msg = e.message; zram.err = true; }
+      zram.loading = false;
+    }
+    async function configureZram(force = null) {
+      zram.configuring = true; zram.msg = ''; zram.err = false;
+      try {
+        const r = await fetch(API + '/zram/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ force: force === null ? zram.force : force }),
+        });
+        const d = await r.json();
+        if (!r.ok || !d.ok) { zram.msg = d.error || 'HTTP ' + r.status; zram.err = true; }
+        else { zram.msg = t('set_zram_done'); zram.err = false; await loadZramStatus(); }
+      } catch(e) { zram.msg = e.message; zram.err = true; }
+      zram.configuring = false;
+    }
+    settingsCtx.zram = zram;
+    settingsCtx.fmtMb = fmtMb;
+    settingsCtx.loadZramStatus = loadZramStatus;
+    settingsCtx.configureZram = configureZram;
 
     provide('settingsCtx', settingsCtx);
 
@@ -2528,6 +2570,7 @@ const app = createApp({
       tftStatus, tftInstalling, tftInstallMsg, tftInstallErr, tftInstallCmds,
       tftSaving, tftConfirmInstall, loadTftStatus, saveTftConfig, runTftInstall, tftServiceAction,
       alertHistory, loadAlertHistory,
+      zram, fmtMb, loadZramStatus, configureZram,
       // Region & units prefs (reactive refs, watchers persist to localStorage)
       unitsPref: fmt.units, timeFormatPref: fmt.timeFormat,
       dateFormatPref: fmt.dateFormat, weekStartPref: fmt.weekStart,

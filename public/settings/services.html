@@ -1,5 +1,80 @@
       <div class="settings-grid">
 
+        <!-- ═══ ZRAM Compressed Swap ═══ -->
+        <div class="card">
+          <div class="section-title">
+            <bird-icon name="cpu" :size="14"></bird-icon>
+            {{t('set_zram_title')}}
+            <button class="btn-outline" @click="loadZramStatus" :disabled="zram.loading"
+                    style="margin-left:auto;font-size:.7rem;padding:.2rem .5rem;">↻</button>
+          </div>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .8rem;">{{t('set_zram_desc')}}</p>
+
+          <div v-if="!zram.loaded" style="font-size:.78rem;color:var(--text-faint);font-style:italic;">…</div>
+          <div v-else>
+            <!-- Status grid -->
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:.3rem .8rem;font-size:.78rem;margin-bottom:.6rem;">
+              <span style="color:var(--text-muted);">{{t('set_zram_host')}}</span>
+              <span style="font-family:monospace;">{{ zram.host?.model || '?' }} ({{ zram.host?.ramMb || '?' }} MB RAM)</span>
+
+              <span style="color:var(--text-muted);">{{t('set_zram_state')}}</span>
+              <span>
+                <span :style="{padding:'.1rem .4rem',borderRadius:'3px',fontSize:'.72rem',
+                               background: zram.active ? 'rgba(52,211,153,.15)' : 'rgba(148,163,184,.15)',
+                               color: zram.active ? '#34d399' : 'var(--text-muted)'}">
+                  {{ zram.active ? t('set_zram_active') : t('set_zram_inactive') }}
+                </span>
+              </span>
+
+              <span style="color:var(--text-muted);">{{t('set_zram_backend')}}</span>
+              <span style="font-family:monospace;">{{ zram.backend || t('set_zram_backend_none') }}</span>
+
+              <template v-if="zram.device">
+                <span style="color:var(--text-muted);">{{t('set_zram_device')}}</span>
+                <span style="font-family:monospace;">
+                  {{ zram.device.name }} · {{ zram.device.algorithm }} ·
+                  {{ fmtMb(zram.device.diskSizeBytes) }}
+                </span>
+
+                <span style="color:var(--text-muted);">{{t('set_zram_usage')}}</span>
+                <span style="font-family:monospace;">
+                  {{ fmtMb(zram.device.dataBytes) }} → {{ fmtMb(zram.device.comprBytes) }}
+                  <span v-if="zram.device.ratio" style="color:var(--accent);">({{ zram.device.ratio }}× ratio)</span>
+                </span>
+
+                <span style="color:var(--text-muted);">{{t('set_zram_priority')}}</span>
+                <span style="font-family:monospace;">{{ zram.device.priority ?? '?' }}</span>
+              </template>
+
+              <span style="color:var(--text-muted);">{{t('set_zram_recommendation')}}</span>
+              <span :style="{color: zram.recommendation?.skip ? 'var(--text-muted)' : 'var(--accent)'}">
+                <span v-if="zram.recommendation?.skip">{{t('set_zram_skip')}}</span>
+                <span v-else-if="zram.recommendation">zram = {{ zram.recommendation.percent }}% RAM</span>
+              </span>
+            </div>
+
+            <!-- Config preview -->
+            <details v-if="zram.config" style="margin-bottom:.6rem;">
+              <summary style="font-size:.74rem;color:var(--text-muted);cursor:pointer;">{{t('set_zram_show_config')}}</summary>
+              <pre style="font-size:.7rem;background:var(--bg-deep);padding:.4rem .5rem;border-radius:4px;margin-top:.3rem;overflow-x:auto;">{{ zram.config }}</pre>
+            </details>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-outline" @click="configureZram(false)" :disabled="zram.configuring" style="font-size:.75rem;">
+                {{ zram.configuring ? '…' : t('set_zram_apply_recommended') }}
+              </button>
+              <label class="set-check" style="font-size:.74rem;cursor:pointer;">
+                <input type="checkbox" v-model="zram.force"> {{t('set_zram_force')}}
+              </label>
+              <span v-if="zram.msg" :style="{fontSize:'.74rem',color: zram.err ? 'var(--danger)' : 'var(--accent)'}">{{ zram.msg }}</span>
+            </div>
+            <p style="font-size:.7rem;color:var(--text-faint);margin:.5rem 0 0;">
+              {{t('set_zram_disable_hint')}}
+            </p>
+          </div>
+        </div>
+
         <!-- ═══ Disk Management ═══ -->
         <div class="card">
           <div class="section-title"><bird-icon name="save" :size="14" ></bird-icon> {{t('set_disk_mgmt')}}</div>

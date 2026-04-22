@@ -685,6 +685,116 @@ function handle(req, res, pathname, ctx) {
     return true;
   }
 
+  // ── Route : GET /api/zram/status ─────────────────────────────────────────
+  // Inspects current zram state: device(s), backend, config, host RAM/model.
+  if (req.method === 'GET' && pathname === '/api/zram/status') {
+    (async () => {
+      const out = { active: false, device: null, backend: null, config: null, host: null };
+
+      // Host info
+      try {
+        const model = require('fs').readFileSync('/proc/device-tree/model', 'utf8').replace(/\0/g, '').trim();
+        const meminfo = require('fs').readFileSync('/proc/meminfo', 'utf8');
+        const memMatch = meminfo.match(/MemTotal:\s+(\d+)\s+kB/);
+        const ramMb = memMatch ? Math.round(parseInt(memMatch[1]) / 1024) : null;
+        out.host = { model, ramMb };
+      } catch (_) {}
+
+      // Active device — parse zramctl --noheadings --raw
+      try {
+        const z = await execCmd('zramctl', ['--noheadings', '--raw', '--bytes']);
+        const lines = z.split('\n').filter(Boolean);
+        if (lines.length) {
+          // Format: NAME ALGORITHM DISKSIZE DATA COMPR TOTAL STREAMS [MOUNTPOINT]
+          const p = lines[0].split(/\s+/);
+          out.active = true;
+          const data = parseInt(p[3]) || 0;
+          const compr = parseInt(p[4]) || 0;
+          out.device = {
+            name: p[0],
+            algorithm: p[1],
+            diskSizeBytes: parseInt(p[2]) || 0,
+            dataBytes: data,
+            comprBytes: compr,
+            totalBytes: parseInt(p[5]) || 0,
+            streams: parseInt(p[6]) || 0,
+            mountpoint: p[7] || '',
+            ratio: compr > 0 ? +(data / compr).toFixed(2) : null,
+          };
+        }
+      } catch (_) { /* zramctl missing or no devices */ }
+
+      // Swap entries (priority, used)
+      try {
+        const sw = await execCmd('cat', ['/proc/swaps']);
+        const lines = sw.split('\n').slice(1).filter(Boolean);
+        const z = lines.find(l => l.includes('zram'));
+        if (z && out.device) {
+          const parts = z.split(/\s+/);
+          out.device.priority = parseInt(parts[4]) || 0;
+          out.device.usedKb = parseInt(parts[3]) || 0;
+        }
+      } catch (_) {}
+
+      // Backend detection + config
+      try {
+        await execCmd('dpkg', ['-s', 'systemd-zram-generator']);
+        out.backend = 'systemd-zram-generator';
+        try {
+          out.config = require('fs').readFileSync('/etc/systemd/zram-generator.conf', 'utf8');
+        } catch (_) { out.config = null; /* using defaults */ }
+      } catch (_) {
+        try {
+          await execCmd('dpkg', ['-s', 'zram-tools']);
+          out.backend = 'zram-tools';
+          try {
+            out.config = require('fs').readFileSync('/etc/default/zramswap', 'utf8');
+          } catch (_) { out.config = null; }
+        } catch (_) { out.backend = null; }
+      }
+
+      // Recommended config based on RAM
+      if (out.host?.ramMb != null) {
+        if (out.host.ramMb >= 5500) out.recommendation = { skip: true, reason: '≥6 GB RAM — modern RPi OS defaults are sufficient' };
+        else if (out.host.ramMb <= 2200) out.recommendation = { percent: 50, reason: '≤2 GB RAM — strongly recommended' };
+        else out.recommendation = { percent: 25, reason: '3-4 GB RAM — recommended' };
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(out));
+    })().catch((e) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    });
+    return true;
+  }
+
+  // ── Route : POST /api/zram/configure ─────────────────────────────────────
+  // Runs scripts/configure_zram.sh. Body: { force?: bool }.
+  // Auth required — this changes system config + restarts zramswap.
+  if (req.method === 'POST' && pathname === '/api/zram/configure') {
+    if (!requireAuth(req, res)) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', async () => {
+      let force = false;
+      try { const j = JSON.parse(body || '{}'); force = !!j.force; } catch (_) {}
+      const path = require('path');
+      const script = path.join(process.env.HOME, 'birdash', 'scripts', 'configure_zram.sh');
+      try {
+        const args = ['bash', script];
+        if (force) args.push('--force');
+        const out = await execCmd(args[0], args.slice(1));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, output: out }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return true;
+  }
+
   return false;
 }
 
