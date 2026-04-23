@@ -28,9 +28,22 @@ jobs:
         # runs at runtime.
         run: npm run lint
 
+      - name: Stage CI fixtures
+        # Copy birdnet.conf to /tmp so any boot-time mutation (auth secret
+        # rotation, cache writes) doesn't dirty the checked-in fixture and
+        # break a `git diff` check on subsequent runs.
+        run: cp tests/fixtures/birdnet.conf /tmp/birdnet-ci.conf
+
       - name: Run tests
         # Integration suites self-skip when their Pi prereqs are missing
-        # (no /etc/birdnet/birdnet.conf, no ~/birdengine/models, etc.) so
-        # CI validates everything that's environment-portable. Pi installs
+        # (no ~/birdengine/models, no audio_config.json, etc.) so CI
+        # validates everything that's environment-portable. Pi installs
         # exercise the full set.
+        #
+        # BIRDNET_CONF points the config loader at the staged fixture
+        # instead of /etc/birdnet/birdnet.conf. BIRDASH_DB points at /tmp;
+        # the server auto-creates an empty schema.
+        env:
+          BIRDNET_CONF: /tmp/birdnet-ci.conf
+          BIRDASH_DB: /tmp/birdash-ci.db
         run: npm test

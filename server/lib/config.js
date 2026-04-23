@@ -6,7 +6,9 @@ const { spawn } = require('child_process');
 const safeConfig = require('./safe-config');
 
 // ── BirdNET configuration ─────────────────────────────────────────────────────
-const BIRDNET_CONF = '/etc/birdnet/birdnet.conf';
+// Path overridable via env so CI / dev / containers can point at a fixture
+// without needing /etc write access.
+const BIRDNET_CONF = process.env.BIRDNET_CONF || '/etc/birdnet/birdnet.conf';
 const _birdashEngine = path.join(process.env.HOME, 'birdash', 'engine');
 const _birdengine = path.join(process.env.HOME, 'birdengine');
 const _hasModels = (dir) => { try { return fs.readdirSync(path.join(dir, 'models')).some(f => f.endsWith('.tflite')); } catch { return false; } };

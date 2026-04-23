@@ -463,8 +463,18 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'GET' && pathname === '/api/purge/stats') {
     try {
       const activeCount = db.prepare('SELECT COUNT(*) AS n FROM detections').get().n;
-      const trashCount = db.prepare('SELECT COUNT(*) AS n FROM detections_trashed').get().n;
-      const oldest = db.prepare('SELECT MIN(trashed_at) AS t FROM detections_trashed').get().t;
+      // detections_trashed is created by a deferred migration (5s after
+      // boot) to avoid SQLITE_BUSY contention with the engine. On a fresh
+      // install or in the first 5 s of uptime the table may not exist yet —
+      // treat that as "no trash" rather than 500ing the whole header card.
+      let trashCount = 0;
+      let oldest = null;
+      try {
+        trashCount = db.prepare('SELECT COUNT(*) AS n FROM detections_trashed').get().n;
+        oldest = db.prepare('SELECT MIN(trashed_at) AS t FROM detections_trashed').get().t;
+      } catch (e) {
+        if (!/no such table/i.test(e.message)) throw e;
+      }
       const retentionDays = parseInt(process.env.BIRDASH_TRASH_RETENTION_DAYS || '90');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
