@@ -1998,5 +1998,11 @@
   "wn_primary_ctx_first_of_year": "Eerste detectie om {time}",
   "wn_primary_ctx_species_streak": "Onafgebroken aanwezigheid dag na dag.",
   "wn_primary_ctx_seasonal_peak": "Vorig record in dezelfde periode: {max}",
-  "overview_top_subtitle": "Laatste 7 dagen · verschil t.o.v. 7 dagen ervoor"
+  "overview_top_subtitle": "Laatste 7 dagen · verschil t.o.v. 7 dagen ervoor",
+  "wn_sec_species_return": "<strong>{sp}</strong> terug na {days} dagen",
+  "wn_sec_activity_spike": "<strong>{sp}</strong> ×{ratio} vs 7-daags gemiddelde",
+  "wn_sec_out_of_season": "<strong>{sp}</strong> buiten het seizoen gedetecteerd ({conf})",
+  "wn_sec_first_of_year": "<strong>{sp}</strong> voor het eerst dit jaar gezien",
+  "wn_sec_species_streak": "<strong>{sp}</strong> {days} dagen op rij aanwezig",
+  "wn_sec_seasonal_peak": "<strong>{sp}</strong> op zijn hoogst — {count} deze week"
 }

@@ -1993,5 +1993,11 @@
   "wn_primary_ctx_first_of_year": "Première détection à {time}",
   "wn_primary_ctx_species_streak": "Présence ininterrompue jour après jour.",
   "wn_primary_ctx_seasonal_peak": "Record précédent à la même période : {max}",
-  "overview_top_subtitle": "7 derniers jours · variation vs 7 jours précédents"
+  "overview_top_subtitle": "7 derniers jours · variation vs 7 jours précédents",
+  "wn_sec_species_return": "<strong>{sp}</strong> après {days} jours d'absence",
+  "wn_sec_activity_spike": "<strong>{sp}</strong> ×{ratio} vs moyenne 7 j",
+  "wn_sec_out_of_season": "<strong>{sp}</strong> détectée hors saison ({conf})",
+  "wn_sec_first_of_year": "<strong>{sp}</strong> vue pour la première fois cette année",
+  "wn_sec_species_streak": "<strong>{sp}</strong> présente {days} jours d'affilée",
+  "wn_sec_seasonal_peak": "<strong>{sp}</strong> à son plus haut — {count} cette semaine"
 }

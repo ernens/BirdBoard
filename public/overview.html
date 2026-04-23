@@ -104,10 +104,10 @@
     }
     .wn-primary {
       display: flex; gap: 1.25rem; align-items: flex-start;
-      padding: 1.4rem 1.45rem;
-      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, var(--bg-card)) 0%, color-mix(in srgb, var(--accent) 3%, var(--bg-card)) 100%);
-      border: 1px solid var(--border);
-      border-left: 5px solid var(--accent); border-radius: 12px;
+      padding: 1.5rem 1.5rem;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--bg-card)) 0%, color-mix(in srgb, var(--accent) 4%, var(--bg-card)) 100%);
+      border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+      border-left: 6px solid var(--accent); border-radius: 12px;
     }
     .wn-primary--clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
     .wn-primary--clickable:hover {
@@ -193,7 +193,7 @@
       .wn-secondaries { grid-template-columns: 1fr; }
     }
     .wn-secondary {
-      padding: .7rem .85rem;
+      padding: .8rem .9rem;
       background: transparent;
       border: none; border-radius: 0;
       transition: background .12s;
@@ -208,26 +208,18 @@
     }
     .wn-secondary--clickable { cursor: pointer; }
     .wn-secondary--clickable:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
-    .wn-sec-header {
-      display: flex; align-items: center; gap: .35rem;
-      margin-bottom: .25rem; color: var(--text-muted);
-    }
-    .wn-sec-label {
+    .wn-sec-eyebrow {
+      display: flex; align-items: center; gap: .3rem;
       font-size: .62rem; letter-spacing: .08em; text-transform: uppercase;
-      font-weight: 600;
+      font-weight: 600; color: var(--text-muted);
+      margin-bottom: .3rem;
     }
-    .wn-sec-line {
-      display: flex; justify-content: space-between; align-items: baseline;
-      gap: .5rem; font-size: .82rem;
+    .wn-sec-sentence {
+      font-size: .86rem; line-height: 1.35;
+      color: var(--text-main);
     }
-    .wn-sec-sp {
-      color: var(--text-main); font-weight: 500;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      min-width: 0; flex: 1;
-    }
-    .wn-sec-val {
-      color: var(--accent); font-weight: 700; font-size: .88rem;
-      flex: 0 0 auto;
+    .wn-sec-sentence strong {
+      color: var(--accent); font-weight: 700;
     }
 
     /* ── Context cards regrouped by family (Phase 4 hierarchy polish) ─ */
@@ -429,38 +421,48 @@
           </div>
         </div>
 
+        <!-- Narrative secondaries — each is a short sentence, not a data
+             label. Before: "Retour après absence · Hypolaïs · 82j".
+             After:  "Hypolaïs polyglotte après 82 jours d'absence".
+             The type label stays as a small eyebrow on top; the reading
+             moves into the sentence itself. -->
         <div v-if="secondaryCards.length" class="wn-secondaries">
           <div v-for="card in secondaryCards" :key="card.type" class="wn-secondary"
                :class="{'wn-secondary--clickable': card.link}"
                @click="card.link && navigateTo(card.link)">
-            <div class="wn-sec-header">
-              <bird-icon :name="wnIcon(card.type)" :size="13"></bird-icon>
-              <span class="wn-sec-label">{{t('wn_card_'+card.type)}}</span>
+            <div class="wn-sec-eyebrow">
+              <bird-icon :name="wnIcon(card.type)" :size="12"></bird-icon>
+              <span>{{t('wn_card_'+card.type)}}</span>
             </div>
-            <div class="wn-sec-line" v-if="card.type==='out_of_season' && card.data">
-              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName, card.data.species[0].sciName)}}</span>
-              <span class="wn-sec-val">{{fmtConf(card.data.species[0].confidence)}}</span>
-            </div>
-            <div class="wn-sec-line" v-else-if="card.type==='activity_spike' && card.data">
-              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName)}}</span>
-              <span class="wn-sec-val">×{{card.data.species[0].ratio}}</span>
-            </div>
-            <div class="wn-sec-line" v-else-if="card.type==='species_return' && card.data">
-              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName, card.data.species[0].sciName)}}</span>
-              <span class="wn-sec-val">{{card.data.species[0].absentDays}}j</span>
-            </div>
-            <div class="wn-sec-line" v-else-if="card.type==='first_of_year' && card.data">
-              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName, card.data.species[0].sciName)}}</span>
-              <span class="wn-sec-val">{{card.data.species[0].firstTimeToday}}</span>
-            </div>
-            <div class="wn-sec-line" v-else-if="card.type==='species_streak' && card.data">
-              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName)}}</span>
-              <span class="wn-sec-val">{{card.data.species[0].streakDays}}j</span>
-            </div>
-            <div class="wn-sec-line" v-else-if="card.type==='seasonal_peak' && card.data">
-              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName)}}</span>
-              <span class="wn-sec-val">{{card.data.species[0].countThisWeek}}</span>
-            </div>
+            <div class="wn-sec-sentence" v-if="card.type==='species_return' && card.data"
+                 v-html="safeHtml(t('wn_sec_species_return', {
+                   sp: spName(card.data.species[0].commonName, card.data.species[0].sciName),
+                   days: card.data.species[0].absentDays
+                 }))"></div>
+            <div class="wn-sec-sentence" v-else-if="card.type==='activity_spike' && card.data"
+                 v-html="safeHtml(t('wn_sec_activity_spike', {
+                   sp: spName(card.data.species[0].commonName),
+                   ratio: card.data.species[0].ratio
+                 }))"></div>
+            <div class="wn-sec-sentence" v-else-if="card.type==='out_of_season' && card.data"
+                 v-html="safeHtml(t('wn_sec_out_of_season', {
+                   sp: spName(card.data.species[0].commonName, card.data.species[0].sciName),
+                   conf: fmtConf(card.data.species[0].confidence)
+                 }))"></div>
+            <div class="wn-sec-sentence" v-else-if="card.type==='first_of_year' && card.data"
+                 v-html="safeHtml(t('wn_sec_first_of_year', {
+                   sp: spName(card.data.species[0].commonName, card.data.species[0].sciName)
+                 }))"></div>
+            <div class="wn-sec-sentence" v-else-if="card.type==='species_streak' && card.data"
+                 v-html="safeHtml(t('wn_sec_species_streak', {
+                   sp: spName(card.data.species[0].commonName),
+                   days: card.data.species[0].streakDays
+                 }))"></div>
+            <div class="wn-sec-sentence" v-else-if="card.type==='seasonal_peak' && card.data"
+                 v-html="safeHtml(t('wn_sec_seasonal_peak', {
+                   sp: spName(card.data.species[0].commonName),
+                   count: card.data.species[0].countThisWeek
+                 }))"></div>
           </div>
         </div>
       </div>
