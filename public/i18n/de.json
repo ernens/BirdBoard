@@ -1971,5 +1971,8 @@
   "wn_primary_first_of_year": "Erste Erkennung von <strong>{sp}</strong> in diesem Jahr ({count} insgesamt)",
   "wn_primary_species_streak": "<strong>{sp}</strong> seit {days} Tagen ununterbrochen präsent",
   "wn_primary_seasonal_peak": "<strong>{sp}</strong> auf saisonalem Höchststand — {count} diese Woche",
-  "wn_primary_cta": "Details anzeigen"
+  "wn_primary_cta": "Details anzeigen",
+  "overview_top_new": "neu",
+  "overview_baseline_30d": "30-Tage-Schnitt",
+  "overview_baseline_vs_avg": "vs. Schnitt"
 }

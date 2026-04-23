@@ -137,6 +137,35 @@
       ];
     },
 
+    /** Top species with previous-period change % — overview enriched chart.
+     *  curFrom..curTo (inclusive) vs prevFrom..prevTo (inclusive). pct_change
+     *  is NULL when prev=0 (new species — frontend renders "new" badge). */
+    topSpeciesWithChange(curFrom, curTo, prevFrom, prevTo, limit, c) {
+      const conf = (c != null ? c : C());
+      return [
+        `WITH cur AS (
+           SELECT Com_Name, Sci_Name, COUNT(*) as n_cur
+           FROM active_detections
+           WHERE Date BETWEEN ? AND ? AND Confidence >= ?
+           GROUP BY Com_Name, Sci_Name
+         ),
+         prev AS (
+           SELECT Com_Name, COUNT(*) as n_prev
+           FROM active_detections
+           WHERE Date BETWEEN ? AND ? AND Confidence >= ?
+           GROUP BY Com_Name
+         )
+         SELECT cur.Com_Name, cur.Sci_Name, cur.n_cur AS n,
+                COALESCE(prev.n_prev, 0) AS n_prev,
+                CASE WHEN prev.n_prev > 0
+                     THEN CAST(((cur.n_cur - prev.n_prev) * 100.0 / prev.n_prev) AS INTEGER)
+                     ELSE NULL END AS pct_change
+         FROM cur LEFT JOIN prev ON cur.Com_Name = prev.Com_Name
+         ORDER BY cur.n_cur DESC LIMIT ?`,
+        [curFrom, curTo, conf, prevFrom, prevTo, conf, limit]
+      ];
+    },
+
     // ═══════════════════════════════════════════════════════════
     //  DETECTIONS DETAIL
     // ═══════════════════════════════════════════════════════════
@@ -169,6 +198,28 @@
       return [
         "SELECT hour as h, SUM(count_07) as n FROM hourly_stats WHERE date=? GROUP BY hour ORDER BY hour ASC",
         [date]
+      ];
+    },
+    /** Hourly baseline over the last N days (excluding today) — used as
+     *  a reference line on overview's activity chart. Returns 24 buckets
+     *  with the AVG daily total per hour over the window. The CTE first
+     *  collapses (date, hour) so the outer AVG is "per day" not "per
+     *  (day, species)". AVG over median for SQL simplicity. */
+    hourlyBaseline(days, today) {
+      const fromDate = new Date(new Date(today).getTime() - days * 86400000)
+        .toISOString().slice(0, 10);
+      return [
+        `WITH daily_per_hour AS (
+           SELECT date, hour, SUM(count_07) AS n_day
+           FROM hourly_stats
+           WHERE date >= ? AND date < ?
+           GROUP BY date, hour
+         )
+         SELECT hour AS h, ROUND(AVG(n_day)) AS avg_n
+         FROM daily_per_hour
+         GROUP BY hour
+         ORDER BY hour ASC`,
+        [fromDate, today]
       ];
     },
     /** Fallback if hourly_stats returns nothing (table empty/not rebuilt yet) */

@@ -1971,5 +1971,8 @@
   "wn_primary_first_of_year": "Eerste detectie van <strong>{sp}</strong> dit jaar ({count} totaal)",
   "wn_primary_species_streak": "<strong>{sp}</strong> {days} dagen op rij aanwezig",
   "wn_primary_seasonal_peak": "<strong>{sp}</strong> op seizoenshoogtepunt — {count} deze week",
-  "wn_primary_cta": "Details bekijken"
+  "wn_primary_cta": "Details bekijken",
+  "overview_top_new": "nieuw",
+  "overview_baseline_30d": "Gemiddelde 30 d",
+  "overview_baseline_vs_avg": "vs gem."
 }

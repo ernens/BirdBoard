@@ -813,20 +813,35 @@ const app = createApp({
 
     async function loadTopData() {
       try {
-        const rows = await birdQuery(...Q.topSpecies(daysAgo(6), BIRD_CONFIG.topSpeciesCount, CONF));
+        // Phase 3: enriched with previous-7d comparison so the chart shows
+        // not just dominance but trend. Window is current 7d vs prior 7d.
+        const curFrom = daysAgo(6);
+        const prevFrom = daysAgo(13);
+        const prevTo = daysAgo(7);
+        const rows = await birdQuery(...Q.topSpeciesWithChange(
+          curFrom, today, prevFrom, prevTo, BIRD_CONFIG.topSpeciesCount, CONF
+        ));
         dataTop.value = rows;
       } catch(e) { console.error(e); }
     }
     async function loadHourlyData() {
       try {
-        // Use pre-aggregated hourly_stats (×100 faster), fallback to raw scan
-        const rows = await Q.withFallback(birdQuery,
-          Q.hourlyDistribution(today),
-          Q.hourlyDistributionRaw(today, CONF)
-        );
-        const vals=Array(24).fill(0);
-        rows.forEach(r=>{vals[r.h]=r.n;});
-        dataHourly.value = vals;
+        // Today's bars + 30-day baseline overlay (Phase 3). Both queries
+        // run in parallel — baseline is small (24 rows) and cached server-side.
+        const [rows, baselineRows] = await Promise.all([
+          Q.withFallback(birdQuery,
+            Q.hourlyDistribution(today),
+            Q.hourlyDistributionRaw(today, CONF)
+          ),
+          birdQuery(...Q.hourlyBaseline(30, today)).catch(() => []),
+        ]);
+        const vals = Array(24).fill(0);
+        rows.forEach(r => { vals[r.h] = r.n; });
+        const baseline = Array(24).fill(null);
+        baselineRows.forEach(r => { baseline[r.h] = r.avg_n; });
+        // Hide baseline if every value is 0/null (fresh install < 30 days)
+        const hasBaseline = baseline.some(v => v != null && v > 0);
+        dataHourly.value = { vals, baseline: hasBaseline ? baseline : null };
       } catch(e) { console.error(e); }
     }
 
@@ -834,22 +849,137 @@ const app = createApp({
       await nextTick();
       const d = dataTop.value;
       if (!d || !canvasTop.value) return;
-      const cs=getComputedStyle(document.documentElement);
-      const gridC=cs.getPropertyValue('--border').trim()+'40';
-      const txtC=cs.getPropertyValue('--text-muted').trim();
-      mountTop(canvasTop, ()=>({type:'bar',data:{labels:d.map(r=>spName(r.Com_Name,r.Sci_Name)),datasets:[{label:t('detections'),data:d.map(r=>r.n),backgroundColor:BIRD_CONFIG.chartColors.map(c=>c+'cc'),borderColor:BIRD_CONFIG.chartColors,borderWidth:0,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,els)=>{if(els.length)navigateTo('species.html',{species:d[els[0].index].Com_Name});},plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:gridC,borderWidth:1,titleColor:'#fff',bodyColor:txtC,callbacks:{title:i=>i[0].label,label:i=>` ${i.raw} ${t('detections')}`}}},scales:{x:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true},y:{ticks:{color:txtC,font:{size:11}},grid:{display:false}}}}}));
+      const cs = getComputedStyle(document.documentElement);
+      const gridC = cs.getPropertyValue('--border').trim() + '40';
+      const txtC  = cs.getPropertyValue('--text-muted').trim();
+      // Phase 3: bar opacity modulated by trend vs prev 7d.
+      //   ↑ ≥ 20% → full opacity (rising species stand out)
+      //   ↓ ≤ 20% → muted (faded — declining)
+      //   else    → default
+      const baseColors = BIRD_CONFIG.chartColors;
+      const opacityFor = (pct, isNew) => {
+        if (isNew) return 'cc';                     // new species: default weight
+        if (pct === null || pct === undefined) return 'cc';
+        if (pct >= 20) return 'ff';
+        if (pct <= -20) return '66';
+        return 'cc';
+      };
+      const trendLabel = (pct, isNew) => {
+        if (isNew) return ' · ' + t('overview_top_new');
+        if (pct === null || pct === undefined) return '';
+        if (pct >= 20) return ` · ↑ ${pct}%`;
+        if (pct <= -20) return ` · ↓ ${Math.abs(pct)}%`;
+        return ' · ≈';
+      };
+      mountTop(canvasTop, () => ({
+        type: 'bar',
+        data: {
+          labels: d.map(r => spName(r.Com_Name, r.Sci_Name)),
+          datasets: [{
+            label: t('detections'),
+            data: d.map(r => r.n),
+            backgroundColor: d.map((r, i) =>
+              baseColors[i % baseColors.length] + opacityFor(r.pct_change, r.n_prev === 0)
+            ),
+            borderColor: baseColors,
+            borderWidth: 0,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          onClick: (evt, els) => { if (els.length) navigateTo('species.html', { species: d[els[0].index].Com_Name }); },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'var(--bg-card,#151b20)', borderColor: gridC, borderWidth: 1,
+              titleColor: '#fff', bodyColor: txtC,
+              callbacks: {
+                title: i => i[0].label,
+                label: i => {
+                  const r = d[i.dataIndex];
+                  return ` ${r.n} ${t('detections')}${trendLabel(r.pct_change, r.n_prev === 0)}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { color: txtC }, grid: { color: gridC, lineWidth: 0.5 }, border: { display: false }, beginAtZero: true },
+            y: { ticks: { color: txtC, font: { size: 11 } }, grid: { display: false } },
+          },
+        },
+      }));
     });
 
     watch([dataHourly, lang], async () => {
       await nextTick();
       const d = dataHourly.value;
       if (!d || !canvasHourly.value) return;
-      const cs=getComputedStyle(document.documentElement);
-      const accent=cs.getPropertyValue('--accent').trim();
-      const gridC=cs.getPropertyValue('--border').trim()+'40';
-      const txtC=cs.getPropertyValue('--text-muted').trim();
-      const curH=new Date().getHours();
-      mountHourly(canvasHourly, ()=>({type:'bar',data:{labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),datasets:[{label:t('detections'),data:d,backgroundColor:d.map((v,i)=>i===curH?accent:(v>0?accent+'80':accent+'15')),borderWidth:0,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--bg-card,#151b20)',borderColor:accent+'40',borderWidth:1,titleColor:'#fff',bodyColor:txtC}},scales:{x:{ticks:{color:txtC,font:{size:9}},grid:{display:false}},y:{ticks:{color:txtC},grid:{color:gridC,lineWidth:0.5},border:{display:false},beginAtZero:true}}}}));
+      const cs = getComputedStyle(document.documentElement);
+      const accent = cs.getPropertyValue('--accent').trim();
+      const muted  = cs.getPropertyValue('--text-muted').trim();
+      const gridC  = cs.getPropertyValue('--border').trim() + '40';
+      const txtC   = muted;
+      const curH = new Date().getHours();
+      const vals = d.vals || d;            // backwards-compat with old shape
+      const baseline = d.baseline || null;  // null when < 30 days of history
+      // Phase 3: highlight bars > 1.5× baseline as "unusual peak" (full
+      // accent), keep current hour highlighted in accent, others faded.
+      const colorFor = (v, i) => {
+        if (i === curH) return accent;
+        if (baseline && baseline[i] != null && baseline[i] > 0 && v > baseline[i] * 1.5) return accent;
+        return v > 0 ? accent + '80' : accent + '15';
+      };
+      const datasets = [{
+        type: 'bar', label: t('detections'),
+        data: vals,
+        backgroundColor: vals.map(colorFor),
+        borderWidth: 0, borderRadius: 3, order: 2,
+      }];
+      if (baseline) {
+        datasets.push({
+          type: 'line', label: t('overview_baseline_30d'),
+          data: baseline,
+          borderColor: muted + 'aa',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5, borderDash: [4, 3],
+          pointRadius: 0, pointHoverRadius: 3,
+          tension: 0.35, order: 1,
+        });
+      }
+      mountHourly(canvasHourly, () => ({
+        type: 'bar',
+        data: {
+          labels: Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}h`),
+          datasets,
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: baseline ? { display: true, position: 'bottom', labels: { color: txtC, font: { size: 10 }, boxWidth: 12 } } : { display: false },
+            tooltip: {
+              backgroundColor: 'var(--bg-card,#151b20)', borderColor: accent + '40', borderWidth: 1,
+              titleColor: '#fff', bodyColor: txtC,
+              callbacks: baseline ? {
+                afterBody: (items) => {
+                  const i = items[0]?.dataIndex;
+                  if (i == null || baseline[i] == null) return '';
+                  const cur = vals[i] || 0;
+                  const base = baseline[i];
+                  if (base === 0) return '';
+                  const pct = Math.round((cur - base) * 100 / base);
+                  if (Math.abs(pct) < 10) return '';
+                  return pct > 0 ? `↑ ${pct}% ${t('overview_baseline_vs_avg')}` : `↓ ${Math.abs(pct)}% ${t('overview_baseline_vs_avg')}`;
+                },
+              } : undefined,
+            },
+          },
+          scales: {
+            x: { ticks: { color: txtC, font: { size: 9 } }, grid: { display: false } },
+            y: { ticks: { color: txtC }, grid: { color: gridC, lineWidth: 0.5 }, border: { display: false }, beginAtZero: true },
+          },
+        },
+      }));
     });
 
     onMounted(async () => {
