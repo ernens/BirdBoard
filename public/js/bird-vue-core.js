@@ -380,7 +380,16 @@
   const _siteName  = ref('BirdStation');
   const _brandName = ref('BirdStation');
   const _siteElev  = ref(null);
+  const _siteCoords = ref('');  // formatted "49.6970° N / 5.7452° E"
   let _siteIdentityLoaded = false;
+
+  function _formatCoords(lat, lon) {
+    const a = Number(lat), b = Number(lon);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return '';
+    const ns = a >= 0 ? 'N' : 'S';
+    const ew = b >= 0 ? 'E' : 'W';
+    return `${Math.abs(a).toFixed(4)}° ${ns} / ${Math.abs(b).toFixed(4)}° ${ew}`;
+  }
 
   function _loadSiteIdentity() {
     if (_siteIdentityLoaded) return;
@@ -399,6 +408,7 @@
         const n = Number(conf.ELEVATION);
         if (Number.isFinite(n)) _siteElev.value = Math.round(n);
       }
+      _siteCoords.value = _formatCoords(conf.LATITUDE, conf.LONGITUDE);
     }).catch(() => {});
   }
 
@@ -511,7 +521,7 @@
     // Flat list for backwards compat
     const navItems = computed(() => navSections.value.flatMap(s => s.items));
     _loadSiteIdentity();
-    return { navItems, navSections, siteName: _siteName, brandName: _brandName, siteElev: _siteElev };
+    return { navItems, navSections, siteName: _siteName, brandName: _brandName, siteElev: _siteElev, siteCoords: _siteCoords };
   }
 
   // ── useChart ──────────────────────────────────────────────────────────────
@@ -995,7 +1005,7 @@
     setup(props) {
       const { lang, t, setLang, langs } = useI18n();
       const { theme, themes, setTheme } = useTheme();
-      const { navItems, navSections, siteName, brandName, siteElev } = useNav(props.page);
+      const { navItems, navSections, siteName, brandName, siteElev, siteCoords } = useNav(props.page);
       const { toasts } = useToast();
       // Open the section containing the current page by default
       const openSection = ref(-1); // dropdown closed by default
@@ -1764,7 +1774,7 @@
       // Expose openPower so child pages (e.g. the Settings → Station
       // 'Manage power' button) can trigger the shell-level modal.
       if (window.BIRDASH) window.BIRDASH.openPower = () => power.open();
-      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, navGo, siteName, siteElev, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, showUpdateBanner, deferUpdate, skipUpdate, applyUpdate, forceUpdate, rollbackUpdate, canRollback, updateApplying, updateProgress, updateLog, updateShowLog, updateGroupedChanges, reloadAfterUpdate, dismissUpdateProgress, appVersion, progressLabel, bugReportOpen, bugReportForm, bugReportEnabled, openBugReport, closeBugReport, submitBugReport, power, authStatus, logout, gotoLogin, birdweatherStationId };
+      return { lang, t, setLang, langs, theme, themes, setTheme, navItems, navSections, openSection, hoverSection, navSectionClick, navGo, siteName, siteElev, siteCoords, langOpen, themeOpen, currentLang, currentTheme, modelName, currentPage, reviewCount, searchQuery, searchOpen, searchExpanded, searchHighlight, searchResults, onSearchInput, selectSearchResult, onSearchKeydown, closeSearch, toggleMobileSearch, bellOpen, bellCritical, bellWarning, bellBirds, bellUnseen, bellUnseenCritical, bellUnseenWarning, bellUnseenBirds, bellSeverity, toggleBell, bellItemClick, toasts, brandName, refreshReviewCount, drawerOpen, toggleDrawer, drawerNavClick, updateInfo, updateModalOpen, openUpdateModal, closeUpdateModal, showUpdateBanner, deferUpdate, skipUpdate, applyUpdate, forceUpdate, rollbackUpdate, canRollback, updateApplying, updateProgress, updateLog, updateShowLog, updateGroupedChanges, reloadAfterUpdate, dismissUpdateProgress, appVersion, progressLabel, bugReportOpen, bugReportForm, bugReportEnabled, openBugReport, closeBugReport, submitBugReport, power, authStatus, logout, gotoLogin, birdweatherStationId };
     },
     directives: {
       'click-outside': {
@@ -1777,13 +1787,13 @@
     },
     template: `
 <div class="app-shell">
-  <a href="#birdash-main" class="skip-link">Aller au contenu</a>
+  <a href="#birdash-main" class="skip-link">{{t('header_skip_to_content')}}</a>
   <header class="app-header" role="banner">
     <div class="header-brand">
       <img src="img/robin-logo.svg" class="brand-logo" :alt="brandName">
       <div class="brand-text">
         <span class="brand-name">{{brandName}}</span>
-        <span class="brand-sub">Poste bioacoustique · {{siteName}} · 49.6700° N / 5.8267° E<span v-if="siteElev != null"> · Alt. {{siteElev}} m</span><span v-if="appVersion" class="brand-version"> · v{{appVersion}}</span></span>
+        <span class="brand-sub">{{t('header_subtitle')}} · {{siteName}}<span v-if="siteCoords"> · {{siteCoords}}</span><span v-if="siteElev != null"> · {{t('header_alt')}} {{siteElev}} m</span><span v-if="appVersion" class="brand-version"> · v{{appVersion}}</span></span>
       </div>
     </div>
     <div class="header-right">

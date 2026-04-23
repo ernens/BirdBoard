@@ -1942,5 +1942,8 @@
   "page_title_system": "System",
   "page_title_timeline": "Timeline",
   "page_title_today": "Today",
-  "page_title_weather": "Weather & birds"
+  "page_title_weather": "Weather & birds",
+  "header_subtitle": "Bioacoustic station",
+  "header_skip_to_content": "Skip to content",
+  "header_alt": "Elev."
 }

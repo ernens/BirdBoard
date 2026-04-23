@@ -1937,5 +1937,8 @@
   "page_title_system": "Système",
   "page_title_timeline": "Chronologie",
   "page_title_today": "Aujourd'hui",
-  "page_title_weather": "Météo & Oiseaux"
+  "page_title_weather": "Météo & Oiseaux",
+  "header_subtitle": "Poste bioacoustique",
+  "header_skip_to_content": "Aller au contenu",
+  "header_alt": "Alt."
 }

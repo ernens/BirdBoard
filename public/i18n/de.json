@@ -1942,5 +1942,8 @@
   "page_title_system": "System",
   "page_title_timeline": "Chronologie",
   "page_title_today": "Heute",
-  "page_title_weather": "Wetter & Vögel"
+  "page_title_weather": "Wetter & Vögel",
+  "header_subtitle": "Bioakustische Station",
+  "header_skip_to_content": "Zum Inhalt springen",
+  "header_alt": "Höhe"
 }
