@@ -1999,10 +1999,10 @@
   "wn_primary_ctx_species_streak": "Ununterbrochene Präsenz Tag für Tag.",
   "wn_primary_ctx_seasonal_peak": "Vorheriger Rekord im gleichen Zeitraum: {max}",
   "overview_top_subtitle": "Letzte 7 Tage · Veränderung gegenüber den 7 Tagen davor",
-  "wn_sec_species_return": "<strong>{sp}</strong> zurück nach {days} Tagen",
-  "wn_sec_activity_spike": "<strong>{sp}</strong> ×{ratio} vs. 7-Tage-Schnitt",
-  "wn_sec_out_of_season": "<strong>{sp}</strong> außerhalb der Saison erkannt ({conf})",
-  "wn_sec_first_of_year": "<strong>{sp}</strong> zum ersten Mal in diesem Jahr",
-  "wn_sec_species_streak": "<strong>{sp}</strong> {days} Tage in Folge präsent",
-  "wn_sec_seasonal_peak": "<strong>{sp}</strong> auf Höchststand — {count} diese Woche"
+  "wn_sec_species_return": "<strong>{sp}</strong>, Rückkehr nach {days} Tagen",
+  "wn_sec_activity_spike": "<strong>{sp}</strong>, {ratio}× über dem 7-Tage-Schnitt",
+  "wn_sec_out_of_season": "<strong>{sp}</strong>, außerhalb der Saison erkannt ({conf})",
+  "wn_sec_first_of_year": "<strong>{sp}</strong>, erste des Jahres",
+  "wn_sec_species_streak": "<strong>{sp}</strong>, {days} Tage ununterbrochene Präsenz",
+  "wn_sec_seasonal_peak": "<strong>{sp}</strong>, Saisonhoch ({count} diese Woche)"
 }

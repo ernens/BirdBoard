@@ -108,6 +108,10 @@
       background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--bg-card)) 0%, color-mix(in srgb, var(--accent) 4%, var(--bg-card)) 100%);
       border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
       border-left: 6px solid var(--accent); border-radius: 12px;
+      /* Subtle lift — sits visibly above the secondary row instead of
+         flush with it. The shadow uses the accent at low opacity so it
+         keeps the editorial colour palette. */
+      box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 12%, transparent);
     }
     .wn-primary--clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
     .wn-primary--clickable:hover {
@@ -198,6 +202,16 @@
       border: none; border-radius: 0;
       transition: background .12s;
       position: relative;
+    }
+    /* The first secondary is "elected" — second-tier signal of the day,
+       just below the primary in importance. Very subtle accent tint so
+       the eye reads "this one matters most among the supporting facts"
+       without making it look like a competing card. */
+    .wn-secondary:first-child {
+      background: color-mix(in srgb, var(--accent) 4%, transparent);
+    }
+    .wn-secondary:first-child .wn-sec-eyebrow {
+      color: var(--accent);
     }
     /* Vertical divider between secondaries on desktop */
     .wn-secondary + .wn-secondary {
