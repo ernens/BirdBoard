@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 import numpy as np
@@ -174,6 +175,73 @@ class TestReadAudio(unittest.TestCase):
             result = read_audio(f.name, 48000)
             self.assertEqual(result.ndim, 1)
         os.unlink(f.name)
+
+
+class TestFindOrphans(unittest.TestCase):
+    """Regression tests for the watcher-orphan pickup helper.
+
+    Reproduces the bug where files created during the startup-scan window
+    (or any time the watchdog Observer hadn't fired yet) sit forever in
+    incoming/. _find_orphans() lets the main loop sweep them up.
+    """
+
+    def setUp(self):
+        from engine import _find_orphans  # noqa: F401 — import side-effect check
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _make_wav(self, name, age_seconds):
+        """Create an empty .wav and backdate its mtime."""
+        path = os.path.join(self.tmpdir, name)
+        with open(path, 'wb') as f:
+            f.write(b'')
+        old = time.time() - age_seconds
+        os.utime(path, (old, old))
+        return path
+
+    def test_returns_only_old_wavs(self):
+        """Old WAVs are orphans; ones still being written by arecord are not."""
+        from engine import _find_orphans
+        old = self._make_wav('old.wav', age_seconds=120)
+        self._make_wav('fresh.wav', age_seconds=1)  # arecord still writing
+        orphans = _find_orphans(self.tmpdir, pending_path=None, max_age_seconds=60)
+        self.assertEqual(orphans, [old])
+
+    def test_excludes_pending_path(self):
+        """The watcher's _pending file isn't an orphan — next event handles it."""
+        from engine import _find_orphans
+        pending = self._make_wav('pending.wav', age_seconds=120)
+        other   = self._make_wav('other.wav',   age_seconds=120)
+        orphans = _find_orphans(self.tmpdir, pending_path=pending, max_age_seconds=60)
+        self.assertEqual(orphans, [other])
+
+    def test_walks_subdirs(self):
+        """Multi-source layout (incoming/garden/, incoming/feeder/) is covered."""
+        from engine import _find_orphans
+        sub = os.path.join(self.tmpdir, 'garden')
+        os.makedirs(sub)
+        path = os.path.join(sub, 'g.wav')
+        with open(path, 'wb') as f: f.write(b'')
+        old = time.time() - 120
+        os.utime(path, (old, old))
+        orphans = _find_orphans(self.tmpdir, pending_path=None, max_age_seconds=60)
+        self.assertEqual(orphans, [path])
+
+    def test_ignores_non_wav(self):
+        """Non-.wav files in incoming/ are not orphans."""
+        from engine import _find_orphans
+        with open(os.path.join(self.tmpdir, 'log.txt'), 'w') as f: f.write('x')
+        wav = self._make_wav('a.wav', age_seconds=120)
+        orphans = _find_orphans(self.tmpdir, pending_path=None, max_age_seconds=60)
+        self.assertEqual(orphans, [wav])
+
+    def test_missing_dir_returns_empty(self):
+        """Defensive: no incoming dir yet → empty list, no exception."""
+        from engine import _find_orphans
+        self.assertEqual(_find_orphans('/nonexistent', None), [])
 
 
 if __name__ == '__main__':

@@ -48,6 +48,40 @@ def load_config(path="config.toml"):
         return toml.load(f)
 
 
+def _find_orphans(incoming_dir, pending_path, max_age_seconds=60):
+    """Return WAV paths in incoming_dir that the watcher likely missed.
+
+    Pure function (no I/O side-effects beyond stat) so it can be unit
+    tested without spinning up a BirdEngine instance.
+
+    A WAV is an orphan if:
+    - It has been on disk for > max_age_seconds (so arecord has finished
+      writing it; smaller defaults would race the rotation cycle).
+    - It is not the watcher's current `_pending` entry (which the next
+      on_created event will process anyway).
+
+    Walks subdirs to support multi-source layouts (incoming/garden/, etc.)
+    """
+    if not os.path.isdir(incoming_dir):
+        return []
+    cutoff = time.time() - max_age_seconds
+    orphans = []
+    for root, _dirs, files in os.walk(incoming_dir):
+        for fname in files:
+            if not fname.endswith(".wav"):
+                continue
+            path = os.path.join(root, fname)
+            if pending_path and os.path.abspath(path) == os.path.abspath(pending_path):
+                continue
+            try:
+                if os.path.getmtime(path) < cutoff:
+                    orphans.append(path)
+            except OSError:
+                pass
+    orphans.sort()
+    return orphans
+
+
 # ---------------------------------------------------------------------------
 # Re-exports — keep `from engine import X` working for tests + external code.
 # New code should import directly from the relevant module.
@@ -800,6 +834,34 @@ class BirdEngine:
         if count:
             log.info("Purged %d old processed WAV files", count)
 
+    def _pickup_orphans(self):
+        """Re-scan incoming/ for WAVs the watcher missed.
+
+        Why this exists: the watchdog Observer only sees on_created events
+        fired AFTER it started, and processes one file per event (the
+        previous _pending). Files that landed in incoming/ during the
+        startup scan window — or any time the watcher missed an event —
+        are otherwise stuck there forever.
+
+        Called from the main loop every ~5 min as a defense in depth.
+        Cheap (one os.walk) and safe (filters by mtime so in-flight
+        arecord writes are left alone).
+        """
+        incoming_dir = self.config["audio"]["incoming_dir"]
+        handler = getattr(self, "_handler", None)
+        pending_path = handler._pending if handler else None
+        orphans = _find_orphans(incoming_dir, pending_path)
+        if not orphans:
+            return
+        log.info("Picking up %d orphan WAV(s) the watcher missed", len(orphans))
+        for path in orphans:
+            if self.shutdown:
+                return
+            try:
+                self.process_file(path)
+            except Exception as e:
+                log.warning("[orphan] failed on %s: %s", os.path.basename(path), e)
+
     def _sweep_empty_clips(self):
         """Remove 0-byte MP3/PNG files in BirdSongs/Extracted — leftovers
         from ffmpeg crashes (OOM, SD-card I/O contention). Without this
@@ -846,7 +908,9 @@ class BirdEngine:
 
         # Build the watcher first so we can seed its "pending" with an
         # in-progress file if the engine restarted mid-recording.
+        # Saved on self so _pickup_orphans() can read its current _pending.
         handler = WavHandler(self.process_file)
+        self._handler = handler
 
         # Start secondary model worker thread
         if self.secondary_model:
@@ -902,6 +966,7 @@ class BirdEngine:
                 purge_counter += 1
                 if purge_counter >= 10:
                     self._purge_processed()
+                    self._pickup_orphans()
                     self._check_model_change()
                     self._quality_flush()
                     purge_counter = 0
