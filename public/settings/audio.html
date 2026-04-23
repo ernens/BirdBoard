@@ -444,7 +444,7 @@
                   </tr>
                 </table>
                 <div :style="{ color: calResult.status === 'warning' ? 'var(--warning)' : 'var(--accent)' }">
-                  {{ calResult.message }}
+                  {{ calResult.message_key ? t(calResult.message_key) : (calResult.message || '') }}
                 </div>
                 <div style="display:flex;gap:.5rem;margin-top:.8rem;">
                   <button class="btn-accent" @click="applyCalibration">{{t('cal_apply')}}</button>

@@ -68,11 +68,11 @@ function handle(req, res, pathname, ctx) {
           gain_ch0: Math.round(gain0 * 1000) / 1000,
           gain_ch1: Math.round(gain1 * 1000) / 1000,
           status: diffDb < 1 ? 'excellent' : diffDb < 3 ? 'normal' : 'warning',
-          message: diffDb < 1
-            ? 'Excellente correspondance. Calibration non nécessaire.'
+          message_key: diffDb < 1
+            ? 'cal_msg_excellent'
             : diffDb < 3
-            ? 'Écart normal entre capsules. Calibration appliquée.'
-            : 'Écart important détecté. Vérifiez le câblage et le placement.',
+            ? 'cal_msg_normal'
+            : 'cal_msg_warning',
         };
         try { fs.unlinkSync(tmpFile); } catch {}
         res.writeHead(200, { 'Content-Type': 'application/json' });

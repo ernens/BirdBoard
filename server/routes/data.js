@@ -314,7 +314,7 @@ function handle(req, res, pathname, ctx) {
 
         if (!validateQuery(sql)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Requête non autorisée' }));
+          res.end(JSON.stringify({ error: 'Query not allowed' }));
           return;
         }
 
@@ -347,7 +347,7 @@ function handle(req, res, pathname, ctx) {
       } catch (err) {
         console.error('[BIRDASH] Erreur SQL :', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Erreur interne lors de l\'exécution de la requête' }));
+        res.end(JSON.stringify({ error: 'Internal error while executing query' }));
       }
     });
     return true;

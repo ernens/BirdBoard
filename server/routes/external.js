@@ -81,7 +81,7 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'GET' && pathname === '/api/birdweather') {
     if (!BW_STATION_ID) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'no_station', message: 'birdweatherStationId non configuré dans birdash-local.js' }));
+      res.end(JSON.stringify({ error: 'no_station', message: 'birdweatherStationId not configured in birdash-local.js' }));
       return;
     }
     const qp       = new URL(req.url, 'http://localhost').searchParams;
@@ -129,7 +129,7 @@ function handle(req, res, pathname, ctx) {
   if (req.method === 'GET' && pathname === '/api/ebird-notable') {
     if (!EBIRD_API_KEY) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'no_key', message: 'EBIRD_API_KEY non configuré. Obtenir une clé gratuite sur https://ebird.org/api/keygen' }));
+      res.end(JSON.stringify({ error: 'no_key', message: 'EBIRD_API_KEY not configured. Get a free key at https://ebird.org/api/keygen' }));
       return;
     }
 
