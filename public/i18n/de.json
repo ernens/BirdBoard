@@ -1955,5 +1955,21 @@
   "overview_synth_diverse_low": "Geringere Vielfalt — {sp} Arten (−{pct} % vs. Schnitt)",
   "overview_synth_busy": "Lebhafte Stunde — {count} Erkennungen in der letzten Stunde",
   "overview_synth_normal": "Ruhiger Tag — {sp} Arten, {det} Erkennungen",
-  "spectro_open": "Vollständiges Spektrogramm öffnen"
+  "spectro_open": "Vollständiges Spektrogramm öffnen",
+  "wn_primary_eyebrow_default": "Bemerkenswert",
+  "wn_primary_eyebrow_species_return": "Auffällige Rückkehr",
+  "wn_primary_eyebrow_out_of_season": "Saisonale Anomalie",
+  "wn_primary_eyebrow_activity_spike": "Aktivitätsspitze",
+  "wn_primary_eyebrow_first_of_year": "Erste des Jahres",
+  "wn_primary_eyebrow_species_streak": "Anhaltende Präsenz",
+  "wn_primary_eyebrow_seasonal_peak": "Saisonhoch",
+  "wn_primary_eyebrow_calm": "Heute",
+  "wn_primary_calm": "Kein außergewöhnliches Signal — Aktivität entspricht dem Zeitraum",
+  "wn_primary_species_return": "<strong>{sp}</strong> nach {days} Tagen Abwesenheit zurück",
+  "wn_primary_out_of_season": "<strong>{sp}</strong> außerhalb der Saison erkannt ({count}-mal)",
+  "wn_primary_activity_spike": "<strong>{sp}</strong> {ratio}× häufiger als gewöhnlich",
+  "wn_primary_first_of_year": "Erste Erkennung von <strong>{sp}</strong> in diesem Jahr ({count} insgesamt)",
+  "wn_primary_species_streak": "<strong>{sp}</strong> seit {days} Tagen ununterbrochen präsent",
+  "wn_primary_seasonal_peak": "<strong>{sp}</strong> auf saisonalem Höchststand — {count} diese Woche",
+  "wn_primary_cta": "Details anzeigen"
 }

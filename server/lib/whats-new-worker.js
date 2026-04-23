@@ -302,6 +302,60 @@ try {
 
   const phenology = [cardFirstOfYear, cardSpeciesStreak, cardSeasonalPeak];
 
+  // ── Editorial primary picker ──────────────────────────────────────────
+  // Score every active card; the highest score becomes the day's headline.
+  // If nothing is striking enough, return a sober "calm" pseudo-card so
+  // the frontend always has something to render in the primary slot —
+  // user-validated rule: a quiet day stays a quiet day, never simulated.
+  function _scoreCard(c) {
+    if (!c || !c.active || c.insufficientData) return 0;
+    const data = c.data || {};
+    const sp0 = (data.species || [])[0] || {};
+    switch (c.type) {
+      case 'species_return': {
+        const days = sp0.absentDays || 0;
+        if (days >= 60) return 110;
+        if (days >= 30) return 100;
+        return 80;
+      }
+      case 'out_of_season':
+        // out_of_season = "an out-of-range species was just detected".
+        // Always strong because it's an anomaly worth investigation.
+        return 95;
+      case 'activity_spike': {
+        const r = sp0.ratio || 0;
+        if (r >= 5) return 90;
+        if (r >= 3) return 75;
+        return 60;
+      }
+      case 'first_of_year':
+        return 78;
+      case 'species_streak': {
+        const d = sp0.streakDays || 0;
+        if (d >= 10) return 70;
+        if (d >= 7)  return 65;
+        return 50;
+      }
+      case 'seasonal_peak':
+        return 55;
+      default:
+        return 0;
+    }
+  }
+  let primary = null;
+  let bestScore = 0;
+  for (const c of [...alerts, ...phenology]) {
+    const s = _scoreCard(c);
+    if (s > bestScore) { bestScore = s; primary = c; }
+  }
+  if (!primary) {
+    // Calm-day fallback. Sober formulation — no simulated drama.
+    primary = {
+      type: 'calm', level: 'calm', active: false, insufficientData: false,
+      insufficientDataReason: null, data: null, link: null,
+    };
+  }
+
   // ── C1: dawn_chorus ──
   let cardDawnChorus = { type: 'dawn_chorus', level: 'context', active: false, insufficientData: false, insufficientDataReason: null, data: null, link: null };
   if (!hasGPS) {
@@ -508,6 +562,7 @@ try {
 
   const result = {
     generatedAt: new Date().toISOString(),
+    primary,
     alerts,
     phenology,
     context: {

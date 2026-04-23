@@ -82,6 +82,40 @@
       .hero-strip-row { flex-direction: column; }
       .hero-strip-thumb { width: 100%; height: 160px; flex: none; }
     }
+
+    /* ── What's New primary (Phase 2 editorial pole position) ─────── */
+    .wn-primary {
+      display: flex; gap: .9rem; align-items: flex-start;
+      padding: .9rem 1.1rem; margin-bottom: .9rem;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-left: 4px solid var(--accent); border-radius: 10px;
+    }
+    .wn-primary--clickable { cursor: pointer; transition: background .12s, border-color .12s; }
+    .wn-primary--clickable:hover { background: var(--bg-card2); border-left-color: var(--accent-hover, var(--accent)); }
+    .wn-primary--calm {
+      border-left-color: var(--text-muted);
+      opacity: .9;
+    }
+    .wn-primary-icon {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--bg-card2); color: var(--accent);
+    }
+    .wn-primary--calm .wn-primary-icon { color: var(--text-muted); }
+    .wn-primary-body { flex: 1; min-width: 0; }
+    .wn-primary-eyebrow {
+      font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--text-muted); font-weight: 600; margin-bottom: .15rem;
+    }
+    .wn-primary-headline {
+      font-size: 1rem; font-family: var(--font-display);
+      color: var(--text-main); line-height: 1.4;
+    }
+    .wn-primary-headline strong { color: var(--accent); font-weight: 600; }
+    .wn-primary-cta {
+      display: inline-block; margin-top: .4rem;
+      font-size: .76rem; color: var(--accent); font-weight: 600;
+    }
   </style>
   <script src="js/vue.global.prod.min.js"></script>
   <script src="js/chart.umd.min.js"></script>
@@ -169,18 +203,79 @@
         <span class="wn-sun-title">{{t('wn_title')}}</span>
       </div>
 
+      <!-- ── Primary (editorial pole position) ──
+           One card, picked server-side by score (species_return ≥ 30j,
+           out_of_season, activity_spike ≥ 5×, etc.). On a quiet day the
+           backend returns a 'calm' pseudo-card — sober, no simulated drama.
+           Garde-fou: this carries the EVENT of the day; the synthesis line
+           above carries the GLOBAL day reading. They complement, never copy. -->
+      <div v-if="whatsNew.primary" class="wn-primary"
+           :class="{'wn-primary--calm': whatsNew.primary.type==='calm',
+                    'wn-primary--clickable': whatsNew.primary.link && whatsNew.primary.active}"
+           @click="whatsNew.primary.link && whatsNew.primary.active && navigateTo(whatsNew.primary.link)">
+        <div class="wn-primary-icon">
+          <bird-icon :name="whatsNew.primary.type==='calm' ? 'check-circle' : wnIcon(whatsNew.primary.type)" :size="22"></bird-icon>
+        </div>
+        <div class="wn-primary-body">
+          <div class="wn-primary-eyebrow">{{t('wn_primary_eyebrow_'+whatsNew.primary.type) || t('wn_primary_eyebrow_default')}}</div>
+          <div class="wn-primary-headline" v-if="whatsNew.primary.type==='calm'">
+            {{t('wn_primary_calm')}}
+          </div>
+          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='species_return' && whatsNew.primary.data">
+            <span v-html="safeHtml(t('wn_primary_species_return', {
+              sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
+              days: whatsNew.primary.data.species[0].absentDays
+            }))"></span>
+          </div>
+          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='out_of_season' && whatsNew.primary.data">
+            <span v-html="safeHtml(t('wn_primary_out_of_season', {
+              sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
+              count: whatsNew.primary.data.count
+            }))"></span>
+          </div>
+          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='activity_spike' && whatsNew.primary.data">
+            <span v-html="safeHtml(t('wn_primary_activity_spike', {
+              sp: spName(whatsNew.primary.data.species[0].commonName),
+              ratio: whatsNew.primary.data.species[0].ratio
+            }))"></span>
+          </div>
+          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='first_of_year' && whatsNew.primary.data">
+            <span v-html="safeHtml(t('wn_primary_first_of_year', {
+              sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
+              count: whatsNew.primary.data.count
+            }))"></span>
+          </div>
+          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='species_streak' && whatsNew.primary.data">
+            <span v-html="safeHtml(t('wn_primary_species_streak', {
+              sp: spName(whatsNew.primary.data.species[0].commonName),
+              days: whatsNew.primary.data.species[0].streakDays
+            }))"></span>
+          </div>
+          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='seasonal_peak' && whatsNew.primary.data">
+            <span v-html="safeHtml(t('wn_primary_seasonal_peak', {
+              sp: spName(whatsNew.primary.data.species[0].commonName),
+              count: whatsNew.primary.data.species[0].countThisWeek
+            }))"></span>
+          </div>
+          <div v-if="whatsNew.primary.link && whatsNew.primary.active" class="wn-primary-cta">
+            {{t('wn_primary_cta')}} →
+          </div>
+        </div>
+      </div>
+
       <!-- ── Alertes + Phénologie : header commun + grille unique ── -->
-      <div v-if="whatsNew.alerts.some(c => c.active || c.insufficientData) || whatsNew.phenology.some(c => c.active || c.insufficientData)"
+      <div v-if="(whatsNew.alerts.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type)) || (whatsNew.phenology.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type))"
            class="wn-level">
 
-        <!-- Header commun sur une ligne -->
+        <!-- Header commun sur une ligne — exclude primary so the header
+             label matches what's actually rendered below. -->
         <div class="wn-duo-header">
-          <span v-if="whatsNew.alerts.some(c => c.active || c.insufficientData)" class="wn-duo-label">
+          <span v-if="whatsNew.alerts.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type)" class="wn-duo-label">
             <span class="wn-level-dot wn-level-dot--alert"></span> {{t('wn_level_alerts')}}
           </span>
-          <span v-if="whatsNew.alerts.some(c => c.active || c.insufficientData) && whatsNew.phenology.some(c => c.active || c.insufficientData)"
+          <span v-if="whatsNew.alerts.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type) && whatsNew.phenology.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type)"
                 class="wn-duo-header-sep"></span>
-          <span v-if="whatsNew.phenology.some(c => c.active || c.insufficientData)" class="wn-duo-label">
+          <span v-if="whatsNew.phenology.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type)" class="wn-duo-label">
             <span class="wn-level-dot wn-level-dot--phenology"></span> {{t('wn_level_phenology')}}
           </span>
         </div>
@@ -189,7 +284,7 @@
         <div class="wn-trio-grid">
           <!-- Alert cards -->
           <template v-for="card in whatsNew.alerts" :key="card.type">
-            <div v-if="card.active || card.insufficientData"
+            <div v-if="(card.active || card.insufficientData) && card.type !== whatsNew.primary?.type"
                  class="wn-card"
                  :class="{'wn-card--insufficient': card.insufficientData, 'wn-card--clickable': card.link && card.active}"
                  @click="card.link && card.active && navigateTo(card.link)">
@@ -226,12 +321,12 @@
           </template>
 
           <!-- Séparateur vertical entre alertes et phénologie -->
-          <div v-if="whatsNew.alerts.some(c => c.active || c.insufficientData) && whatsNew.phenology.some(c => c.active || c.insufficientData)"
+          <div v-if="whatsNew.alerts.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type) && whatsNew.phenology.some(c => (c.active || c.insufficientData) && c.type !== whatsNew.primary?.type)"
                class="wn-trio-sep"></div>
 
           <!-- Phenology cards -->
           <template v-for="card in whatsNew.phenology" :key="card.type">
-            <div v-if="card.active || card.insufficientData"
+            <div v-if="(card.active || card.insufficientData) && card.type !== whatsNew.primary?.type"
                  class="wn-card"
                  :class="{'wn-card--insufficient': card.insufficientData}">
               <div class="wn-card-header">
@@ -421,7 +516,7 @@ const { useI18n, useTheme, useNav, useChart, useAudio, useSpeciesNames,
         birdQuery, fmtDate, fmtTime, fmtConf, freshnessLabel,
         localDateStr, daysAgo, chartDefaults, navigateTo,
         buildAudioUrl, photoUrl, shortModel, quickPlaySpecies,
-        fetchAndDecodeAudio, drawSpectrogramFromPcm } = BIRDASH;
+        fetchAndDecodeAudio, drawSpectrogramFromPcm, safeHtml } = BIRDASH;
       const Q = BIRDASH_QUERIES;
 
 const app = createApp({
@@ -818,7 +913,7 @@ const app = createApp({
 
     return {
       lang, t, spName, photoUrl, daysAgo, weatherToday,
-      today, kpis, synthesis, lastDet, bestDet, currentFeatured, featuredTab, selectFeaturedTab,
+      today, kpis, synthesis, safeHtml, lastDet, bestDet, currentFeatured, featuredTab, selectFeaturedTab,
       rareSpeciesToday, rarePanelOpen, toggleRarePanel, isMultiModel, loadProgress,
       whatsNew, wnIcon, wnMoonIcon,
       playingFile, toggleAudio,
