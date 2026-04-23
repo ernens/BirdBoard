@@ -152,10 +152,14 @@ async function _computeStatus() {
     console.warn('[updates] GitHub compare failed:', e.message);
   }
 
+  // hasUpdate must reflect "we are BEHIND origin", not just "hashes differ".
+  // When the local HEAD is AHEAD of origin (unpushed commits, dev workflow),
+  // GitHub compare/local...remote returns 0 commits — flagging hasUpdate=true
+  // there produces a "new version available · 0 updates · no notes" banner.
   return {
     currentCommit, currentShort, currentVersion,
     latestCommit, latestShort, latestVersion,
-    hasUpdate: true,
+    hasUpdate: commits.length > 0,
     commitsBehind: commits.length,
     changes: commits,
   };
