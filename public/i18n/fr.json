@@ -1975,5 +1975,22 @@
   "overview_ctx_family_editorial": "Signal éditorial",
   "overview_top_recent": "base récente",
   "overview_kpi_quality": "Qualité du jour",
-  "overview_kpi_quality_tooltip": "Niveau de qualité acoustique du jour (basé sur le ratio de détections fortes)"
+  "overview_kpi_quality_tooltip": "Niveau de qualité acoustique du jour (basé sur le ratio de détections fortes)",
+  "wn_primary_badge_alert": "Alerte",
+  "wn_primary_badge_phenology": "Phénologie",
+  "wn_primary_badge_calm": "Aujourd'hui",
+  "wn_primary_title_species_return": "Retour marquant",
+  "wn_primary_title_out_of_season": "Espèce hors saison",
+  "wn_primary_title_activity_spike": "Pic d'activité notable",
+  "wn_primary_title_first_of_year": "Première de l'année",
+  "wn_primary_title_species_streak": "Présence durable",
+  "wn_primary_title_seasonal_peak": "Nouveau pic saisonnier",
+  "wn_primary_title_calm": "Journée stable",
+  "wn_primary_calm_sentence": "Activité régulière, sans signal exceptionnel sur la station.",
+  "wn_primary_ctx_species_return": "Dernière occurrence : {date}",
+  "wn_primary_ctx_out_of_season": "Hors de la fenêtre saisonnière attendue pour cette espèce.",
+  "wn_primary_ctx_activity_spike": "Aujourd'hui : {today} · moyenne 7 j : {avg}",
+  "wn_primary_ctx_first_of_year": "Première détection à {time}",
+  "wn_primary_ctx_species_streak": "Présence ininterrompue jour après jour.",
+  "wn_primary_ctx_seasonal_peak": "Record précédent à la même période : {max}"
 }

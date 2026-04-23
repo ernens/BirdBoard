@@ -83,33 +83,43 @@
       .hero-strip-thumb { width: 100%; height: 160px; flex: none; }
     }
 
-    /* ── What's New primary (pole position, v3) ───────────────────
-       Push 3: bigger still. Adds a species thumbnail when the primary's
-       leading species has a resolvable sci_name — makes the primary
-       visually "a photograph + a headline", not "another tile". The
-       secondary pills below lose their card chrome entirely so the
-       primary reads as a different object, not a bigger sibling. */
+    /* ── What's New v4 — primary + 3 secondaries side-by-side ──────
+       Per product spec: editorial primary on the LEFT (~50% width on
+       desktop), 3 compact secondaries STACKED on the right. The primary
+       has 5 stacked elements (badge / title / sentence / context / cta)
+       so it reads like a real headline, not "another tile in the row".
+       Secondaries stay structured (label + species + metric) but are
+       clearly subordinate — no thumbnail, smaller padding, single line
+       of content. Avoids the previous "pills are too neutral" pitfall. */
+    .wn-redesign-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      gap: 1rem; align-items: start;
+    }
+    @media (max-width: 900px) {
+      .wn-redesign-grid { grid-template-columns: 1fr; }
+    }
     .wn-primary {
-      display: flex; gap: 1.15rem; align-items: center;
-      padding: 1.2rem 1.3rem; margin-bottom: .85rem;
-      background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, var(--bg-card)) 0%, var(--bg-card) 55%);
+      display: flex; gap: 1.15rem; align-items: flex-start;
+      padding: 1.25rem 1.35rem;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--bg-card)) 0%, var(--bg-card) 60%);
       border: 1px solid var(--border);
       border-left: 5px solid var(--accent); border-radius: 12px;
+      min-height: 100%;
     }
     .wn-primary--clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
     .wn-primary--clickable:hover {
       transform: translateY(-1px);
-      box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 18%, transparent);
+      box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent);
     }
     .wn-primary--calm {
       background: var(--bg-card);
       border-left-color: var(--text-muted);
-      opacity: .85;
     }
     .wn-primary-icon,
     .wn-primary-thumb {
       flex: 0 0 auto;
-      width: 60px; height: 60px; border-radius: 10px;
+      width: 64px; height: 64px; border-radius: 10px;
       overflow: hidden;
     }
     .wn-primary-icon {
@@ -122,53 +132,85 @@
       color: var(--text-muted);
     }
     .wn-primary-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .wn-primary-body { flex: 1; min-width: 0; }
-    .wn-primary-eyebrow {
-      font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
-      color: var(--accent); font-weight: 700; margin-bottom: .3rem;
+    .wn-primary-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+    /* 1. Badge — provenance (Alert / Phenology / Today) */
+    .wn-primary-badge {
+      align-self: flex-start;
+      font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+      font-weight: 700;
+      padding: .15rem .55rem; border-radius: 4px;
+      margin-bottom: .15rem;
     }
-    .wn-primary--calm .wn-primary-eyebrow { color: var(--text-muted); }
-    .wn-primary-headline {
-      font-size: 1.22rem; font-family: var(--font-display);
-      color: var(--text-main); line-height: 1.3;
-      font-weight: 500;
+    .wn-primary-badge--alert {
+      background: color-mix(in srgb, var(--danger, #d13a3a) 18%, transparent);
+      color: var(--danger, #d13a3a);
     }
-    .wn-primary-headline strong { color: var(--accent); font-weight: 700; }
+    .wn-primary-badge--phenology {
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      color: var(--accent);
+    }
+    .wn-primary-badge--calm {
+      background: var(--bg-card2);
+      color: var(--text-muted);
+    }
+    /* 2. Editorial title — the strong line */
+    .wn-primary-title {
+      font-size: 1.18rem; font-family: var(--font-display);
+      color: var(--text-main); font-weight: 600; line-height: 1.25;
+    }
+    /* 3. Sentence — species + metric, slightly lighter */
+    .wn-primary-sentence {
+      font-size: .94rem; color: var(--text-main); line-height: 1.4;
+      margin-top: .15rem;
+    }
+    .wn-primary-sentence strong { color: var(--accent); font-weight: 600; }
+    /* 4. Context — small gray, supporting info */
+    .wn-primary-context {
+      font-size: .75rem; color: var(--text-muted); line-height: 1.4;
+      margin-top: .35rem;
+    }
+    /* 5. CTA — discreet accent link */
     .wn-primary-cta {
-      display: inline-block; margin-top: .5rem;
+      align-self: flex-start;
+      margin-top: .55rem;
       font-size: .78rem; color: var(--accent); font-weight: 600;
     }
-    /* Secondary signals — stripped down to a dense row of pills with just
-       type label + first species + single metric. No border box, no body
-       panel. Reads as "other signals worth noting" without competing. */
-    .wn-trio-grid {
-      display: flex !important; flex-wrap: wrap; gap: .5rem;
+
+    /* Secondaries — stack of compact structured cards. Subordinate but
+       readable: uppercase mini-label on top, species + metric on the
+       second line. No thumbnail, no body panel. */
+    .wn-secondaries {
+      display: flex; flex-direction: column; gap: .55rem;
     }
-    .wn-trio-grid .wn-card {
-      display: flex; align-items: center; gap: .45rem;
-      padding: .4rem .65rem; min-height: 0;
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px;
-      font-size: .78rem;
+    .wn-secondary {
+      padding: .65rem .85rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: 8px;
+      transition: background .12s;
     }
-    .wn-trio-grid .wn-card--clickable { cursor: pointer; }
-    .wn-trio-grid .wn-card--clickable:hover { background: var(--bg-card2); }
-    .wn-trio-grid .wn-card-header { margin: 0; gap: .3rem; flex: 0 0 auto; }
-    .wn-trio-grid .wn-card-icon {
-      display: inline-flex; transform: scale(.8); color: var(--text-muted);
+    .wn-secondary--clickable { cursor: pointer; }
+    .wn-secondary--clickable:hover { background: var(--bg-card2); }
+    .wn-sec-header {
+      display: flex; align-items: center; gap: .4rem;
+      margin-bottom: .2rem; color: var(--text-muted);
     }
-    .wn-trio-grid .wn-card-title {
-      font-size: .7rem; color: var(--text-muted); font-weight: 600;
-      text-transform: uppercase; letter-spacing: .05em;
+    .wn-sec-label {
+      font-size: .66rem; letter-spacing: .08em; text-transform: uppercase;
+      font-weight: 600;
     }
-    .wn-trio-grid .wn-species-row {
-      display: inline-flex; gap: .35rem; align-items: center;
-      font-size: .78rem; margin: 0;
+    .wn-sec-line {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: .5rem; font-size: .88rem;
     }
-    .wn-trio-grid .wn-species-row + .wn-species-row { display: none; } /* only first */
-    .wn-trio-grid .wn-species-name { font-weight: 500; color: var(--text-main); }
-    .wn-trio-grid .wn-species-meta { font-size: .7rem; color: var(--text-muted); }
-    .wn-trio-grid .wn-badge { display: none; } /* "+N more" hidden in pill mode */
-    .wn-trio-sep { display: none; } /* no vertical separator in pill mode */
+    .wn-sec-sp {
+      color: var(--text-main); font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 0; flex: 1;
+    }
+    .wn-sec-val {
+      color: var(--accent); font-weight: 700; font-size: .92rem;
+      flex: 0 0 auto;
+    }
 
     /* ── Context cards regrouped by family (Phase 4 hierarchy polish) ─ */
     .ctx-family { margin-bottom: .9rem; }
@@ -271,184 +313,145 @@
       <span>{{t('overview_first_at')}} <strong>{{kpis.firstDet || '—'}}</strong></span>
     </div>
 
-    <!-- ═══ What's New — alertes + phénologie ═══ -->
+    <!-- ═══ What's New — editorial primary + 3 secondary signals ═══ -->
     <div v-if="whatsNew.loaded" class="wn-section" style="margin-bottom:1rem;">
-
       <div class="wn-sun-bar">
         <span class="wn-sun-title">{{t('wn_title')}}</span>
       </div>
 
-      <!-- ── Primary (editorial pole position) ──
-           One card, picked server-side by score (species_return ≥ 30j,
-           out_of_season, activity_spike ≥ 5×, etc.). On a quiet day the
-           backend returns a 'calm' pseudo-card — sober, no simulated drama.
-           Garde-fou: this carries the EVENT of the day; the synthesis line
-           above carries the GLOBAL day reading. They complement, never copy. -->
-      <div v-if="whatsNew.primary" class="wn-primary"
-           :class="{'wn-primary--calm': whatsNew.primary.type==='calm',
-                    'wn-primary--clickable': whatsNew.primary.link && whatsNew.primary.active}"
-           @click="whatsNew.primary.link && whatsNew.primary.active && navigateTo(whatsNew.primary.link)">
-        <!-- Thumbnail when the primary's first species has a sci_name we can
-             resolve to a photo. Falls back to the type icon disc otherwise.
-             Adds the visual richness the secondaries don't get — reinforces
-             pole position. -->
-        <div v-if="primaryThumbSci" class="wn-primary-thumb">
-          <bird-img :src="photoUrl(primaryThumbSci)" :alt="primaryThumbSci"></bird-img>
+      <div class="wn-redesign-grid">
+        <!-- ── Editorial primary (left, ~50% on wide screens) ──
+             5-line structure per product spec:
+               1. badge (Alert / Phenology / Today)  — provenance
+               2. title (editorial: "Notable return")
+               3. sentence (species + key metric)
+               4. context (last seen / vs avg / record)  — light gray
+               5. CTA (discreet accent link)
+             Garde-fou: title + sentence carry the EVENT, complement of
+             the synthesis line above (which carries the GLOBAL day reading). -->
+        <div v-if="whatsNew.primary" class="wn-primary"
+             :class="{'wn-primary--calm': whatsNew.primary.type==='calm',
+                      'wn-primary--clickable': whatsNew.primary.link && whatsNew.primary.active}"
+             @click="whatsNew.primary.link && whatsNew.primary.active && navigateTo(whatsNew.primary.link)">
+          <div v-if="primaryThumbSci" class="wn-primary-thumb">
+            <bird-img :src="photoUrl(primaryThumbSci)" :alt="primaryThumbSci"></bird-img>
+          </div>
+          <div v-else class="wn-primary-icon">
+            <bird-icon :name="whatsNew.primary.type==='calm' ? 'check-circle' : wnIcon(whatsNew.primary.type)" :size="26"></bird-icon>
+          </div>
+          <div class="wn-primary-body">
+            <!-- 1. Badge -->
+            <div class="wn-primary-badge" :class="'wn-primary-badge--'+(whatsNew.primary.level || 'calm')">
+              {{t('wn_primary_badge_'+(whatsNew.primary.level || 'calm'))}}
+            </div>
+            <!-- 2. Editorial title -->
+            <div class="wn-primary-title">
+              {{t('wn_primary_title_'+whatsNew.primary.type)}}
+            </div>
+            <!-- 3. Sentence -->
+            <div class="wn-primary-sentence" v-if="whatsNew.primary.type==='calm'">
+              {{t('wn_primary_calm_sentence')}}
+            </div>
+            <div class="wn-primary-sentence" v-else-if="whatsNew.primary.type==='species_return' && whatsNew.primary.data"
+                 v-html="safeHtml(t('wn_primary_species_return', {
+                   sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
+                   days: whatsNew.primary.data.species[0].absentDays
+                 }))"></div>
+            <div class="wn-primary-sentence" v-else-if="whatsNew.primary.type==='out_of_season' && whatsNew.primary.data"
+                 v-html="safeHtml(t('wn_primary_out_of_season', {
+                   sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
+                   count: whatsNew.primary.data.count
+                 }))"></div>
+            <div class="wn-primary-sentence" v-else-if="whatsNew.primary.type==='activity_spike' && whatsNew.primary.data"
+                 v-html="safeHtml(t('wn_primary_activity_spike', {
+                   sp: spName(whatsNew.primary.data.species[0].commonName),
+                   ratio: whatsNew.primary.data.species[0].ratio
+                 }))"></div>
+            <div class="wn-primary-sentence" v-else-if="whatsNew.primary.type==='first_of_year' && whatsNew.primary.data"
+                 v-html="safeHtml(t('wn_primary_first_of_year', {
+                   sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
+                   count: whatsNew.primary.data.count
+                 }))"></div>
+            <div class="wn-primary-sentence" v-else-if="whatsNew.primary.type==='species_streak' && whatsNew.primary.data"
+                 v-html="safeHtml(t('wn_primary_species_streak', {
+                   sp: spName(whatsNew.primary.data.species[0].commonName),
+                   days: whatsNew.primary.data.species[0].streakDays
+                 }))"></div>
+            <div class="wn-primary-sentence" v-else-if="whatsNew.primary.type==='seasonal_peak' && whatsNew.primary.data"
+                 v-html="safeHtml(t('wn_primary_seasonal_peak', {
+                   sp: spName(whatsNew.primary.data.species[0].commonName),
+                   count: whatsNew.primary.data.species[0].countThisWeek
+                 }))"></div>
+            <!-- 4. Context line -->
+            <div v-if="whatsNew.primary.type==='species_return' && whatsNew.primary.data" class="wn-primary-context">
+              {{t('wn_primary_ctx_species_return', {
+                date: fmtDate(whatsNew.primary.data.species[0].lastSeenDate)
+              })}}
+            </div>
+            <div v-else-if="whatsNew.primary.type==='activity_spike' && whatsNew.primary.data" class="wn-primary-context">
+              {{t('wn_primary_ctx_activity_spike', {
+                avg: whatsNew.primary.data.species[0].avg7d,
+                today: whatsNew.primary.data.species[0].countToday
+              })}}
+            </div>
+            <div v-else-if="whatsNew.primary.type==='out_of_season' && whatsNew.primary.data" class="wn-primary-context">
+              {{t('wn_primary_ctx_out_of_season')}}
+            </div>
+            <div v-else-if="whatsNew.primary.type==='first_of_year' && whatsNew.primary.data" class="wn-primary-context">
+              {{t('wn_primary_ctx_first_of_year', { time: whatsNew.primary.data.species[0].firstTimeToday })}}
+            </div>
+            <div v-else-if="whatsNew.primary.type==='species_streak' && whatsNew.primary.data" class="wn-primary-context">
+              {{t('wn_primary_ctx_species_streak')}}
+            </div>
+            <div v-else-if="whatsNew.primary.type==='seasonal_peak' && whatsNew.primary.data" class="wn-primary-context">
+              {{t('wn_primary_ctx_seasonal_peak', { max: whatsNew.primary.data.species[0].maxEver })}}
+            </div>
+            <!-- 5. CTA -->
+            <div v-if="whatsNew.primary.link && whatsNew.primary.active" class="wn-primary-cta">
+              {{t('wn_primary_cta')}} →
+            </div>
+          </div>
         </div>
-        <div v-else class="wn-primary-icon">
-          <bird-icon :name="whatsNew.primary.type==='calm' ? 'check-circle' : wnIcon(whatsNew.primary.type)" :size="24"></bird-icon>
-        </div>
-        <div class="wn-primary-body">
-          <div class="wn-primary-eyebrow">{{t('wn_primary_eyebrow_'+whatsNew.primary.type) || t('wn_primary_eyebrow_default')}}</div>
-          <div class="wn-primary-headline" v-if="whatsNew.primary.type==='calm'">
-            {{t('wn_primary_calm')}}
-          </div>
-          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='species_return' && whatsNew.primary.data">
-            <span v-html="safeHtml(t('wn_primary_species_return', {
-              sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
-              days: whatsNew.primary.data.species[0].absentDays
-            }))"></span>
-          </div>
-          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='out_of_season' && whatsNew.primary.data">
-            <span v-html="safeHtml(t('wn_primary_out_of_season', {
-              sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
-              count: whatsNew.primary.data.count
-            }))"></span>
-          </div>
-          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='activity_spike' && whatsNew.primary.data">
-            <span v-html="safeHtml(t('wn_primary_activity_spike', {
-              sp: spName(whatsNew.primary.data.species[0].commonName),
-              ratio: whatsNew.primary.data.species[0].ratio
-            }))"></span>
-          </div>
-          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='first_of_year' && whatsNew.primary.data">
-            <span v-html="safeHtml(t('wn_primary_first_of_year', {
-              sp: spName(whatsNew.primary.data.species[0].commonName, whatsNew.primary.data.species[0].sciName),
-              count: whatsNew.primary.data.count
-            }))"></span>
-          </div>
-          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='species_streak' && whatsNew.primary.data">
-            <span v-html="safeHtml(t('wn_primary_species_streak', {
-              sp: spName(whatsNew.primary.data.species[0].commonName),
-              days: whatsNew.primary.data.species[0].streakDays
-            }))"></span>
-          </div>
-          <div class="wn-primary-headline" v-else-if="whatsNew.primary.type==='seasonal_peak' && whatsNew.primary.data">
-            <span v-html="safeHtml(t('wn_primary_seasonal_peak', {
-              sp: spName(whatsNew.primary.data.species[0].commonName),
-              count: whatsNew.primary.data.species[0].countThisWeek
-            }))"></span>
-          </div>
-          <div v-if="whatsNew.primary.link && whatsNew.primary.active" class="wn-primary-cta">
-            {{t('wn_primary_cta')}} →
+
+        <!-- ── Secondary signals (right column, up to 3, stacked) ──
+             Compact cards: uppercase mini-label + single rich line with
+             species + metric. No body, no expansion. Clearly subordinate
+             to the primary by size and information density. -->
+        <div v-if="secondaryCards.length" class="wn-secondaries">
+          <div v-for="card in secondaryCards" :key="card.type" class="wn-secondary"
+               :class="{'wn-secondary--clickable': card.link}"
+               @click="card.link && navigateTo(card.link)">
+            <div class="wn-sec-header">
+              <bird-icon :name="wnIcon(card.type)" :size="13"></bird-icon>
+              <span class="wn-sec-label">{{t('wn_card_'+card.type)}}</span>
+            </div>
+            <div class="wn-sec-line" v-if="card.type==='out_of_season' && card.data">
+              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName, card.data.species[0].sciName)}}</span>
+              <span class="wn-sec-val">{{fmtConf(card.data.species[0].confidence)}}</span>
+            </div>
+            <div class="wn-sec-line" v-else-if="card.type==='activity_spike' && card.data">
+              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName)}}</span>
+              <span class="wn-sec-val">×{{card.data.species[0].ratio}}</span>
+            </div>
+            <div class="wn-sec-line" v-else-if="card.type==='species_return' && card.data">
+              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName, card.data.species[0].sciName)}}</span>
+              <span class="wn-sec-val">{{card.data.species[0].absentDays}}j</span>
+            </div>
+            <div class="wn-sec-line" v-else-if="card.type==='first_of_year' && card.data">
+              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName, card.data.species[0].sciName)}}</span>
+              <span class="wn-sec-val">{{card.data.species[0].firstTimeToday}}</span>
+            </div>
+            <div class="wn-sec-line" v-else-if="card.type==='species_streak' && card.data">
+              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName)}}</span>
+              <span class="wn-sec-val">{{card.data.species[0].streakDays}}j</span>
+            </div>
+            <div class="wn-sec-line" v-else-if="card.type==='seasonal_peak' && card.data">
+              <span class="wn-sec-sp">{{spName(card.data.species[0].commonName)}}</span>
+              <span class="wn-sec-val">{{card.data.species[0].countThisWeek}}</span>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- ── Alertes + Phénologie : header commun + grille unique ── -->
-      <div v-if="(whatsNew.alerts.some(c => c.active && c.type !== whatsNew.primary?.type)) || (whatsNew.phenology.some(c => c.active && c.type !== whatsNew.primary?.type))"
-           class="wn-level">
-
-        <!-- Header commun sur une ligne — exclude primary so the header
-             label matches what's actually rendered below. -->
-        <div class="wn-duo-header">
-          <span v-if="whatsNew.alerts.some(c => c.active && c.type !== whatsNew.primary?.type)" class="wn-duo-label">
-            <span class="wn-level-dot wn-level-dot--alert"></span> {{t('wn_level_alerts')}}
-          </span>
-          <span v-if="whatsNew.alerts.some(c => c.active && c.type !== whatsNew.primary?.type) && whatsNew.phenology.some(c => c.active && c.type !== whatsNew.primary?.type)"
-                class="wn-duo-header-sep"></span>
-          <span v-if="whatsNew.phenology.some(c => c.active && c.type !== whatsNew.primary?.type)" class="wn-duo-label">
-            <span class="wn-level-dot wn-level-dot--phenology"></span> {{t('wn_level_phenology')}}
-          </span>
-        </div>
-
-        <!-- Grille unique : toutes les cards sur la même ligne -->
-        <div class="wn-trio-grid">
-          <!-- Alert cards -->
-          <template v-for="card in whatsNew.alerts" :key="card.type">
-            <div v-if="card.active && card.type !== whatsNew.primary?.type"
-                 class="wn-card"
-                 :class="{'wn-card--insufficient': card.insufficientData, 'wn-card--clickable': card.link && card.active}"
-                 @click="card.link && card.active && navigateTo(card.link)">
-              <div class="wn-card-header">
-                <span class="wn-card-icon"><bird-icon :name="wnIcon(card.type)" :size="16"></bird-icon></span>
-                <span class="wn-card-title">{{t('wn_card_'+card.type)}}</span>
-                <span v-if="card.insufficientData" class="wn-card-info-btn"
-                      :title="t('wn_insuf_'+card.insufficientDataReason)">&#9432;</span>
-              </div>
-              <div v-if="card.insufficientData">
-                <span class="wn-insufficient-label">{{t('wn_insuf_label')}}</span>
-                <p class="wn-insufficient-detail">{{t('wn_insuf_'+card.insufficientDataReason)}}</p>
-              </div>
-              <div v-else-if="card.type==='out_of_season' && card.data">
-                <div v-for="sp in card.data.species.slice(0,3)" :key="sp.sciName" class="wn-species-row">
-                  <span class="wn-species-name">{{spName(sp.commonName, sp.sciName)}}</span>
-                  <span class="wn-species-meta">{{fmtConf(sp.confidence)}} · {{sp.detectedAt}}</span>
-                </div>
-                <span v-if="card.data.count > 3" class="wn-badge">+{{card.data.count - 3}}</span>
-              </div>
-              <div v-else-if="card.type==='activity_spike' && card.data">
-                <div v-for="sp in card.data.species" :key="sp.commonName" class="wn-species-row">
-                  <span class="wn-species-name">{{spName(sp.commonName)}}</span>
-                  <span class="wn-species-meta">{{sp.ratio}}{{t('wn_spike_ratio')}}</span>
-                </div>
-              </div>
-              <div v-else-if="card.type==='species_return' && card.data">
-                <div v-for="sp in card.data.species" :key="sp.sciName" class="wn-species-row">
-                  <span class="wn-species-name">{{spName(sp.commonName, sp.sciName)}}</span>
-                  <span class="wn-species-meta">{{sp.absentDays}}j</span>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Séparateur vertical entre alertes et phénologie -->
-          <div v-if="whatsNew.alerts.some(c => c.active && c.type !== whatsNew.primary?.type) && whatsNew.phenology.some(c => c.active && c.type !== whatsNew.primary?.type)"
-               class="wn-trio-sep"></div>
-
-          <!-- Phenology cards -->
-          <template v-for="card in whatsNew.phenology" :key="card.type">
-            <div v-if="card.active && card.type !== whatsNew.primary?.type"
-                 class="wn-card"
-                 :class="{'wn-card--insufficient': card.insufficientData}">
-              <div class="wn-card-header">
-                <span class="wn-card-icon"><bird-icon :name="wnIcon(card.type)" :size="16"></bird-icon></span>
-                <span class="wn-card-title">{{t('wn_card_'+card.type)}}</span>
-                <span v-if="card.insufficientData" class="wn-card-info-btn"
-                      :title="t('wn_insuf_'+card.insufficientDataReason)">&#9432;</span>
-              </div>
-              <div v-if="card.insufficientData">
-                <span class="wn-insufficient-label">{{t('wn_insuf_label')}}</span>
-                <p class="wn-insufficient-detail">{{t('wn_insuf_'+card.insufficientDataReason)}}</p>
-              </div>
-              <div v-else-if="card.type==='first_of_year' && card.data">
-                <div v-for="sp in card.data.species.slice(0,3)" :key="sp.sciName" class="wn-species-row">
-                  <span class="wn-species-name">{{spName(sp.commonName, sp.sciName)}}</span>
-                  <span class="wn-species-meta">{{sp.firstTimeToday}} · {{fmtConf(sp.confidence)}}</span>
-                </div>
-                <span v-if="card.data.count > 3" class="wn-badge">+{{card.data.count - 3}}</span>
-              </div>
-              <div v-else-if="card.type==='species_streak' && card.data">
-                <div v-for="sp in card.data.species" :key="sp.commonName" class="wn-species-row">
-                  <span class="wn-species-name">{{spName(sp.commonName)}}</span>
-                  <span class="wn-species-meta">
-                    <span class="wn-streak-bar" :style="{width: Math.min(sp.streakDays/3.5, 100)+'%'}"></span>
-                    {{sp.streakDays}}j
-                  </span>
-                </div>
-              </div>
-              <div v-else-if="card.type==='seasonal_peak' && card.data">
-                <div v-for="sp in card.data.species" :key="sp.commonName" class="wn-species-row">
-                  <span class="wn-species-name">{{spName(sp.commonName)}}</span>
-                  <span class="wn-species-meta">{{sp.countThisWeek}} <span style="color:var(--text-faint);font-size:.65rem;">rec. {{sp.maxEver}}</span></span>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-
-      </div>
-
     </div>
 
     <!-- ═══ Dernière détection + Contexte du jour ═══ -->
@@ -656,6 +659,20 @@ const app = createApp({
       if (!p || !p.active) return null;
       const sp = (p.data?.species || [])[0];
       return sp?.sciName || null;
+    });
+
+    // The secondary signals: every active alert + phenology card except the
+    // one already taken as primary. Capped at 3 — beyond that the eye stops
+    // hierarchising. Order: alerts first (more urgent), then phenology.
+    const secondaryCards = computed(() => {
+      const primaryType = whatsNew.value?.primary?.type;
+      const all = [
+        ...(whatsNew.value?.alerts || []),
+        ...(whatsNew.value?.phenology || []),
+      ];
+      return all
+        .filter(c => c.active && c.type !== primaryType)
+        .slice(0, 3);
     });
 
     // Synthèse — rule-based one-liner. First match wins. Garde-fou: this
@@ -984,15 +1001,21 @@ const app = createApp({
         return 'cc';
       };
       const trendBadge = (r) => {
-        if (r.n_prev === 0) return '✦';
+        if (r.n_prev === 0) return '✦';   // new species
         if (isNoisyBase(r)) return '✦';   // small base — can't trust the %
         const p = r.pct_change;
         if (p == null) return '';
-        if (p >= 100) return '↑↑';
-        if (p >= 30)  return '↑';
-        if (p <= -60) return '↓↓';
-        if (p <= -30) return '↓';
-        return '';
+        // Surge: switch to multiplier format (cleaner than 4-digit %s).
+        // User-validated phrasing: "Bruant jaune 6.6×" reads better than
+        // "+560%". Capped at ×10+ to avoid the same overheat problem.
+        if (p >= 100) {
+          const mult = p / 100 + 1;
+          if (mult >= 10) return '↑ ×10+';
+          return `↑ ×${mult.toFixed(1)}`;
+        }
+        if (p >= 30)  return `↑ ${p}%`;
+        if (p <= -30) return `↓ ${Math.abs(p)}%`;
+        return '';   // stable (-29..29) — keep label clean
       };
       const trendTooltip = (r) => {
         if (r.n_prev === 0) return ' · ' + t('overview_top_new');
@@ -1188,7 +1211,7 @@ const app = createApp({
 
     return {
       lang, t, spName, photoUrl, daysAgo, weatherToday,
-      today, kpis, synthesis, safeHtml, primaryThumbSci, lastDet, bestDet, currentFeatured, featuredTab, selectFeaturedTab,
+      today, kpis, synthesis, safeHtml, primaryThumbSci, secondaryCards, lastDet, bestDet, currentFeatured, featuredTab, selectFeaturedTab,
       rareSpeciesToday, rarePanelOpen, toggleRarePanel, isMultiModel, loadProgress,
       whatsNew, wnIcon, wnMoonIcon,
       playingFile, toggleAudio,
