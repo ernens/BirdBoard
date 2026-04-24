@@ -1463,6 +1463,8 @@
   "tl_mode_remarkable": "Moments marquants",
   "tl_mode_all": "Toutes les détections",
   "tl_mode_aria": "Mode d'affichage",
+  "tl_window_detections": "Détections dans la fenêtre visible",
+  "tl_zoom_hint": "Zoomez sur la frise pour inspecter chaque détection de la journée.",
   "tl_see_species": "Voir la fiche espèce",
   "tl_see_today": "Voir le jour",
   "tl_listen": "Écouter",

@@ -3115,6 +3115,15 @@ select, input[type="text"], input[type="number"], textarea {
    ligne que le titre, pour clarifier honnêtement la nature éditoriale
    de la liste sans surcharger visuellement. */
 .tl-list-counter { font-size:.78rem; font-weight:400; color:var(--text-muted); margin-left:.3rem; }
+/* Hint discret "zoomez pour voir le détail" en mode 'all' au zoom complet :
+   évite de dérouler la liste exhaustive en pleine page et invite à utiliser
+   le zoom comme outil d'inspection (le bon geste de la timeline). */
+.tl-list-zoom-hint {
+  font-size:.78rem; color:var(--text-faint); font-style:italic;
+  padding:.3rem .5rem .7rem;
+  border-bottom:1px dashed var(--border);
+  margin-bottom:.5rem;
+}
 .tl-event-row {
   display:flex; align-items:center; gap:1rem;
   padding:.65rem .75rem; border-radius:8px; cursor:pointer;

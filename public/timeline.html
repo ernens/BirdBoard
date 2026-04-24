@@ -151,14 +151,26 @@
         <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#60a5fa"></div>{{t('tl_tag_best')}}</div>
       </div>
 
-      <!-- Liste éditoriale assumée comme telle : titre + compteur honnête. -->
-      <div class="tl-event-list" v-if="filteredEvents.length">
+      <!-- Liste : titre + compteur adaptatifs au mode et au zoom.
+           - 'remarkable' (n'importe quel zoom)  : Moments marquants — X / Y
+           - 'all' + zoom complet (24h) : Moments marquants + hint "zoomez"
+           - 'all' + zoomé             : Détections dans la fenêtre — N -->
+      <div class="tl-event-list" v-if="filteredEvents.length || (viewMode === 'all' && !isZoomed && totalDetectionsCount > 0)">
         <h3>
-          {{t('tl_chronology')}}
-          <span v-if="totalDetectionsCount > 0" class="tl-list-counter">
-            — {{remarkableCount}} {{t('tl_of_total')}} {{totalDetectionsCount.toLocaleString()}} {{t('tl_detections')}}
-          </span>
+          <template v-if="viewMode === 'all' && isZoomed">
+            {{t('tl_window_detections')}}
+            <span class="tl-list-counter">— {{filteredEvents.length}}</span>
+          </template>
+          <template v-else>
+            {{t('tl_chronology')}}
+            <span v-if="totalDetectionsCount > 0" class="tl-list-counter">
+              — {{remarkableCount}} {{t('tl_of_total')}} {{totalDetectionsCount.toLocaleString()}} {{t('tl_detections')}}
+            </span>
+          </template>
         </h3>
+        <div v-if="viewMode === 'all' && !isZoomed && totalDetectionsCount > remarkableCount" class="tl-list-zoom-hint">
+          {{t('tl_zoom_hint')}}
+        </div>
         <div v-for="ev in filteredEvents" :key="ev.id" class="tl-event-row" @click="openPopup(ev)">
           <div class="tl-er-time">{{ev.time}}</div>
           <div class="tl-er-photo">
@@ -470,6 +482,8 @@ const app = createApp({
       }
     }
 
+    const isZoomed = computed(() => viewStart.value > 0 || viewEnd.value < 24);
+
     const filteredEvents = computed(() => {
       if (!displayedEvents.value.length) return [];
       // Flatten: include cluster species as standalone events
@@ -483,6 +497,13 @@ const app = createApp({
         }
       }
       let evts = all;
+      // Mode 'all' au zoom complet : la liste reste éditoriale (les dots sur la
+      // frise suffisent à raconter la densité brute). Le zoom est l'invitation
+      // explicite à descendre dans le détail individuel — sans ça, on déroulait
+      // la journée entière et la page perdait son caractère timeline.
+      if (viewMode.value === 'all' && !isZoomed.value) {
+        evts = evts.filter(e => e.tags && e.tags.length > 0);
+      }
       if (activeFilters.value.length > 0) {
         evts = evts.filter(e => activeFilters.value.includes(e.type));
       }
@@ -993,7 +1014,7 @@ const app = createApp({
       lang, t, spName, data, loading, selectedDate, todayStr,
       popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, typeCounts, filteredEvents,
       remarkableCount, totalDetectionsCount,
-      viewMode, setViewMode, loadingRaw, displayedEvents,
+      viewMode, setViewMode, loadingRaw, displayedEvents, isZoomed,
       formatDate, moonEmoji, navigateDay, load,
       viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
       confSlider, sliderLabel, sliderToConf, onSliderChange,

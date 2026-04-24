@@ -1463,6 +1463,8 @@
   "tl_mode_remarkable": "Opmerkelijke momenten",
   "tl_mode_all": "Alle detecties",
   "tl_mode_aria": "Weergavemodus",
+  "tl_window_detections": "Detecties in het zichtbare venster",
+  "tl_zoom_hint": "Zoom in op de tijdlijn om elke detectie van de dag te bekijken.",
   "tl_see_species": "Soortkaart bekijken",
   "tl_see_today": "Dag bekijken",
   "tl_listen": "Luisteren",

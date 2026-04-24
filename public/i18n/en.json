@@ -1463,6 +1463,8 @@
   "tl_mode_remarkable": "Remarkable moments",
   "tl_mode_all": "All detections",
   "tl_mode_aria": "Display mode",
+  "tl_window_detections": "Detections in the visible window",
+  "tl_zoom_hint": "Zoom into the timeline to inspect every detection of the day.",
   "tl_see_species": "See species card",
   "tl_see_today": "See this day",
   "tl_listen": "Listen",

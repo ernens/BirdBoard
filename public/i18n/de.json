@@ -1463,6 +1463,8 @@
   "tl_mode_remarkable": "Bemerkenswerte Momente",
   "tl_mode_all": "Alle Erkennungen",
   "tl_mode_aria": "Anzeigemodus",
+  "tl_window_detections": "Erkennungen im sichtbaren Bereich",
+  "tl_zoom_hint": "Zoomen Sie in die Zeitleiste hinein, um jede Erkennung des Tages zu prüfen.",
   "tl_see_species": "Artkarte anzeigen",
   "tl_see_today": "Tag anzeigen",
   "tl_listen": "Anhören",
