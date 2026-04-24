@@ -808,6 +808,7 @@
   "cal_intensity_note": "Balkintensiteit relatief tot de getoonde maand",
   "cal_top_species": "Top soorten van de dag",
   "cal_select_day_hint": "Kies een dag in het raster om de details te zien.",
+  "cal_no_detections": "Geen detecties op die dag.",
   "svc_engine": "Detectiemotor",
   "svc_recording": "Audio-opname",
   "svc_web": "Webserver",

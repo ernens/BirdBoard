@@ -125,17 +125,33 @@
           {{t('cal_view_day')}} <bird-icon name="chevron-right" :size="14"></bird-icon>
         </a>
       </div>
-      <div v-if="selectedDayTopSpecies.length" class="cal-panel-section">
+      <!-- Section toujours rendue (hauteur réservée par .cal-panel-section min-height)
+           pour éviter tout shift de layout entre deux clics. -->
+      <div class="cal-panel-section">
         <div class="cal-panel-section-title">{{t('cal_top_species')}}</div>
-        <div v-for="s in selectedDayTopSpecies" :key="s.com" class="cal-panel-species" @click="navigateTo('species.html',{species:s.com})">
-          <bird-img v-if="s.photo" :src="s.photo" class="cal-panel-thumb" :alt="s.com"></bird-img>
-          <div v-else class="cal-panel-thumb-ph"><bird-icon name="bird" :size="14"></bird-icon></div>
-          <div class="cal-panel-sp-info">
-            <div class="cal-panel-sp-name">{{spName(s.com, s.sci)}}</div>
-            <div class="cal-panel-sp-sci">{{s.sci}} · {{s.det}} det.</div>
+        <template v-if="selectedDayDetailsState === 'loading'">
+          <div v-for="n in 3" :key="'skel-'+n" class="cal-panel-skel-row" aria-hidden="true">
+            <div class="cal-panel-skel-thumb"></div>
+            <div class="cal-panel-skel-info">
+              <div class="cal-panel-skel-line"></div>
+              <div class="cal-panel-skel-line short"></div>
+            </div>
           </div>
-          <bird-icon name="chevron-right" :size="13" style="color:var(--text-faint);flex-shrink:0;"></bird-icon>
-        </div>
+        </template>
+        <template v-else-if="selectedDayDetailsState === 'empty'">
+          <div class="cal-panel-no-data">{{t('cal_no_detections')}}</div>
+        </template>
+        <template v-else>
+          <div v-for="s in selectedDayTopSpecies" :key="s.com" class="cal-panel-species" @click="navigateTo('species.html',{species:s.com})">
+            <bird-img v-if="s.photo" :src="s.photo" class="cal-panel-thumb" :alt="s.com"></bird-img>
+            <div v-else class="cal-panel-thumb-ph"><bird-icon name="bird" :size="14"></bird-icon></div>
+            <div class="cal-panel-sp-info">
+              <div class="cal-panel-sp-name">{{spName(s.com, s.sci)}}</div>
+              <div class="cal-panel-sp-sci">{{s.sci}} · {{s.det}} det.</div>
+            </div>
+            <bird-icon name="chevron-right" :size="13" style="color:var(--text-faint);flex-shrink:0;"></bird-icon>
+          </div>
+        </template>
       </div>
     </div>
     <div v-else-if="!loading" class="cal-panel-empty">
@@ -171,7 +187,9 @@ const app = createApp({
     function selectDay(cell) {
       if (!cell.day || cell.isFuture) return;
       selectedDate.value = cell.date;
-      loadDayDetails(cell.date);
+      // Pas de requête si la journée est vide — on tomberait sur 0 lignes.
+      // Le panneau affichera son état "pas de détection" sans faire d'I/O inutile.
+      if (cell.det > 0) loadDayDetails(cell.date);
     }
 
     async function loadDayDetails(date) {
@@ -203,6 +221,21 @@ const app = createApp({
       };
     });
     const selectedDayTopSpecies = computed(() => dayTopSpecies.value[selectedDate.value] || []);
+    // États possibles de la section "top espèces" :
+    //   'idle'    → aucun jour sélectionné (panneau caché)
+    //   'empty'   → jour sans détection (pas de fetch, message court)
+    //   'loading' → fetch en cours (skeleton 3 rows, hauteur stable)
+    //   'loaded'  → top espèces disponibles
+    // La hauteur de la section reste constante quel que soit l'état (min-height
+    // CSS) — ce qui empêche le clignotement de body-height entre deux clics.
+    const selectedDayDetailsState = computed(() => {
+      if (!selectedDate.value) return 'idle';
+      if (selectedDayData.value && selectedDayData.value.det === 0) return 'empty';
+      const cached = dayTopSpecies.value[selectedDate.value];
+      if (cached === undefined) return 'loading';
+      if (cached.length === 0) return 'empty';
+      return 'loaded';
+    });
     const formattedSelectedDate = computed(() => {
       if (!selectedDate.value) return '';
       return new Date(selectedDate.value + 'T00:00:00').toLocaleDateString(lang.value, {
@@ -411,7 +444,7 @@ const app = createApp({
       cells, monthKpis, monthMeta, dailyData,
       barColor, barWidth,
       prevMonth, nextMonth,
-      selectedDate, selectDay, selectedDayData, selectedDayTopSpecies, formattedSelectedDate,
+      selectedDate, selectDay, selectedDayData, selectedDayTopSpecies, selectedDayDetailsState, formattedSelectedDate,
       spName, navigateTo, photoUrl,
     };
   }

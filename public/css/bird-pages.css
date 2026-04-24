@@ -2934,8 +2934,18 @@
     }
     .cal-panel-date { font-size:1rem; font-weight:700; text-transform:capitalize; }
     .cal-panel-stats { font-size:.82rem; color:var(--text-muted); margin-top:.3rem; display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
-    .cal-panel-section { padding:.7rem 1.1rem 1rem; }
+    /* Hauteur réservée (3 rows × ~46px + titre + padding) — empêche le panneau
+       de rétrécir/grandir quand on bascule d'un jour à l'autre. C'est ce shift
+       de body-height qui provoquait un clignotement quand le panneau était
+       sous la ligne de flottaison. */
+    .cal-panel-section { padding:.7rem 1.1rem 1rem; min-height:185px; box-sizing:border-box; }
     .cal-panel-section-title { font-size:.7rem; font-weight:600; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.55rem; }
+    .cal-panel-skel-row { display:flex; align-items:center; gap:.65rem; padding:.4rem .35rem; }
+    .cal-panel-skel-thumb { width:36px; height:36px; border-radius:50%; background:var(--bg-deep); flex-shrink:0; }
+    .cal-panel-skel-info { flex:1; min-width:0; }
+    .cal-panel-skel-line { height:10px; background:var(--bg-deep); border-radius:3px; margin-bottom:6px; width:55%; }
+    .cal-panel-skel-line.short { width:30%; height:8px; margin-bottom:0; }
+    .cal-panel-no-data { padding:1.5rem .5rem; color:var(--text-faint); font-style:italic; font-size:.82rem; text-align:center; }
     .cal-panel-species {
       display:flex; align-items:center; gap:.65rem; padding:.4rem .35rem;
       cursor:pointer; border-radius:6px; transition:background .12s;
