@@ -593,9 +593,12 @@ const app = createApp({
         bar.className = 'tl-density-slot';
         bar.style.left = hourToX(i / 2) + 'px';
         bar.style.width = Math.max(1, slotWidth - 1) + 'px';
-        bar.style.height = Math.max(2, Math.round(norm * MAX_BAR_H)) + 'px';
-        // Opacité bornée à .35 max — la couche reste fond, jamais premier plan.
-        const alpha = (0.10 + norm * 0.25).toFixed(2);
+        // Plancher 8px : une tranche avec activité faible mais réelle ne doit
+        // jamais ressembler à "rien". Hiérarchie linéaire préservée au-dessus.
+        bar.style.height = Math.max(8, Math.round(norm * MAX_BAR_H)) + 'px';
+        // Opacité .20 → .40 — plafonnée pour que la couche reste fond, mais
+        // floor relevé pour que les petits volumes soient lisibles sans effort.
+        const alpha = (0.20 + norm * 0.20).toFixed(2);
         bar.style.backgroundColor = `rgba(255,255,255,${alpha})`;
         const hh = String(Math.floor(i / 2)).padStart(2, '0');
         const mm = (i % 2) ? '30' : '00';
