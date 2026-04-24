@@ -77,8 +77,8 @@
     <div v-else class="cal-grid">
       <div v-for="(cell, i) in cells" :key="i"
            class="cal-cell"
-           :class="{ empty: !cell.day, today: cell.isToday, future: cell.isFuture }"
-           @click="openPopover(cell, $event)">
+           :class="{ empty: !cell.day, today: cell.isToday, future: cell.isFuture, selected: cell.date && cell.date === selectedDate }"
+           @click="selectDay(cell)">
         <template v-if="cell.day">
           <div class="cal-day">
             <span>{{cell.day}}</span>
@@ -107,48 +107,40 @@
       <span style="display:flex;align-items:center;gap:.3rem;"><span class="cal-badge cal-badge-rare" style="font-size:.65rem;">◆</span> {{t('cal_legend_rare')}}</span>
     </div>
 
-    <!-- Day popover -->
-    <teleport to="body">
-      <div v-if="popover" class="cal-popover-backdrop" @click="closePopover">
-        <div class="cal-popover" :style="{ top: popover.top + 'px', left: popover.left + 'px' }" @click.stop>
-          <div class="cal-popover-header">
-            <div>
-              <div class="cal-popover-date">{{new Date(popover.date).toLocaleDateString(lang, { weekday:'long', day:'numeric', month:'long', year:'numeric' })}}</div>
-              <div class="cal-popover-stats">
-                <bird-icon name="bird" :size="13"></bird-icon> {{popover.sp}} {{t('species')}} · {{popover.det.toLocaleString()}} det.
-              </div>
-            </div>
-            <a :href="'today.html?date='+popover.date" class="cal-popover-link">
-              {{t('cal_view_day')}} <bird-icon name="chevron-right" :size="13"></bird-icon>
-            </a>
-          </div>
-          <div v-if="popover.newNames.length" class="cal-popover-section">
-            <div class="cal-popover-section-title cal-badge-new" style="display:inline-flex;align-items:center;gap:.3rem;">★ {{t('cal_new_species')}} ({{popover.newNames.length}})</div>
-            <div v-for="s in popover.newNames" :key="'n-'+s.com" class="cal-popover-species" @click="navigateTo('species.html',{species:s.com})">
-              <bird-img v-if="s.photo" :src="s.photo" class="cal-popover-thumb" :alt="s.com"></bird-img>
-              <div v-else class="cal-popover-thumb-ph"><bird-icon name="bird" :size="14"></bird-icon></div>
-              <div class="cal-popover-sp-info">
-                <div class="cal-popover-sp-name">{{spName(s.com, s.sci)}}</div>
-                <div class="cal-popover-sp-sci">{{s.sci}}</div>
-              </div>
-              <bird-icon name="chevron-right" :size="13" style="color:var(--text-faint);flex-shrink:0;"></bird-icon>
-            </div>
-          </div>
-          <div v-if="popover.rareNames.length" class="cal-popover-section">
-            <div class="cal-popover-section-title cal-badge-rare" style="display:inline-flex;align-items:center;gap:.3rem;">◆ {{t('cal_rare_species')}} ({{popover.rareNames.length}})</div>
-            <div v-for="s in popover.rareNames" :key="'r-'+s.com" class="cal-popover-species" @click="navigateTo('species.html',{species:s.com})">
-              <bird-img v-if="s.photo" :src="s.photo" class="cal-popover-thumb" :alt="s.com"></bird-img>
-              <div v-else class="cal-popover-thumb-ph"><bird-icon name="bird" :size="14"></bird-icon></div>
-              <div class="cal-popover-sp-info">
-                <div class="cal-popover-sp-name">{{spName(s.com, s.sci)}}</div>
-                <div class="cal-popover-sp-sci">{{s.sci}}</div>
-              </div>
-              <bird-icon name="chevron-right" :size="13" style="color:var(--text-faint);flex-shrink:0;"></bird-icon>
-            </div>
+    <!-- Day panel: persistant, montre le jour sélectionné. Garde-fou : compact —
+         date longue, stats essentielles, top 3 espèces, 1 action principale.
+         Ne pas réintroduire ici une mini-page today ou une narration mensuelle. -->
+    <div v-if="selectedDate && selectedDayData" class="cal-day-panel">
+      <div class="cal-panel-header">
+        <div style="min-width:0;">
+          <div class="cal-panel-date">{{formattedSelectedDate}}</div>
+          <div class="cal-panel-stats">
+            <bird-icon name="bird" :size="13"></bird-icon>
+            <span>{{selectedDayData.sp}} {{t('species')}} · {{selectedDayData.det.toLocaleString()}} det.</span>
+            <span v-if="selectedDayData.newSp > 0" class="cal-badge cal-badge-new">★ {{selectedDayData.newSp}}</span>
+            <span v-if="selectedDayData.rareSp > 0" class="cal-badge cal-badge-rare">◆ {{selectedDayData.rareSp}}</span>
           </div>
         </div>
+        <a :href="'today.html?date='+selectedDate" class="btn btn-primary" style="white-space:nowrap;display:inline-flex;align-items:center;gap:.3rem;">
+          {{t('cal_view_day')}} <bird-icon name="chevron-right" :size="14"></bird-icon>
+        </a>
       </div>
-    </teleport>
+      <div v-if="selectedDayTopSpecies.length" class="cal-panel-section">
+        <div class="cal-panel-section-title">{{t('cal_top_species')}}</div>
+        <div v-for="s in selectedDayTopSpecies" :key="s.com" class="cal-panel-species" @click="navigateTo('species.html',{species:s.com})">
+          <bird-img v-if="s.photo" :src="s.photo" class="cal-panel-thumb" :alt="s.com"></bird-img>
+          <div v-else class="cal-panel-thumb-ph"><bird-icon name="bird" :size="14"></bird-icon></div>
+          <div class="cal-panel-sp-info">
+            <div class="cal-panel-sp-name">{{spName(s.com, s.sci)}}</div>
+            <div class="cal-panel-sp-sci">{{s.sci}} · {{s.det}} det.</div>
+          </div>
+          <bird-icon name="chevron-right" :size="13" style="color:var(--text-faint);flex-shrink:0;"></bird-icon>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="!loading" class="cal-panel-empty">
+      {{t('cal_select_day_hint')}}
+    </div>
 
   </birdash-shell>
 </div>
@@ -167,32 +159,56 @@ const app = createApp({
     const todayStr = localDateStr();
     const loading = ref(false);
 
-    // Popover state
-    const popover = ref(null);  // { date, day, det, sp, newNames, rareNames, x, y }
+    // Jour sélectionné dans la grille — pilote le panneau persistant sous la légende.
+    // Auto-sélectionné sur "aujourd'hui" quand on est sur le mois courant ; sinon vide
+    // (pas de mémoire inter-mois : un jour invisible dans la grille ne doit jamais
+    // rester affiché dans le panneau).
+    const selectedDate = ref(null);
+    // Cache top-3 espèces par date — chargé à la demande pour éviter de requêter
+    // 30 jours alors qu'on n'en regarde qu'un à la fois.
+    const dayTopSpecies = ref({});
 
-    function openPopover(cell, event) {
+    function selectDay(cell) {
       if (!cell.day || cell.isFuture) return;
-      const data = dailyData.value[cell.date] || {};
-      // If no badges, go directly to today
-      if (!data.newNames?.length && !data.rareNames?.length) {
-        openDay(cell.date);
-        return;
-      }
-      // Position near the clicked cell
-      const rect = event.currentTarget.getBoundingClientRect();
-      popover.value = {
-        date: cell.date,
-        day: cell.day,
-        det: cell.det,
-        sp: cell.sp,
-        newNames: (data.newNames || []).map(n => ({ com: n.com, sci: n.sci, photo: photoUrl(n.sci) })),
-        rareNames: (data.rareNames || []).map(n => ({ com: n.com, sci: n.sci, photo: photoUrl(n.sci) })),
-        // Position: center below the cell
-        top: rect.bottom + window.scrollY + 8,
-        left: Math.max(8, Math.min(rect.left + rect.width / 2, window.innerWidth - 200)),
-      };
+      selectedDate.value = cell.date;
+      loadDayDetails(cell.date);
     }
-    function closePopover() { popover.value = null; }
+
+    async function loadDayDetails(date) {
+      if (dayTopSpecies.value[date]) return;
+      try {
+        const conf = BIRD_CONFIG.defaultConfidence;
+        const rows = await birdQuery(
+          `SELECT Com_Name, MAX(Sci_Name) as Sci_Name, COUNT(*) as det
+           FROM active_detections WHERE Date = ? AND Confidence >= ?
+           GROUP BY Com_Name ORDER BY det DESC LIMIT 3`,
+          [date, conf]
+        );
+        dayTopSpecies.value = {
+          ...dayTopSpecies.value,
+          [date]: rows.map(r => ({ com: r.Com_Name, sci: r.Sci_Name, det: r.det, photo: photoUrl(r.Sci_Name) })),
+        };
+      } catch (e) { console.error('[calendar] loadDayDetails', e); }
+    }
+
+    const selectedDayData = computed(() => {
+      if (!selectedDate.value) return null;
+      const data = dailyData.value[selectedDate.value] || {};
+      return {
+        date: selectedDate.value,
+        det: data.det || 0,
+        sp: data.sp || 0,
+        newSp: data.newSp || 0,
+        rareSp: data.rareSp || 0,
+      };
+    });
+    const selectedDayTopSpecies = computed(() => dayTopSpecies.value[selectedDate.value] || []);
+    const formattedSelectedDate = computed(() => {
+      if (!selectedDate.value) return '';
+      return new Date(selectedDate.value + 'T00:00:00').toLocaleDateString(lang.value, {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      });
+    });
 
     // Current viewed month (year, month 0-indexed)
     const viewYear = ref(new Date().getFullYear());
@@ -361,6 +377,16 @@ const app = createApp({
         };
         dailyData.value = map;
         maxDet = mx;
+
+        // Sélection par défaut : aujourd'hui si visible dans le mois affiché,
+        // sinon rien (l'utilisateur pioche un jour pour peupler le panneau).
+        const monthPrefix = `${y}-${String(m + 1).padStart(2, '0')}`;
+        if (todayStr.startsWith(monthPrefix)) {
+          selectedDate.value = todayStr;
+          loadDayDetails(todayStr);
+        } else {
+          selectedDate.value = null;
+        }
       } catch (e) { console.error('[calendar]', e); }
       loading.value = false;
     }
@@ -377,10 +403,6 @@ const app = createApp({
       loadMonth();
     }
 
-    function openDay(date) {
-      window.location.href = 'today.html?date=' + date;
-    }
-
     onMounted(loadMonth);
 
     return {
@@ -388,8 +410,8 @@ const app = createApp({
       viewYear, viewMonth, isCurrentMonth, monthLabel, dowLabels,
       cells, monthKpis, monthMeta, dailyData,
       barColor, barWidth,
-      prevMonth, nextMonth, openDay,
-      popover, openPopover, closePopover,
+      prevMonth, nextMonth,
+      selectedDate, selectDay, selectedDayData, selectedDayTopSpecies, formattedSelectedDate,
       spName, navigateTo, photoUrl,
     };
   }

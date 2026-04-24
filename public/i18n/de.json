@@ -806,6 +806,8 @@
   "cal_moderate": "Mäßig",
   "cal_many": "Viel",
   "cal_intensity_note": "Balkenintensität relativ zum angezeigten Monat",
+  "cal_top_species": "Top-Arten des Tages",
+  "cal_select_day_hint": "Wählen Sie einen Tag im Raster, um die Details zu sehen.",
   "svc_engine": "Erkennungsmotor",
   "svc_recording": "Audioaufnahme",
   "svc_web": "Webserver",

@@ -806,6 +806,8 @@
   "cal_moderate": "Modéré",
   "cal_many": "Beaucoup",
   "cal_intensity_note": "Intensité des barres relative au mois affiché",
+  "cal_top_species": "Top espèces du jour",
+  "cal_select_day_hint": "Choisissez un jour dans la grille pour en voir le détail.",
   "svc_engine": "Moteur de détection",
   "svc_recording": "Capture audio",
   "svc_web": "Serveur web",

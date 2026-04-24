@@ -806,6 +806,8 @@
   "cal_moderate": "Moderate",
   "cal_many": "Many",
   "cal_intensity_note": "Bar intensity is relative to the displayed month",
+  "cal_top_species": "Top species of the day",
+  "cal_select_day_hint": "Pick a day in the grid above to see its detail.",
   "svc_engine": "Detection engine",
   "svc_recording": "Audio capture",
   "svc_web": "Web server",
