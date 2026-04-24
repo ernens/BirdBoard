@@ -23,6 +23,69 @@
   <script src="js/bird-weather-chip.js"></script>
   <script src="js/bird-setup-wizard.js"></script>
   <style>
+    /* List head + pills (Phase 2) — compact toolbar above the list */
+    .td-list-head {
+      padding: .5rem .75rem .35rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      gap: .4rem; flex-wrap: wrap;
+    }
+    .td-list-total { color: var(--text-muted); font-weight: 400; font-size: .75rem; }
+    .td-sort-select { padding: .2rem .4rem; font-size: .7rem; }
+    .td-search { width: 100px; padding: .2rem .5rem; font-size: .72rem; }
+    .td-pills {
+      display: flex; flex-wrap: wrap; gap: .3rem;
+      padding: .45rem .65rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card2);
+    }
+    .td-pill {
+      display: inline-flex; align-items: center; gap: .2rem;
+      padding: .15rem .55rem; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); font-size: .68rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    .td-pill:hover { background: var(--bg-card2); color: var(--text-main); }
+    .td-pill--active {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+    .td-pill--active:hover { background: var(--accent); color: #fff; }
+    .td-pill-n { opacity: .8; font-weight: 500; }
+
+    /* Per-row badges — small inline tags next to the species name. Show
+       selectively for rare / review / new — never all KPI states (would
+       turn the list into a parade of pills). */
+    .sp-tag {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      vertical-align: middle; margin-left: .2rem;
+    }
+    .sp-tag--new    { color: var(--danger); }
+    .sp-tag--rare   { color: var(--accent); }
+    .sp-tag--review { color: #f59e0b; }
+    /* Subtle left-border tint when a row carries a primary status — helps
+       the eye prioritise without screaming. The active row's accent
+       border still wins (defined in .sp-item.active later). */
+    .sp-item--rare:not(.active)   { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+    .sp-item--review:not(.active) { box-shadow: inset 2px 0 0 color-mix(in srgb, #f59e0b 60%, transparent); }
+
+    /* Compact second row of the species item — count + time + favorite
+       on a single quiet line. No more sci_name (it lives in the workspace). */
+    .sp-sub-row {
+      display: flex; align-items: center; gap: .45rem;
+      font-size: .68rem; color: var(--text-muted);
+      line-height: 1.15;
+    }
+    .sp-count { font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+    .sp-time  { font-family: monospace; color: var(--text-faint); margin-left: auto; }
+    .sp-fav {
+      background: none; border: none; cursor: pointer;
+      font-size: .8rem; padding: 0 .15rem; line-height: 1;
+      color: var(--accent);
+    }
+
     /* Bandeau contextuel sous la date — opérationnel, pas narratif. */
     .today-bandeau {
       display: flex; align-items: center; gap: .35rem;
@@ -173,29 +236,43 @@
       <!-- Colonne gauche : liste espèces -->
       <div>
         <div class="card" style="padding:0;overflow:hidden;">
-          <div style="padding:.6rem .85rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:.4rem;flex-wrap:wrap;">
+          <!-- Title + sort + search row (compact) -->
+          <div class="td-list-head">
             <div class="card-title" style="margin:0;">
-              {{t('species')}} — {{speciesList.length}}
+              {{t('species')}} — {{filteredSpecies.length}}<span v-if="filterMode!=='all' || searchQ" class="td-list-total"> / {{speciesList.length}}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;">
-              <select v-model="sortMode" class="bird-input" :title="t('td_sort_by')"
-                      style="padding:.2rem .4rem;font-size:.72rem;">
+            <div style="display:flex;align-items:center;gap:.3rem;">
+              <select v-model="sortMode" class="bird-input td-sort-select" :title="t('td_sort_by')">
                 <option value="count">{{t('td_sort_count')}}</option>
                 <option value="first">{{t('td_sort_first')}}</option>
                 <option value="conf">{{t('td_sort_conf')}}</option>
                 <option value="new">{{t('td_sort_new')}}</option>
               </select>
-              <button v-if="newSpeciesSet.size" @click="newSpOnly = !newSpOnly"
-                      style="padding:.12rem .5rem;font-size:.68rem;font-weight:600;border-radius:999px;border:1px solid;cursor:pointer;white-space:nowrap;"
-                      :style="newSpOnly
-                        ? 'background:var(--danger);color:#fff;border-color:var(--danger);'
-                        : 'background:transparent;color:var(--text-muted);border-color:var(--border);'">
-                <bird-icon name="sparkles" :size="12"></bird-icon> {{newSpeciesSet.size}}
-              </button>
-              <input type="text" v-model="searchQ" class="bird-input"
-                     :placeholder="'🔍 '+t('search_filter_ph')"
-                     style="width:100px;padding:.2rem .5rem;font-size:.78rem;">
+              <input type="text" v-model="searchQ" class="bird-input td-search"
+                     :placeholder="'🔍 '+t('search_filter_ph')">
             </div>
+          </div>
+
+          <!-- Filter pills (Phase 2) — Toutes / Nouvelles / Rares / À revoir / Signal -->
+          <div class="td-pills">
+            <button class="td-pill" :class="{'td-pill--active': filterMode==='all'}"
+                    @click="setFilterMode('all')">{{t('td_filter_all')}}</button>
+            <button v-if="newSpeciesSet.size" class="td-pill" :class="{'td-pill--active': filterMode==='new'}"
+                    @click="setFilterMode(filterMode==='new'?'all':'new')">
+              <bird-icon name="sparkles" :size="11"></bird-icon> {{t('td_filter_new')}}<span class="td-pill-n"> {{newSpeciesSet.size}}</span>
+            </button>
+            <button v-if="rareCount" class="td-pill" :class="{'td-pill--active': filterMode==='rare'}"
+                    @click="setFilterMode(filterMode==='rare'?'all':'rare')">
+              <bird-icon name="gem" :size="11"></bird-icon> {{t('td_filter_rare')}}<span class="td-pill-n"> {{rareCount}}</span>
+            </button>
+            <button v-if="toReviewCount" class="td-pill" :class="{'td-pill--active': filterMode==='review'}"
+                    @click="setFilterMode(filterMode==='review'?'all':'review')">
+              <bird-icon name="alert-triangle" :size="11"></bird-icon> {{t('td_filter_review')}}<span class="td-pill-n"> {{toReviewCount}}</span>
+            </button>
+            <button v-if="strongCount" class="td-pill" :class="{'td-pill--active': filterMode==='strong'}"
+                    @click="setFilterMode(filterMode==='strong'?'all':'strong')">
+              <bird-icon name="check-circle" :size="11"></bird-icon> {{t('td_filter_strong')}}<span class="td-pill-n"> {{strongCount}}</span>
+            </button>
           </div>
 
           <div v-if="loadingList" class="spinner" style="padding:2rem;"><div></div><div></div><div></div></div>
@@ -204,30 +281,35 @@
             <div>{{t('no_data')}}</div>
           </div>
           <div v-else class="species-list">
+            <!-- Compaction niveau 2: drop sci_name on the row (clutter for
+                 a navigation index — full sci available on the workspace
+                 header). Meta collapsed to a single line: count + last
+                 time. Confidence dropped from the row (it's per-detection
+                 in the workspace, not a list-wide metric). Tiny badges
+                 (rare/à revoir/new) show selectively next to the name. -->
             <div v-for="s in filteredSpecies" :key="s.Com_Name"
-                 class="sp-item" :class="{active: selected && selected.Com_Name===s.Com_Name}"
+                 class="sp-item" :class="['sp-item--' + (rowBadges(s)[0] || 'plain'),
+                                          {active: selected && selected.Com_Name===s.Com_Name}]"
                  @click="selectSpecies(s)">
               <div class="sp-thumb">
                 <bird-img v-if="s.imgUrl" :src="s.imgUrl" :alt="s.Com_Name" ></bird-img>
-                <span v-else><bird-icon name="bird" :size="16" ></bird-icon></span>
+                <span v-else><bird-icon name="bird" :size="14" ></bird-icon></span>
               </div>
               <div class="sp-info">
-                <div class="sp-name-row">{{spName(s.Com_Name, s.sci)}} <span v-if="newSpeciesSet.has(s.Com_Name)" style="font-size:.6rem;vertical-align:middle;"><bird-icon name="sparkles" :size="12"></bird-icon></span></div>
-                <div class="sp-sci-row">{{s.sci}} <button @click.stop="toggleFavorite(s.Com_Name, s.sci)" :title="isFavorite(s.Com_Name) ? t('fav_remove') : t('fav_add')" :aria-label="isFavorite(s.Com_Name) ? t('fav_remove') : t('fav_add')" style="background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 .15rem;line-height:1;color:var(--accent);vertical-align:middle;">{{isFavorite(s.Com_Name) ? '★' : '☆'}}</button></div>
-              </div>
-              <div class="sp-meta">
-                <span class="sp-count-pill" :title="t('td_list_count_tip', {n: s.n})">
-                  {{s.n}}×
-                </span>
-                <span class="conf-badge" :class="s.max_conf>=0.8?'conf-high':'conf-mid'"
-                      :title="t('td_list_conf_tip', {pct: Math.round(s.max_conf*100)})"
-                      style="font-size:.7rem;">
-                  {{Math.round(s.max_conf*100)}}%
-                </span>
-                <span style="font-size:.68rem;color:var(--text-faint);font-family:monospace;"
-                      :title="t('td_list_time_tip')">
-                  {{fmtTime(s.last_time)}}
-                </span>
+                <div class="sp-name-row">
+                  {{spName(s.Com_Name, s.sci)}}
+                  <span v-if="newSpeciesSet.has(s.Com_Name)" class="sp-tag sp-tag--new" :title="t('td_filter_new')"><bird-icon name="sparkles" :size="10"></bird-icon></span>
+                  <span v-if="rareTodaySet.has(s.Com_Name)" class="sp-tag sp-tag--rare" :title="t('td_filter_rare')"><bird-icon name="gem" :size="10"></bird-icon></span>
+                  <span v-if="needsReviewSet.has(s.Com_Name)" class="sp-tag sp-tag--review" :title="t('td_filter_review')"><bird-icon name="alert-triangle" :size="10"></bird-icon></span>
+                </div>
+                <div class="sp-sub-row">
+                  <span class="sp-count">{{s.n}}×</span>
+                  <span class="sp-time">{{fmtTime(s.last_time)}}</span>
+                  <button @click.stop="toggleFavorite(s.Com_Name, s.sci)"
+                          :title="isFavorite(s.Com_Name) ? t('fav_remove') : t('fav_add')"
+                          :aria-label="isFavorite(s.Com_Name) ? t('fav_remove') : t('fav_add')"
+                          class="sp-fav">{{isFavorite(s.Com_Name) ? '★' : '☆'}}</button>
+                </div>
               </div>
             </div>
           </div>
@@ -718,9 +800,32 @@ const app = createApp({
       return BIRDASH_UTILS.SPECIES_FREQ_RANGES[sci] || null;
     });
 
+    // Phase 2 filter pills — `filterMode` is one of:
+    //   'all'    no filter (default)
+    //   'new'    species in newSpeciesSet
+    //   'rare'   species in rareTodaySet
+    //   'review' species in needsReviewSet OR in doubtful list
+    //   'strong' ≥5 detections AND avg conf > 0.85
+    // Mutually exclusive — clicking a pill replaces the active mode.
+    // The legacy `newSpOnly` ref stays for backwards-compat with other
+    // refs/watchers; toggleNewOnly now syncs both.
+    const filterMode = ref('all');
+    function setFilterMode(m) {
+      filterMode.value = m;
+      newSpOnly.value = (m === 'new');
+    }
+
     const filteredSpecies = computed(() => {
       let list = speciesList.value.slice();
-      if (newSpOnly.value) list = list.filter(s => newSpeciesSet.value.has(s.Com_Name));
+      // Apply filter pills
+      if (filterMode.value === 'new')    list = list.filter(s => newSpeciesSet.value.has(s.Com_Name));
+      else if (filterMode.value === 'rare')   list = list.filter(s => rareTodaySet.value.has(s.Com_Name));
+      else if (filterMode.value === 'review') list = list.filter(s => needsReviewSet.value.has(s.Com_Name));
+      else if (filterMode.value === 'strong') list = list.filter(s => s.n >= 5 && s.avg_conf > 0.85);
+      // Backwards-compat: if newSpOnly toggled directly (legacy KPI click),
+      // honour it as a "new" filter even if filterMode wasn't updated.
+      else if (newSpOnly.value) list = list.filter(s => newSpeciesSet.value.has(s.Com_Name));
+
       const q = searchQ.value.toLowerCase().trim();
       if (q) list = list.filter(s => s.Com_Name.toLowerCase().includes(q) || (s.sci||'').toLowerCase().includes(q));
       // Sort
@@ -730,6 +835,16 @@ const app = createApp({
       else if (sortMode.value === 'new')   list.sort((a, b) => (newSpeciesSet.value.has(b.Com_Name) ? 1 : 0) - (newSpeciesSet.value.has(a.Com_Name) ? 1 : 0) || b.n - a.n);
       return list;
     });
+
+    // Per-row badges — small, sélectifs (rare/à revoir). "Nouveau" reste
+    // l'icône ✨ existante. "Signal solide" pas badge (le visuel se voit
+    // déjà via le count + via le filter pill dédié).
+    function rowBadges(s) {
+      const tags = [];
+      if (rareTodaySet.value.has(s.Com_Name)) tags.push('rare');
+      if (needsReviewSet.value.has(s.Com_Name)) tags.push('review');
+      return tags;
+    }
 
     const nextAudioIdx = computed(() => {
       const dets = selectedDets.value;
@@ -1057,6 +1172,9 @@ const app = createApp({
       // Phase 1 work-oriented KPIs + bandeau context
       rareCount, toReviewCount, toReviewTooltip, strongCount, speciesTagLabel,
       toggleNewOnly,
+      // Phase 2 filter pills + per-row badges
+      filterMode, setFilterMode, rowBadges,
+      rareTodaySet, needsReviewSet,
       loadingList, speciesList, filteredSpecies, sortMode,
       freqOverlayOn, toggleFreqOverlay,
       selected, selectedDets, currentDet, currentDetIdx, nextAudioIdx, selectedHourly,

@@ -1983,5 +1983,10 @@
   "today_kpi_strong": "Starkes Signal",
   "today_kpi_strong_tooltip": "Arten mit ≥5 Erkennungen heute und durchschnittlicher Konfidenz > 85 %.",
   "today_bandeau_select": "Wähle eine Art in der Liste, um ihren Arbeitsbereich zu öffnen.",
-  "today_bandeau_n_today": "{n} Erkennungen heute"
+  "today_bandeau_n_today": "{n} Erkennungen heute",
+  "td_filter_all": "Alle",
+  "td_filter_new": "Neu",
+  "td_filter_rare": "Selten",
+  "td_filter_review": "Zu prüfen",
+  "td_filter_strong": "Starkes Signal"
 }

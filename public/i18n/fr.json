@@ -1978,5 +1978,10 @@
   "today_kpi_strong": "Signal solide",
   "today_kpi_strong_tooltip": "Espèces avec ≥5 détections aujourd'hui et confiance moyenne > 85 %.",
   "today_bandeau_select": "Sélectionne une espèce dans la liste pour ouvrir son atelier.",
-  "today_bandeau_n_today": "{n} détections aujourd'hui"
+  "today_bandeau_n_today": "{n} détections aujourd'hui",
+  "td_filter_all": "Toutes",
+  "td_filter_new": "Nouvelles",
+  "td_filter_rare": "Rares",
+  "td_filter_review": "À revoir",
+  "td_filter_strong": "Signal solide"
 }

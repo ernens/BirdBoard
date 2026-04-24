@@ -1983,5 +1983,10 @@
   "today_kpi_strong": "Sterk signaal",
   "today_kpi_strong_tooltip": "Soorten met ≥5 detecties vandaag en gemiddelde betrouwbaarheid > 85%.",
   "today_bandeau_select": "Kies een soort in de lijst om zijn werkruimte te openen.",
-  "today_bandeau_n_today": "{n} detecties vandaag"
+  "today_bandeau_n_today": "{n} detecties vandaag",
+  "td_filter_all": "Alle",
+  "td_filter_new": "Nieuw",
+  "td_filter_rare": "Zeldzaam",
+  "td_filter_review": "Te beoordelen",
+  "td_filter_strong": "Sterk signaal"
 }

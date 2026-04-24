@@ -1983,5 +1983,10 @@
   "today_kpi_strong": "Strong signal",
   "today_kpi_strong_tooltip": "Species with ≥5 detections today and average confidence > 85%.",
   "today_bandeau_select": "Pick a species in the list to open its workspace.",
-  "today_bandeau_n_today": "{n} detections today"
+  "today_bandeau_n_today": "{n} detections today",
+  "td_filter_all": "All",
+  "td_filter_new": "New",
+  "td_filter_rare": "Rare",
+  "td_filter_review": "To review",
+  "td_filter_strong": "Strong signal"
 }
