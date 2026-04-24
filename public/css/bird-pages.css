@@ -2082,15 +2082,19 @@
     .bf-pipe-lbl { font-size: .55rem; color: var(--text-muted); }
     /* Pipeline transit pulse — small dot traveling between stages on real
        state changes (recording → analyze → store). The 4 stages are at
-       12.5%/37.5%/62.5%/87.5% of the row width (flex:1 each). */
+       12.5%/37.5%/62.5%/87.5% of the row width (flex:1 each).
+       Bump 1 — slightly larger (10 → 13 px), brighter glow, soft halo
+       so the transit reads at a glance without becoming a sci-fi blip. */
     .bf-pipe-pulse {
       position: absolute;
-      top: calc(.4rem + 0.5px);
-      width: 10px; height: 10px; border-radius: 50%;
+      top: calc(.4rem - 1px);
+      width: 13px; height: 13px; border-radius: 50%;
       background: var(--accent, #5a9e3a);
-      box-shadow: 0 0 10px rgba(102,187,106,.7);
+      box-shadow:
+        0 0 14px rgba(102,187,106,.9),
+        0 0 4px rgba(102,187,106,.7);
       opacity: 0; pointer-events: none;
-      z-index: 2; transform: translateX(-5px);
+      z-index: 2; transform: translateX(-6.5px);
     }
     .bf-pipe-pulse.transit-1 { animation: bfPipePulse1 700ms cubic-bezier(.4,.05,.2,1); }
     .bf-pipe-pulse.transit-2 { animation: bfPipePulse2 700ms cubic-bezier(.4,.05,.2,1); }
@@ -2157,23 +2161,26 @@
       50%      { opacity: .65; }
     }
     /* Analyzing — discreet horizontal scan band. Slower than firing,
-       lower opacity, no border highlight. */
+       lower opacity, no border highlight.
+       Bump 1 — tint opacity .12 → .22, scan slightly wider (35 → 45 %)
+       and faster (1.6 → 1.3 s) so "work in progress" reads more clearly.
+       Still distinctly less than firing (no border highlight, no glow). */
     .bf-core.analyzing { position: relative; overflow: hidden; }
     .bf-core.analyzing::after {
-      content: ''; position: absolute; top: 0; bottom: 0; left: -40%;
-      width: 35%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
-      animation: bfCoreScan 1.6s linear infinite;
+      content: ''; position: absolute; top: 0; bottom: 0; left: -45%;
+      width: 45%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.1), transparent);
+      animation: bfCoreScan 1.3s linear infinite;
       pointer-events: none; z-index: 0;
     }
     .bf-core.birdnet.analyzing::after {
-      background: linear-gradient(90deg, transparent, rgba(66,165,245,.12), transparent);
+      background: linear-gradient(90deg, transparent, rgba(66,165,245,.22), transparent);
     }
     .bf-core.perch.analyzing::after {
-      background: linear-gradient(90deg, transparent, rgba(38,166,154,.12), transparent);
+      background: linear-gradient(90deg, transparent, rgba(38,166,154,.22), transparent);
     }
     @keyframes bfCoreScan {
-      0%   { left: -40%; }
+      0%   { left: -45%; }
       100% { left: 100%; }
     }
 
