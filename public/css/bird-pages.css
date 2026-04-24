@@ -2890,6 +2890,10 @@
     .cal-title { font-family:var(--font-display); font-size:1.4rem; font-weight:700; text-transform:capitalize; }
     .cal-nav { display:flex; gap:.3rem; align-items:center; }
     .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+    /* Navigation prev/next mois : on dim la grille existante au lieu de la
+       remplacer par un spinner — continuité visuelle, sensation de fluidité.
+       Le spinner ne sert que pour le tout premier load. */
+    .cal-grid.cal-grid-loading { opacity:.4; pointer-events:none; transition:opacity .15s ease; }
     .cal-dow { text-align:center; font-size:.7rem; color:var(--text-faint); padding:.3rem 0; font-weight:600; text-transform:uppercase; }
     .cal-cell {
       background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
@@ -2901,6 +2905,9 @@
        Today ne porte plus de bordure accent — seul le jour sélectionné peut en avoir une. */
     .cal-cell.today { /* marqueur discret via .cal-today-dot ; pas de bordure */ }
     .cal-cell.selected { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent), 0 4px 16px rgba(0,0,0,.12); }
+    /* Quand la cellule est déjà sélectionnée, le hover ne lève plus la cellule —
+       le ring est suffisant comme signal et lever la cellule fait "vibrer" le ring. */
+    .cal-cell.selected:hover { transform:none; }
     .cal-cell.empty { background:transparent; border-color:transparent; cursor:default; min-height:auto; }
     .cal-cell.empty:hover { transform:none; border-color:transparent; box-shadow:none; }
     .cal-cell.future { opacity:.35; cursor:default; }
@@ -2973,6 +2980,15 @@
       .cal-badges { gap:.15rem; }
       .cal-badge { font-size:.55rem; padding:.05rem .25rem; }
       .cal-panel-header { flex-direction:column; align-items:stretch; gap:.6rem; }
+    }
+
+    /* Audit accessibilité : utilisateurs prefers-reduced-motion ne doivent pas subir
+       la lift au hover (transform translateY). Les transitions de couleur restent —
+       ce ne sont pas du "motion" perçu, et les supprimer rendrait la sélection
+       brutale (snap au lieu de fade). */
+    @media (prefers-reduced-motion: reduce) {
+      .cal-cell { transition:border-color .15s, box-shadow .15s; }
+      .cal-cell:hover { transform:none; }
     }
 
 /* ── review.html */

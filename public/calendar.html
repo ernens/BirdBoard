@@ -73,8 +73,8 @@
     </div>
 
     <!-- Calendar cells -->
-    <div v-if="loading" style="text-align:center;padding:3rem;"><div class="spinner"><div></div><div></div><div></div></div></div>
-    <div v-else class="cal-grid">
+    <div v-if="loading && firstLoad" style="text-align:center;padding:3rem;"><div class="spinner"><div></div><div></div><div></div></div></div>
+    <div v-else :class="['cal-grid', { 'cal-grid-loading': loading }]">
       <div v-for="(cell, i) in cells" :key="i"
            class="cal-cell"
            :class="{ empty: !cell.day, today: cell.isToday, future: cell.isFuture, selected: cell.date && cell.date === selectedDate }"
@@ -174,6 +174,9 @@ const app = createApp({
 
     const todayStr = localDateStr();
     const loading = ref(false);
+    // Distingue le tout premier load (spinner OK) des navigations prev/next mois
+    // (où la grille existante reste visible et juste dimmed — plus fluide).
+    const firstLoad = ref(true);
 
     // Jour sélectionné dans la grille — pilote le panneau persistant sous la légende.
     // Auto-sélectionné sur "aujourd'hui" quand on est sur le mois courant ; sinon vide
@@ -422,6 +425,7 @@ const app = createApp({
         }
       } catch (e) { console.error('[calendar]', e); }
       loading.value = false;
+      firstLoad.value = false;
     }
 
     function prevMonth() {
@@ -439,7 +443,7 @@ const app = createApp({
     onMounted(loadMonth);
 
     return {
-      t, lang, loading,
+      t, lang, loading, firstLoad,
       viewYear, viewMonth, isCurrentMonth, monthLabel, dowLabels,
       cells, monthKpis, monthMeta, dailyData,
       barColor, barWidth,
