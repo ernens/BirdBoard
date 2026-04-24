@@ -49,6 +49,20 @@
       </div>
     </div>
 
+    <!-- Mode toggle : Moments marquants / Toutes les détections.
+         Garde-fou : 2 états seulement, pas de menu à options multiples. -->
+    <div class="tl-mode-toggle" v-if="data" role="tablist" :aria-label="t('tl_mode_aria')">
+      <button class="tl-mode-btn" :class="{active: viewMode === 'remarkable'}"
+              @click="setViewMode('remarkable')" role="tab" :aria-selected="viewMode === 'remarkable'">
+        {{t('tl_mode_remarkable')}}
+      </button>
+      <button class="tl-mode-btn" :class="{active: viewMode === 'all'}"
+              @click="setViewMode('all')" role="tab" :aria-selected="viewMode === 'all'">
+        {{t('tl_mode_all')}}
+        <span v-if="viewMode === 'all' && loadingRaw" class="tl-mode-spinner" aria-hidden="true">⟳</span>
+      </button>
+    </div>
+
     <!-- Stats row -->
     <div class="tl-stats-row" v-if="data">
       <!-- Sunrise -->
@@ -282,6 +296,75 @@ const app = createApp({
     const activeFilters = ref([]);
     const eventTypes = ['nocturnal','rare','firstyear','firstday','best','out_of_season','species_return','top_species'];
 
+    // Phase 3 timeline : toggle assumé "Moments marquants / Toutes les détections".
+    // - viewMode 'remarkable' (défaut) = pipeline éditorial backend uniquement.
+    // - viewMode 'all' = éditorial + détections raw chargées à la demande, mergées.
+    // Garde-fous : la liste hérite naturellement du zoom (pas de table exhaustive
+    // hors-fenêtre) ; les marqueurs raw s'affichent comme simples points sur la
+    // baseline, jamais comme markers riches photo+label — pour ne PAS devenir
+    // detections.html bis. L'éditorial garde sa dignité visuelle.
+    const viewMode = ref('remarkable');
+    const rawDetectionsByDate = ref({});
+    const loadingRaw = ref(false);
+
+    async function loadRawDetections(date) {
+      if (!date || rawDetectionsByDate.value[date]) return;
+      loadingRaw.value = true;
+      try {
+        const detRows = await birdQuery(
+          `SELECT Com_Name, Sci_Name, Confidence, Time, File_Name
+           FROM detections WHERE Date=? AND Confidence >= ? ORDER BY Time ASC`,
+          [date, sliderToConf(confSlider.value)]
+        );
+        const mapped = detRows.map(r => {
+          const h = parseInt(r.Time.substr(0,2)), m = parseInt(r.Time.substr(3,2));
+          return {
+            id: 'raw_' + r.Time.replace(/:/g,'') + '_' + r.Sci_Name.replace(/ /g,'-'),
+            type: 'top_species', time: r.Time.substr(0,5),
+            timeDecimal: h + m/60,
+            commonName: r.Com_Name, sciName: r.Sci_Name,
+            confidence: r.Confidence, tags: [], priority: 4,
+            photoUrl: `/birds/api/photo?sci=${encodeURIComponent(r.Sci_Name)}`,
+            photoFallback: '🐦', audioFile: r.File_Name,
+            isRaw: true,
+          };
+        });
+        rawDetectionsByDate.value = { ...rawDetectionsByDate.value, [date]: mapped };
+      } catch (e) { console.error('[timeline] loadRawDetections', e); }
+      loadingRaw.value = false;
+    }
+
+    function setViewMode(m) {
+      if (viewMode.value === m) return;
+      viewMode.value = m;
+      if (m === 'all' && selectedDate.value) loadRawDetections(selectedDate.value);
+    }
+
+    // Source unifiée pour la frise et la liste : éditorial + raw (mode 'all') ou
+    // éditorial seul (mode 'remarkable'). Dédup sur sciName|time pour éviter de
+    // doubler une détection déjà présente dans la sélection éditoriale.
+    const displayedEvents = computed(() => {
+      if (!data.value?.events) return [];
+      if (viewMode.value === 'remarkable') return data.value.events;
+      const editorialKeys = new Set(
+        data.value.events
+          .filter(e => !e.isAstro && e.time && e.sciName)
+          .map(e => e.sciName + '|' + e.time)
+      );
+      const raw = rawDetectionsByDate.value[selectedDate.value] || [];
+      const rawNotEditorial = raw.filter(r => !editorialKeys.has(r.sciName + '|' + r.time));
+      return [...data.value.events, ...rawNotEditorial];
+    });
+
+    // Re-render des marqueurs uniquement quand displayedEvents change (mode bascule
+    // ou raw arrive) — on ne re-trigger PAS render() complet (sky / stars / density
+    // bar restent inchangés). flush:'post' pour attendre que le DOM soit prêt.
+    watch(displayedEvents, () => {
+      if (innerRef.value && data.value) {
+        buildMarkers(innerRef.value, displayedEvents.value);
+      }
+    }, { flush: 'post' });
+
     // Drag-to-zoom on density bar or sky canvas
     let _dragActive = false;
     let _dragStartPct = 0;
@@ -349,10 +432,10 @@ const app = createApp({
     const densityWrapRef = ref(null);
 
     const typeCounts = computed(() => {
-      if (!data.value) return {};
+      if (!displayedEvents.value.length) return {};
       const counts = {};
       const vs = viewStart.value, ve = viewEnd.value;
-      for (const e of data.value.events) {
+      for (const e of displayedEvents.value) {
         if (e.isAstro) continue;
         // Expand clusters into individual species
         if (e.type === 'cluster' && e.species) {
@@ -388,10 +471,10 @@ const app = createApp({
     }
 
     const filteredEvents = computed(() => {
-      if (!data.value) return [];
+      if (!displayedEvents.value.length) return [];
       // Flatten: include cluster species as standalone events
       const all = [];
-      for (const e of data.value.events) {
+      for (const e of displayedEvents.value) {
         if (e.isAstro) continue;
         if (e.type === 'cluster' && e.species) {
           for (const sp of e.species) all.push({ ...sp, timeDecimal: sp.timeDecimal ?? e.timeDecimal });
@@ -631,7 +714,7 @@ const app = createApp({
 
     function buildMarkers(inner, events) {
       if (!inner) return;
-      inner.querySelectorAll('.tl-hour-tick,.tl-astro-marker,.tl-now-cursor,.tl-event-marker,.tl-cluster-marker,.tp-baseline,.tl-conf-line,.tl-density-slot').forEach(el => el.remove());
+      inner.querySelectorAll('.tl-hour-tick,.tl-astro-marker,.tl-now-cursor,.tl-event-marker,.tl-cluster-marker,.tp-baseline,.tl-conf-line,.tl-density-slot,.tl-raw-dot').forEach(el => el.remove());
 
       const bl = document.createElement('div');
       bl.className = 'tp-baseline'; bl.style.bottom = '72px'; inner.appendChild(bl);
@@ -765,6 +848,19 @@ const app = createApp({
           return;
         }
 
+        // Détections raw du mode 'all' : marqueur compact (point) sur la baseline
+        // — l'éditorial garde ses marqueurs riches photo+label, le brut est
+        // présent mais discret pour ne pas transformer la frise en table.
+        if (ev.isRaw) {
+          const dot = document.createElement('div');
+          dot.className = 'tl-raw-dot';
+          dot.style.left = x + 'px';
+          dot.title = `${ev.time} — ${spName(ev.commonName, ev.sciName)} (${Math.round((ev.confidence||0)*100)}%)`;
+          dot.addEventListener('click', () => openPopup(ev));
+          inner.appendChild(dot);
+          return;
+        }
+
         // Regular event markers — vertical position mapped to confidence
         const el = document.createElement('div');
         const color = typeColors[ev.type] || '#8b949e';
@@ -821,31 +917,17 @@ const app = createApp({
         if (!r.ok) return;
         const json = await r.json();
         if (!json || json.error) return;
-        // ALL mode: inject individual detections as events
-        if (confSlider.value > 90) {
-          try {
-            const detRows = await birdQuery(
-              `SELECT Com_Name, Sci_Name, Confidence, Time, File_Name
-               FROM detections WHERE Date=? ORDER BY Time ASC`, [selectedDate.value]);
-            const existingKeys = new Set(json.events.map(e => e.sciName + '|' + (e.time || '')));
-            for (const r of detRows) {
-              const h = parseInt(r.Time.substr(0,2)), m = parseInt(r.Time.substr(3,2));
-              const key = r.Sci_Name + '|' + r.Time.substr(0,5);
-              if (existingKeys.has(key)) continue;
-              existingKeys.add(key);
-              json.events.push({
-                id: 'all_' + r.Time.replace(/:/g,'') + '_' + r.Sci_Name.replace(/ /g,'-'),
-                type: 'top_species', time: r.Time.substr(0,5),
-                timeDecimal: h + m/60,
-                commonName: r.Com_Name, sciName: r.Sci_Name,
-                confidence: r.Confidence,
-                tags: [], photoUrl: `/birds/api/photo?sci=${encodeURIComponent(r.Sci_Name)}`,
-                photoFallback: '🐦', audioFile: r.File_Name, priority: 4,
-              });
-            }
-          } catch(e) { console.error('[timeline ALL]', e); }
-        }
         data.value = json;
+        // Le seuil de confiance a pu changer : invalider le cache raw pour ce jour.
+        // Si on est en mode 'all', recharger les détections raw avec le nouveau seuil.
+        if (selectedDate.value && rawDetectionsByDate.value[selectedDate.value]) {
+          const next = { ...rawDetectionsByDate.value };
+          delete next[selectedDate.value];
+          rawDetectionsByDate.value = next;
+        }
+        if (viewMode.value === 'all' && selectedDate.value) {
+          loadRawDetections(selectedDate.value);
+        }
         window.history.replaceState(null, '', `?date=${selectedDate.value}`);
       } catch(e) {
         console.error('[timeline]', e);
@@ -880,7 +962,7 @@ const app = createApp({
       if (innerRef.value) {
         innerRef.value.style.width = TOTAL_W() + 'px';
         innerRef.value.style.height = SKY_H + 'px';
-        buildMarkers(innerRef.value, data.value.events);
+        buildMarkers(innerRef.value, displayedEvents.value);
       }
       // No auto-scroll when zoomed — user selected the range
       if (scrollRef.value) {
@@ -911,6 +993,7 @@ const app = createApp({
       lang, t, spName, data, loading, selectedDate, todayStr,
       popupEvent, clusterPopup, openPopup, activeFilters, eventTypes, toggleFilter, typeCounts, filteredEvents,
       remarkableCount, totalDetectionsCount,
+      viewMode, setViewMode, loadingRaw, displayedEvents,
       formatDate, moonEmoji, navigateDay, load,
       viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
       confSlider, sliderLabel, sliderToConf, onSliderChange,

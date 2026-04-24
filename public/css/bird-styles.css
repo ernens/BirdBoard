@@ -2918,13 +2918,59 @@ select, input[type="text"], input[type="number"], textarea {
 }
 /* Couche densité (Phase 1 timeline) : bars verticales 30-min posées en fond,
    au-dessus du ground (z:1) et en-dessous de la baseline (z:3) et des markers
-   éditoriaux (z:6+). Couleur neutre désaturée, opacité plafonnée à .35 — la
+   éditoriaux (z:6+). Couleur neutre désaturée, opacité plafonnée à .40 — la
    couche raconte l'activité réelle sans rivaliser avec les marqueurs. */
 .tl-density-slot {
   position:absolute; bottom:72px;
   border-radius:2px 2px 0 0;
   pointer-events:none;
   z-index:2;
+}
+/* Mode 'all' (Phase 3) : chaque détection raw est un petit point sur la
+   baseline. Cliquable, ouvre le popup. Pas de photo, pas de label — l'éditorial
+   garde le premier plan et la frise ne devient pas detections.html bis. */
+.tl-raw-dot {
+  position:absolute; bottom:72px;
+  width:6px; height:6px; margin-left:-3px;
+  border-radius:50%;
+  background:rgba(255,255,255,.55);
+  cursor:pointer; z-index:5;
+  transition:transform .12s ease, background .12s ease;
+}
+.tl-raw-dot:hover {
+  background:rgba(255,255,255,.95);
+  transform:scale(1.6);
+}
+/* Segmented control "Moments marquants / Toutes les détections" */
+.tl-mode-toggle {
+  display:inline-flex;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:2px;
+  margin:.6rem 0 .4rem;
+  gap:1px;
+}
+.tl-mode-btn {
+  background:transparent; border:none;
+  color:var(--text-muted);
+  padding:.4rem .9rem;
+  font-size:.78rem; font-weight:500;
+  cursor:pointer; border-radius:4px;
+  transition:background .12s, color .12s;
+  display:inline-flex; align-items:center; gap:.4rem;
+}
+.tl-mode-btn:hover { color:var(--text-main); }
+.tl-mode-btn.active {
+  background:var(--accent);
+  color:var(--bg-deep);
+}
+.tl-mode-spinner { animation:tl-spin 1.2s linear infinite; display:inline-block; }
+@keyframes tl-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .tl-raw-dot { transition:background .12s; }
+  .tl-raw-dot:hover { transform:none; }
+  .tl-mode-spinner { animation:none; }
 }
 
 /* Hour ticks */
