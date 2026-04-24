@@ -264,7 +264,14 @@
       border-bottom: 1px solid var(--border); transition: background .1s;
     }
     .det-row:hover { background: var(--bg-card2); }
-    .det-row.active { background: var(--bg-card2); color: var(--accent); }
+    /* Active row — the detection currently loaded in the player. Made more
+       distinct so the eye finds it instantly when scrolling 16+ rows. */
+    .det-row.active {
+      background: var(--bg-card2); color: var(--accent);
+      border-left: 3px solid var(--accent);
+      padding-left: calc(.85rem - 3px);
+      font-weight: 600;
+    }
     .det-row:last-child { border-bottom: none; }
     /* Section header — clear title + small "see multi-day" link */
     .td-dets-head {
@@ -472,7 +479,14 @@
       border-bottom: 1px solid var(--border); transition: background .1s;
     }
     .det-row:hover { background: var(--bg-card2); }
-    .det-row.active { background: var(--bg-card2); color: var(--accent); }
+    /* Active row — the detection currently loaded in the player. Made more
+       distinct so the eye finds it instantly when scrolling 16+ rows. */
+    .det-row.active {
+      background: var(--bg-card2); color: var(--accent);
+      border-left: 3px solid var(--accent);
+      padding-left: calc(.85rem - 3px);
+      font-weight: 600;
+    }
     .det-row:last-child { border-bottom: none; }
     /* Section header — clear title + small "see multi-day" link */
     .td-dets-head {
@@ -1914,7 +1928,7 @@
 /* ── Today player enhancements ────────────────────────────────────── */
 .player-quick-stats {
   display: flex; justify-content: space-around;
-  padding: .65rem .5rem;
+  padding: .8rem .5rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card2);
 }
@@ -1926,7 +1940,7 @@
    the height + padding to feel like a proper "activity of the day" zone. */
 .player-sparkline {
   display: flex; flex-direction: column;
-  padding: .65rem .75rem .35rem;
+  padding: .8rem .85rem .5rem;
   border-bottom: 1px solid var(--border);
 }
 .spark-bars {
