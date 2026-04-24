@@ -317,7 +317,7 @@
           <div v-if="selectedHourly && selectedHourly.some(v=>v>0)" class="player-sparkline">
             <div class="spark-bars">
               <div v-for="(v,h) in selectedHourly" :key="h" class="spark-bar-wrap" :title="h+'h: '+v+' det.'">
-                <div class="spark-bar" :style="{height: Math.max(3, v / Math.max(...selectedHourly) * 56) + 'px'}"></div>
+                <div class="spark-bar" :style="{height: Math.max(3, v / Math.max(...selectedHourly) * 76) + 'px'}"></div>
               </div>
             </div>
             <div class="spark-labels">

@@ -97,10 +97,13 @@
 
 /* ── today.html ──────────────────────────────────────────────────────── */
 
-    /* ── Layout 2 colonnes ──────────────────────────────────────────── */
+    /* ── Layout 2 colonnes ──────────────────────────────────────────────
+       Left sidebar reduced 340 → 300 px to lighten its visual gravity.
+       The list is the index, not the page — workspace on the right needs
+       room to be the centre of attention. */
     .today-layout {
       display: grid;
-      grid-template-columns: 340px minmax(0,1fr);
+      grid-template-columns: 300px minmax(0,1fr);
       gap: 1rem;
       align-items: start;
     }
@@ -108,11 +111,14 @@
       .today-layout { grid-template-columns: 1fr; }
     }
 
-    /* ── Liste espèces ──────────────────────────────────────────────── */
+    /* ── Liste espèces — compact index, not a gallery ──────────────────
+       Compaction targets per-row vertical weight: smaller thumb (40 → 32),
+       tighter padding, slightly smaller fonts. The list stays rich but
+       reads as "navigation" instead of "autonomous scrollable page". */
     .species-list { display: flex; flex-direction: column; gap: 0; }
     .sp-item {
-      display: flex; align-items: center; gap: .7rem;
-      padding: .55rem .75rem; cursor: pointer;
+      display: flex; align-items: center; gap: .55rem;
+      padding: .35rem .65rem; cursor: pointer;
       border-bottom: 1px solid var(--border);
       transition: background .12s;
     }
@@ -120,17 +126,17 @@
     .sp-item:hover { background: var(--bg-card2); }
     .sp-item.active { background: var(--bg-card2); border-left: 3px solid var(--accent); }
     .sp-thumb {
-      width: 40px; height: 40px; border-radius: 6px; object-fit: cover;
-      background: var(--bg-deep); flex-shrink: 0; font-size: 1.3rem;
+      width: 32px; height: 32px; border-radius: 5px; object-fit: cover;
+      background: var(--bg-deep); flex-shrink: 0; font-size: 1.05rem;
       display: flex; align-items: center; justify-content: center;
     }
-    .sp-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+    .sp-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
     .sp-info { flex: 1; min-width: 0; }
-    .sp-name-row { font-size: .86rem; font-weight: 600; color: var(--text-main);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-sci-row  { font-size: .72rem; color: var(--text-muted); font-style: italic;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-meta    { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; flex-shrink: 0; }
+    .sp-name-row { font-size: .8rem; font-weight: 600; color: var(--text-main);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+    .sp-sci-row  { font-size: .66rem; color: var(--text-muted); font-style: italic;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+    .sp-meta    { display: flex; flex-direction: column; align-items: flex-end; gap: .15rem; flex-shrink: 0; font-size: .72rem; }
 
     /* ── Panneau lecteur ────────────────────────────────────────────── */
     .player-card { position: sticky; top: 1rem; }
@@ -249,10 +255,13 @@
     }
     .new-sp-item:hover { background:var(--bg-card2); }
 
-    /* ── Layout 2 colonnes ──────────────────────────────────────────── */
+    /* ── Layout 2 colonnes ──────────────────────────────────────────────
+       Left sidebar reduced 340 → 300 px to lighten its visual gravity.
+       The list is the index, not the page — workspace on the right needs
+       room to be the centre of attention. */
     .today-layout {
       display: grid;
-      grid-template-columns: 340px minmax(0,1fr);
+      grid-template-columns: 300px minmax(0,1fr);
       gap: 1rem;
       align-items: start;
     }
@@ -260,11 +269,14 @@
       .today-layout { grid-template-columns: 1fr; }
     }
 
-    /* ── Liste espèces ──────────────────────────────────────────────── */
+    /* ── Liste espèces — compact index, not a gallery ──────────────────
+       Compaction targets per-row vertical weight: smaller thumb (40 → 32),
+       tighter padding, slightly smaller fonts. The list stays rich but
+       reads as "navigation" instead of "autonomous scrollable page". */
     .species-list { display: flex; flex-direction: column; gap: 0; }
     .sp-item {
-      display: flex; align-items: center; gap: .7rem;
-      padding: .55rem .75rem; cursor: pointer;
+      display: flex; align-items: center; gap: .55rem;
+      padding: .35rem .65rem; cursor: pointer;
       border-bottom: 1px solid var(--border);
       transition: background .12s;
     }
@@ -272,17 +284,17 @@
     .sp-item:hover { background: var(--bg-card2); }
     .sp-item.active { background: var(--bg-card2); border-left: 3px solid var(--accent); }
     .sp-thumb {
-      width: 40px; height: 40px; border-radius: 6px; object-fit: cover;
-      background: var(--bg-deep); flex-shrink: 0; font-size: 1.3rem;
+      width: 32px; height: 32px; border-radius: 5px; object-fit: cover;
+      background: var(--bg-deep); flex-shrink: 0; font-size: 1.05rem;
       display: flex; align-items: center; justify-content: center;
     }
-    .sp-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+    .sp-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
     .sp-info { flex: 1; min-width: 0; }
-    .sp-name-row { font-size: .86rem; font-weight: 600; color: var(--text-main);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-sci-row  { font-size: .72rem; color: var(--text-muted); font-style: italic;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-meta    { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; flex-shrink: 0; }
+    .sp-name-row { font-size: .8rem; font-weight: 600; color: var(--text-main);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+    .sp-sci-row  { font-size: .66rem; color: var(--text-muted); font-style: italic;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+    .sp-meta    { display: flex; flex-direction: column; align-items: flex-end; gap: .15rem; flex-shrink: 0; font-size: .72rem; }
 
     /* ── Panneau lecteur ────────────────────────────────────────────── */
     .player-card { position: sticky; top: 1rem; }
@@ -1802,21 +1814,23 @@
 /* ── Today player enhancements ────────────────────────────────────── */
 .player-quick-stats {
   display: flex; justify-content: space-around;
-  padding: .45rem .5rem;
+  padding: .65rem .5rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card2);
 }
 .pqs-item { text-align: center; }
-.pqs-val { display: block; font-size: .9rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
-.pqs-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.pqs-val { display: block; font-size: .95rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pqs-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-top: .15rem; }
 
+/* Sparkline breathes more — was tight enough to look decorative; now has
+   the height + padding to feel like a proper "activity of the day" zone. */
 .player-sparkline {
   display: flex; flex-direction: column;
-  padding: .35rem .6rem .15rem;
+  padding: .65rem .75rem .35rem;
   border-bottom: 1px solid var(--border);
 }
 .spark-bars {
-  display: flex; align-items: flex-end; gap: 2px; height: 60px;
+  display: flex; align-items: flex-end; gap: 2px; height: 80px;
 }
 .spark-bar-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; }
 .spark-bar {
