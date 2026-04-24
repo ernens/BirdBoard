@@ -568,12 +568,52 @@ const app = createApp({
       }
     }
 
+    // Phase 1 timeline : la couche densité raconte la vérité chronologique
+    // (toutes les détections au-dessus du seuil de confiance, par tranche de 30 min).
+    // Elle est dessinée en fond, désaturée et bornée en opacité, pour que l'activité
+    // réelle reste visible toute la journée — y compris l'après-midi quand peu
+    // d'événements sont jugés "remarquables" — sans jamais rivaliser avec les
+    // marqueurs éditoriaux qui sont posés par-dessus.
+    function buildDensityLayer(inner) {
+      if (!data.value || !inner) return;
+      const slots = new Array(48).fill(0);
+      (data.value.density || []).forEach(s => { if (s.slot >= 0 && s.slot < 48) slots[s.slot] = s.count; });
+      const slotStart = Math.max(0, Math.floor(_viewStart * 2));
+      const slotEnd = Math.min(48, Math.ceil(_viewEnd * 2));
+      let visibleMax = 0;
+      for (let i = slotStart; i < slotEnd; i++) if (slots[i] > visibleMax) visibleMax = slots[i];
+      if (visibleMax === 0) return;
+      const slotWidth = PX_PER_HOUR() / 2;
+      const MAX_BAR_H = 70;
+      for (let i = slotStart; i < slotEnd; i++) {
+        const count = slots[i];
+        if (count === 0) continue;
+        const norm = count / visibleMax;
+        const bar = document.createElement('div');
+        bar.className = 'tl-density-slot';
+        bar.style.left = hourToX(i / 2) + 'px';
+        bar.style.width = Math.max(1, slotWidth - 1) + 'px';
+        bar.style.height = Math.max(2, Math.round(norm * MAX_BAR_H)) + 'px';
+        // Opacité bornée à .35 max — la couche reste fond, jamais premier plan.
+        const alpha = (0.10 + norm * 0.25).toFixed(2);
+        bar.style.backgroundColor = `rgba(255,255,255,${alpha})`;
+        const hh = String(Math.floor(i / 2)).padStart(2, '0');
+        const mm = (i % 2) ? '30' : '00';
+        bar.title = `${hh}:${mm} — ${count} det.`;
+        inner.appendChild(bar);
+      }
+    }
+
     function buildMarkers(inner, events) {
       if (!inner) return;
-      inner.querySelectorAll('.tl-hour-tick,.tl-astro-marker,.tl-now-cursor,.tl-event-marker,.tl-cluster-marker,.tp-baseline,.tl-conf-line').forEach(el => el.remove());
+      inner.querySelectorAll('.tl-hour-tick,.tl-astro-marker,.tl-now-cursor,.tl-event-marker,.tl-cluster-marker,.tp-baseline,.tl-conf-line,.tl-density-slot').forEach(el => el.remove());
 
       const bl = document.createElement('div');
       bl.className = 'tp-baseline'; bl.style.bottom = '72px'; inner.appendChild(bl);
+
+      // Couche densité : posée en fond, AVANT confidence lines / ticks / markers,
+      // donc rendue dessous dans l'ordre naturel d'empilement DOM.
+      buildDensityLayer(inner);
 
       // Compute confidence range — logarithmic scale to spread events toward center
       const minBot = 90, maxBot = SKY_H - 100; // generous margins top & bottom

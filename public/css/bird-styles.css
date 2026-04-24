@@ -2916,6 +2916,16 @@ select, input[type="text"], input[type="number"], textarea {
   position:absolute; bottom:52px; left:0; right:0;
   height:1px; background:rgba(255,255,255,.1); z-index:3;
 }
+/* Couche densité (Phase 1 timeline) : bars verticales 30-min posées en fond,
+   au-dessus du ground (z:1) et en-dessous de la baseline (z:3) et des markers
+   éditoriaux (z:6+). Couleur neutre désaturée, opacité plafonnée à .35 — la
+   couche raconte l'activité réelle sans rivaliser avec les marqueurs. */
+.tl-density-slot {
+  position:absolute; bottom:72px;
+  border-radius:2px 2px 0 0;
+  pointer-events:none;
+  z-index:2;
+}
 
 /* Hour ticks */
 .tl-hour-tick {
