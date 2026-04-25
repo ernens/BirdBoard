@@ -168,6 +168,18 @@
             <span v-if="!uniqueMode">{{t('page')}} {{page}} {{t('of')}} {{totalPages}}</span>
           </span>
         </div>
+
+        <!-- Bandeau de filtres actifs : visible uniquement quand au moins un
+             filtre s'écarte de l'état par défaut. Chaque chip est cliquable pour
+             retirer ce filtre seul. "Tout effacer" n'apparaît qu'à partir de 2. -->
+        <div v-if="activeChips.length" class="det-active-chips">
+          <span v-for="c in activeChips" :key="c.key" class="det-chip">
+            <span class="det-chip-label">{{c.label}}</span>
+            <button class="det-chip-x" :aria-label="t('det_chip_aria_remove')" @click="c.clear()">×</button>
+          </span>
+          <button v-if="activeChips.length>1" class="det-chip-clear-all" @click="resetFilters">{{t('det_chip_clear_all')}}</button>
+        </div>
+
         <div class="card" style="padding:0;overflow:hidden;">
           <div v-if="loading" style="padding:1rem;">
             <div v-for="i in 8" :key="i" class="skeleton-row" style="border-bottom:1px solid var(--border);">
@@ -404,6 +416,51 @@ const app = createApp({
     const displayRows  = computed(() => uniqueMode.value ? uniqueRows.value : rows.value);
     const displayTotal = computed(() => uniqueMode.value ? uniqueRows.value.length : total.value);
 
+    // Chips de filtres actifs — un seulement si l'état diffère du défaut. Le
+    // bandeau ne se rend pas si la liste est vide. Chaque clear() ré-applique.
+    const activeChips = computed(() => {
+      const out = [];
+      if (fGuild.value) {
+        const g = guildOptions.value.find(x => x.key === fGuild.value);
+        out.push({ key:'guild',  label: g ? (g.icon + ' ' + g.label) : fGuild.value,
+                   clear: () => { fGuild.value=''; applyFilters(); } });
+      }
+      if (fOrder.value) {
+        out.push({ key:'order',  label: fOrder.value,
+                   clear: () => { fOrder.value=''; applyFilters(); } });
+      }
+      if (fFamily.value) {
+        const f = taxonomyAllFamilies.value.find(x => x.sci === fFamily.value);
+        out.push({ key:'family', label: f ? f.com : fFamily.value,
+                   clear: () => { fFamily.value=''; applyFilters(); } });
+      }
+      if (fSpecies.value.length) {
+        out.push({ key:'species', label: t('det_chip_species_count', {n: fSpecies.value.length}),
+                   clear: () => { fSpecies.value=[]; applyFilters(); } });
+      }
+      if (favOnly.value) {
+        out.push({ key:'fav',    label: '★ ' + t('fav_only'),
+                   clear: () => { favOnly.value=false; applyFilters(); } });
+      }
+      if (newSpOnly.value) {
+        out.push({ key:'new',    label: '✨ ' + t('new_species'),
+                   clear: () => { newSpOnly.value=false; applyFilters(); } });
+      }
+      if (fp.period.value !== '7d') {
+        const lbl = fp.period.value === 'custom'
+          ? (fp.dateFrom.value + ' → ' + fp.dateTo.value)
+          : t('quick_' + fp.period.value);
+        out.push({ key:'period', label: lbl,
+                   clear: () => { fp.setPeriod('7d'); } });
+      }
+      const defaultConf = BIRD_CONFIG.defaultConfidence;
+      if (Math.abs(fc.confidence.value - defaultConf) > 0.001) {
+        out.push({ key:'conf',   label: '≥ ' + Math.round(fc.confidence.value*100) + '%',
+                   clear: () => { fc.confidence.value = defaultConf; applyFilters(); } });
+      }
+      return out;
+    });
+
     async function loadSpecies() {
       try {
         const r = await birdQuery(...Q.allCommonNames());
@@ -603,7 +660,7 @@ const app = createApp({
       spSearch,spDropdownOpen,filteredSpeciesList,allSpeciesSelected,
       closeSpDropdown,removeSpecies,
       page,total,rows,loading,totalPages,paginationPages,
-      displayRows,displayTotal,
+      displayRows,displayTotal,activeChips,
       playingFile,toggleAudio, buildAudioUrl,
       fmtDate,fmtTime,fmtConf,navigateTo,spName,shortModel,
       applyFilters,resetFilters,goPage,exportCsv,exportEbird,openSpectro,deleteDet,

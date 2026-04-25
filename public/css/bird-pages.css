@@ -589,6 +589,35 @@
     .fp-apply-btn { width:100%; padding:.55rem; font-weight:600; }
     .fp-reset-btn { width:100%; font-size:.78rem; padding:.4rem; opacity:.78; }
     .fp-reset-btn:hover { opacity:1; }
+    /* Phase 2 detections : chips de filtres actifs au-dessus du tableau.
+       Le bandeau ne se rend pas si rien n'est actif (pas de cadre vide).
+       Chaque chip est une pilule avec × ; clear-all n'apparaît qu'à 2+. */
+    .det-active-chips {
+      display:flex; flex-wrap:wrap; align-items:center;
+      gap:.4rem; margin:0 0 .8rem;
+    }
+    .det-chip {
+      display:inline-flex; align-items:center; gap:.35rem;
+      padding:.22rem .25rem .22rem .6rem;
+      background:var(--bg-card2); border:1px solid var(--border);
+      border-radius:1rem; font-size:.74rem;
+      color:var(--text-main); line-height:1.2;
+    }
+    .det-chip-label { white-space:nowrap; max-width:18rem; overflow:hidden; text-overflow:ellipsis; }
+    .det-chip-x {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:1.1rem; height:1.1rem; border-radius:50%;
+      background:none; border:0; cursor:pointer; padding:0;
+      color:var(--text-muted); font-size:1rem; line-height:1;
+      transition:background .12s, color .12s;
+    }
+    .det-chip-x:hover { color:var(--text-main); background:var(--bg-hover); }
+    .det-chip-clear-all {
+      background:none; border:0; cursor:pointer; padding:.22rem .5rem;
+      font-size:.72rem; color:var(--text-muted); margin-left:auto;
+      transition:color .12s;
+    }
+    .det-chip-clear-all:hover { color:var(--accent); text-decoration:underline; }
     .fp-date-input { width:100%; box-sizing:border-box; background:var(--bg-deep); border:1px solid var(--border); color:var(--text-main); border-radius:4px; padding:.3rem .45rem; font-size:.8rem; margin-bottom:.3rem; }
     .fp-quick-btns, .quick-btns { display:flex; flex-wrap:nowrap; gap:.25rem; }
     .quick-btns { flex-wrap:wrap; gap:.3rem; }
