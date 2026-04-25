@@ -102,11 +102,11 @@
           <h4 class="fp-section-title">{{t('det_section_status')}}</h4>
           <div style="display:flex;gap:.8rem;flex-wrap:wrap;">
             <label class="fp-label" style="cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;margin-bottom:0;">
-              <input type="checkbox" v-model="favOnly" @change="loadDetections" style="accent-color:var(--accent);">
+              <input type="checkbox" v-model="favOnly" @change="applyFilters" style="accent-color:var(--accent);">
               ★ {{t('fav_only')}}
             </label>
             <label class="fp-label" style="cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;margin-bottom:0;">
-              <input type="checkbox" v-model="newSpOnly" @change="loadDetections" style="accent-color:var(--danger);">
+              <input type="checkbox" v-model="newSpOnly" @change="applyFilters" style="accent-color:var(--danger);">
               <bird-icon name="sparkles" :size="12"></bird-icon> {{t('new_species')}}
             </label>
           </div>
@@ -147,10 +147,11 @@
           </div>
         </div>
 
-        <!-- Actions : Apply primaire évident, Reset secondaire calme.
-             Border-top dashed sépare clairement les actions des filtres. -->
+        <!-- Auto-apply partout : chaque changement déclenche immédiatement la
+             requête (slider confiance debounced ~250 ms, multiselect espèces
+             à la fermeture du dropdown). Plus de bouton Appliquer — Réinitialiser
+             reste comme reset global clair. -->
         <div class="fp-actions">
-          <button class="btn btn-primary fp-apply-btn" @click="applyFilters">{{t('apply_filter')}}</button>
           <button class="btn btn-secondary fp-reset-btn" @click="resetFilters">{{t('reset_filter')}}</button>
         </div>
       </div>
@@ -296,7 +297,7 @@ const app = createApp({
       buttons: ['1d','7d','30d','90d','1y','all'],
       onChange: () => applyFilters()
     });
-    const fc = useFilterConfidence({ onChange: () => {} }); // apply on button click
+    const fc = useFilterConfidence({ onChange: () => applyFilters() });
 
     const fSpecies    = ref([]);
     const uniqueMode  = ref(false);
@@ -329,9 +330,9 @@ const app = createApp({
       }));
     });
 
-    function onOrderChange() { fFamily.value = ''; }
-    function onFamilyChange() {}
-    function onGuildChange() { fOrder.value = ''; fFamily.value = ''; }
+    function onOrderChange()  { fFamily.value = ''; applyFilters(); }
+    function onFamilyChange() { applyFilters(); }
+    function onGuildChange()  { fOrder.value = ''; fFamily.value = ''; applyFilters(); }
 
     // Set of species allowed by taxonomy + guild filters
     const taxonomyAllowed = computed(() => {
@@ -359,7 +360,7 @@ const app = createApp({
     const spSearch       = ref('');
     const spDropdownOpen = ref(false);
     function closeSpDropdown() { spDropdownOpen.value = false; }
-    function removeSpecies(s) { fSpecies.value = fSpecies.value.filter(x => x !== s); }
+    function removeSpecies(s) { fSpecies.value = fSpecies.value.filter(x => x !== s); applyFilters(); }
 
     const filteredSpeciesList = computed(() => {
       let list = speciesList.value;
@@ -593,17 +594,64 @@ const app = createApp({
       window.open(url, '_blank');
     }
 
-    function applyFilters() { page.value=1; loadDetections(); }
+    // ── Auto-apply ────────────────────────────────────────────────────
+    // Tous les filtres déclenchent immédiatement la requête. Le slider de
+    // confiance est debounced (~250 ms) pour ne pas spammer pendant le drag,
+    // et le multiselect d'espèces s'applique à la fermeture du dropdown
+    // (un seul refresh même après plusieurs cases cochées).
+    //
+    // _suppressAuto coupe court à toutes les auto-applications pendant un
+    // reset global — sinon resetFilters() déclencherait N requêtes en chaîne
+    // (une par champ remis à zéro). Les watchers sont en flush:'sync' pour
+    // que le drapeau soit lu *avant* le tick suivant.
+    let _suppressAuto = false;
+    let _confTimer = null;
+    let _spSnapshotOnOpen = null;
+
+    function applyFilters() {
+      if (_suppressAuto) return;
+      // Annule un éventuel debounce de confiance en attente — sinon un clic
+      // explicite + un timer en cours produiraient deux requêtes.
+      if (_confTimer) { clearTimeout(_confTimer); _confTimer = null; }
+      page.value = 1;
+      loadDetections();
+    }
     function resetFilters() {
-      fSpecies.value=[]; fp.setPeriod('7d');
-      fc.confidence.value=BIRD_CONFIG.defaultConfidence;
-      fOrder.value=''; fFamily.value=''; fGuild.value='';
-      uniqueMode.value=false; spSearch.value='';
-      page.value=1; loadDetections();
+      _suppressAuto = true;
+      if (_confTimer) { clearTimeout(_confTimer); _confTimer = null; }
+      fSpecies.value = [];
+      fc.confidence.value = BIRD_CONFIG.defaultConfidence;
+      fOrder.value = ''; fFamily.value = ''; fGuild.value = '';
+      uniqueMode.value = false; spSearch.value = '';
+      fp.setPeriod('7d');   // suppressed — pas de requête supplémentaire
+      page.value = 1;
+      _suppressAuto = false;
+      loadDetections();     // une seule requête finale
     }
     function goPage(p) { page.value=p; window.scrollTo(0,0); loadDetections(); }
 
-    watch(uniqueMode, () => { page.value=1; loadDetections(); });
+    // Confidence slider : debounce sur le drag, applique à l'arrêt.
+    watch(() => fc.confidence.value, () => {
+      if (_suppressAuto) return;
+      if (_confTimer) clearTimeout(_confTimer);
+      _confTimer = setTimeout(() => { _confTimer = null; applyFilters(); }, 250);
+    }, { flush: 'sync' });
+
+    // Mode Unique : applique au toggle (page=1 + reload).
+    watch(uniqueMode, () => applyFilters(), { flush: 'sync' });
+
+    // Multiselect espèces : snapshot à l'ouverture, comparaison à la fermeture
+    // — un seul applyFilters() même si l'utilisateur a coché 5 cases.
+    watch(spDropdownOpen, (open, wasOpen) => {
+      if (open && !wasOpen) {
+        _spSnapshotOnOpen = [...fSpecies.value].sort().join('|');
+      } else if (!open && wasOpen) {
+        const cur = [...fSpecies.value].sort().join('|');
+        if (cur !== _spSnapshotOnOpen) applyFilters();
+        _spSnapshotOnOpen = null;
+      }
+    }, { flush: 'sync' });
+
     watch(lang, async () => {
       const tax = await BIRDASH_UTILS.loadTaxonomy(lang.value);
       taxonomyData.value = tax.species || [];
