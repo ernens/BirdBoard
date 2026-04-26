@@ -120,17 +120,7 @@
     </div>
 
     <template v-if="data && !loading">
-      <!-- Density bar — drag to select zoom range, double-click to reset -->
-      <div class="tp-density-label">{{t('tl_density_label')}} <span style="font-size:.7rem;color:var(--text-faint);margin-left:.5rem;">{{t('tl_drag_hint')}}</span></div>
-      <div class="tl-density-zone" ref="densityWrapRef" @mousedown.prevent="onZoneMousedown" @dblclick.prevent="resetZoom" style="user-select:none;">
-        <div style="position:relative;">
-          <canvas ref="densityRef" height="36" style="width:100%;display:block;border-radius:3px;cursor:crosshair;"></canvas>
-          <div v-if="dragSelect" class="tl-drag-select"
-               :style="{left: dragSelect.left+'%', width: dragSelect.width+'%'}"></div>
-        </div>
-      </div>
-
-      <!-- Sky timeline — also supports drag to zoom -->
+      <!-- Sky timeline — drag to zoom on the frise itself, double-click to reset -->
       <div class="tp-scroll" ref="scrollRef" style="margin:0 0 .5rem;position:relative;padding-top:60px;"
            @mousedown.prevent="onZoneMousedown" @dblclick.prevent="resetZoom">
         <div class="tp-inner" ref="innerRef" style="cursor:crosshair;">
@@ -398,7 +388,7 @@ const app = createApp({
 
     function onZoneMousemove(e) {
       if (!_dragActive) return;
-      const el = densityWrapRef.value || scrollRef.value;
+      const el = scrollRef.value;
       if (!el) return;
       const pct = pctFromEvent(e, el);
       const left = Math.min(_dragStartPct, pct);
@@ -440,8 +430,6 @@ const app = createApp({
     const innerRef = ref(null);
     const skyRef = ref(null);
     const starsRef = ref(null);
-    const densityRef = ref(null);
-    const densityWrapRef = ref(null);
 
     const typeCounts = computed(() => {
       if (!displayedEvents.value.length) return {};
@@ -652,45 +640,6 @@ const app = createApp({
         ctx.shadowBlur = 12;
         ctx.fillText(icon, mx, my);
         ctx.restore();
-      }
-    }
-
-    function buildDensityBar(canvas) {
-      if (!data.value || !canvas) return;
-      const density = new Array(48).fill(0);
-      (data.value.density || []).forEach(s => { if (s.slot >= 0 && s.slot < 48) density[s.slot] = s.count; });
-      const A = data.value.meta?.astronomy || { civilDawn:5.5, sunrise:6.5, sunset:19.5, civilDusk:20.5 };
-      const w = densityWrapRef.value ? densityWrapRef.value.clientWidth : 800;
-      canvas.width = w; canvas.height = 36;
-      const ctx = canvas.getContext('2d');
-      // Only render slots within the current view range
-      const slotStart = Math.floor(_viewStart * 2);
-      const slotEnd = Math.ceil(_viewEnd * 2);
-      const visibleSlots = slotEnd - slotStart;
-      const sw = w / visibleSlots;
-      const visibleDensity = density.slice(slotStart, slotEnd);
-      const maxD = Math.max(...visibleDensity, 1);
-      visibleDensity.forEach((d, i) => {
-        const norm = d / maxD, x = i * sw, h = Math.max(1, norm * 32);
-        const hour = (slotStart + i) / 2;
-        let col;
-        if (hour < A.civilDawn || hour > A.civilDusk) col = `rgba(129,140,248,${.2+norm*.65})`;
-        else if (hour < A.sunrise+.75 || hour > A.sunset-.75) col = `rgba(251,146,60,${.28+norm*.6})`;
-        else col = `rgba(96,165,250,${.18+norm*.65})`;
-        ctx.fillStyle = col;
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x+1, 36-h, sw-2, h, [2,2,0,0]); ctx.fill(); }
-        else { ctx.fillRect(x+1, 36-h, sw-2, h); }
-      });
-      // Hour labels adapted to zoom level
-      ctx.fillStyle = 'rgba(255,255,255,.4)';
-      ctx.font = '9px sans-serif';
-      ctx.textAlign = 'center';
-      const span = _viewEnd - _viewStart;
-      const step = span <= 2 ? 0.25 : span <= 6 ? 0.5 : span <= 12 ? 1 : 3;
-      for (let h = Math.ceil(_viewStart / step) * step; h <= _viewEnd; h += step) {
-        const x = (h - _viewStart) / span * w;
-        const label = String(Math.floor(h)).padStart(2,'0') + ':' + String(Math.round((h%1)*60)).padStart(2,'0');
-        ctx.fillText(label, x, 10);
       }
     }
 
@@ -985,7 +934,6 @@ const app = createApp({
       };
       if (skyRef.value) drawSky(skyRef.value, A);
       if (starsRef.value) drawStars(starsRef.value, A);
-      if (densityRef.value) buildDensityBar(densityRef.value);
       if (innerRef.value) {
         innerRef.value.style.width = TOTAL_W() + 'px';
         innerRef.value.style.height = SKY_H + 'px';
@@ -1024,7 +972,7 @@ const app = createApp({
       formatDate, moonEmoji, navigateDay, load,
       viewStart, viewEnd, resetZoom, onZoneMousedown, dragSelect,
       confSlider, sliderLabel, sliderToConf, onSliderChange,
-      scrollRef, innerRef, skyRef, starsRef, densityRef, densityWrapRef,
+      scrollRef, innerRef, skyRef, starsRef,
       navigateTo,
       quickPlay(comName) { quickPlaySpecies(comName); },
     };

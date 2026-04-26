@@ -2863,25 +2863,6 @@ select, input[type="text"], input[type="number"], textarea {
 .tp-loading { padding:2rem; text-align:center; color:var(--text-muted); font-size:.85rem; }
 .tp-spinner { display:inline-block; animation:spin 1s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
-.tp-density-label {
-  padding:.5rem 1.25rem .2rem; font-size:.62rem; color:var(--text-faint);
-  text-transform:uppercase; letter-spacing:.08em;
-}
-
-/* Density bar drag-to-zoom zone */
-.tl-density-zone {
-  position:relative; padding:.5rem 2rem; cursor:crosshair; user-select:none;
-  -webkit-user-select:none; touch-action:none;
-}
-.tl-density-sel, .tl-density-view {
-  position:absolute; top:0; bottom:0; border-radius:3px; pointer-events:none;
-}
-.tl-density-sel {
-  background:rgba(96,165,250,.25); border:1px solid rgba(96,165,250,.6); z-index:2;
-}
-.tl-density-view {
-  border:1.5px solid var(--accent); z-index:1; opacity:.7;
-}
 
 /* Confidence guide lines */
 .tl-conf-line {
