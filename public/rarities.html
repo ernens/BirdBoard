@@ -69,89 +69,59 @@
             <div class="skeleton skeleton-kpi"></div><div class="skeleton skeleton-kpi"></div><div class="skeleton skeleton-kpi"></div><div class="skeleton skeleton-kpi"></div>
           </template>
           <template v-else>
-            <a class="rar-kpi" :class="{active: activeKpi==='total'}" @click="scrollToSection('table')">
+            <a class="rar-kpi" :class="{active: activeKpi==='total'}" @click="scrollToSection('total')">
               <div class="rar-kpi-val">{{kpis.total}}</div>
               <div class="rar-kpi-label">{{t('species')}}</div>
             </a>
-            <a class="rar-kpi" :class="{active: activeKpi==='rare'}" @click="scrollToSection('table')">
+            <a class="rar-kpi" :class="{active: activeKpi==='rare'}" @click="scrollToSection('rare')">
               <div class="rar-kpi-val amber">{{kpis.rare}}</div>
               <div class="rar-kpi-label">{{t('rare_species')}} (&le;{{fMaxDet}})</div>
             </a>
-            <a class="rar-kpi" :class="{active: activeKpi==='once'}" @click="scrollToSection('once')">
+            <a class="rar-kpi" :class="{active: activeKpi==='once'}" @click="tableFilter='once'; scrollToSection('once')">
               <div class="rar-kpi-val blue">{{kpis.once}}</div>
               <div class="rar-kpi-label">{{t('rarity_seen_once').replace('\uD83D\uDC8E ','')}}</div>
             </a>
-            <a class="rar-kpi" :class="{active: activeKpi==='new'}" @click="scrollToSection('table'); tableFilter='new'">
+            <a class="rar-kpi" :class="{active: activeKpi==='new'}" @click="tableFilter='new'; scrollToSection('new')">
               <div class="rar-kpi-val">{{kpis.newThisYear}}</div>
               <div class="rar-kpi-label">{{t('first_seen')}} {{thisYear}}</div>
             </a>
           </template>
         </div>
 
-        <div class="grid-2" style="margin-bottom:1rem;">
-
-          <!-- Vues une seule fois -->
-          <div class="card" ref="onceSection">
-            <div class="card-title" style="display:flex;align-items:center;">
-              {{t('rarity_seen_once')}}
-              <span v-if="!once.loading" style="font-size:.72rem;color:var(--text-faint);margin-left:.4rem;">({{once.rows.length}})</span>
-              <button v-if="once.rows.length" class="rar-section-link" @click="scrollToSection('table'); tableFilter='once'">{{t('rarity_show_all')}}</button>
-            </div>
-            <div v-if="once.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:60%"></div><div class="skeleton skeleton-text" style="width:40%"></div></div></div></div>
-            <div v-else-if="!once.rows.length" class="hint-empty">
-              <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
-              <div>{{t('no_data')}}</div>
-            </div>
-            <div v-else>
-              <div v-for="r in once.rows" :key="r.Com_Name" class="det-item"
-                   style="cursor:pointer;gap:.5rem;" @click="navigateTo('species.html',{species:r.Com_Name})">
-                <bird-img v-if="r.photoUrl" :src="r.photoUrl" class="det-thumb" :alt="r.Com_Name" ></bird-img>
-                <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
-                <div style="font-size:.85rem;flex:1;min-width:0;">
-                  <span style="color:var(--danger);margin-right:.25rem;"><bird-icon name="gem" :size="16" ></bird-icon></span>
-                  <strong style="color:var(--text-main);">{{spName(r.Com_Name, r.sci)}}</strong> <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(r.Com_Name)">&#x1F50A;</button>
-                  <div style="font-size:.72rem;color:var(--text-muted);font-style:italic;">{{r.sci}}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;">
-                  <span :class="'conf-badge '+(parseFloat(r.max_conf)>=0.8?'conf-high':'conf-mid')">{{fmtConf(r.max_conf)}}</span>
-                  <div style="font-size:.72rem;color:var(--text-faint);margin-top:.2rem;">{{fmtDate(r.last_date)}}</div>
-                </div>
-              </div>
-            </div>
+        <!-- Dernières détections rares — premier rôle, full-width.
+             Bloc opérationnel : events récents avec spectro / audio / météo.
+             La consultation par espèce passe par la table en bas, pilotée
+             par les KPIs cliquables. -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-title" style="display:flex;align-items:center;">
+            {{t('rarity_last_rare')}}
+            <span v-if="!recent.loading" style="font-size:.72rem;color:var(--text-faint);margin-left:.4rem;">({{recent.rows.length}})</span>
           </div>
-
-          <!-- Dernières détections rares -->
-          <div class="card">
-            <div class="card-title" style="display:flex;align-items:center;">
-              {{t('rarity_last_rare')}}
-              <span v-if="!recent.loading" style="font-size:.72rem;color:var(--text-faint);margin-left:.4rem;">({{recent.rows.length}})</span>
-            </div>
-            <div v-if="recent.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:55%"></div><div class="skeleton skeleton-text" style="width:35%"></div></div></div></div>
-            <div v-else-if="!recent.rows.length" class="hint-empty">
-              <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
-              <div>{{t('no_data')}}</div>
-            </div>
-            <div v-else>
-              <div v-for="d in recent.rows" :key="d.Date+d.Time+d.Com_Name"
-                   class="det-item" style="gap:.5rem;cursor:pointer;"
-                   @click="navigateTo('species.html',{species:d.Com_Name})">
-                <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name" ></bird-img>
-                <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
-                <button v-if="d.File_Name" class="play-btn"
-                        style="width:24px;height:24px;font-size:.65rem;"
-                        @click.stop="BIRDASH.openSpectroModal({fileName:d.File_Name, speciesName:d.Com_Name, sciName:d.Sci_Name||d.sci, confidence:d.Confidence, date:d.Date, time:d.Time})"
-                        title="Spectrogramme">&#x25B6;</button>
-                <a v-if="d.File_Name" :href="buildAudioUrl(d.File_Name)"
-                   :download="d.Com_Name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+d.Date+'.mp3'"
-                   class="dl-btn" :title="t('download')" @click.stop>&#x2B07;</a>
-                <div class="det-time">{{fmtDate(d.Date)}}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(d.Com_Name, d.Sci_Name)}} <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(d.Com_Name)">&#x1F50A;</button></div>
-                  <div class="det-sci">{{d.Sci_Name}}</div>
-                </div>
-                <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':'conf-mid')">{{fmtConf(d.Confidence)}}</span>
-                <weather-chip :date="d.Date" :time="d.Time"></weather-chip>
+          <div v-if="recent.loading"><div class="skeleton-row" v-for="i in 3" :key="i"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text" style="width:55%"></div><div class="skeleton skeleton-text" style="width:35%"></div></div></div></div>
+          <div v-else-if="!recent.rows.length" class="hint-empty">
+            <div class="hint-icon"><bird-icon name="search" :size="24"></bird-icon></div>
+            <div>{{t('no_data')}}</div>
+          </div>
+          <div v-else>
+            <div v-for="d in recent.rows" :key="d.Date+d.Time+d.Com_Name"
+                 class="det-item" style="gap:.5rem;cursor:pointer;"
+                 @click="navigateTo('species.html',{species:d.Com_Name})">
+              <bird-img v-if="d.photoUrl" :src="d.photoUrl" class="det-thumb" :alt="d.Com_Name" ></bird-img>
+              <div v-else class="det-thumb-ph"><bird-icon name="bird" :size="16" ></bird-icon></div>
+              <button v-if="d.File_Name" class="play-btn"
+                      style="width:24px;height:24px;font-size:.65rem;"
+                      @click.stop="BIRDASH.openSpectroModal({fileName:d.File_Name, speciesName:d.Com_Name, sciName:d.Sci_Name||d.sci, confidence:d.Confidence, date:d.Date, time:d.Time})"
+                      title="Spectrogramme">&#x25B6;</button>
+              <a v-if="d.File_Name" :href="buildAudioUrl(d.File_Name)"
+                 :download="d.Com_Name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+d.Date+'.mp3'"
+                 class="dl-btn" :title="t('download')" @click.stop>&#x2B07;</a>
+              <div class="det-time">{{fmtDate(d.Date)}}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{spName(d.Com_Name, d.Sci_Name)}} <button class="qplay-btn" :title="t('quick_play')" @click.stop="quickPlay(d.Com_Name)">&#x1F50A;</button></div>
+                <div class="det-sci">{{d.Sci_Name}}</div>
               </div>
+              <span :class="'conf-badge '+(parseFloat(d.Confidence)>=0.8?'conf-high':'conf-mid')">{{fmtConf(d.Confidence)}}</span>
+              <weather-chip :date="d.Date" :time="d.Time"></weather-chip>
             </div>
           </div>
         </div>
@@ -238,12 +208,10 @@ const app = createApp({
     }
 
     const kpis   = ref({ loading:true, total:0, rare:0, once:0, newThisYear:0 });
-    const once   = ref({ loading:true, rows:[] });
     const recent = ref({ loading:true, rows:[] });
     const table  = ref({ loading:true, rows:[] });
     const tableFilter = ref(null);  // null | 'once' | 'new'
     const activeKpi   = ref(null);
-    const onceSection  = ref(null);
     const tableSection = ref(null);
 
     const filteredTable = computed(() => {
@@ -253,11 +221,13 @@ const app = createApp({
       return table.value.rows;
     });
 
-    function scrollToSection(section) {
-      activeKpi.value = section === 'once' ? 'once' : (tableFilter.value || 'rare');
+    // L'argument est le nom du KPI cliqué (total/rare/once/new) pour piloter
+    // le highlight 1500ms via :class="{active: activeKpi===…}". Tous les KPIs
+    // ciblent désormais la table : la consultation passe par les filtres.
+    function scrollToSection(kpi) {
+      activeKpi.value = kpi;
       nextTick(() => {
-        const el = section === 'once' ? onceSection.value : tableSection.value;
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (tableSection.value) tableSection.value.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => { activeKpi.value = null; }, 1500);
       });
     }
@@ -276,7 +246,6 @@ const app = createApp({
       const dw     = buildDateWhere('');
       await Promise.all([
         loadKpis(conf, maxDet, dw),
-        loadOnce(conf, dw),
         loadRecent(conf, maxDet, dw),
         loadTable(conf, maxDet, dw),
       ]);
@@ -291,18 +260,6 @@ const app = createApp({
         const [nw]   = await birdQuery(`SELECT COUNT(*) as n FROM (SELECT Com_Name FROM detections WHERE Confidence>=? AND SUBSTR(Date,1,4)=? GROUP BY Com_Name HAVING MIN(Date)>=?||'-01-01')`,[conf,thisYear,thisYear]);
         kpis.value = { loading:false, total:tot.n, rare:rare.n, once:once.n, newThisYear:nw.n };
       } catch(e) { kpis.value = {...kpis.value, loading:false}; }
-    }
-
-    async function loadOnce(conf, dw) {
-      once.value.loading = true;
-      try {
-        const rows = await birdQuery(
-          `SELECT Com_Name, MAX(Sci_Name) as sci, MAX(Date) as last_date, MAX(Confidence) as max_conf
-           FROM detections WHERE Confidence>=?${dw} GROUP BY Com_Name HAVING COUNT(*)=1
-           ORDER BY last_date DESC LIMIT 20`,[conf]);
-        assignPhotos(rows, 'sci');
-        once.value = { loading:false, rows };
-      } catch(e) { once.value = { loading:false, rows:[] }; }
     }
 
     async function loadRecent(conf, maxDet, dw) {
@@ -349,9 +306,9 @@ const app = createApp({
       lang,t,
       fp,fc,fMaxDet,
       resetFilters,thisYear,
-      kpis,once,recent,table,
+      kpis,recent,table,
       tableFilter,activeKpi,filteredTable,
-      onceSection,tableSection,scrollToSection,
+      tableSection,scrollToSection,
       playingFile,toggleAudio,buildAudioUrl,
       fmtDate,fmtConf,navigateTo,spName,load,
       quickPlay(comName) { quickPlaySpecies(comName); },
