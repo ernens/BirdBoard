@@ -1,6 +1,6 @@
 {
   "name": "birdash",
-  "version": "1.44.0",
+  "version": "1.45.0",
   "private": true,
   "scripts": {
     "start": "node server/server.js",
