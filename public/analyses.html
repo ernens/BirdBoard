@@ -149,7 +149,6 @@
 
         <!-- Actions -->
         <button class="btn btn-secondary" style="width:100%;" @click="resetDefaults">{{t('default_btn')||'Défaut'}}</button>
-        <button class="btn btn-primary" style="width:100%;margin-top:-.4rem;" @click="applyFilters">{{t('apply_filter')}}</button>
 
       </div>
 
@@ -329,9 +328,9 @@ const app = createApp({
     const fp = useFilterPeriod({
       default: '7d',
       buttons: ['1d','7d','30d','90d','6m','1y','all'],
-      onChange: () => {}  // apply on button click
+      onChange: () => applyFilters()
     });
-    const fc = useFilterConfidence({ default: 0.70, onChange: () => {} });
+    const fc = useFilterConfidence({ default: 0.70, onChange: () => applyFilters() });
 
     const resample    = ref('15min');
 
@@ -396,6 +395,7 @@ const app = createApp({
       if (fGuild.value) {
         const matching = filteredSpeciesList.value.map(s => s.name);
         selectedSpecies.value = matching;
+        if (selectedSpecies.value.length) loadAnalysis();
       }
     }
 
@@ -512,21 +512,28 @@ const app = createApp({
     function onFamilyChange() { fGuild.value = ''; }
 
     function resetDefaults() {
+      // _suppressAuto coupe toutes les auto-applications le temps du reset —
+      // sinon on déclencherait une requête par champ remis à zéro.
+      _suppressAuto = true;
+      if (_confTimer) { clearTimeout(_confTimer); _confTimer = null; }
       fOrder.value = ''; fFamily.value = ''; fGuild.value = '';
       selectedSpecies.value = [];
       fp.setPeriod('7d');
       resample.value = '15min'; fc.confidence.value = 0.70;
       kpis.value = []; breakdown.value = [];
       narrativeHtml.value = ''; heatmapHtml.value = '';
-      applyFilters();
+      _suppressAuto = false;
+      applyFilters();   // une seule requête finale
     }
 
     // ── Species selection ──────────────────────────────────────────────────
+    // À l'intérieur du multiselect, les cases ne déclenchent pas de requête —
+    // c'est la fermeture du dropdown qui fait le diff (watch plus bas) et
+    // applique en une seule fois.
     function toggleSpecies(name) {
       const idx = selectedSpecies.value.indexOf(name);
       if (idx >= 0) selectedSpecies.value.splice(idx, 1);
       else           selectedSpecies.value.push(name);
-      if (selectedSpecies.value.length) loadAnalysis();
     }
     function removeTag(name) {
       selectedSpecies.value = selectedSpecies.value.filter(s => s !== name);
@@ -536,12 +543,10 @@ const app = createApp({
     function selectTopN() {
       selectedSpecies.value = filteredSpeciesList.value.slice(0, topN.value).map(s => s.name);
       pickerOpen.value = false;
-      if (selectedSpecies.value.length) loadAnalysis();
     }
     function selectAllFiltered() {
       selectedSpecies.value = filteredSpeciesList.value.map(s => s.name);
       pickerOpen.value = false;
-      if (selectedSpecies.value.length) loadAnalysis();
     }
     function clearSelection() {
       selectedSpecies.value = [];
@@ -552,6 +557,8 @@ const app = createApp({
     const allFiltersSelected = computed(() => filteredSpeciesList.value.length > 0 && selectedSpecies.value.length === filteredSpeciesList.value.length);
 
     async function applyFilters() {
+      if (_suppressAuto) return;
+      if (_confTimer) { clearTimeout(_confTimer); _confTimer = null; }
       loading.value    = true;
       pickerOpen.value = false;
       try {
@@ -951,6 +958,39 @@ const app = createApp({
       } catch(e) { console.error('[analyses-heatmap]',e); heatmapHtml.value='<div class="error-msg">'+t('error')+'</div>'; }
       heatmapLoading.value = false;
     }
+
+    // ── Auto-apply ────────────────────────────────────────────────────────
+    // Tous les filtres déclenchent immédiatement la requête. Le slider de
+    // confiance est debounced (~250 ms), la résolution s'applique au radio,
+    // et le multiselect d'espèces s'applique à la fermeture du dropdown
+    // (un seul refresh même si l'utilisateur a coché plusieurs cases).
+    let _suppressAuto = false;
+    let _confTimer = null;
+    let _spSnapshotOnOpen = null;
+
+    watch(() => fc.confidence.value, () => {
+      if (_suppressAuto) return;
+      if (_confTimer) clearTimeout(_confTimer);
+      _confTimer = setTimeout(() => { _confTimer = null; applyFilters(); }, 250);
+    }, { flush: 'sync' });
+
+    watch(resample, () => {
+      if (_suppressAuto) return;
+      applyFilters();
+    }, { flush: 'sync' });
+
+    watch(pickerOpen, (open, wasOpen) => {
+      if (open && !wasOpen) {
+        _spSnapshotOnOpen = [...selectedSpecies.value].sort().join('|');
+      } else if (!open && wasOpen) {
+        const cur = [...selectedSpecies.value].sort().join('|');
+        if (cur !== _spSnapshotOnOpen) {
+          if (selectedSpecies.value.length) loadAnalysis();
+          else { kpis.value = []; breakdown.value = []; narrativeHtml.value = ''; heatmapHtml.value = ''; }
+        }
+        _spSnapshotOnOpen = null;
+      }
+    }, { flush: 'sync' });
 
     // ── Watchers ───────────────────────────────────────────────────────────
     watch(lang, async () => {
