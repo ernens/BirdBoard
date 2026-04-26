@@ -1535,14 +1535,24 @@ select, input[type="text"], input[type="number"], textarea {
   gap:                   1rem;
   margin-bottom:         1rem;
 }
+.grid-3 {
+  display:               grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap:                   1rem;
+  margin-bottom:         1rem;
+}
 
 @media (max-width: 900px) {
   .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: 1fr; }
 }
 
 /* ── Chart containers ────────────────────────────────────────────────────── */
 .chart-wrap      { position: relative; height: 280px; }
 .chart-wrap-tall { height: 320px; }
+/* Hero chart : "premier rôle" pour les pages où un graphe ouvre la lecture
+   analytique (ex. species : activité par heure). Plus haut que tall. */
+.chart-wrap-hero { position: relative; height: 360px; }
 
 /* ── Tables ──────────────────────────────────────────────────────────────── */
 .bird-table {

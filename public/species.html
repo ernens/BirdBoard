@@ -216,15 +216,30 @@
         <div v-if="noteError" style="font-size:.75rem;color:var(--warning);margin-top:.25rem;">⚠ {{noteError}}</div>
       </div>
 
-      <!-- ── Graphiques ─────────────────────────────────────────── -->
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-            {{t('activity_by_hour')}}
-            <button class="dl-btn" @click="exportChart(canvasHourly, sp.name+'-hourly')" title="PNG" aria-label="Export PNG">⤓</button>
-          </div>
-          <div class="chart-wrap"><canvas ref="canvasHourly"></canvas></div>
+      <!-- ── Graphiques : hiérarchie analytique ───────────────────
+           Premier rôle : activité par heure (la question naturaliste #1).
+           Extension naturelle : heatmap jour×heure (même variable, enrichie).
+           Seconds rôles : présence mensuelle, activité 30j, distribution
+           de confiance — utiles mais pas centraux. -->
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          {{t('activity_by_hour')}}
+          <button class="dl-btn" @click="exportChart(canvasHourly, sp.name+'-hourly')" title="PNG" aria-label="Export PNG">⤓</button>
         </div>
+        <div class="chart-wrap-hero"><canvas ref="canvasHourly"></canvas></div>
+      </div>
+
+      <!-- Heatmap : extension naturelle de l'activité par heure -->
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          {{t('activity_month_hour')}}
+          <button class="dl-btn" @click="exportChart(canvasDayHour, sp.name+'-heatmap')" title="PNG" aria-label="Export PNG">⤓</button>
+        </div>
+        <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
+      </div>
+
+      <!-- Seconds rôles : grille compacte 3 colonnes -->
+      <div class="grid-3">
         <div class="card">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
             {{t('monthly_presence')}}
@@ -232,9 +247,6 @@
           </div>
           <div class="chart-wrap"><canvas ref="canvasMonthly"></canvas></div>
         </div>
-      </div>
-
-      <div class="grid-2">
         <div class="card">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
             {{t('activity_30d')}}
@@ -249,15 +261,6 @@
           </div>
           <div class="chart-wrap"><canvas ref="canvasConf"></canvas></div>
         </div>
-      </div>
-
-      <!-- ── Heatmap jour/heure ─────────────────────────────────── -->
-      <div class="card">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-          {{t('activity_month_hour')}}
-          <button class="dl-btn" @click="exportChart(canvasDayHour, sp.name+'-heatmap')" title="PNG" aria-label="Export PNG">⤓</button>
-        </div>
-        <div class="chart-wrap"><canvas ref="canvasDayHour"></canvas></div>
       </div>
 
       <!-- ── Profil météo (phase C) ─────────────────────────────── -->
